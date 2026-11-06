@@ -77,8 +77,8 @@ export function findPath(
   let cursor: string | null = targetKey;
 
   while (cursor !== null) {
-    const [x, y] = cursor.split(",").map(Number);
-    path.unshift({ x, y });
+    const [x = 0, y = 0] = cursor.split(",").map(Number);
+path.unshift({ x, y });
     cursor = previous.get(cursor) ?? null;
   }
 
