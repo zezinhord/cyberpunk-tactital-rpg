@@ -20,6 +20,9 @@ export interface GameState {
   activeSide: Side;
   round: number;
   movementRemaining: number;
+  movementPerTurn: number;
+  originAbilityAvailable: boolean;
+  originAbilityName: string;
   mainActionAvailable: boolean;
   bonusActionAvailable: boolean;
   combatComplete: boolean;
