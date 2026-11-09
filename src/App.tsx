@@ -2,130 +2,263 @@ import { useEffect, useMemo, useState } from "react";
 import Battlefield from "./components/Battlefield";
 import { TurnManager } from "./game/TurnManager";
 import type { GameState, Unit } from "./game/types";
+import {
+  createPlayerCharacter,
+  deleteCharacterSave,
+  getAllOrigins,
+  getOriginById,
+  getOriginGameplay,
+  getOriginIntroduction,
+  loadCharacter,
+  saveCharacter,
+} from "./game/character";
+import type { OriginId, PlayerCharacter } from "./game/character";
 
 function getUnit(state: GameState, id: string): Unit | undefined {
   return state.units.find((unit) => unit.id === id);
 }
 
-function HealthBar({ label, unit, accent }: { label: string; unit?: Unit; accent: "cyan" | "pink" }) {
+function buzz(duration = 12): void {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(duration);
+}
+
+function UnitCard({ unit, role, accent }: { unit?: Unit; role: string; accent: "cyan" | "pink" }) {
   if (!unit) return null;
   const percentage = Math.max(0, (unit.hp / unit.maxHp) * 100);
-
   return (
-    <div className={`health-card ${accent}`}>
-      <div className="health-heading">
-        <span>{label}</span>
-        <strong>{unit.hp}<small> / {unit.maxHp} HP</small></strong>
-      </div>
-      <div className="health-track">
+    <div className={`unit-card ${accent}`}>
+      <div className="unit-head"><strong>{unit.name}</strong><span>{role}</span></div>
+      <div className="unit-stats"><b>{unit.hp}<small>/{unit.maxHp}</small></b><span>CA {unit.armorClass}</span></div>
+      <div className="hp-track" role="meter" aria-label={`Vida de ${unit.name}`} aria-valuemin={0} aria-valuemax={unit.maxHp} aria-valuenow={unit.hp}>
         <span style={{ width: `${percentage}%` }} />
       </div>
     </div>
   );
 }
 
+function ActionChip({ label, ready }: { label: string; ready: boolean }) {
+  return <div className={`eco ${ready ? "ready" : "spent"}`}><i aria-hidden="true" />{label}<span className="sr-only">{ready ? ", disponível" : ", utilizada"}</span></div>;
+}
+
+function getHint(state: GameState, canAttack: boolean): string {
+  if (state.combatComplete) return "Combate de teste encerrado";
+  if (state.activeSide !== "player") return "A sentinela está agindo";
+  if (canAttack) return "Alvo ao alcance. Confirme o ataque";
+  return "Toque em uma célula ciano para mover";
+}
+
+function CreationScreen({
+  initialName,
+  initialOrigin,
+  onCreate,
+  onBackToSaved,
+}: {
+  initialName: string;
+  initialOrigin: OriginId;
+  onCreate: (name: string, originId: OriginId) => void;
+  onBackToSaved?: () => void;
+}) {
+  const [name, setName] = useState(initialName);
+  const [originId, setOriginId] = useState<OriginId>(initialOrigin);
+  const selected = getOriginById(originId);
+  const profile = getOriginGameplay(originId);
+  const canCreate = name.trim().length >= 2;
+
+  return (
+    <main className="app-shell creation-shell">
+      <header className="creation-header">
+        <p className="eyebrow">NOVA ARCÁDIA · PROJETO ÉDEN</p>
+        <h1>Criação do protagonista</h1>
+        <p>Seu passado determina onde a história começa — e o que a cidade sabe sobre você.</p>
+      </header>
+
+      <section className="creation-form">
+        <label className="field-label" htmlFor="character-name">Nome do personagem</label>
+        <input id="character-name" className="name-input" value={name} maxLength={24} onChange={(event: { target: { value: string } }) => setName(event.target.value)} placeholder="Digite um nome" autoComplete="off" />
+
+        <div className="section-heading">
+          <div><p className="eyebrow">ESCOLHA SUA ORIGEM</p><h2>De onde você vem?</h2></div>
+          <span className="selection-count">6 origens</span>
+        </div>
+        <div className="origin-grid">
+          {getAllOrigins().map((origin) => (
+            <button key={origin.id} type="button" className={`origin-card ${originId === origin.id ? "selected" : ""}`} onClick={() => setOriginId(origin.id)} aria-pressed={originId === origin.id}>
+              <span className="origin-symbol" aria-hidden="true">{origin.id === "corporativo" ? "⌘" : origin.id === "baixada" ? "⌂" : origin.id === "gangue" ? "◇" : origin.id === "militar" ? "⊕" : origin.id === "pesquisador" ? "⌬" : "↗"}</span>
+              <strong>{origin.name}</strong>
+              <small>{origin.tagline}</small>
+              <span className="origin-location">{origin.startingLocation.areaName}</span>
+            </button>
+          ))}
+        </div>
+
+        <article className="origin-detail">
+          <div className="detail-topline"><span>ORIGEM SELECIONADA</span><span>LOCAL DE INÍCIO</span></div>
+          <h2>{selected.name}</h2>
+          <p>{selected.description}</p>
+          <p className="origin-background">{selected.background}</p>
+          <div className="starting-point"><span>⌖</span><div><small>Introdução exclusiva</small><strong>{selected.startingLocation.areaName}</strong></div></div>
+          <div className="perk-preview">
+            <div><small>VANTAGEM PASSIVA</small><strong>{profile.passiveDescription}</strong><span>{profile.passiveEffect}</span></div>
+            <div><small>HABILIDADE DE ORIGEM</small><strong>{profile.abilityName}</strong><span>{profile.abilityDescription}</span></div>
+          </div>
+        </article>
+
+        <button className="primary-button" type="button" disabled={!canCreate} onClick={() => onCreate(name, originId)}>Criar protagonista <span>→</span></button>
+        {!canCreate && <p className="validation-note">O nome precisa ter pelo menos 2 caracteres.</p>}
+        {onBackToSaved && <button className="text-button" type="button" onClick={onBackToSaved}>Voltar ao personagem salvo</button>}
+      </section>
+      <footer className="screen-footer">Protótipo de desenvolvimento · Os efeitos e valores ainda podem ser balanceados.</footer>
+    </main>
+  );
+}
+
+function ResumeScreen({ character, onContinue, onNew }: { character: PlayerCharacter; onContinue: () => void; onNew: () => void }) {
+  const origin = getOriginById(character.originId);
+  return (
+    <main className="app-shell resume-shell">
+      <div className="brand-mark">N<span>A</span></div>
+      <p className="eyebrow">REGISTRO LOCAL ENCONTRADO</p>
+      <h1>Bem-vindo de volta, <span>{character.name}</span>.</h1>
+      <article className="saved-card">
+        <span className="saved-label">PROTAGONISTA SALVO</span>
+        <h2>{character.name}</h2>
+        <p>{origin.name}</p>
+        <div className="saved-meta"><span>Nível {character.level}</span><span>{origin.startingLocation.areaName}</span></div>
+        <p className="saved-status">Salvo neste dispositivo · {new Date(character.updatedAt).toLocaleString("pt-BR")}</p>
+      </article>
+      <button className="primary-button" onClick={onContinue}>Continuar <span>→</span></button>
+      <button className="secondary-button" onClick={onNew}>Criar novo protagonista</button>
+      <p className="screen-footer">O salvamento desta versão fica no armazenamento local deste aparelho.</p>
+    </main>
+  );
+}
+
+function IntroductionScreen({ character, onContinue }: { character: PlayerCharacter; onContinue: () => void }) {
+  const origin = getOriginById(character.originId);
+  const intro = getOriginIntroduction(character.originId);
+  return (
+    <main className="app-shell intro-shell">
+      <header className="intro-top"><span className="eyebrow">PRÓLOGO INDIVIDUAL · {origin.name.toUpperCase()}</span><span className="intro-index">01 / 06</span></header>
+      <div className="intro-art"><div className="intro-art-grid" /><span className="intro-art-mark">É</span><span className="intro-art-caption">NOVA ARCÁDIA // REGISTRO DE ORIGEM</span></div>
+      <section className="intro-content">
+        <p className="eyebrow">{intro.setting}</p>
+        <h1>{intro.title}</h1>
+        <p className="intro-narrative">{intro.narrative}</p>
+        <blockquote>{intro.openingLine}</blockquote>
+        <div className="intro-objective"><span>OBJETIVO INICIAL</span><p>{intro.objective}</p></div>
+        <div className="eden-record"><span>PRIMEIRO INDÍCIO DO PROJETO ÉDEN</span><strong>{origin.edenRecord.title}</strong><p>{origin.edenRecord.firstClue}</p></div>
+        <div className="contact-line"><span>CONTATO ASSOCIADO</span>{origin.contacts.map((contact) => <p key={contact.id}><strong>{contact.name}</strong> — {contact.role}</p>)}</div>
+        <button className="primary-button" onClick={onContinue}>Entrar na área de teste <span>→</span></button>
+      </section>
+    </main>
+  );
+}
+
 export default function App() {
-  const manager = useMemo(() => new TurnManager(), []);
+  const [character, setCharacter] = useState<PlayerCharacter | null>(() => loadCharacter());
+  const [screen, setScreen] = useState<"creation" | "resume" | "introduction" | "game">(() => loadCharacter() ? "resume" : "creation");
+  const [battleReset, setBattleReset] = useState(0);
+  const [saveMessage, setSaveMessage] = useState("Salvamento local ativo");
+
+  const originProfile = useMemo(() => character ? getOriginGameplay(character.originId) : undefined, [character?.originId]);
+  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile }), [character?.id, battleReset]);
   const [state, setState] = useState<GameState>(() => manager.getState());
   const player = getUnit(state, "runner");
   const enemy = getUnit(state, "drone");
   const canAttack = manager.canAttack();
+  const victory = Boolean(enemy && enemy.hp <= 0);
 
-  useEffect(() => manager.subscribe(setState), [manager]);
+  useEffect(() => {
+    setState(manager.getState());
+    return manager.subscribe(setState);
+  }, [manager]);
+
+  const handleCreate = (name: string, originId: OriginId) => {
+    const nextCharacter = createPlayerCharacter(name, originId);
+    setCharacter(nextCharacter);
+    setSaveMessage(saveCharacter(nextCharacter) ? "Personagem salvo neste dispositivo" : "Não foi possível salvar neste dispositivo");
+    setScreen("introduction");
+  };
+
+  const finishIntroduction = () => {
+    if (!character) return;
+    const nextCharacter = { ...character, introductionCompleted: true, updatedAt: new Date().toISOString() };
+    setCharacter(nextCharacter);
+    setSaveMessage(saveCharacter(nextCharacter) ? "Personagem salvo neste dispositivo" : "Falha ao salvar personagem");
+    setScreen("game");
+  };
+
+  const startNewCharacter = () => {
+    deleteCharacterSave();
+    setCharacter(null);
+    setScreen("creation");
+  };
+
+  if (screen === "creation") {
+    return <CreationScreen initialName="" initialOrigin="corporativo" onCreate={handleCreate} />;
+  }
+  if (screen === "resume" && character) {
+    return <ResumeScreen character={character} onContinue={() => setScreen(character.introductionCompleted ? "game" : "introduction")} onNew={startNewCharacter} />;
+  }
+  if (screen === "introduction" && character) {
+    return <IntroductionScreen character={character} onContinue={finishIntroduction} />;
+  }
+  if (!character || !originProfile) {
+    return <CreationScreen initialName="" initialOrigin="corporativo" onCreate={handleCreate} />;
+  }
+
+  const origin = getOriginById(character.originId);
 
   return (
-    <main className="app-shell">
+    <main className="app-shell game-shell">
       <header className="topbar">
-        <div className="brand-mark" aria-hidden="true">N<span>7</span></div>
-        <div className="brand-copy">
-          <strong>NEON<span>TACTICS</span></strong>
-          <small>PROTOCOLO DE COMBATE // BUILD 0.1</small>
-        </div>
-        <div className="connection-status"><i /> OFFLINE READY</div>
+        <div className="mission"><h1>Limbo de Teste</h1><p>Mapa provisório · Arena de validação isométrica</p></div>
+        <div className="turn"><span className="turn-pill" data-side={state.activeSide}>{state.activeSide === "player" ? "Seu turno" : "Turno hostil"}</span><span>Rodada {state.round}</span></div>
       </header>
 
-      <section className="mission-heading">
-        <div className="eyebrow"><span /> SETOR 07 <b>/</b> ZONA INDUSTRIAL</div>
-        <h1>LINHA DE <em>FUGA</em></h1>
-        <p>Neutralize a unidade sentinela e abra caminho até a extração.</p>
+      <section className="character-strip">
+        <div><span className="eyebrow">PROTAGONISTA</span><strong>{character.name}</strong><small>{origin.name} · Nível {character.level}</small></div>
+        <span className="save-indicator"><i /> {saveMessage}</span>
       </section>
 
-      <section className="combat-layout" aria-label="Combate tático">
-        <div className="battle-panel">
-          <div className="panel-heading">
-            <span>CAMPO TÁTICO</span>
-            <span className="round-label">RODADA {String(state.round).padStart(2, "0")}</span>
-          </div>
-          <Battlefield manager={manager} />
-          <div className="map-legend">
-            <span><i className="legend-player" /> OPERATIVO</span>
-            <span><i className="legend-enemy" /> HOSTIL</span>
-            <span><i className="legend-wall" /> OBSTÁCULO</span>
-          </div>
-          <div className="movement-hint">TOQUE EM UMA CÉLULA VERDE PARA MOVIMENTAR</div>
+      <section className="units" aria-label="Unidades em combate">
+        <UnitCard unit={player} role="Protagonista" accent="cyan" />
+        <UnitCard unit={enemy} role="Sentinela" accent="pink" />
+      </section>
+
+      <section className="battle-panel" aria-label="Combate tático isométrico">
+        <div className="map-label"><span>SIMULAÇÃO 01</span><span>8 × 8 · PERSPECTIVA 2D ISOMÉTRICA</span></div>
+        <Battlefield manager={manager} />
+        <p className="board-hint">{getHint(state, canAttack)}</p>
+      </section>
+      <p className="combat-message" role="status">{state.message}</p>
+
+      <section className="origin-power-panel">
+        <div className="power-heading"><div><span className="eyebrow">VANTAGEM DE ORIGEM</span><strong>{originProfile.passiveDescription}</strong><small>{originProfile.passiveEffect}</small></div><span className="passive-tag">PASSIVA</span></div>
+        <div className="power-action"><div><span className="eyebrow">HABILIDADE ÚNICA · 1 USO</span><strong>{originProfile.abilityName}</strong><small>{originProfile.abilityDescription}</small></div><button type="button" className="ability-button" disabled={!state.originAbilityAvailable || state.activeSide !== "player" || state.combatComplete} onClick={() => { buzz(18); manager.activateOriginAbility(); }}>{state.originAbilityAvailable ? "Usar" : "Usada"}</button></div>
+      </section>
+
+      <details className="log-panel">
+        <summary>Missão e registro <span>{state.log.length} eventos</span></summary>
+        <p className="objective">Teste de combate: neutralize a unidade sentinela. Este mapa não representa ainda um distrito definitivo da campanha.</p>
+        <ol className="log-list">{state.log.slice(-8).reverse().map((entry, index) => <li key={`${entry}-${index}`}>{entry}</li>)}</ol>
+        <p className="build-note">Protótipo consolidado · personagem salvo localmente.</p>
+      </details>
+
+      <section className="control-sheet" aria-label="Comandos do turno">
+        <span className="sheet-handle" aria-hidden="true" />
+        {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? "Objetivo de teste concluído" : "Protagonista incapacitado"}</div>}
+        <div className="economy">
+          <div className="eco move">Mover<span className="pips" aria-hidden="true">{Array.from({ length: state.movementPerTurn }, (_, index) => <i key={index} className={index < state.movementRemaining ? "on" : undefined} />)}</span><b>{state.movementRemaining}/{state.movementPerTurn}</b></div>
+          <ActionChip label="Principal" ready={state.mainActionAvailable} />
+          <ActionChip label="Bônus" ready={state.bonusActionAvailable} />
         </div>
-
-        <aside className="status-panel">
-          <div className="panel-heading"><span>UNIDADES</span><span className="live-tag">AO VIVO</span></div>
-          <HealthBar label="Vesper // Operativo" unit={player} accent="cyan" />
-          <HealthBar label="Sentinela-07 // Drone" unit={enemy} accent="pink" />
-
-          <div className="turn-card">
-            <div className="turn-card-label">FASE ATUAL</div>
-            <strong>{state.activeSide === "player" ? "SEU TURNO" : "TURNO HOSTIL"}</strong>
-            <div className="resource-row">
-              <span>MOVIMENTO</span>
-              <b>{state.movementRemaining} <small>/ 6</small></b>
-            </div>
-            <div className="resource-row">
-              <span>AÇÃO PRINCIPAL</span>
-              <b className={state.mainActionAvailable ? "available" : "spent"}>
-                {state.mainActionAvailable ? "DISPONÍVEL" : "UTILIZADA"}
-              </b>
-            </div>
-            <div className="resource-row">
-              <span>AÇÃO BÔNUS</span>
-              <b className={state.bonusActionAvailable ? "available" : "spent"}>
-                {state.bonusActionAvailable ? "DISPONÍVEL" : "UTILIZADA"}
-              </b>
-            </div>
-          </div>
-
-          <div className="combat-message" role="status">
-            <span className="message-icon">!</span>
-            <p>{state.message}</p>
-          </div>
-
-          <div className="action-buttons">
-            <button className="attack-button" onClick={() => manager.attack()} disabled={!canAttack}>
-              <span>✦</span> ATAQUE CORPO A CORPO
-            </button>
-            <button
-              className="end-turn-button"
-              onClick={() => manager.endPlayerTurn()}
-              disabled={state.activeSide !== "player" || state.combatComplete}
-            >
-              ENCERRAR TURNO <span>↗</span>
-            </button>
-          </div>
-          {state.combatComplete && (
-            <div className={`result-banner ${enemy && enemy.hp <= 0 ? "victory" : "defeat"}`}>
-              {enemy && enemy.hp <= 0 ? "OBJETIVO CONCLUÍDO" : "OPERATIVO INCAPACITADO"}
-            </div>
-          )}
-        </aside>
-      </section>
-
-      <section className="log-panel">
-        <div className="panel-heading"><span>REGISTRO DE COMBATE</span><span className="log-count">{state.log.length.toString().padStart(2, "0")} EVENTOS</span></div>
-        <div className="log-list">
-          {state.log.slice(-4).reverse().map((entry, index) => (
-            <p key={`${entry}-${index}`}><span>{String(state.log.length - index).padStart(2, "0")}</span>{entry}</p>
-          ))}
+        <div className="actions">
+          <button className="end-turn-button" onClick={() => { buzz(); manager.endPlayerTurn(); }} disabled={state.activeSide !== "player" || state.combatComplete}>Encerrar turno</button>
+          <button className="attack-button" onClick={() => { buzz(20); manager.attack(); }} disabled={!canAttack}>Ataque corpo a corpo</button>
         </div>
+        <div className="secondary-actions"><button type="button" onClick={() => setBattleReset((value) => value + 1)}>Reiniciar mapa de teste</button><button type="button" onClick={() => setScreen("resume")}>Menu do personagem</button></div>
       </section>
-
-      <footer className="footer-note">SIMULAÇÃO LOCAL // PROTÓTIPO DE MECÂNICAS // DADOS NÃO PERSISTIDOS</footer>
     </main>
   );
 }
