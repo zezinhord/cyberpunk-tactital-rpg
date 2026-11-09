@@ -1,7 +1,7 @@
 {
   "name": "cyberpunk-tactical-rpg",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.4.1",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
@@ -28,5 +28,6 @@
     "@vitejs/plugin-react": "^6.2.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.6"
-  }
+  },
+  "packageManager": "npm@10.9.2"
 }
