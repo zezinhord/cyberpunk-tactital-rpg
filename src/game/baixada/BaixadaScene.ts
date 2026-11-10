@@ -13,8 +13,8 @@ import {
 
 export const BAIXADA_WIDTH = 1120;
 export const BAIXADA_HEIGHT = 720;
-export const BAIXADA_VIEW_WIDTH = 560;
-export const BAIXADA_VIEW_HEIGHT = 420;
+export const BAIXADA_VIEW_WIDTH = 960;
+export const BAIXADA_VIEW_HEIGHT = 540;
 
 const GRID_WIDTH = 20;
 const GRID_HEIGHT = 16;
