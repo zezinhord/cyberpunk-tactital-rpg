@@ -1,0 +1,36 @@
+import { useEffect, useRef } from "react";
+import Phaser from "phaser";
+import { BAIXADA_VIEW_HEIGHT, BAIXADA_VIEW_WIDTH, BaixadaScene } from "../game/baixada/BaixadaScene";
+import type { OriginId } from "../game/character";
+
+interface BaixadaWorldProps {
+  onInteract: (id: string) => void;
+  originId: OriginId;
+}
+
+export default function BaixadaWorld({ onInteract, originId }: BaixadaWorldProps) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const callbackRef = useRef(onInteract);
+  callbackRef.current = onInteract;
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const scene = new BaixadaScene((id) => callbackRef.current(id), originId);
+    const game = new Phaser.Game({
+      type: Phaser.AUTO,
+      parent: host,
+      width: BAIXADA_VIEW_WIDTH,
+      height: BAIXADA_VIEW_HEIGHT,
+      backgroundColor: "#101820",
+      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      render: { antialias: true, roundPixels: false },
+      scene: [scene],
+    });
+
+    return () => game.destroy(true);
+  }, [originId]);
+
+  return <div className="baixada-world" ref={hostRef} aria-label="Baixada expandida: ruas do Canal, Mercado da Ponte, Praça da Caixa d’Água, NPCs e acessos aos interiores" />;
+}

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import Phaser from "phaser";
-import { BattleScene } from "../game/BattleScene";
+import { BattleScene, CANVAS_HEIGHT, CANVAS_WIDTH } from "../game/BattleScene";
 import type { TurnManager } from "../game/TurnManager";
 
 interface BattlefieldProps {
@@ -13,27 +13,18 @@ export default function Battlefield({ manager }: BattlefieldProps) {
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-
     const game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: host,
-      width: 480,
-      height: 480,
-      backgroundColor: "#0a1019",
-      scale: {
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-      },
-      render: {
-        antialias: true,
-      },
+      width: CANVAS_WIDTH,
+      height: CANVAS_HEIGHT,
+      backgroundColor: "#0d1220",
+      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      render: { antialias: true },
       scene: [new BattleScene(manager)],
     });
-
-    return () => {
-      game.destroy(true);
-    };
+    return () => game.destroy(true);
   }, [manager]);
 
-  return <div className="battlefield-canvas" ref={hostRef} aria-label="Campo de batalha tático" />;
+  return <div className="battlefield-canvas" ref={hostRef} aria-label="Mapa isométrico de teste" />;
 }
