@@ -67,7 +67,7 @@ export class InteriorScene extends Phaser.Scene {
     this.createPlayer();
     const camera = this.cameras.main;
     camera.setBounds(0, 0, 620, 430);
-    camera.setZoom(1.18);
+    camera.setZoom(1.0);
     camera.centerOn(this.player.x, this.player.y - 40);
     camera.startFollow(this.player, true, 0.12, 0.12);
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handleTap, this);
