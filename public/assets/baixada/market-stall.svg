@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="180" viewBox="0 0 200 180">
+  <defs>
+    <linearGradient id="canvas" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0c17e"/>
+      <stop offset="1" stop-color="#b86e43"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a8754b"/>
+      <stop offset="1" stop-color="#654633"/>
+    </linearGradient>
+    <linearGradient id="counter" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#426b62"/>
+      <stop offset="1" stop-color="#243e3c"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="100" cy="165" rx="78" ry="10" fill="#071014" opacity=".34"/>
+  <!-- Estrutura de madeira reaproveitada -->
+  <path d="M35 70 L35 151 M165 70 L165 151 M52 78 L52 151 M148 78 L148 151" fill="none" stroke="#302820" stroke-width="5" stroke-linecap="round"/>
+  <path d="M35 72 L165 72" stroke="#533d2c" stroke-width="5"/>
+  <!-- Cobertura em perspectiva isométrica -->
+  <path d="M18 60 L99 20 L182 60 L99 101 Z" fill="#d7b88f" stroke="#302c27" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M18 60 L99 101 L99 121 L18 80 Z" fill="#d9a15d" stroke="#302c27" stroke-width="2"/>
+  <path d="M99 101 L182 60 L182 80 L99 121 Z" fill="#a9553e" stroke="#302c27" stroke-width="2"/>
+  <!-- Listras do toldo -->
+  <path d="M25 63 L39 56 L39 91 L25 84 Z M53 77 L67 84 L67 105 L53 98 Z M81 91 L95 98 L95 118 L81 111 Z" fill="#f2d9ad" opacity=".95"/>
+  <path d="M42 54 L56 47 L56 98 L42 91 Z M70 40 L84 33 L84 112 L70 105 Z M98 27 L112 34 L112 116 L98 109 Z" fill="#d56f45" opacity=".95"/>
+  <path d="M119 30 L133 37 L133 104 L119 111 Z M147 44 L161 51 L161 90 L147 97 Z" fill="#efd6a9"/>
+  <path d="M119 111 L182 80" stroke="#332a24" stroke-width="2"/>
+  <!-- Saia do toldo -->
+  <path d="M18 80 L99 121 L182 80" fill="none" stroke="#3a2b24" stroke-width="4"/>
+  <path d="M18 80 Q24 91 31 85 Q38 98 45 91 Q52 105 59 98 Q66 112 73 105 Q80 119 87 112 Q94 127 101 120" fill="none" stroke="#f0c783" stroke-width="5"/>
+  <path d="M101 120 Q108 127 115 112 Q122 119 129 105 Q136 112 143 98 Q150 105 157 91 Q164 98 171 85 Q178 91 182 80" fill="none" stroke="#d66f43" stroke-width="5"/>
+  <!-- Lâmpadas pendentes -->
+  <path d="M58 91 L58 111 M142 91 L142 108" stroke="#302820" stroke-width="2"/>
+  <path d="M53 111 Q58 123 63 111 Z M137 108 Q142 120 147 108 Z" fill="#f4c56d" stroke="#533b26" stroke-width="2"/>
+  <circle cx="58" cy="112" r="11" fill="#f4c56d" opacity=".12"/>
+  <circle cx="142" cy="109" r="11" fill="#f4c56d" opacity=".12"/>
+  <!-- Balcão -->
+  <path d="M28 112 L99 146 L171 112 L99 82 Z" fill="#426b62" stroke="#24302e" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M28 112 L99 146 L99 159 L28 125 Z" fill="url(#wood)" stroke="#302820" stroke-width="2"/>
+  <path d="M99 146 L171 112 L171 125 L99 159 Z" fill="#543e2f" stroke="#302820" stroke-width="2"/>
+  <path d="M39 117 L95 144 M106 143 L160 117" stroke="#d5a16a" stroke-width="2" opacity=".65"/>
+  <!-- Caixotes e frutas -->
+  <path d="M39 104 L63 115 L63 132 L39 120 Z" fill="#91613d" stroke="#332a21" stroke-width="2"/>
+  <path d="M39 104 L51 98 L75 109 L63 115 Z" fill="#c28b52" stroke="#332a21" stroke-width="2"/>
+  <path d="M72 119 L95 130 L95 146 L72 135 Z" fill="#8e5a35" stroke="#332a21" stroke-width="2"/>
+  <path d="M72 119 L84 112 L107 123 L95 130 Z" fill="#c58e52" stroke="#332a21" stroke-width="2"/>
+  <path d="M111 119 L137 107 L137 123 L111 135 Z" fill="#8e603d" stroke="#332a21" stroke-width="2"/>
+  <path d="M111 119 L125 112 L150 101 L137 107 Z" fill="#bd8750" stroke="#332a21" stroke-width="2"/>
+  <g stroke="#4b3024" stroke-width="1.5">
+    <circle cx="47" cy="105" r="5" fill="#d76c43"/><circle cx="58" cy="109" r="5" fill="#e2b84f"/><circle cx="67" cy="112" r="4" fill="#6e9b66"/>
+    <circle cx="81" cy="118" r="5" fill="#d76c43"/><circle cx="91" cy="122" r="5" fill="#e2b84f"/><circle cx="101" cy="126" r="4" fill="#6e9b66"/>
+    <circle cx="119" cy="116" r="5" fill="#e2b84f"/><circle cx="130" cy="110" r="5" fill="#d76c43"/><circle cx="141" cy="105" r="4" fill="#6e9b66"/>
+  </g>
+  <!-- Gavetas e caixas laterais -->
+  <path d="M44 130 L64 140 L64 157 L44 147 Z" fill="#765039" stroke="#302820" stroke-width="2"/>
+  <path d="M132 143 L153 133 L153 151 L132 161 Z" fill="#765039" stroke="#302820" stroke-width="2"/>
+  <path d="M49 140 L59 145 M137 150 L148 145" stroke="#d0a270" stroke-width="2"/>
+  <!-- Pé de banca e detalhes -->
+  <path d="M33 151 L33 160 M77 157 L77 165 M124 158 L124 165 M167 126 L167 148" stroke="#302820" stroke-width="4"/>
+  <path d="M24 164 L177 164" stroke="#d9c39a" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+</svg>
