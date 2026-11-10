@@ -1,15 +1,15 @@
-# Como atualizar o repositório pelo celular
+# Como atualizar o repositório pelo celular — v0.6.5 beta
 
-1. Extraia `Cyberpunk-Tactical-RPG-v0.4.1.zip` no celular.
-2. Abra o repositório `cyberpunk-tactital-rpg` no GitHub e confirme que está na branch `main`.
-3. Envie os arquivos da pasta extraída para o repositório, preservando as pastas (`src`, `docs` e `.github`). Quando o GitHub perguntar, substitua os arquivos com o mesmo caminho.
-4. **Muito importante:** substitua também `.github/workflows/main.yml`. É esse arquivo que atualiza o processo de geração do APK. Não deixe um segundo workflow compilando o mesmo artefato.
-5. Faça o commit na branch `main`.
-6. Abra **Actions**. O workflow `Cyberpunk Tactical RPG - Android APK` deve iniciar.
-7. Quando a execução terminar com sucesso, abra a execução, localize **Artifacts** e baixe `Cyberpunk-Tactical-RPG-APK`.
+1. Baixe `Cyberpunk-Tactical-RPG-v0.6.5-beta.zip` e extraia no celular.
+2. Abra `github.com/zezinhord/cyberpunk-tactital-rpg` e confirme a branch `main`.
+3. Envie os arquivos e pastas extraídos, preservando a estrutura (`src`, `docs`, `public` se houver e `.github`). Substitua os arquivos de mesmo caminho.
+4. Faça o commit na branch `main` com a mensagem `Lança v0.6.5 beta — spritesheets, três interiores e Baixada expandida`.
+5. Abra a aba **Actions** e entre na execução `Cyberpunk Tactical RPG - Android APK` iniciada pelo commit.
+6. Aguarde o workflow concluir. Só considere o APK pronto quando a execução estiver verde e com `Artifacts` disponível.
+7. Na parte inferior da execução, baixe `Cyberpunk-Tactical-RPG-APK` e extraia o APK do ZIP do artefato.
 
-O APK anterior não é alterado. Cada build cria um artefato novo.
+O workflow não foi duplicado. Ele define o versionCode Android como 65 e o versionName como 0.6.5-beta; mantenha apenas um workflow Android para evitar duas compilações concorrentes.
 
-## Arquivos que devem ser enviados
+## O que enviar
 
-O pacote 0.4.1 contém a base 0.4 com a identidade visual da Fase 1 integrada, incluindo `package.json`, `index.html`, `src/`, `docs/` e `.github/workflows/main.yml`. Não envie `node_modules` ou `dist` (não fazem parte do pacote). Preserve arquivos particulares que existam no seu repositório e não estejam neste pacote.
+Envie todo o conteúdo do pacote. Não envie o ZIP como um único arquivo e não envie `node_modules`, `dist` ou caches locais.
