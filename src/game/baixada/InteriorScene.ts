@@ -111,7 +111,7 @@ export class InteriorScene extends Phaser.Scene {
 
     // Paredes de fundo e laterais com recortes de luz e fiação aparente.
     const a = center({ x: 0, y: 0 }); const b = center({ x: WIDTH, y: 0 });
-    const c = center({ x: WIDTH, y: HEIGHT }); const d = center({ x: 0, y: HEIGHT });
+    const d = center({ x: 0, y: HEIGHT });
     const lift = 118;
     this.poly(g, [a, b, { x: b.x, y: b.y - lift }, { x: a.x, y: a.y - lift }], wall, 1, 0x101a1d);
     this.poly(g, [a, d, { x: d.x, y: d.y - lift }, { x: a.x, y: a.y - lift }], clinic ? 0x203c3e : 0x382c25, 1, 0x101a1d);
@@ -271,7 +271,7 @@ export class InteriorScene extends Phaser.Scene {
 
   private handleTap(pointer: Phaser.Input.Pointer): void {
     if (this.moving) return;
-    const p = pointer.positionToCamera(this.cameras.main);
+    const p = pointer.positionToCamera(this.cameras.main) as { x: number; y: number };
     const actor = this.actors.find((item) => {
       const c = center(item.tile); const top = c.y - (item.kind === "person" ? 70 : 43);
       return Math.abs(p.x - c.x) <= 27 && p.y >= top && p.y <= c.y + 14;
