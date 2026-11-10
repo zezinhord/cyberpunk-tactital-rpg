@@ -24,7 +24,7 @@ export default function BaixadaWorld({ onInteract, originId }: BaixadaWorldProps
       width: BAIXADA_VIEW_WIDTH,
       height: BAIXADA_VIEW_HEIGHT,
       backgroundColor: "#101820",
-      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
       render: { antialias: true, roundPixels: false },
       scene: [scene],
     });
