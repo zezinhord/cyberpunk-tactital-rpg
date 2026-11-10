@@ -705,7 +705,7 @@ export class BaixadaScene extends Phaser.Scene {
 
   private handleTap(pointer: Phaser.Input.Pointer): void {
     if (this.moving || !this.player) return;
-    const worldPoint = pointer.positionToCamera(this.cameras.main);
+    const worldPoint = pointer.positionToCamera(this.cameras.main) as { x: number; y: number };
     const selectedActor = this.actors.find((actor) => {
       const point = tileCenter(actor.tile);
       const top = actor.kind === "person" ? point.y - 76 : point.y - 46;
