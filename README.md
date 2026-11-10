@@ -1,29 +1,31 @@
-# Cyberpunk Tactical RPG — Protótipo consolidado
+# Cyberpunk Tactical RPG — Nova Arcádia
 
-Protótipo mobile-first de RPG cyberpunk, construído com React, TypeScript, Phaser 4, Vite e Capacitor 8. Esta versão acrescenta criação e salvamento do protagonista, seis origens jogáveis em nível demonstrativo, seis introduções individuais, vantagens mecânicas e um campo tático 2D isométrico de teste.
+**Versão atual: 0.6.5 beta**
 
-## O que já funciona nesta versão
+RPG 2D isométrico mobile-first, ambientado na cidade de Nova Arcádia. Construído com React, TypeScript, Phaser 4, Vite e Capacitor 8. A proposta combina exploração em tempo real e combate tático por turnos.
 
-- Criação do protagonista com nome e escolha de uma das seis origens.
-- Introdução narrativa exclusiva para cada origem, com local inicial, objetivo, contato e primeiro indício do Projeto Éden.
-- Vantagens passivas aplicadas aos parâmetros do combate.
-- Uma habilidade ativa própria de cada origem, utilizável uma vez por encontro.
-- Salvamento local do personagem no dispositivo/navegador, com opção de continuar ou criar outro protagonista.
-- Arena provisória chamada **Limbo de Teste**, em perspectiva 2D isométrica, com grade lógica 8 × 8, obstáculos, deslocamento e combate por turnos.
-- Workflow do GitHub Actions para compilar e publicar o APK debug como artefato a cada push na branch `main`.
+## O que já funciona na 0.6.5 beta
 
-## Vantagens mecânicas provisórias
+- Criação do protagonista e seleção entre seis origens, cada uma com introdução narrativa própria.
+- Vantagens passivas e habilidade ativa de origem preservadas no sistema demonstrativo de combate.
+- Salvamento local do protagonista e progresso da missão inicial por personagem.
+- **Baixada expandida:** ruas, prédios, clínica, oficina, Mercado da Ponte, Moradias do Canal, Ponto de Apoio e Praça da Caixa d'Água.
+- Câmera que acompanha o protagonista e navegação por toque ou teclado.
+- **Onze spritesheets originais:** seis visuais de protagonista (um por origem) e cinco NPCs.
+- Animações de repouso e caminhada em quatro orientações isométricas.
+- NPCs com identidade visual: Dra. Amara Solis, Nilo, Joana, Saira e Téo.
+- **Três interiores jogáveis:** clínica comunitária, oficina do Nilo e Galeria de Manutenção do Canal, com portas de entrada e saída.
+- Missão inicial **O nome que sumiu**: conversar com Amara, investigar o terminal e retornar à médica.
+- Terminal público do Canal e diálogos secundários de Saira e Téo. Téo agora pode ser encontrado na Galeria do Canal.
+- **Limbo de Teste** continua como arena separada para validar o combate por turnos.
+- GitHub Actions para compilar o APK Android debug.
 
-| Origem | Vantagem passiva | Habilidade de origem |
-|---|---|---|
-| Ex-funcionário corporativo | +1 Defesa (CA) | Credencial arquivada: +2 CA até a ação inimiga |
-| Habitante da Baixada | +3 Vida máxima | Rotas locais: +3 células de movimento neste turno |
-| Ex-integrante de gangue | +1 no ataque | Reconhecimento clandestino: +3 de dano no próximo acerto |
-| Veterano militar | +1 Defesa e +1 no ataque | Protocolos operacionais: +2 CA até a ação inimiga |
-| Pesquisador | +2 Vida máxima | Leitura de anomalias: +2 no próximo teste de ataque |
-| Nômade urbano | +2 Vida máxima e +1 movimento por turno | Rotas não catalogadas: +3 células de movimento neste turno |
+## Controles
 
-Os efeitos são implementações iniciais para testar a distinção entre as origens. Os valores podem ser revisados no balanceamento do sistema.
+- Toque no chão para caminhar até o ponto selecionado.
+- Toque em NPCs, terminais e portas para se aproximar e interagir.
+- No computador, WASD ou setas também movimentam o protagonista.
+- Dentro dos interiores, use a porta marcada **SAÍDA** ou o botão de retorno para voltar à rua.
 
 ## Executar localmente
 
@@ -34,59 +36,33 @@ npm install
 npm run dev
 ```
 
-Para validar compilação e TypeScript:
+Para validar TypeScript e compilar a versão web:
 
 ```bash
 npm run build
 ```
 
-## APK pelo GitHub Actions
+## Gerar o APK
 
-O workflow está em `.github/workflows/main.yml`. Ele executa automaticamente em novos commits na branch `main` e também pode ser iniciado manualmente pela aba **Actions**.
+O workflow `.github/workflows/main.yml` inicia em cada push na branch `main` e pode ser executado manualmente pela aba **Actions**.
 
-Passos realizados pelo workflow:
+Ele instala Node.js 22 e Java 21, instala dependências, executa `npm run build`, sincroniza o Capacitor e compila `assembleDebug`. O artefato publicado chama-se `Cyberpunk-Tactical-RPG-APK`.
 
-1. Instala Node.js 22 e Java 21.
-2. Instala dependências com `npm install`.
-3. Executa TypeScript e Vite com `npm run build`.
-4. Cria o projeto Android via Capacitor caso `android/gradlew` não exista.
-5. Executa `npx cap sync android` e `assembleDebug`.
-6. Publica `app-debug.apk` no artefato `Cyberpunk-Tactical-RPG-APK`.
-
-O APK antigo não é alterado. Cada execução bem-sucedida gera um novo artefato para download. A pasta `.github/workflows/` deve ser mantida no repositório. Se já houver um workflow Android antigo em `main.yml`, substitua-o pelo arquivo desta versão; evite deixar dois workflows compilando o mesmo APK em duplicidade.
+Consulte `docs/UPLOAD-GITHUB-MOBILE.md` para as instruções de atualização a partir do celular. O gerador-fonte dos sprites provisórios está em `tools/generate_character_sprites.py` (Pillow é necessário apenas para regenerar as imagens).
 
 ## Salvamento
 
-O personagem é salvo em `localStorage` com a chave `cyberpunk-tactical-rpg.character.v1`. O salvamento é local ao dispositivo/navegador; ainda não há sincronização entre aparelhos nem salvamento de posição, inimigos ou estado completo do combate.
+O protagonista é salvo localmente em `localStorage` com a chave `cyberpunk-tactical-rpg.character.v1`. O progresso da missão da Baixada usa uma chave separada por personagem. Ainda não existe sincronização em nuvem nem salvamento completo de posição, inventário ou estado do mundo.
 
-## Arena de teste
+## Escopo e limitações da beta
 
-**Limbo de Teste** é um mapa de validação sem vínculo definitivo com os distritos ou com a campanha. A movimentação permanece ortogonal na grade lógica, mas as células são projetadas em perspectiva isométrica para renderização. Arte de personagens, cenário detalhado, cobertura e linha de visão ainda serão refinados.
+A 0.6.5 beta entrega uma primeira área maior e três interiores, mas não é a campanha completa. As animações de ataque ainda não estão integradas, e o combate continua no Limbo de Teste. Inventário/equipamentos completos, economia, lojas funcionais, veículos, sistema geral de missões, oclusão avançada, tilesets artísticos modulares, outros distritos e campanha principal permanecem em desenvolvimento.
 
-## Estrutura relevante
+O tamanho do APK dependerá dos próximos recursos artísticos e de áudio. Não existe preenchimento artificial de armazenamento para atingir uma meta de megabytes.
 
-```text
-.github/workflows/main.yml
-src/
-  App.tsx
-  components/Battlefield.tsx
-  game/
-    BattleScene.ts
-    TurnManager.ts
-    map.ts
-    character/
-      gameplay.ts
-      introductions.ts
-      origins.ts
-      storage.ts
-      types.ts
-```
+## Documentos desta versão
 
-## Limitações desta entrega
-
-- Não inclui sincronização de save na nuvem.
-- Não inclui classes, árvores de habilidades, inventário completo ou progressão de atributos.
-- As vantagens mecânicas e os valores de combate ainda precisam de balanceamento.
-- As seis introduções estão implementadas em texto e ainda não têm cenas cinemáticas animadas.
-- O mapa Limbo é uma arena de teste; não é o mapa aberto de Nova Arcádia.
-- A grade mantém movimentação ortogonal por regra, embora seja desenhada em perspectiva isométrica.
+- `docs/CHANGELOG-0.6.5-BETA.md` — mudanças implementadas.
+- `docs/VALIDACAO-0.6.5-BETA.md` — verificações e testes pendentes.
+- `docs/PLANO-VERTICAL-SLICE-BAIXADA.md` — evolução da primeira área jogável.
+- `docs/DIRECAO-DE-ARTE.md` — princípios visuais e escopo aprovado.
