@@ -13,6 +13,7 @@ import {
   saveCharacter,
 } from "./game/character";
 import type { OriginId, PlayerCharacter } from "./game/character";
+import ExplorationScreen from "./screens/ExplorationScreen";
 
 function getUnit(state: GameState, id: string): Unit | undefined {
   return state.units.find((unit) => unit.id === id);
@@ -148,7 +149,7 @@ function IntroductionScreen({ character, onContinue }: { character: PlayerCharac
         <div className="intro-objective"><span>OBJETIVO INICIAL</span><p>{intro.objective}</p></div>
         <div className="eden-record"><span>PRIMEIRO INDÍCIO DO PROJETO ÉDEN</span><strong>{origin.edenRecord.title}</strong><p>{origin.edenRecord.firstClue}</p></div>
         <div className="contact-line"><span>CONTATO ASSOCIADO</span>{origin.contacts.map((contact) => <p key={contact.id}><strong>{contact.name}</strong> — {contact.role}</p>)}</div>
-        <button className="primary-button" onClick={onContinue}>Entrar na área de teste <span>→</span></button>
+        <button className="primary-button" onClick={onContinue}>Entrar na Baixada <span>→</span></button>
       </section>
     </main>
   );
@@ -156,7 +157,7 @@ function IntroductionScreen({ character, onContinue }: { character: PlayerCharac
 
 export default function App() {
   const [character, setCharacter] = useState<PlayerCharacter | null>(() => loadCharacter());
-  const [screen, setScreen] = useState<"creation" | "resume" | "introduction" | "game">(() => loadCharacter() ? "resume" : "creation");
+  const [screen, setScreen] = useState<"creation" | "resume" | "introduction" | "exploration" | "battle">(() => loadCharacter() ? "resume" : "creation");
   const [battleReset, setBattleReset] = useState(0);
   const [saveMessage, setSaveMessage] = useState("Salvamento local ativo");
 
@@ -185,7 +186,7 @@ export default function App() {
     const nextCharacter = { ...character, introductionCompleted: true, updatedAt: new Date().toISOString() };
     setCharacter(nextCharacter);
     setSaveMessage(saveCharacter(nextCharacter) ? "Personagem salvo neste dispositivo" : "Falha ao salvar personagem");
-    setScreen("game");
+    setScreen("exploration");
   };
 
   const startNewCharacter = () => {
@@ -198,13 +199,23 @@ export default function App() {
     return <CreationScreen initialName="" initialOrigin="corporativo" onCreate={handleCreate} />;
   }
   if (screen === "resume" && character) {
-    return <ResumeScreen character={character} onContinue={() => setScreen(character.introductionCompleted ? "game" : "introduction")} onNew={startNewCharacter} />;
+    return <ResumeScreen character={character} onContinue={() => setScreen(character.introductionCompleted ? "exploration" : "introduction")} onNew={startNewCharacter} />;
   }
   if (screen === "introduction" && character) {
     return <IntroductionScreen character={character} onContinue={finishIntroduction} />;
   }
   if (!character || !originProfile) {
     return <CreationScreen initialName="" initialOrigin="corporativo" onCreate={handleCreate} />;
+  }
+
+  if (screen === "exploration") {
+    return (
+      <ExplorationScreen
+        character={character}
+        onOpenBattle={() => setScreen("battle")}
+        onOpenMenu={() => setScreen("resume")}
+      />
+    );
   }
 
   const origin = getOriginById(character.originId);
@@ -257,7 +268,7 @@ export default function App() {
           <button className="end-turn-button" onClick={() => { buzz(); manager.endPlayerTurn(); }} disabled={state.activeSide !== "player" || state.combatComplete}>Encerrar turno</button>
           <button className="attack-button" onClick={() => { buzz(20); manager.attack(); }} disabled={!canAttack}>Ataque corpo a corpo</button>
         </div>
-        <div className="secondary-actions"><button type="button" onClick={() => setBattleReset((value) => value + 1)}>Reiniciar mapa de teste</button><button type="button" onClick={() => setScreen("resume")}>Menu do personagem</button></div>
+        <div className="secondary-actions"><button type="button" onClick={() => setBattleReset((value) => value + 1)}>Reiniciar mapa de teste</button><button type="button" onClick={() => setScreen("exploration")}>Retornar à Baixada</button></div>
       </section>
     </main>
   );
