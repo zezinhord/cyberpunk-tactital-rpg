@@ -26,7 +26,7 @@ export default function InteriorWorld({
       width: INTERIOR_VIEW_WIDTH,
       height: INTERIOR_VIEW_HEIGHT,
       backgroundColor: interior === "clinic" ? "#0e1c20" : interior === "canal" ? "#0b1a20" : "#1c1714",
-      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+      scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
       render: { antialias: true, roundPixels: false },
       scene: [scene],
     });
