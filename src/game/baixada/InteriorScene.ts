@@ -271,7 +271,7 @@ export class InteriorScene extends Phaser.Scene {
 
   private handleTap(pointer: Phaser.Input.Pointer): void {
     if (this.moving) return;
-    const p = pointer.positionToCamera(this.cameras.main);
+    const p = pointer.positionToCamera(this.cameras.main) as { x: number; y: number };
     const actor = this.actors.find((item) => {
       const c = center(item.tile); const top = c.y - (item.kind === "person" ? 70 : 43);
       return Math.abs(p.x - c.x) <= 27 && p.y >= top && p.y <= c.y + 14;
