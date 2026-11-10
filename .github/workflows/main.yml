@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feature/landscape-mobile-v1
 
 permissions:
   contents: read
@@ -40,6 +41,9 @@ jobs:
 
       - name: Sincronizar Capacitor
         run: npx cap sync android
+
+      - name: Aplicar orientacao horizontal
+        run: node scripts/lock-android-landscape.mjs
 
       - name: Gerar APK
         working-directory: android
