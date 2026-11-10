@@ -160,6 +160,8 @@ export class BaixadaScene extends Phaser.Scene {
   }
 
   preload(): void {
+    this.load.svg("baixada-market-stall", "/assets/baixada/market-stall.svg");
+    this.load.svg("baixada-palm-tree", "/assets/baixada/palm-tree.svg");
     preloadCharacterSprites(this);
   }
 
@@ -440,80 +442,26 @@ export class BaixadaScene extends Phaser.Scene {
   }
 
   private drawMarketStall(x: number, y: number): void {
-    const g = this.details;
-    const center = tileCenter({ x, y });
-    const top = { x: center.x, y: center.y - 44 };
-    const left = { x: center.x - 33, y: center.y - 27 };
-    const right = { x: center.x + 33, y: center.y - 27 };
-    const front = { x: center.x, y: center.y - 10 };
-    this.polygon(g, [left, top, right, front], 0x9b5147, 1, 0x271e22, 1, 2);
-    this.polygon(g, [left, top, front], 0xe2a65b, 1, 0x271e22, 0.8, 1);
-    this.polygon(g, [top, right, front], 0x286d68, 1, 0x271e22, 0.8, 1);
-    g.lineStyle(3, 0x25343a, 1);
-    g.beginPath();
-    g.moveTo(left.x, left.y);
-    g.lineTo(left.x, center.y + 8);
-    g.moveTo(right.x, right.y);
-    g.lineTo(right.x, center.y + 8);
-    g.strokePath();
-    g.fillStyle(0x6b4935, 1);
-    g.fillRect(center.x - 23, center.y - 10, 46, 15);
-    g.fillStyle(0xf0c37c, 0.85);
-    g.fillRect(center.x - 20, center.y - 7, 40, 3);
-    for (let index = 0; index < 4; index += 1) {
-      g.fillStyle([0xd87547, 0xd7ba67, 0x6fc6a7, 0x9c83c8][index] ?? 0xd87547, 1);
-      g.fillCircle(center.x - 15 + index * 10, center.y - 17, 3);
-    }
-    this.add.text(center.x, center.y - 55, "MERCADO DA PONTE", {
-      fontFamily: "IBM Plex Mono, monospace", fontSize: "14px", color: "#ffd7a2", backgroundColor: "#281d22cc", padding: { x: 4, y: 2 },
-    }).setOrigin(0.5).setDepth(480);
+    const point = tileCenter({ x, y });
+    this.add.image(point.x, point.y + 4, "baixada-market-stall")
+      .setOrigin(0.5, 0.95)
+      .setScale(0.68)
+      .setDepth(point.y + 58);
+    this.add.text(point.x, point.y - 112, "MERCADO DA PONTE", {
+      fontFamily: "IBM Plex Mono, monospace",
+      fontSize: "12px",
+      color: "#f3d6a8",
+      backgroundColor: "#241b18dd",
+      padding: { x: 4, y: 2 },
+    }).setOrigin(0.5).setDepth(point.y + 76);
   }
 
   private drawPalm(x: number, y: number): void {
-    const g = this.details;
     const base = tileCenter({ x, y });
-    const crown = { x: base.x + 1, y: base.y - 66 };
-    g.fillStyle(0x162a28, 0.48);
-    g.fillEllipse(base.x + 4, base.y + 2, 36, 12);
-    g.lineStyle(7, 0x664a35, 1);
-    g.beginPath();
-    g.moveTo(base.x, base.y);
-    g.lineTo(crown.x - 2, crown.y + 24);
-    g.strokePath();
-    g.lineStyle(2, 0xb38a57, 0.9);
-    for (let ring = 0; ring < 4; ring += 1) {
-      const yLine = Phaser.Math.Linear(base.y - 11, crown.y + 24, ring / 4);
-      g.beginPath();
-      g.moveTo(base.x - 3, yLine);
-      g.lineTo(base.x + 4, yLine - 2);
-      g.strokePath();
-    }
-    const leafEnds = [
-      { x: crown.x - 39, y: crown.y - 8 }, { x: crown.x - 29, y: crown.y - 27 },
-      { x: crown.x - 8, y: crown.y - 34 }, { x: crown.x + 15, y: crown.y - 31 },
-      { x: crown.x + 38, y: crown.y - 14 }, { x: crown.x + 42, y: crown.y + 4 },
-      { x: crown.x + 12, y: crown.y + 7 }, { x: crown.x - 15, y: crown.y + 8 },
-    ];
-    for (const [index, end] of leafEnds.entries()) {
-      const color = index % 2 === 0 ? 0x4e9673 : 0x72a86e;
-      g.lineStyle(5, 0x285d4e, 1);
-      g.beginPath();
-      g.moveTo(crown.x, crown.y + 21);
-      g.lineTo(end.x, end.y);
-      g.strokePath();
-      g.lineStyle(1, color, 1);
-      for (let leaflet = 1; leaflet <= 4; leaflet += 1) {
-        const t = leaflet / 5;
-        const px = Phaser.Math.Linear(crown.x, end.x, t);
-        const py = Phaser.Math.Linear(crown.y + 21, end.y, t);
-        g.beginPath();
-        g.moveTo(px, py);
-        g.lineTo(px + (end.x < crown.x ? -9 : 9), py + 7);
-        g.strokePath();
-      }
-    }
-    g.fillStyle(0xd59b58, 1);
-    g.fillCircle(crown.x, crown.y + 19, 5);
+    this.add.image(base.x, base.y + 1, "baixada-palm-tree")
+      .setOrigin(0.5, 0.98)
+      .setScale(0.62)
+      .setDepth(base.y + 54);
   }
 
   private drawLamp(x: number, y: number): void {
