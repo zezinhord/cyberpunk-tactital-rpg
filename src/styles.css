@@ -385,6 +385,8 @@ button:disabled { cursor: not-allowed; }
 .journal-toggle { min-height: 48px; }
 
 
+.exploration-footer-actions.single-action { grid-template-columns:minmax(0,1fr); }
+
 /* ───────── v0.7 · menu integral do protagonista ───────── */
 .explore-header-actions { display:flex; align-items:center; gap:12px; flex:none; }
 .menu-trigger {
