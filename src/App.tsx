@@ -213,7 +213,6 @@ export default function App() {
       <ExplorationScreen
         character={character}
         onOpenBattle={() => setScreen("battle")}
-        onOpenMenu={() => setScreen("resume")}
       />
     );
   }

@@ -1,0 +1,298 @@
+import { useState } from "react";
+import type { OriginGameplayProfile, PlayerCharacter } from "../game/character";
+
+type MenuSection = "character" | "inventory" | "equipment" | "abilities" | "map" | "journal" | "settings";
+
+interface JournalClue {
+  id: string;
+  text: string;
+}
+
+interface Props {
+  character: PlayerCharacter;
+  originName: string;
+  originDescription: string;
+  originProfile: OriginGameplayProfile;
+  missionStep: 0 | 1 | 2 | 3;
+  missionObjective: string;
+  clues: JournalClue[];
+  sceneTitle: string;
+  sceneSubtitle: string;
+  onClose: () => void;
+}
+
+const MENU_ITEMS: ReadonlyArray<{ id: MenuSection; code: string; label: string; description: string }> = [
+  { id: "character", code: "ID", label: "Personagem", description: "Identidade e progressão" },
+  { id: "inventory", code: "INV", label: "Inventário", description: "Itens e recursos" },
+  { id: "equipment", code: "EQP", label: "Equipamentos", description: "Armas, trajes e implantes" },
+  { id: "abilities", code: "HAB", label: "Habilidades", description: "Vantagens e técnicas" },
+  { id: "map", code: "MAP", label: "Mapa", description: "Distritos e localização" },
+  { id: "journal", code: "LOG", label: "Diário", description: "Missões e descobertas" },
+  { id: "settings", code: "CFG", label: "Configurações", description: "Preferências do jogo" },
+];
+
+const DISTRICTS = [
+  { name: "Baixada", status: "ÁREA JOGÁVEL", current: true },
+  { name: "Áurea", status: "PLANEJADO", current: false },
+  { name: "Ferrugem", status: "PLANEJADO", current: false },
+  { name: "Subsolo", status: "PLANEJADO", current: false },
+  { name: "Setor Zero", status: "PLANEJADO", current: false },
+  { name: "Prisma", status: "PLANEJADO", current: false },
+  { name: "Periferia externa", status: "PLANEJADO", current: false },
+];
+
+function EmptyState({ code, title, description }: { code: string; title: string; description: string }) {
+  return (
+    <section className="menu-empty-state">
+      <span className="menu-empty-code">{code}</span>
+      <div className="menu-empty-glyph" aria-hidden="true">＋</div>
+      <h3>{title}</h3>
+      <p>{description}</p>
+      <span className="menu-development-label">SISTEMA AINDA NÃO IMPLEMENTADO</span>
+    </section>
+  );
+}
+
+function DataCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return (
+    <article className="menu-data-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {detail && <small>{detail}</small>}
+    </article>
+  );
+}
+
+export default function CharacterMenu({
+  character,
+  originName,
+  originDescription,
+  originProfile,
+  missionStep,
+  missionObjective,
+  clues,
+  sceneTitle,
+  sceneSubtitle,
+  onClose,
+}: Props) {
+  const [activeSection, setActiveSection] = useState<MenuSection>("character");
+  const activeItem = MENU_ITEMS.find((item) => item.id === activeSection)!;
+  const attributeEntries = Object.entries(character.attributes);
+  const progress = Math.max(0, Math.min(3, missionStep));
+
+  return (
+    <div className="character-menu-scrim">
+      <section className="character-menu-shell" role="dialog" aria-modal="true" aria-labelledby="character-menu-title">
+        <header className="character-menu-header">
+          <div className="menu-brand">
+            <span className="menu-brand-mark" aria-hidden="true">NA</span>
+            <div>
+              <span className="menu-overline">NOVA ARCÁDIA // ARQUIVO PESSOAL</span>
+              <h2 id="character-menu-title">Central do protagonista</h2>
+            </div>
+          </div>
+          <div className="menu-header-meta">
+            <span className="menu-save-state"><i /> DADOS LOCAIS</span>
+            <button type="button" className="menu-close-button" onClick={onClose}>
+              <span aria-hidden="true">←</span> VOLTAR AO JOGO
+            </button>
+          </div>
+        </header>
+
+        <div className="character-menu-layout">
+          <nav className="character-menu-nav" aria-label="Seções do menu do protagonista">
+            <span className="menu-nav-heading">SEÇÕES</span>
+            {MENU_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={activeSection === item.id ? "active" : ""}
+                onClick={() => setActiveSection(item.id)}
+                aria-pressed={activeSection === item.id}
+              >
+                <span className="menu-nav-code">{item.code}</span>
+                <span className="menu-nav-copy">
+                  <strong>{item.label}</strong>
+                  <small>{item.description}</small>
+                </span>
+                <span className="menu-nav-arrow" aria-hidden="true">›</span>
+              </button>
+            ))}
+            <div className="menu-nav-foot">
+              <span>REGISTRO ATIVO</span>
+              <strong>{character.name}</strong>
+              <small>Salvo neste dispositivo</small>
+            </div>
+          </nav>
+
+          <div className="character-menu-content">
+            <div className="menu-section-heading">
+              <div>
+                <span>{activeItem.code} // {activeItem.description.toUpperCase()}</span>
+                <h3>{activeItem.label}</h3>
+              </div>
+              <div className="menu-location-chip">
+                <span>LOCALIZAÇÃO</span>
+                <strong>{sceneTitle}</strong>
+              </div>
+            </div>
+
+            {activeSection === "character" && (
+              <div className="menu-section-stack">
+                <section className="menu-character-hero">
+                  <div className="menu-character-avatar" aria-hidden="true">{character.name.slice(0, 1).toUpperCase()}</div>
+                  <div className="menu-character-identity">
+                    <span>IDENTIDADE CONFIRMADA</span>
+                    <h4>{character.name}</h4>
+                    <p>{originName} <i /> {sceneSubtitle}</p>
+                  </div>
+                  <div className="menu-level-block"><strong>{String(character.level).padStart(2, "0")}</strong><span>NÍVEL</span></div>
+                </section>
+
+                <div className="menu-data-grid">
+                  <DataCard label="ORIGEM" value={originName} detail="Histórico de nascimento e contatos" />
+                  <DataCard label="CLASSE" value={character.classId ?? "Não definida"} detail="Escolha de classe ainda não integrada" />
+                  <DataCard label="EXPERIÊNCIA" value={String(character.experience)} detail="Pontos registrados" />
+                  <DataCard label="MISSÃO PRINCIPAL" value={missionStep === 3 ? "Concluída" : "Em andamento"} detail={progress + " de 3 etapas"} />
+                </div>
+
+                <section className="menu-info-panel">
+                  <span className="menu-panel-kicker">HISTÓRICO DE ORIGEM</span>
+                  <p>{originDescription}</p>
+                </section>
+
+                <div className="menu-two-columns">
+                  <section className="menu-info-panel">
+                    <span className="menu-panel-kicker">VANTAGEM PASSIVA</span>
+                    <h4>{originProfile.passiveDescription}</h4>
+                    <p>{originProfile.passiveEffect}</p>
+                  </section>
+                  <section className="menu-info-panel">
+                    <span className="menu-panel-kicker">HABILIDADE DE ORIGEM</span>
+                    <h4>{originProfile.abilityName}</h4>
+                    <p>{originProfile.abilityDescription}</p>
+                  </section>
+                </div>
+
+                <section className="menu-info-panel">
+                  <span className="menu-panel-kicker">ATRIBUTOS</span>
+                  {attributeEntries.length > 0 ? (
+                    <div className="menu-attribute-grid">
+                      {attributeEntries.map(([name, value]) => <DataCard key={name} label={name} value={String(value)} />)}
+                    </div>
+                  ) : (
+                    <p>Os atributos ainda não foram distribuídos. A ficha já reserva este espaço para a futura progressão do protagonista.</p>
+                  )}
+                </section>
+              </div>
+            )}
+
+            {activeSection === "inventory" && (
+              <EmptyState
+                code="INVENTÁRIO // 000"
+                title="A mochila ainda não tem registros"
+                description="O inventário geral ainda não foi desenvolvido. Esta seção será o espaço para consultar itens coletados, consumíveis, componentes e objetos de missão quando o sistema de itens estiver integrado."
+              />
+            )}
+
+            {activeSection === "equipment" && (
+              character.equipment.length > 0 ? (
+                <section className="menu-list-panel">
+                  <span className="menu-panel-kicker">EQUIPAMENTOS REGISTRADOS</span>
+                  {character.equipment.map((item, index) => <div className="menu-list-row" key={item + index}><span>EQP-{String(index + 1).padStart(2, "0")}</span><strong>{item}</strong></div>)}
+                </section>
+              ) : (
+                <EmptyState
+                  code="EQUIPAMENTOS // 000"
+                  title="Nenhum equipamento registrado"
+                  description="A ficha ainda não possui armas, trajes ou implantes equipados. O catálogo, a comparação de atributos e a troca de equipamentos serão conectados nesta seção em uma etapa própria."
+                />
+              )
+            )}
+
+            {activeSection === "abilities" && (
+              <div className="menu-section-stack">
+                <section className="menu-info-panel menu-ability-card">
+                  <span className="menu-panel-kicker">PASSIVA DE ORIGEM // SEM CUSTO</span>
+                  <h4>{originProfile.passiveDescription}</h4>
+                  <p>{originProfile.passiveEffect}</p>
+                </section>
+                <section className="menu-info-panel menu-ability-card">
+                  <span className="menu-panel-kicker">HABILIDADE ATIVA DE ORIGEM</span>
+                  <h4>{originProfile.abilityName}</h4>
+                  <p>{originProfile.abilityDescription}</p>
+                  <small>O efeito está ligado à arena tática de teste nesta versão.</small>
+                </section>
+                {character.abilities.length > 0 && (
+                  <section className="menu-list-panel">
+                    <span className="menu-panel-kicker">OUTRAS HABILIDADES REGISTRADAS</span>
+                    {character.abilities.map((ability, index) => <div className="menu-list-row" key={ability + index}><span>HAB-{String(index + 1).padStart(2, "0")}</span><strong>{ability}</strong></div>)}
+                  </section>
+                )}
+              </div>
+            )}
+
+            {activeSection === "map" && (
+              <div className="menu-section-stack">
+                <section className="menu-current-location">
+                  <span className="menu-panel-kicker">POSIÇÃO ATUAL</span>
+                  <h4>{sceneTitle}</h4>
+                  <p>{sceneSubtitle}</p>
+                  <strong>BAIXADA · NOVA ARCÁDIA</strong>
+                </section>
+                <section className="menu-list-panel">
+                  <span className="menu-panel-kicker">DISTRITOS DA CIDADE</span>
+                  {DISTRICTS.map((district) => (
+                    <div className={"menu-list-row " + (district.current ? "current" : "planned")} key={district.name}>
+                      <span>{district.current ? "●" : "○"}</span>
+                      <strong>{district.name}</strong>
+                      <small>{district.status}</small>
+                    </div>
+                  ))}
+                </section>
+                <p className="menu-footnote">O mapa interativo e o deslocamento entre distritos ainda não estão disponíveis nesta versão. A Baixada é a área jogável atual.</p>
+              </div>
+            )}
+
+            {activeSection === "journal" && (
+              <div className="menu-section-stack">
+                <section className="menu-quest-card">
+                  <div className="menu-quest-heading">
+                    <div><span className="menu-panel-kicker">MISSÃO PRINCIPAL // BAIXADA</span><h4>O nome que sumiu</h4></div>
+                    <strong>{missionStep === 3 ? "CONCLUÍDA" : "ATIVA"}</strong>
+                  </div>
+                  <p>Uma pessoa desapareceu depois de procurar atendimento por causa de um implante defeituoso. O registro oficial foi apagado, mas a clínica preservou uma cópia local.</p>
+                  <div className="menu-quest-progress"><span style={{ width: ((progress / 3) * 100) + "%" }} /></div>
+                  <small>{progress} / 3 etapas concluídas</small>
+                  <div className="menu-objective"><span>OBJETIVO ATUAL</span><strong>{missionObjective}</strong></div>
+                </section>
+                <section className="menu-list-panel">
+                  <span className="menu-panel-kicker">PISTAS E REGISTROS // {clues.length}</span>
+                  {clues.length > 0 ? clues.map((clue) => (
+                    <div className="menu-clue-row" key={clue.id}><span>REGISTRO {clue.id.toUpperCase()}</span><p>{clue.text}</p></div>
+                  )) : <p className="menu-empty-copy">Nenhuma pista adicional foi registrada. Converse com moradores e consulte os terminais da Baixada.</p>}
+                </section>
+              </div>
+            )}
+
+            {activeSection === "settings" && (
+              <div className="menu-section-stack">
+                <section className="menu-settings-grid">
+                  <DataCard label="ORIENTAÇÃO" value="Horizontal" detail="Paisagem obrigatória nesta versão" />
+                  <DataCard label="MOVIMENTAÇÃO" value="Toque no cenário" detail="Deslocamento por navegação automática" />
+                  <DataCard label="SALVAMENTO" value="Neste dispositivo" detail="Personagem e missão em armazenamento local" />
+                  <DataCard label="PLATAFORMA" value="Android" detail="Aplicativo compilado via Capacitor" />
+                </section>
+                <EmptyState
+                  code="PREFERÊNCIAS // EM PREPARAÇÃO"
+                  title="Ajustes adicionais ainda não disponíveis"
+                  description="Controles de áudio, idioma, acessibilidade e qualidade gráfica terão opções próprias quando essas configurações forem integradas ao jogo."
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}

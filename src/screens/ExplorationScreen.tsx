@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import BaixadaWorld from "../components/BaixadaWorld";
 import InteriorWorld from "../components/InteriorWorld";
-import { getOriginById } from "../game/character";
+import { getOriginById, getOriginGameplay } from "../game/character";
+import CharacterMenu from "../components/CharacterMenu";
 import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
 
@@ -12,7 +13,6 @@ interface DialogueState { pages: DialoguePage[]; index: number }
 interface Props {
   character: PlayerCharacter;
   onOpenBattle: () => void;
-  onOpenMenu: () => void;
 }
 
 const MISSION_KEY = "cyberpunk-tactical-rpg.mission.v1.";
@@ -62,13 +62,13 @@ function saveMission(characterId: string, progress: MissionProgress): void {
 export default function ExplorationScreen({
   character,
   onOpenBattle,
-  onOpenMenu,
 }: Props) {
   const origin = getOriginById(character.originId);
   const [mission, setMission] = useState<MissionProgress>(() => readMission(character.id));
   const [interior, setInterior] = useState<InteriorId | null>(null);
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     saveMission(character.id, mission);
@@ -307,10 +307,17 @@ export default function ExplorationScreen({
           <h1>{sceneTitle}</h1>
           <span>{sceneSubtitle}</span>
         </div>
-        <div className="district-status">
-          <span className="signal-dot" />
-          <strong>REDE LOCAL</strong>
-          <span>SETOR 04 · BAIXADA</span>
+        <div className="explore-header-actions">
+          <div className="district-status">
+            <span className="signal-dot" />
+            <strong>REDE LOCAL</strong>
+            <span>SETOR 04 · BAIXADA</span>
+          </div>
+          <button type="button" className="menu-trigger" onClick={() => setMenuOpen(true)} aria-label="Abrir menu do protagonista">
+            <span className="menu-trigger-mark" aria-hidden="true">≡</span>
+            <span className="menu-trigger-copy"><small>ARQUIVO</small><strong>PERSONAGEM</strong></span>
+            <span className="menu-trigger-arrow" aria-hidden="true">›</span>
+          </button>
         </div>
       </header>
 
@@ -407,14 +414,28 @@ export default function ExplorationScreen({
         )}
       </section>
 
-      <div className="exploration-footer-actions">
+      <div className="exploration-footer-actions single-action">
         <button type="button" className="explore-secondary" onClick={onOpenBattle}>
           Arena tática de teste
         </button>
-        <button type="button" className="explore-primary" onClick={onOpenMenu}>
-          Personagem / menu <span>→</span>
-        </button>
       </div>
+
+      {menuOpen && (
+        <CharacterMenu
+          character={character}
+          originName={origin.name}
+          originDescription={origin.description}
+          originProfile={getOriginGameplay(character.originId)}
+          missionStep={mission.step}
+          missionObjective={mission.step === 3
+            ? "Missão concluída. A Galeria de Manutenção pode revelar o próximo trecho da rota."
+            : OBJECTIVES[mission.step]}
+          clues={mission.clues.map((id) => ({ id, text: CLUE_LABELS[id] ?? "Pista registrada." }))}
+          sceneTitle={sceneTitle}
+          sceneSubtitle={sceneSubtitle}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
 
       {currentDialogue && (
         <div
