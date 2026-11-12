@@ -90,7 +90,7 @@
   .explorer-character-data small { font-size:10px; }
   .district-clock { display:none; }
   .mission-card {
-    position:absolute!important; z-index:5; top:calc(var(--na-safe-top) + 60px); bottom:auto; right:var(--na-safe-right);
+    position:absolute!important; z-index:5; top:calc(var(--na-safe-top) + 106px); bottom:auto; right:var(--na-safe-right);
     width:min(340px,45vw); max-height:min(76dvh,480px); min-height:0; margin:0; padding:12px; overflow-y:auto;
     box-shadow:0 15px 42px rgba(0,0,0,.5);
   }
@@ -108,7 +108,6 @@
     background:rgba(18,29,31,.88); font:700 11px var(--display); pointer-events:auto;
   }
   .na-objective-toggle[aria-expanded="true"] { color:#0d1519; background:#e6c28c; }
-  .mission-card:has(+ .na-objective-sentinel) { top:110px; }
   .dialogue-scrim { align-items:center; padding:var(--na-safe-top) var(--na-safe-right) var(--na-safe-bottom) var(--na-safe-left); }
 }
 @media (orientation:landscape) and (max-height:430px) {
