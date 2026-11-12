@@ -618,7 +618,7 @@ export class BaixadaScene extends Phaser.Scene {
           .setOrigin(0.5, 0.95).setScale(0.86).setDepth(point.y + 0.2);
         playIdle(actor.visual, actor.texture, 2);
         if(actor.id === "patio-sentinel") actor.visual.setTint(0xff648f);
-        this.tweens.add({ targets: actor.visual, y: point.y - 1.5, duration: 1500 + (actor.tile.x % 3) * 170, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+        if(!actor.routine) this.tweens.add({ targets: actor.visual, y: point.y - 1.5, duration: 1500 + (actor.tile.x % 3) * 170, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
         actor.label = this.add.text(point.x, point.y - 73, actor.name, {
           fontFamily: "IBM Plex Mono, monospace", fontSize: "13px", color: "#eef7ec", backgroundColor: "#111b20dd", padding: { x: 4, y: 2 },
         }).setOrigin(0.5).setDepth(point.y + 0.42);

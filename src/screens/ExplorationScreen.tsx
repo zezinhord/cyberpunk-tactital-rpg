@@ -510,7 +510,7 @@ export default function ExplorationScreen({
           sceneSubtitle={sceneSubtitle}
           onClose={() => setMenuOpen(false)}
           onReturnToTitle={onReturnToTitle}
-          onOpenTestArena={onOpenBattle}
+          onOpenTestArena={() => onOpenBattle("test")}
           inventory={inventory}
           onToggleEquipment={onToggleEquipment}
         />
