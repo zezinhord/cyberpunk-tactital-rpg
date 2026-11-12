@@ -24,6 +24,7 @@ import {
 import type { ItemId, InventoryState } from "./game/inventory";
 import { getPlayerSpriteUrl } from "./game/baixada/sprites";
 import { audioDirector } from "./audio/director";
+import { markV09Defeated } from "./game/story/v09";
 
 function getUnit(state: GameState, id: string): Unit | undefined {
   return state.units.find((unit) => unit.id === id);
@@ -187,6 +188,7 @@ export default function App() {
   const [character, setCharacter] = useState<PlayerCharacter | null>(() => loadCharacter());
   const [screen, setScreen] = useState<"title" | "creation" | "resume" | "introduction" | "exploration" | "battle">("title");
   const [battleReset, setBattleReset] = useState(0);
+  const [battleMode, setBattleMode] = useState<"test" | "v09">("test");
   useEffect(()=>{audioDirector.setScene(screen==="battle"?"battle":screen==="exploration"?"exploration":screen==="title"?"menu":"story");},[screen]);
   const [appearance, setAppearance] = useState<TestAppearance>(() => loadTestAppearance(loadCharacter()?.id ?? ""));
   const chooseAppearance = (choice: TestAppearance) => {
@@ -201,7 +203,7 @@ export default function App() {
   const [saveMessage, setSaveMessage] = useState("Salvamento local ativo");
 
   const originProfile = useMemo(() => character ? getOriginGameplay(character.originId) : undefined, [character?.originId]);
-  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId }), [character?.id, character?.level, character?.originId, character?.classId, battleReset, originProfile, bonuses]);
+  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, encounterId:battleMode }), [character?.id, character?.level, character?.originId, character?.classId, battleReset, battleMode, originProfile, bonuses]);
   const [state, setState] = useState<GameState>(() => manager.getState());
   const player = getUnit(state, "runner");
   const enemy = getUnit(state, "drone");
@@ -212,6 +214,21 @@ export default function App() {
     setState(manager.getState());
     return manager.subscribe(setState);
   }, [manager]);
+
+  const beginBattle = (mode: "test" | "v09" = "test") => {
+    setBattleMode(mode);
+    setBattleReset((n)=>n+1);
+    setScreen("battle");
+  };
+  useEffect(()=>{
+    if(screen!=="battle" || !character || state.encounterId!=="v09" || !state.combatComplete)return;
+    const defeated=state.units.find(u=>u.id==="drone")?.hp===0;
+    if(defeated && markV09Defeated(character.id)){
+      const next={...character,experience:character.experience+15,updatedAt:new Date().toISOString()};
+      setCharacter(next);saveCharacter(next);
+      audioDirector.effect("victory");
+    }
+  },[screen,character,state]);
 
   const handleCreate = (name: string, originId: OriginId, presentation: TestAppearance) => {
     const previousCharacter = loadCharacter();
@@ -280,7 +297,7 @@ export default function App() {
         character={character}
         appearance={appearance}
         onChangeAppearance={chooseAppearance}
-        onOpenBattle={() => setScreen("battle")}
+        onOpenBattle={beginBattle}
         onReturnToTitle={() => setScreen("title")}
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
@@ -294,8 +311,8 @@ export default function App() {
     <main className="app-shell game-shell arena-v030">
       <header className="topbar arena-head">
         <div className="mission">
-          <h1>Limbo de Teste · Personagens e Habilidades</h1>
-          <p>Operativo de Campo // módulo experimental 0.3.0</p>
+          <h1>{battleMode==="v09" ? "Pátio do Reúso · Encontro V-09" : "Limbo de Teste · Personagens e Habilidades"}</h1>
+          <p>{battleMode==="v09" ? "MISSÃO PRINCIPAL · O NOME QUE SUMIU" : "Operativo de Campo // módulo experimental 0.3.0"}</p>
         </div>
         <div className="turn">
           <span className="turn-pill" data-side={state.activeSide}>
@@ -313,7 +330,7 @@ export default function App() {
           </div>
         </div>
         <section className="battle-panel" aria-label="Combate tático isométrico">
-          <div className="map-label"><span>SIMULAÇÃO 01 · 8 × 8</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
+          <div className="map-label"><span>{battleMode==="v09" ? "UNIDADE HOSTIL · V-09" : "SIMULAÇÃO 01 · 8 × 8"}</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
           <Battlefield manager={manager} appearance={appearance} />
           <p className="board-hint">{getHint(state, canAttack)}</p>
         </section>
@@ -332,13 +349,13 @@ export default function App() {
         </section>
         <details className="log-panel">
           <summary>Registro do teste <span>{state.log.length}</span></summary>
-          <p className="objective">Use movimento por toque, ataque básico, 3 habilidades e o terminal de recarga. Este ambiente não é um distrito da campanha.</p>
+          <p className="objective">{battleMode==="v09" ? "A unidade interceptou os registros V-09. Sua derrota terá consequências persistentes para a cooperativa." : "Use movimento por toque, ataque básico, 3 habilidades e o terminal de recarga. Este ambiente não é um distrito da campanha."}</p>
           <ol className="log-list">{state.log.slice(-8).reverse().map((entry,index) => <li key={index}>{entry}</li>)}</ol>
           <p className="build-note">{saveMessage}</p>
         </details>
         </div>
         <section className="control-sheet" aria-label="Comandos do turno">
-          {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? "Sentinela neutralizada" : "Operativo incapacitado"}</div>}
+          {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? (battleMode==="v09" ? "V-09 neutralizada · registros recuperados" : "Sentinela neutralizada") : "Operativo incapacitado"}</div>}
           <div className="economy">
             <div className="eco move">Mover<span className="pips" aria-hidden="true">{Array.from({ length: state.movementPerTurn }, (_, index) => <i key={index} className={index < state.movementRemaining ? "on" : undefined} />)}</span><b>{state.movementRemaining}/{state.movementPerTurn}</b></div>
             <ActionChip label="Principal" ready={state.mainActionAvailable} />
@@ -349,7 +366,7 @@ export default function App() {
             <button type="button" className="end-turn-button" onClick={() => { buzz(); manager.endPlayerTurn(); }} disabled={state.activeSide !== "player" || state.combatComplete}>Encerrar turno</button>
             <button type="button" className="attack-button" onClick={() => { buzz(20); manager.attack(); }} disabled={!canAttack}>Ataque básico</button>
           </div>
-          <div className="secondary-actions"><button type="button" onClick={() => setBattleReset((value) => value + 1)}>Reiniciar arena</button><button type="button" onClick={() => setScreen("exploration")}>Voltar à Baixada</button></div>
+          <div className="secondary-actions">{battleMode==="test" && <button type="button" onClick={() => setBattleReset((value) => value + 1)}>Reiniciar arena</button>}<button type="button" onClick={() => setScreen("exploration")}>Voltar à Baixada</button></div>
         </section>
 
       </aside>

@@ -26,6 +26,7 @@ export interface GameState {
   characterLevel: number;
   originId: string;
   classId: string | null;
+  encounterId: "test" | "v09";
   energy: number;
   maxEnergy: number;
   cooldowns: Record<SpecialId, number>;

@@ -26,6 +26,7 @@ export interface TurnManagerOptions {
   characterLevel?: number;
   originId?: string;
   classId?: string | null;
+  encounterId?: "test" | "v09";
 }
 
 export class TurnManager {
@@ -56,17 +57,18 @@ export class TurnManager {
         },
         {
           id: "drone",
-          name: "Sentinela-07",
+          name: options.encounterId==="v09" ? "Unidade de Vigilância V-09" : "Sentinela-07",
           side: "enemy",
           x: 6,
           y: 1,
-          hp: 12,
-          maxHp: 12,
+          hp: options.encounterId==="v09" ? 16 : 12,
+          maxHp: options.encounterId==="v09" ? 16 : 12,
           armorClass: 13,
           attackBonus: 4,
         },
       ],
       activeSide: "player",
+      encounterId: options.encounterId ?? "test",
       archetypeId: "field-operative", characterLevel: options.characterLevel ?? 1,
       originId: options.originId ?? "corporativo", classId: options.classId ?? null,
       energy: 10, maxEnergy: 10,
@@ -80,8 +82,8 @@ export class TurnManager {
       originAbilityAvailable: Boolean(this.originProfile),
       originAbilityName: this.originProfile?.abilityName ?? "Habilidade de origem",
       combatComplete: false,
-      message: "Área de teste ativa. Alcance a sentinela e neutralize-a.",
-      log: ["[SISTEMA] Campo de teste conectado.", "[MISSÃO] Neutralize a unidade sentinela."],
+      message: options.encounterId==="v09" ? "Encontro V-09: neutralize a unidade que interceptou os registros de manutenção." : "Área de teste ativa. Alcance a sentinela e neutralize-a.",
+      log: options.encounterId==="v09" ? ["[MISSÃO] V-09: ameaça localizada no Pátio do Reúso.", "[COMBATE] Proteja os registros da cooperativa."] : ["[SISTEMA] Campo de teste conectado.", "[MISSÃO] Neutralize a unidade sentinela."],
     };
   }
 
