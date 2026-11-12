@@ -1,0 +1,47 @@
+name: Tenebria 3D - APK Android
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - tenebria-3d-android
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'scenes/**'
+      - 'project.godot'
+      - 'export_presets.cfg'
+      - '.github/workflows/build-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    name: Validar e compilar APK arm64
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    container:
+      image: barichello/godot-ci:4.4.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Gerar icones e audio originais
+        run: python3 tools/gen_assets.py
+      - name: Importar os recursos Godot
+        run: godot --headless --editor --path . --quit
+      - name: Exportar APK instalavel (debug)
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/Tenebria-Ecos-de-Ruturam.apk
+      - name: Validar tamanho maximo de 2 GB
+        run: |
+          test -s build/Tenebria-Ecos-de-Ruturam.apk
+          stat -c 'Tamanho do APK: %s bytes' build/Tenebria-Ecos-de-Ruturam.apk
+          test "$(stat -c %s build/Tenebria-Ecos-de-Ruturam.apk)" -le 2000000000
+      - name: Publicar APK nos artefatos do GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenebria-3d-android-debug-apk
+          path: build/Tenebria-Ecos-de-Ruturam.apk
+          if-no-files-found: error
+          retention-days: 30
