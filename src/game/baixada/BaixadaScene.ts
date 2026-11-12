@@ -4,6 +4,7 @@ import {
   cellKey, isInside, isStreet, isWalkable, type BuildingSpec,
 } from "./layout";
 import type { Position } from "../types";
+import { route as safeRoute, approachRoute, canTraverse, canStand } from "./navigation";
 import type { OriginId } from "../character/origins";
 import type { TestAppearance } from "../test-arena/appearance";
 import {
@@ -61,44 +62,10 @@ function keyOf(tile: Position): string { return cellKey(tile); }
 function walkable(tile: Position): boolean { return isWalkable(tile); }
 
 function findPath(start: Position, end: Position): Position[] | null {
-  if (!walkable(end)) return null;
-  const queue: Position[] = [start];
-  const previous = new Map<string, string | null>([[keyOf(start), null]]);
-
-  while (queue.length) {
-    const current = queue.shift();
-    if (!current) break;
-    if (current.x === end.x && current.y === end.y) break;
-
-    for (const direction of DIRECTIONS) {
-      const next = { x: current.x + direction.x, y: current.y + direction.y };
-      const key = keyOf(next);
-      if (!walkable(next) || previous.has(key)) continue;
-      previous.set(key, keyOf(current));
-      queue.push(next);
-    }
-  }
-
-  const endKey = keyOf(end);
-  if (!previous.has(endKey)) return null;
-  const path: Position[] = [];
-  let cursor: string | null = endKey;
-  while (cursor) {
-    const [x = 0, y = 0] = cursor.split(",").map(Number);
-    path.unshift({ x, y });
-    cursor = previous.get(cursor) ?? null;
-  }
-  return path;
+  return safeRoute(start, end);
 }
-
 function nearestApproach(start: Position, target: Position): Position[] | null {
-  const candidates = DIRECTIONS
-    .map((direction) => ({ x: target.x + direction.x, y: target.y + direction.y }))
-    .filter(walkable)
-    .map((tile) => findPath(start, tile))
-    .filter((path): path is Position[] => Boolean(path));
-  candidates.sort((a, b) => a.length - b.length);
-  return candidates[0] ?? null;
+  return approachRoute(start, target);
 }
 
 export class BaixadaScene extends Phaser.Scene {
@@ -690,7 +657,7 @@ export class BaixadaScene extends Phaser.Scene {
     const center = tileCenter(target);
     const localX = Math.abs(worldPoint.x - center.x) / (TILE_WIDTH / 2);
     const localY = Math.abs(worldPoint.y - center.y) / (TILE_HEIGHT / 2);
-    if (!inside(target) || localX + localY > 1.1 || !walkable(target)) return;
+    if (!inside(target) || localX + localY > 1.1 || !canStand(target)) return;
     const path = findPath(this.playerTile, target);
     if (path) this.walkPath(path);
   }
@@ -736,6 +703,15 @@ export class BaixadaScene extends Phaser.Scene {
         return;
       }
       const previous = this.playerTile;
+      // Proteção física no momento da movimentação: nenhuma interpolação
+      // executa um passo que atravessaria um edifício, pessoa ou obstáculo.
+      if (!canTraverse(previous, next)) {
+        steps.length = 0;
+        this.pendingInteraction = null;
+        this.moving = false;
+        this.playerAnimator?.play("idle");
+        return;
+      }
       const direction: IsoDirection = next.y < previous.y ? 0 : next.x > previous.x ? 1 : next.y > previous.y ? 2 : 3;
       this.playerDirection = direction;
       this.playerAnimator?.setDirection(direction);
