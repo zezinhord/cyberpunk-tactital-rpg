@@ -166,7 +166,7 @@ export default function App() {
   const [screen, setScreen] = useState<"title" | "creation" | "resume" | "introduction" | "exploration" | "battle">("title");
   const [battleReset, setBattleReset] = useState(0);
   const [inventory, setInventory] = useState<InventoryState>(() => loadInventory(loadCharacter()?.id ?? ""));
-  const bonuses = useMemo(() => getEquipmentBonuses(inventory), [inventory]);
+  const bonuses = useMemo(() => getEquipmentBonuses(inventory), [inventory.equipped.weapon, inventory.equipped.armor]);
   useEffect(() => {
     if (character && inventory.ownerId === character.id) saveInventory(inventory);
   }, [character?.id, inventory]);
