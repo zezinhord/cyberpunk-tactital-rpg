@@ -94,10 +94,13 @@ export const CLASS_SKILLS:Readonly<Record<string,ClassSkill>>={
   "marginal-esquiva":{id:"marginal-esquiva",classId:"marginal",name:"Esquiva de Beco",description:"Concede +3 Defesa na próxima ação hostil e +2 movimento.",role:"mobility",target:"self",cost:3,cooldown:2,range:0,area:0,minimumLevel:1,effects:[{type:"guard",amount:3,turns:1},{type:"movement",amount:2}],visual:"shield",maxRank:3,rankNote:"Aprimora a saída tática."},
   "fixador-favor":{id:"fixador-favor",classId:"fixador",name:"Favor de Última Hora",description:"Converte contatos em suprimentos: recupera 4 energia e +2 dano no próximo ataque.",role:"support",target:"self",cost:2,cooldown:3,range:0,area:0,minimumLevel:1,effects:[{type:"energy",amount:4},{type:"nextDamage",amount:2}],visual:"repair",maxRank:3,rankNote:"Melhora a logística de campo."},
 };
-export const PLAYABLE_CLASSES:Readonly<Record<ClassId,CombatClass>>=Object.fromEntries(
- CLASS_IDS.map(id=>[id,{id,...classData[id],
-   startingAbilities:Object.values(CLASS_SKILLS).filter(s=>s.classId===id).map(s=>s.id)}])
-) as Record<ClassId,CombatClass>;
+export const PLAYABLE_CLASSES:Readonly<Record<ClassId,CombatClass>>=CLASS_IDS.reduce(
+ (result,id)=>{
+   result[id]={id,...classData[id],
+     startingAbilities:Object.values(CLASS_SKILLS).filter(s=>s.classId===id).map(s=>s.id)};
+   return result;
+ },{} as Record<ClassId,CombatClass>);
+
 export function getAllClasses():CombatClass[]{return CLASS_IDS.map(id=>PLAYABLE_CLASSES[id]);}
 export function getClassById(id:ClassId):CombatClass{return PLAYABLE_CLASSES[id];}
 export function isPlayableClass(id:unknown):id is ClassId {
