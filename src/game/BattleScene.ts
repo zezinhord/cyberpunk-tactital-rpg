@@ -7,7 +7,7 @@ import type { TestAppearance } from "./test-arena/appearance";
 const TILE_WIDTH = 56;
 const TILE_HEIGHT = 28;
 const ORIGIN_X = 240;
-const ORIGIN_Y = 54;
+const ORIGIN_Y = 70;
 export const CANVAS_WIDTH = 480;
 export const CANVAS_HEIGHT = 320;
 
@@ -37,6 +37,7 @@ export class BattleScene extends Phaser.Scene {
   private readonly manager: TurnManager;
   private readonly appearance: TestAppearance;
   private graphics!: Phaser.GameObjects.Graphics;
+  private bars!: Phaser.GameObjects.Graphics;
   private playerImage?: Phaser.GameObjects.Image;
   private enemyImage?: Phaser.GameObjects.Image;
   private lastCue = 0;
@@ -58,6 +59,7 @@ export class BattleScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor("#0d1220");
     this.graphics = this.add.graphics();
     this.graphics.setDepth(0);
+    this.bars = this.add.graphics().setDepth(9);
     this.playerImage = this.add.image(0, 0, this.appearance === "feminine" ? "arena-operative-f" : "arena-operative-m")
       .setOrigin(0.5, 0.91).setDisplaySize(44, 66).setDepth(6);
     this.enemyImage = this.add.image(0, 0, "arena-sentinel")
@@ -182,6 +184,7 @@ export class BattleScene extends Phaser.Scene {
   private drawBoard(state: GameState): void {
     const graphics = this.graphics;
     graphics.clear();
+    this.bars.clear();
     graphics.fillStyle(COLOR.bg, 1);
     graphics.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -278,10 +281,12 @@ export class BattleScene extends Phaser.Scene {
     // Os personagens agora são imagens vetoriais rasterizadas uma vez pelo loader Phaser.
     // As bases, seleção e barras de Vida continuam desenhadas no Graphics isométrico.
 
-    graphics.fillStyle(COLOR.track, 1);
-    graphics.fillRoundedRect(center.x - 14, center.y - 39, 28, 4, 2);
-    graphics.fillStyle(color, 1);
-    graphics.fillRoundedRect(center.x - 14, center.y - 39, Math.max(0, Math.round(28 * unit.hp / unit.maxHp)), 4, 2);
+    // Interface de Vida acima do sprite e do cenário, preservada em profundidade.
+    const bars = this.bars;
+    bars.fillStyle(COLOR.track, 1);
+    bars.fillRoundedRect(center.x - 14, center.y - 73, 28, 5, 2);
+    bars.fillStyle(color, 1);
+    bars.fillRoundedRect(center.x - 14, center.y - 73, Math.max(0, Math.round(28 * unit.hp / unit.maxHp)), 5, 2);
 
     if (!isPlayer && targetable) {
       graphics.lineStyle(2.5, COLOR.amber, 1);
