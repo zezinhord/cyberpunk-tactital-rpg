@@ -6,7 +6,7 @@ export type SoundChannel="music"|"effects"|"ambient";
 const KEY="cyberpunk-tactical-rpg.audio.v068.";
 const DEFAULT: Record<SoundChannel,number>={music:0.28,effects:0.48,ambient:0.26};
 export function readVolume(channel:SoundChannel):number {
-  try { const v=Number(globalThis.localStorage?.getItem(KEY+channel));return Number.isFinite(v)&&v>=0&&v<=1?v:DEFAULT[channel]; }
+  try { const raw=globalThis.localStorage?.getItem(KEY+channel);if(raw===null||raw===undefined)return DEFAULT[channel];const v=Number(raw);return Number.isFinite(v)&&v>=0&&v<=1?v:DEFAULT[channel]; }
   catch{return DEFAULT[channel];}
 }
 const SCORES: Record<SoundScene, {root:number;steps:readonly number[];speed:number}> = {

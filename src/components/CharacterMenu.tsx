@@ -1,4 +1,5 @@
 import { useState } from "react";
+import AudioControls from "./AudioControls";
 import type { OriginGameplayProfile, PlayerCharacter } from "../game/character";
 import { ITEM_CATALOG, ITEM_IDS } from "../game/inventory";
 import type { InventoryState, ItemId } from "../game/inventory";
@@ -338,11 +339,8 @@ export default function CharacterMenu({
                   <DataCard label="SALVAMENTO" value="Neste dispositivo" detail="Personagem e missão em armazenamento local" />
                   <DataCard label="PLATAFORMA" value="Android" detail="Aplicativo compilado via Capacitor" />
                 </section>
-                <EmptyState
-                  code="PREFERÊNCIAS // EM PREPARAÇÃO"
-                  title="Ajustes adicionais ainda não disponíveis"
-                  description="Controles de áudio, idioma, acessibilidade e qualidade gráfica terão opções próprias quando essas configurações forem integradas ao jogo."
-                />
+                <AudioControls />
+                <p className="menu-footnote">Idioma e qualidade gráfica serão configuráveis em entregas futuras.</p>
               </div>
             )}
           </div>

@@ -6,6 +6,7 @@ import "./landscape.css";
 import "./immersive-ui.css";
 import "./arena-v030.css";
 import "./character-presentation.css";
+import "./audio-controls.css";
 
 const rootElement = document.getElementById("root");
 

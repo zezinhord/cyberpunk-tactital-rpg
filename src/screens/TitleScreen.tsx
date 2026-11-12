@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AudioControls from "../components/AudioControls";
 import type { PlayerCharacter } from "../game/character";
 import { getOriginById } from "../game/character";
 
@@ -109,7 +110,8 @@ export default function TitleScreen({ character, onContinue, onNew }: Props) {
                   <span><strong>Reduzir movimento da interface</strong><small>Desativa transições e animações decorativas.</small></span>
                   <input type="checkbox" checked={reduceMotion} onChange={(event) => setReduceMotion(event.target.checked)} />
                 </label>
-                <p className="na-title-modal-note">Ajustes de áudio e qualidade gráfica exigem integração com os sistemas correspondentes e ainda não estão disponíveis.</p>
+                <AudioControls />
+                <p className="na-title-modal-note">Qualidade gráfica avançada ainda não está disponível.</p>
               </>
             )}
             {panel === "credits" && (
