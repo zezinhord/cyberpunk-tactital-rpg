@@ -30,6 +30,13 @@ export interface GameState {
   classCooldowns: Record<string,number>;
   classGuardBonus: number;
   classGuardTurns: number;
+  classExtraMovement: number;
+  classNextDamageBonus: number;
+  classNextAccuracyBonus: number;
+  classEnemyArmorReduction: number;
+  classEnemyArmorTurns: number;
+  classEnemyAttackReduction: number;
+  classEnemyAttackTurns: number;
   encounterId: "test" | "v09";
   energy: number;
   maxEnergy: number;

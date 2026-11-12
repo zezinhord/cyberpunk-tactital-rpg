@@ -1,6 +1,6 @@
 import { TypedEventBus } from "./EventBus";
 import { CLASS_SKILLS,getClassSkills } from "./classes/registry";
-import { checkClassSkill,executeClassSkill,advanceClassRound,advanceClassGuard } from "./classes/engine";
+import { checkClassSkill,executeClassSkill,advanceClassRound,advanceClassGuard,advanceClassEnemyDebuffs } from "./classes/engine";
 import { checkSpecial, useSpecial, advanceSpecialRound, isEnemyJammed, advanceBarrierAfterEnemyAction } from "./abilities/engine.ts";
 import type { SpecialId } from "./abilities/catalog";
 import type { AbilityCheck } from "./abilities/engine.ts";
@@ -75,6 +75,9 @@ export class TurnManager {
       archetypeId: "field-operative", characterLevel: options.characterLevel ?? 1,
       originId: options.originId ?? "corporativo", classId: options.classId ?? null,
       characterAbilities: options.characterAbilities ?? [], classCooldowns:{}, classGuardBonus:0, classGuardTurns:0,
+      classExtraMovement:0,classNextDamageBonus:0,classNextAccuracyBonus:0,
+      classEnemyArmorReduction:0,classEnemyArmorTurns:0,
+      classEnemyAttackReduction:0,classEnemyAttackTurns:0,
       energy: 10, maxEnergy: 10,
       cooldowns: { "pulse-emp": 0, barrier: 0, regeneration: 0 },
       barrierTurns: 0, enemyJamTurns: 0, terminalUsed: false, cue: null,
@@ -117,7 +120,7 @@ export class TurnManager {
     const result=executeClassSkill(this.state,skill);
     if(!result.ok){this.setMessage(result.message);return;}
     this.addLog("[CLASSE] "+result.message);
-    this.setCue(skill.visual,skill.damage>0?"enemy":"player",result.amount);
+    this.setCue(skill.visual,skill.target==="enemy"?"enemy":"player",result.amount);
     this.publish();
   }
   getSpecialAvailability(id: SpecialId): AbilityCheck {
@@ -265,20 +268,23 @@ export class TurnManager {
       return;
     }
     const roll = rollDie(20);
-    const attackBonus = player.attackBonus + this.nextAttackAccuracyBonus;
+    const attackBonus = player.attackBonus + this.nextAttackAccuracyBonus + this.state.classNextAccuracyBonus;
     const total = roll + attackBonus;
     this.state.mainActionAvailable = false;
     this.nextAttackAccuracyBonus = 0;
+    this.state.classNextAccuracyBonus = 0;
     if (roll === 20 || total >= enemy.armorClass) {
       const baseDamage = rollDie(6) + 2;
-      const damage = baseDamage + this.nextAttackDamageBonus;
+      const damage = baseDamage + this.nextAttackDamageBonus + this.state.classNextDamageBonus;
       this.nextAttackDamageBonus = 0;
+      this.state.classNextDamageBonus=0;
       enemy.hp = Math.max(0, enemy.hp - damage);
       this.setCue("hit", "enemy", damage);
       this.state.message = `${player.name} acertou o ataque e causou ${damage} de dano.`;
       this.addLog(`[ATAQUE] d20 ${roll} + ${attackBonus} = ${total}. ${damage} de dano.`);
     } else {
       this.nextAttackDamageBonus = 0;
+      this.state.classNextDamageBonus=0;
       this.setCue("miss", "enemy");
       this.state.message = `${player.name} errou o ataque.`;
       this.addLog(`[ATAQUE] d20 ${roll} + ${attackBonus} = ${total}. Ataque falhou.`);
@@ -336,6 +342,7 @@ export class TurnManager {
     }
     advanceBarrierAfterEnemyAction(this.state);
     advanceClassGuard(this.state);
+    advanceClassEnemyDebuffs(this.state);
     if (this.temporaryArmorBonus > 0) {
       player.armorClass -= this.temporaryArmorBonus;
       this.temporaryArmorBonus = 0;
@@ -361,6 +368,10 @@ export class TurnManager {
     }
     advanceSpecialRound(this.state);
     advanceClassRound(this.state);
+    if (this.state.classExtraMovement>0) {
+      this.state.movementPerTurn-=this.state.classExtraMovement;
+      this.state.classExtraMovement=0;
+    }
     this.state.movementRemaining = this.state.movementPerTurn;
     this.state.mainActionAvailable = true;
     this.state.bonusActionAvailable = true;
