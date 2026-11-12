@@ -15,8 +15,20 @@ export interface Unit extends Position {
   attackBonus: number;
 }
 
+import type { SpecialId } from "./abilities/catalog";
+
+export type CombatVisual = "basic" | "hit" | "miss" | "move" | "emp" | "shield" | "repair" | "terminal";
+export interface CombatCue { sequence: number; visual: CombatVisual; target: "player" | "enemy" | "terminal"; amount?: number }
+
 export interface GameState {
   units: Unit[];
+  energy: number;
+  maxEnergy: number;
+  cooldowns: Record<SpecialId, number>;
+  barrierTurns: number;
+  enemyJamTurns: number;
+  terminalUsed: boolean;
+  cue: CombatCue | null;
   activeSide: Side;
   round: number;
   movementRemaining: number;

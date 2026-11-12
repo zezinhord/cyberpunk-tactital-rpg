@@ -1,4 +1,8 @@
 import { TypedEventBus } from "./EventBus";
+import { checkSpecial, useSpecial, advanceSpecialRound, isEnemyJammed, advanceBarrierAfterEnemyAction } from "./abilities/engine.ts";
+import type { SpecialId } from "./abilities/catalog";
+import type { AbilityCheck } from "./abilities/engine.ts";
+import type { CombatVisual } from "./types";
 import { findPath, getReachableCells, MOVEMENT_PER_TURN } from "./map";
 import type { GameEvents, GameState, Position, Unit } from "./types";
 import type { OriginGameplayProfile } from "./character/types";
@@ -60,6 +64,9 @@ export class TurnManager {
         },
       ],
       activeSide: "player",
+      energy: 10, maxEnergy: 10,
+      cooldowns: { "pulse-emp": 0, barrier: 0, regeneration: 0 },
+      barrierTurns: 0, enemyJamTurns: 0, terminalUsed: false, cue: null,
       round: 1,
       movementRemaining: movementPerTurn,
       movementPerTurn,
@@ -78,11 +85,56 @@ export class TurnManager {
       ...this.state,
       units: this.state.units.map((unit) => ({ ...unit })),
       log: [...this.state.log],
+      cooldowns: { ...this.state.cooldowns },
+      cue: this.state.cue ? { ...this.state.cue } : null,
     };
   }
 
   subscribe(listener: (state: GameState) => void): () => void {
     return this.events.on("game:state", listener);
+  }
+
+  getSpecialAvailability(id: SpecialId): AbilityCheck {
+    return checkSpecial(this.state, id);
+  }
+
+  activateSpecial(id: SpecialId): void {
+    const result = useSpecial(this.state, id);
+    if (!result.ok) {
+      this.setMessage(result.message);
+      return;
+    }
+    this.addLog("[ESPECIAL] " + result.message);
+    this.setCue(result.visual ?? "basic", result.target ?? "player", result.amount);
+    this.publish();
+  }
+
+  interactWithTerminal(x: number, y: number): void {
+    const player = livingUnit(this.state.units, "runner");
+    if (!player || x !== 0 || y !== 6 || this.state.activeSide !== "player" || this.state.combatComplete) return;
+    if (distance(player, { x, y }) > 1) {
+      this.setMessage("Aproxime-se do terminal para ativá-lo.");
+      return;
+    }
+    if (this.state.terminalUsed) {
+      this.setMessage("Terminal auxiliar já utilizado neste teste.");
+      return;
+    }
+    if (this.state.energy === this.state.maxEnergy) {
+      this.setMessage("Energia já está no máximo. Use uma habilidade antes de acessar o terminal.");
+      return;
+    }
+    const recovered = Math.min(3, this.state.maxEnergy - this.state.energy);
+    this.state.energy += recovered;
+    this.state.terminalUsed = true;
+    this.state.message = "Terminal auxiliar: +" + recovered + " de energia. Acesso consumido.";
+    this.addLog("[OBJETO] Terminal recuperou +" + recovered + " energia.");
+    this.setCue("terminal", "terminal", recovered);
+    this.publish();
+  }
+
+  private setCue(visual: CombatVisual, target: "player" | "enemy" | "terminal", amount?: number): void {
+    this.state.cue = { sequence: (this.state.cue?.sequence ?? 0) + 1, visual, target, amount };
   }
 
   getReachableCells(): Position[] {
@@ -147,6 +199,7 @@ export class TurnManager {
     }
     const healed = Math.min(Math.floor(amount), player.maxHp - player.hp);
     player.hp += healed;
+    this.setCue("repair", "player", healed);
     this.state.bonusActionAvailable = false;
     this.state.message = "Curativo de campo: " + healed + " pontos de Vida recuperados.";
     this.addLog("[ITEM] Curativo utilizado: +" + healed + " Vida.");
@@ -166,6 +219,7 @@ export class TurnManager {
     }
     player.x = x;
     player.y = y;
+    this.setCue("move", "player");
     this.state.movementRemaining -= cost;
     this.state.message = `Movimento concluído: ${cost} célula(s) consumida(s).`;
     this.addLog(`[MOVIMENTO] ${player.name} avançou ${cost} célula(s).`);
@@ -194,10 +248,12 @@ export class TurnManager {
       const damage = baseDamage + this.nextAttackDamageBonus;
       this.nextAttackDamageBonus = 0;
       enemy.hp = Math.max(0, enemy.hp - damage);
+      this.setCue("hit", "enemy", damage);
       this.state.message = `${player.name} acertou o ataque e causou ${damage} de dano.`;
       this.addLog(`[ATAQUE] d20 ${roll} + ${attackBonus} = ${total}. ${damage} de dano.`);
     } else {
       this.nextAttackDamageBonus = 0;
+      this.setCue("miss", "enemy");
       this.state.message = `${player.name} errou o ataque.`;
       this.addLog(`[ATAQUE] d20 ${roll} + ${attackBonus} = ${total}. Ataque falhou.`);
     }
@@ -218,6 +274,11 @@ export class TurnManager {
     this.state.message = "Turno da sentinela. Mantenha cobertura e prepare o próximo movimento.";
     this.addLog("[TURNO] A sentinela está agindo.");
     this.publish();
+    const jammed = isEnemyJammed(this.state);
+    if (jammed) {
+      this.addLog("[CONTROLE] EMP bloqueou a ação da sentinela.");
+      this.setCue("emp", "enemy");
+    }
     const adjacentTargets: Position[] = [
       { x: player.x, y: player.y - 1 }, { x: player.x + 1, y: player.y },
       { x: player.x, y: player.y + 1 }, { x: player.x - 1, y: player.y },
@@ -227,7 +288,7 @@ export class TurnManager {
       .filter((path): path is Position[] => path !== null)
       .sort((a, b) => a.length - b.length);
     const path = possiblePaths[0];
-    if (distance(enemy, player) > 1 && path && path.length > 1) {
+    if (!jammed && distance(enemy, player) > 1 && path && path.length > 1) {
       const destination = path[Math.min(2, path.length - 1)];
       if (destination) {
         enemy.x = destination.x;
@@ -235,17 +296,19 @@ export class TurnManager {
         this.addLog("[IA TÁTICA] A sentinela reposicionou-se em direção ao alvo.");
       }
     }
-    if (distance(enemy, player) <= 1) {
+    if (!jammed && distance(enemy, player) <= 1) {
       const roll = rollDie(20);
       const total = roll + enemy.attackBonus;
       if (roll === 20 || total >= player.armorClass) {
         const damage = rollDie(4) + 1;
         player.hp = Math.max(0, player.hp - damage);
+        this.setCue("hit", "player", damage);
         this.addLog(`[INIMIGO] Ataque confirmado: ${damage} de dano recebido.`);
       } else {
         this.addLog("[INIMIGO] Ataque da sentinela não atingiu o alvo.");
       }
     }
+    advanceBarrierAfterEnemyAction(this.state);
     if (this.temporaryArmorBonus > 0) {
       player.armorClass -= this.temporaryArmorBonus;
       this.temporaryArmorBonus = 0;
@@ -269,6 +332,7 @@ export class TurnManager {
       this.state.movementPerTurn -= this.temporaryMovementBonus;
       this.temporaryMovementBonus = 0;
     }
+    advanceSpecialRound(this.state);
     this.state.movementRemaining = this.state.movementPerTurn;
     this.state.mainActionAvailable = true;
     this.state.bonusActionAvailable = true;
