@@ -344,13 +344,15 @@ export class BaixadaScene extends Phaser.Scene {
         const t = (col + 0.5) / building.width;
         const baseX = Phaser.Math.Linear(bt.x, ct.x, t);
         const baseY = Phaser.Math.Linear(bt.y, ct.y, t);
-        const windowY = baseY - 24 - row * 25;
+        // A baseY já é a linha do TELHADO (y-h). As janelas descem pela
+        // fachada até o chão, não sobem para fora do edifício.
+        const windowY = baseY + Math.min(h - 22, 20 + row * Math.max(22, (h - 36) / 2));
         g.fillStyle(0x101f29, 1);
-        g.fillRoundedRect(baseX - 7, windowY - 5, 14, 17, 2);
+        g.fillRoundedRect(baseX - 6, windowY - 5, 12, 14, 2);
         g.fillStyle(building.accent, 0.68);
-        g.fillRect(baseX - 5, windowY - 3, 10, 2);
+        g.fillRect(baseX - 4, windowY - 3, 8, 2);
         g.fillStyle(0x81ddd3, 0.22);
-        g.fillRect(baseX - 5, windowY + 1, 10, 8);
+        g.fillRect(baseX - 4, windowY + 1, 8, 6);
       }
     }
 
