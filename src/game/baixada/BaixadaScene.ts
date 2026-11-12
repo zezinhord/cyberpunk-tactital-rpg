@@ -106,6 +106,7 @@ export class BaixadaScene extends Phaser.Scene {
   private details!: Phaser.GameObjects.Graphics;
   private markers!: Phaser.GameObjects.Graphics;
   private player!: Phaser.GameObjects.Sprite;
+  private playerShadow!: Phaser.GameObjects.Ellipse;
   private playerDirection: IsoDirection = 2;
   private playerTile: Position = { ...PLAYER_START };
   private actors: WorldActor[] = [];
@@ -353,6 +354,55 @@ export class BaixadaScene extends Phaser.Scene {
       }
     }
 
+    // Acabamentos locais, sem adicionar objetos avulsos ao eixo de circulação.
+    if (building.style === "housing" || building.style === "canal") {
+      // Cobogós e reboco irregular: elementos integrados à fachada.
+      const cobogoY = Phaser.Math.Linear(bt.y, ct.y, 0.25) + 16;
+      const cobogoX = Phaser.Math.Linear(bt.x, ct.x, 0.25);
+      for (let row = 0; row < 2; row += 1) {
+        for (let col = 0; col < 3; col += 1) {
+          const px = cobogoX + col * 8;
+          const py = cobogoY + row * 9 + col * 4;
+          g.fillStyle(0x1a282b, 0.9);
+          g.fillRect(px, py, 5, 5);
+          g.lineStyle(1, 0xbba88d, 0.5);
+          g.strokeRect(px, py, 5, 5);
+        }
+      }
+    }
+    if (building.style === "clinic") {
+      // Faixa de azulejos/vidro: clínica mantida pela comunidade.
+      const left = Phaser.Math.Linear(bt.x, ct.x, 0.1);
+      const right = Phaser.Math.Linear(bt.x, ct.x, 0.9);
+      const yy = Phaser.Math.Linear(bt.y, ct.y, 0.5) + 20;
+      g.lineStyle(4, 0x9fb2a9, 0.65);
+      g.beginPath();
+      g.moveTo(left, yy);
+      g.lineTo(right, yy + 18);
+      g.strokePath();
+    }
+    if (building.style === "workshop") {
+      const shutterX = Phaser.Math.Linear(d.x, c.x, 0.74);
+      const shutterY = Phaser.Math.Linear(d.y, c.y, 0.74) - 24;
+      g.fillStyle(0x463e36, 0.88);
+      g.fillRoundedRect(shutterX - 14, shutterY - 4, 28, 23, 2);
+      for (let i = 0; i < 4; i += 1) {
+        g.lineStyle(2, 0xa68c69, 0.65);
+        g.beginPath();
+        g.moveTo(shutterX - 12, shutterY + i * 5);
+        g.lineTo(shutterX + 12, shutterY + i * 5);
+        g.strokePath();
+      }
+    }
+    if (building.style === "canal") {
+      g.lineStyle(3, 0x41565b, 0.9);
+      g.beginPath();
+      g.moveTo(d.x + 15, d.y - 9);
+      g.lineTo(d.x + 15, d.y - 54);
+      g.lineTo(d.x + 33, d.y - 54);
+      g.strokePath();
+    }
+
     // Portas e painéis de serviço na fachada lateral.
     const doorX = (d.x + c.x) / 2;
     const doorY = (d.y + c.y) / 2 - 26;
@@ -458,14 +508,14 @@ export class BaixadaScene extends Phaser.Scene {
     g.lineTo(base.x + 3, base.y - 69);
     g.lineTo(base.x + 18, base.y - 74);
     g.strokePath();
-    g.lineStyle(3, 0x00d6ce, 0.85);
+    g.lineStyle(3, 0xc99c72, 0.85);
     g.beginPath();
     g.moveTo(base.x + 8, base.y - 70);
     g.lineTo(base.x + 18, base.y - 74);
     g.strokePath();
-    g.fillStyle(0x00d6ce, 0.28);
+    g.fillStyle(0xd59c65, 0.24);
     g.fillCircle(base.x + 19, base.y - 74, 13);
-    g.fillStyle(0x7af7df, 1);
+    g.fillStyle(0xffdc9a, 1);
     g.fillRoundedRect(base.x + 13, base.y - 79, 11, 5, 2);
   }
 
@@ -567,6 +617,8 @@ export class BaixadaScene extends Phaser.Scene {
 
   private createPlayer(): void {
     const point = tileCenter(this.playerTile);
+    this.playerShadow = this.add.ellipse(point.x, point.y + 2, 22, 7, 0x071015, 0.22)
+      .setDepth(point.y - 0.04);
     const texture = PLAYER_TEXTURES[this.originId];
     this.player = this.add.sprite(point.x, point.y, texture, 12)
       .setOrigin(0.5, 0.95).setScale(0.94).setDepth(point.y + 0.32);
@@ -676,6 +728,14 @@ export class BaixadaScene extends Phaser.Scene {
       playWalk(this.player, texture, direction);
       const point = tileCenter(next);
       this.playerTile = next;
+      this.tweens.add({
+        targets: this.playerShadow,
+        x: point.x,
+        y: point.y + 2,
+        duration: 190,
+        ease: "Sine.easeInOut",
+        onUpdate: () => this.playerShadow.setDepth(this.playerShadow.y - 2.04),
+      });
       this.tweens.add({
         targets: this.player,
         x: point.x,
