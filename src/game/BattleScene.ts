@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { BOARD_HEIGHT, BOARD_WIDTH, isBlocked } from "./map";
 import { TurnManager } from "./TurnManager";
 import type { GameState, Position, Unit } from "./types";
+import type { TestAppearance } from "./test-arena/appearance";
 
 const TILE_WIDTH = 56;
 const TILE_HEIGHT = 28;
@@ -34,24 +35,44 @@ function tileCenter({ x, y }: Position): { x: number; y: number } {
 
 export class BattleScene extends Phaser.Scene {
   private readonly manager: TurnManager;
+  private readonly appearance: TestAppearance;
   private graphics!: Phaser.GameObjects.Graphics;
+  private playerImage?: Phaser.GameObjects.Image;
+  private enemyImage?: Phaser.GameObjects.Image;
+  private lastCue = 0;
   private unsubscribe?: () => void;
 
-  constructor(manager: TurnManager) {
+  constructor(manager: TurnManager, appearance: TestAppearance) {
     super({ key: "BattleScene" });
     this.manager = manager;
+    this.appearance = appearance;
+  }
+
+  preload(): void {
+    this.load.svg("arena-operative-m", "/assets/arena/operative-m.svg", { width: 128, height: 192 });
+    this.load.svg("arena-operative-f", "/assets/arena/operative-f.svg", { width: 128, height: 192 });
+    this.load.svg("arena-sentinel", "/assets/arena/sentinel.svg", { width: 128, height: 192 });
   }
 
   create(): void {
     this.cameras.main.setBackgroundColor("#0d1220");
     this.graphics = this.add.graphics();
+    this.graphics.setDepth(0);
+    this.playerImage = this.add.image(0, 0, this.appearance === "feminine" ? "arena-operative-f" : "arena-operative-m")
+      .setOrigin(0.5, 0.91).setDisplaySize(44, 66).setDepth(6);
+    this.enemyImage = this.add.image(0, 0, "arena-sentinel")
+      .setOrigin(0.5, 0.91).setDisplaySize(46, 68).setDepth(6);
+    for (const avatar of [this.playerImage, this.enemyImage]) {
+      this.tweens.add({ targets: avatar, scaleY: avatar.scaleY * 0.98, duration: 940, yoyo: true, repeat: -1 });
+    }
+    this.lastCue = this.manager.getState().cue?.sequence ?? 0;
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handleBoardTap, this);
-    this.unsubscribe = this.manager.subscribe((state) => this.drawBoard(state));
+    this.unsubscribe = this.manager.subscribe((state) => this.renderState(state));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.unsubscribe?.();
       this.input.off(Phaser.Input.Events.POINTER_DOWN, this.handleBoardTap, this);
     });
-    this.drawBoard(this.manager.getState());
+    this.renderState(this.manager.getState());
   }
 
   private handleBoardTap(pointer: Phaser.Input.Pointer): void {
@@ -64,6 +85,10 @@ export class BattleScene extends Phaser.Scene {
     const localX = Math.abs(pointer.x - center.x) / (TILE_WIDTH / 2);
     const localY = Math.abs(pointer.y - center.y) / (TILE_HEIGHT / 2);
     if (localX + localY > 1.08) return;
+    if (x === 0 && y === 6) {
+      this.manager.interactWithTerminal(x, y);
+      return;
+    }
     this.manager.movePlayerTo(x, y);
   }
 
@@ -75,6 +100,73 @@ export class BattleScene extends Phaser.Scene {
     graphics.lineTo(cx, cy + height / 2);
     graphics.lineTo(cx - width / 2, cy);
     graphics.closePath();
+  }
+
+  private renderState(state: GameState): void {
+    const player = state.units.find((unit) => unit.id === "runner");
+    const enemy = state.units.find((unit) => unit.id === "drone");
+    const moveCue = state.cue?.visual === "move" && state.cue.sequence !== this.lastCue;
+    const beforeX = this.playerImage?.x ?? 0;
+    const beforeY = this.playerImage?.y ?? 0;
+    this.drawBoard(state);
+    if (player && this.playerImage) {
+      const dest = tileCenter(player);
+      if (moveCue && beforeX > 0) {
+        this.tweens.killTweensOf(this.playerImage);
+        this.playerImage.setPosition(beforeX, beforeY);
+        this.tweens.add({
+          targets: this.playerImage, x: dest.x, y: dest.y,
+          duration: 220, ease: "Sine.Out",
+          onComplete: () => {
+            if (this.playerImage) this.tweens.add({
+              targets: this.playerImage, scaleY: this.playerImage.scaleY * 0.98,
+              duration: 940, yoyo: true, repeat: -1
+            });
+          },
+        });
+      } else {
+        this.playerImage.setPosition(dest.x, dest.y);
+      }
+      this.playerImage.setVisible(player.hp > 0);
+    }
+    if (enemy && this.enemyImage) {
+      const dest = tileCenter(enemy);
+      this.enemyImage.setPosition(dest.x, dest.y);
+      this.enemyImage.setVisible(enemy.hp > 0);
+    }
+    if (state.cue && state.cue.sequence !== this.lastCue) {
+      this.lastCue = state.cue.sequence;
+      this.showEffect(state.cue);
+    }
+  }
+
+  private showEffect(cue: NonNullable<GameState["cue"]>): void {
+    const entity = cue.target === "enemy" ? this.enemyImage : this.playerImage;
+    const base = cue.target === "terminal" ? tileCenter({ x: 0, y: 6 })
+      : cue.target === "enemy" ? this.manager.getState().units.find((u) => u.id === "drone")
+      : this.manager.getState().units.find((u) => u.id === "runner");
+    const position = base ? tileCenter(base) : { x: ORIGIN_X, y: ORIGIN_Y };
+    const color = cue.visual === "hit" && cue.target === "enemy" ? COLOR.magenta
+      : cue.visual === "terminal" || cue.visual === "shield" ? COLOR.amber : COLOR.cyan;
+    if (cue.visual !== "move") {
+      const pulse = this.add.circle(position.x, position.y - 29, 18, color, 0.14)
+        .setStrokeStyle(2, color, 0.95).setDepth(12);
+      this.tweens.add({ targets: pulse, scaleX: 2.1, scaleY: 1.8, alpha: 0,
+        duration: cue.visual === "emp" ? 540 : 380,
+        onComplete: () => pulse.destroy() });
+      if (entity && (cue.visual === "hit" || cue.visual === "emp" || cue.visual === "basic")) {
+        this.tweens.add({ targets: entity, alpha: 0.3, duration: 90, yoyo: true, repeat: 1 });
+      }
+      if (cue.amount && cue.amount > 0) {
+        const sign = cue.visual === "repair" || cue.visual === "terminal" ? "+" : "−";
+        const floating = this.add.text(position.x, position.y - 66, sign + String(cue.amount), {
+          fontFamily: "Arial", fontSize: "20px", fontStyle: "bold", color: "#f7e8d6",
+          stroke: "#09121a", strokeThickness: 4,
+        }).setOrigin(0.5).setDepth(14);
+        this.tweens.add({ targets: floating, y: floating.y - 22, alpha: 0, duration: 720,
+          onComplete: () => floating.destroy() });
+      }
+    }
   }
 
   private drawBoard(state: GameState): void {
@@ -107,6 +199,15 @@ export class BattleScene extends Phaser.Scene {
         }
       }
     }
+
+    const terminal = tileCenter({ x: 0, y: 6 });
+    graphics.fillStyle(COLOR.amber, state.terminalUsed ? 0.3 : 0.85);
+    this.traceDiamond(terminal.x, terminal.y - 8, 30, 16);
+    graphics.fillPath();
+    graphics.fillStyle(COLOR.ink, 1);
+    graphics.fillRect(terminal.x - 7, terminal.y - 21, 14, 12);
+    graphics.lineStyle(2, COLOR.amber, 0.9);
+    graphics.strokeRect(terminal.x - 7, terminal.y - 21, 14, 12);
 
     const targetable = this.manager.canAttack();
     state.units
@@ -164,13 +265,8 @@ export class BattleScene extends Phaser.Scene {
       graphics.strokePath();
     }
 
-    // Silhueta provisória: um corpo 2D simples sobre uma base isométrica.
-    graphics.fillStyle(color, 1);
-    graphics.fillRoundedRect(center.x - 8, center.y - 25, 16, 20, 4);
-    graphics.fillStyle(COLOR.ink, 1);
-    graphics.fillCircle(center.x, center.y - 30, 6);
-    graphics.fillStyle(color, 1);
-    graphics.fillRect(center.x - 3, center.y - 32, 6, 3);
+    // Os personagens agora são imagens vetoriais rasterizadas uma vez pelo loader Phaser.
+    // As bases, seleção e barras de Vida continuam desenhadas no Graphics isométrico.
 
     graphics.fillStyle(COLOR.track, 1);
     graphics.fillRoundedRect(center.x - 14, center.y - 39, 28, 4, 2);
