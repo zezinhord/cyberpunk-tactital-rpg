@@ -251,6 +251,28 @@ export class BaixadaScene extends Phaser.Scene {
     graphics.fillStyle(0x8a4e42, 0.12);
     graphics.fillEllipse(590, 360, 430, 210);
 
+    // Continuidade urbana visual, além do limite físico jogável.
+    // Não amplia o espaço navegável nem cria falsos acessos.
+    for(let y=-11;y<GRID_HEIGHT+13;y+=1){
+      for(let x=-11;x<GRID_WIDTH+13;x+=1){
+        if(isInside({x,y}))continue;
+        const point=tileCenter({x,y});
+        if(point.x < -38||point.x>BAIXADA_WIDTH+38||
+           point.y < -38||point.y>BAIXADA_HEIGHT+38)continue;
+        const industrial=isIndustrialSector({x,y});
+        const tone=(x*11+y*17)%5;
+        const palette=industrial
+          ? [0x303b3c,0x34413f,0x35413f,0x303c3b,0x333e3e]
+          : [0x34443e,0x314039,0x38453d,0x35413a,0x37473e];
+        this.polygon(graphics,this.diamond(point.x,point.y),
+          palette[(tone+5)%5] ?? 0x303b3c,1,0x73867b,0.08,0.8);
+        if((x*3+y*7)%17===0){
+          graphics.lineStyle(1,0xc09f73,0.16);graphics.beginPath();
+          graphics.moveTo(point.x-9,point.y+1);graphics.lineTo(point.x+7,point.y+1);graphics.strokePath();
+        }
+      }
+    }
+
     for (let depth = 0; depth <= GRID_WIDTH + GRID_HEIGHT - 2; depth += 1) {
       for (let y = 0; y < GRID_HEIGHT; y += 1) {
         for (let x = 0; x < GRID_WIDTH; x += 1) {
