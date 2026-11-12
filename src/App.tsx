@@ -4,7 +4,6 @@ import { TurnManager } from "./game/TurnManager";
 import type { GameState, Unit } from "./game/types";
 import {
   createPlayerCharacter,
-  deleteCharacterSave,
   getAllOrigins,
   getOriginById,
   getOriginGameplay,
@@ -186,10 +185,15 @@ export default function App() {
   }, [manager]);
 
   const handleCreate = (name: string, originId: OriginId) => {
+    const previousCharacter = loadCharacter();
     const nextCharacter = createPlayerCharacter(name, originId);
+    const saved = saveCharacter(nextCharacter);
+    if (saved && previousCharacter && previousCharacter.id !== nextCharacter.id) {
+      deleteInventory(previousCharacter.id);
+    }
     setCharacter(nextCharacter);
     setInventory(createStartingInventory(nextCharacter.id));
-    setSaveMessage(saveCharacter(nextCharacter) ? "Personagem salvo neste dispositivo" : "Não foi possível salvar neste dispositivo");
+    setSaveMessage(saved ? "Personagem salvo neste dispositivo" : "Não foi possível salvar neste dispositivo");
     setScreen("introduction");
   };
 
@@ -202,11 +206,17 @@ export default function App() {
   };
 
   const startNewCharacter = () => {
-    if (character) deleteInventory(character.id);
-    deleteCharacterSave();
+    // A criação não apaga o último save: permite voltar ao título com segurança.
     setInventory(createStartingInventory(""));
     setCharacter(null);
     setScreen("creation");
+  };
+
+  const cancelNewCharacter = () => {
+    const saved = loadCharacter();
+    setCharacter(saved);
+    setInventory(loadInventory(saved?.id ?? ""));
+    setScreen("title");
   };
 
   const handleUseMedkit = () => {
@@ -220,7 +230,7 @@ export default function App() {
     return <TitleScreen character={character} onContinue={() => setScreen(character?.introductionCompleted ? "exploration" : "introduction")} onNew={startNewCharacter} />;
   }
   if (screen === "creation") {
-    return <CreationScreen initialName="" initialOrigin="corporativo" onCreate={handleCreate} />;
+    return <CreationScreen initialName="" initialOrigin="corporativo" onCreate={handleCreate} onBackToSaved={cancelNewCharacter} />;
   }
   if (screen === "resume" && character) {
     return <ResumeScreen character={character} onContinue={() => setScreen(character.introductionCompleted ? "exploration" : "introduction")} onNew={startNewCharacter} />;
@@ -229,7 +239,7 @@ export default function App() {
     return <IntroductionScreen character={character} onContinue={finishIntroduction} />;
   }
   if (!character || !originProfile) {
-    return <CreationScreen initialName="" initialOrigin="corporativo" onCreate={handleCreate} />;
+    return <CreationScreen initialName="" initialOrigin="corporativo" onCreate={handleCreate} onBackToSaved={cancelNewCharacter} />;
   }
 
   if (screen === "exploration") {
