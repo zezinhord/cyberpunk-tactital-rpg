@@ -119,7 +119,7 @@ export class BattleScene extends Phaser.Scene {
           duration: 220, ease: "Sine.Out",
           onComplete: () => {
             if (this.playerImage) this.tweens.add({
-              targets: this.playerImage, scaleY: this.playerImage.scaleY * 0.98,
+              targets: this.playerImage, scaleY: (66 / 192) * 0.98,
               duration: 940, yoyo: true, repeat: -1
             });
           },
@@ -142,12 +142,22 @@ export class BattleScene extends Phaser.Scene {
 
   private showEffect(cue: NonNullable<GameState["cue"]>): void {
     const entity = cue.target === "enemy" ? this.enemyImage : this.playerImage;
-    const base = cue.target === "terminal" ? tileCenter({ x: 0, y: 6 })
+    const base = cue.target === "terminal" ? { x: 0, y: 6 }
       : cue.target === "enemy" ? this.manager.getState().units.find((u) => u.id === "drone")
       : this.manager.getState().units.find((u) => u.id === "runner");
     const position = base ? tileCenter(base) : { x: ORIGIN_X, y: ORIGIN_Y };
     const color = cue.visual === "hit" && cue.target === "enemy" ? COLOR.magenta
       : cue.visual === "terminal" || cue.visual === "shield" ? COLOR.amber : COLOR.cyan;
+    // O protagonista executa uma ação física; o alvo exibe impacto ou bloqueio.
+    const casting = cue.visual === "emp" || cue.visual === "shield" || cue.visual === "repair";
+    const melee = (cue.visual === "hit" || cue.visual === "miss") && cue.target === "enemy";
+    if ((casting || melee) && this.playerImage) {
+      this.tweens.add({ targets: this.playerImage, angle: melee ? -9 : 7,
+        duration: melee ? 105 : 180, yoyo: true, ease: "Sine.InOut" });
+    }
+    if (cue.visual === "hit" && cue.target === "player" && this.enemyImage) {
+      this.tweens.add({ targets: this.enemyImage, angle: -8, duration: 115, yoyo: true });
+    }
     if (cue.visual !== "move") {
       const pulse = this.add.circle(position.x, position.y - 29, 18, color, 0.14)
         .setStrokeStyle(2, color, 0.95).setDepth(12);
