@@ -145,6 +145,44 @@ try {
     sameCanvasAfterAppearanceChange: persisted, runtimeExceptions: session.exceptions,
   }, null, 2));
 
+  // QA móvel da arena: comandos devem permanecer disponíveis mesmo
+  // quando a seção de recursos e habilidades excede o viewport.
+  await evaluate('document.querySelector(".menu-trigger").click();true');
+  await poll(() => has(".character-menu-nav"), "central do protagonista reaberta");
+  await evaluate('Array.from(document.querySelectorAll(".character-menu-nav button")).find(b => b.textContent.includes("Configurações")).click();true');
+  await poll(() => evaluate('Boolean(Array.from(document.querySelectorAll(".menu-two-columns button")).find(b => b.textContent.includes("Abrir Limbo de Teste")))'), "configurações com arena");
+  await evaluate('Array.from(document.querySelectorAll(".menu-two-columns button")).find(b => b.textContent.includes("Abrir Limbo de Teste")).click();true');
+  await poll(() => has(".arena-v030 .arena-console-scroll"), "arena tática");
+  await sleep(500);
+  const arenaLayout = await evaluate(`(() => {
+    const area=document.querySelector(".arena-console");
+    const scroll=document.querySelector(".arena-console-scroll");
+    const dock=area?.querySelector(".control-sheet");
+    const attack=dock?.querySelector(".attack-button");
+    const turn=dock?.querySelector(".end-turn-button");
+    const abilities=scroll?.querySelector(".arena-specials");
+    if(!area||!scroll||!dock||!attack||!turn||!abilities)return {error:"Elemento da arena ausente"};
+    const outer=area.getBoundingClientRect(), d=dock.getBoundingClientRect();
+    const a=attack.getBoundingClientRect(), t=turn.getBoundingClientRect();
+    return {outer:{top:outer.top,bottom:outer.bottom}, dock:{top:d.top,bottom:d.bottom,height:d.height},
+      attack:{top:a.top,bottom:a.bottom,height:a.height},turn:{top:t.top,bottom:t.bottom,height:t.height},
+      scrollClient:scroll.clientHeight,scrollContent:scroll.scrollHeight,
+      topResourcesVisible:abilities.getBoundingClientRect().top>=scroll.getBoundingClientRect().top,
+      windowHeight:innerHeight};
+  })()`);
+  if (arenaLayout.error || arenaLayout.dock.top < arenaLayout.outer.top - 3 ||
+      arenaLayout.dock.bottom > arenaLayout.outer.bottom + 3 ||
+      arenaLayout.attack.bottom > arenaLayout.windowHeight - 2 ||
+      arenaLayout.turn.bottom > arenaLayout.windowHeight - 2 ||
+      arenaLayout.attack.height < 44 || arenaLayout.turn.height < 44) {
+    throw new Error("Painel fixo não está inteiramente utilizável: " + JSON.stringify(arenaLayout));
+  }
+  const arenaShot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  const arenaPng = Buffer.from(arenaShot.data,"base64");
+  await writeFile("qa/arena-comandos-fixos-1600x720.png", arenaPng);
+  await writeFile("qa/arena-comandos-metricas.json",JSON.stringify(arenaLayout,null,2));
+  console.log("QA arena: comandos sempre visíveis:",JSON.stringify(arenaLayout));
+
   console.log("QA visual: capturas masculina/feminina; canvas preservado após alternância.");
   console.log("Viewport: " + JSON.stringify(metrics) + ", PNG: " + bytes.length + " bytes");
   if (session.exceptions.length) {
