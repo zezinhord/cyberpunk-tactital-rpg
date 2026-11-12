@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="192" viewBox="0 0 128 192">
+<defs>
+ <linearGradient id="jacket" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#51646d"/><stop offset=".53" stop-color="#253a46"/><stop offset="1" stop-color="#182832"/></linearGradient>
+ <linearGradient id="pants" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#3a4c56"/><stop offset="1" stop-color="#1a2630"/></linearGradient>
+ <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7b9292"/><stop offset="1" stop-color="#2c414b"/></linearGradient>
+ <radialGradient id="skin" cx=".35" cy=".25" r=".8"><stop stop-color="#d3a484"/><stop offset="1" stop-color="#9d695a"/></radialGradient>
+</defs>
+<ellipse cx="65" cy="182" rx="35" ry="7" fill="#02080d" opacity=".38"/>
+<path d="M48 111 L46 158 L42 172 L60 175 L68 121Z" fill="url(#pants)" stroke="#101a23" stroke-width="4"/>
+<path d="M70 114 L76 157 L78 173 L95 171 L90 110Z" fill="url(#pants)" stroke="#101a23" stroke-width="4"/>
+<path d="M39 165 L61 165 L60 179 L35 180Q31 173 39 165Z" fill="#141e26" stroke="#10161d" stroke-width="3"/>
+<path d="M77 166 L96 163 L100 177 L78 180Z" fill="#141e26" stroke="#10161d" stroke-width="3"/>
+<path d="M45 149 L58 149M79 151 L91 148" stroke="#6a818a" stroke-width="3"/>
+<!-- layered jacket and asymmetrical shoulder plates -->
+<path d="M28 81 Q41 70 45 69 L75 66 Q91 70 101 85 L91 122 L43 124Z" fill="url(#jacket)" stroke="#0c1820" stroke-width="5"/>
+<path d="M35 82 L28 119 L39 128 L49 101L47 83" fill="#344c57" stroke="#0f1d26" stroke-width="4"/>
+<path d="M93 79 L104 110 L97 130 L86 124 L85 88" fill="#243a43" stroke="#0e1922" stroke-width="4"/>
+<path d="M35 113L25 126 L32 135 L42 125Z" fill="#a37660" stroke="#18242a" stroke-width="3"/>
+<path d="M99 117L106 128 L100 136L89 128Z" fill="#b88c76" stroke="#18242a" stroke-width="3"/>
+<path d="M51 74 L66 88 L79 69 L86 92 L82 122 L51 121 L45 90Z" fill="#172a32" stroke="#0d1c22" stroke-width="3"/>
+<path d="M65 87 L64 117" stroke="#00c9df" stroke-width="4" opacity=".83"/>
+<path d="M47 82 L34 80 L29 92 L43 97 L55 86Z" fill="url(#plate)" stroke="#182a33" stroke-width="4"/>
+<path d="M80 77 L98 78 L100 95L86 98L75 88Z" fill="url(#plate)" stroke="#17252b" stroke-width="4"/>
+<path d="M31 86L43 90 M86 88 L98 86" stroke="#d8b16f" stroke-width="2"/>
+<!-- armored belt & holster -->
+<path d="M43 120 L91 118 L90 130 L46 132Z" fill="#19262e" stroke="#0f1c23" stroke-width="3"/>
+<rect x="61" y="120" width="13" height="10" rx="2" fill="#7a9898" stroke="#09202b" stroke-width="2"/>
+<path d="M94 124L101 137 L94 148L85 132Z" fill="#253640" stroke="#0e1c26" stroke-width="3"/>
+<!-- head/neck -->
+<path d="M59 65 L60 75 Q66 82 74 73 L73 60" fill="url(#skin)" stroke="#15232b" stroke-width="3"/>
+<path d="M46 40 Q50 20 67 21 Q85 21 87 39 L84 57 Q76 69 67 69 Q51 67 47 56Z" fill="url(#skin)" stroke="#16232c" stroke-width="4"/>
+<path d="M48 42 L48 28 Q62 15 79 24 L86 39 L82 44 L74 35 L54 41Z" fill="#202a30" stroke="#0b1118" stroke-width="4"/>
+<path d="M50 32 Q66 22 79 29" fill="none" stroke="#5b6268" stroke-width="3"/>
+<path d="M54 47L63 46 M72 45L80 46" stroke="#2d3130" stroke-width="3"/>
+<path d="M66 49 L64 57 L69 56" stroke="#875c51" stroke-width="2" fill="none"/>
+<path d="M54 55 L69 65 L80 54" fill="none" stroke="#805846" stroke-width="2"/>
+<!-- asymmetric cybernetic eye and ear -->
+<path d="M75 44 L84 45 L85 52 L76 53Z" fill="#193c49" stroke="#1f6670" stroke-width="2"/>
+<path d="M77 48 H83" stroke="#00e5ff" stroke-width="2"/>
+<circle cx="87" cy="53" r="4" fill="#243944" stroke="#00c8d2" stroke-width="2"/>
+<path d="M85 57L91 68 L92 79" fill="none" stroke="#63a7ab" stroke-width="3"/>
+<!-- arm glow bracelets and controlled technology accents -->
+<path d="M28 117 L39 123 M94 116 L103 122" stroke="#00d5e8" stroke-width="3"/>
+<path d="M54 98L58 101L54 105L50 101Z" fill="#d9b276"/>
+</svg>
