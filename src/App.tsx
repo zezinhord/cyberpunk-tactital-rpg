@@ -14,6 +14,7 @@ import {
 } from "./game/character";
 import type { OriginId, PlayerCharacter } from "./game/character";
 import ExplorationScreen from "./screens/ExplorationScreen";
+import TitleScreen from "./screens/TitleScreen";
 
 function getUnit(state: GameState, id: string): Unit | undefined {
   return state.units.find((unit) => unit.id === id);
@@ -157,7 +158,7 @@ function IntroductionScreen({ character, onContinue }: { character: PlayerCharac
 
 export default function App() {
   const [character, setCharacter] = useState<PlayerCharacter | null>(() => loadCharacter());
-  const [screen, setScreen] = useState<"creation" | "resume" | "introduction" | "exploration" | "battle">(() => loadCharacter() ? "resume" : "creation");
+  const [screen, setScreen] = useState<"title" | "creation" | "resume" | "introduction" | "exploration" | "battle">("title");
   const [battleReset, setBattleReset] = useState(0);
   const [saveMessage, setSaveMessage] = useState("Salvamento local ativo");
 
@@ -195,6 +196,9 @@ export default function App() {
     setScreen("creation");
   };
 
+  if (screen === "title") {
+    return <TitleScreen character={character} onContinue={() => setScreen(character?.introductionCompleted ? "exploration" : "introduction")} onNew={startNewCharacter} />;
+  }
   if (screen === "creation") {
     return <CreationScreen initialName="" initialOrigin="corporativo" onCreate={handleCreate} />;
   }
@@ -213,6 +217,7 @@ export default function App() {
       <ExplorationScreen
         character={character}
         onOpenBattle={() => setScreen("battle")}
+        onReturnToTitle={() => setScreen("title")}
       />
     );
   }

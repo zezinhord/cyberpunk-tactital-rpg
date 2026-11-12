@@ -13,6 +13,7 @@ interface DialogueState { pages: DialoguePage[]; index: number }
 interface Props {
   character: PlayerCharacter;
   onOpenBattle: () => void;
+  onReturnToTitle: () => void;
 }
 
 const MISSION_KEY = "cyberpunk-tactical-rpg.mission.v1.";
@@ -62,12 +63,14 @@ function saveMission(characterId: string, progress: MissionProgress): void {
 export default function ExplorationScreen({
   character,
   onOpenBattle,
+  onReturnToTitle,
 }: Props) {
   const origin = getOriginById(character.originId);
   const [mission, setMission] = useState<MissionProgress>(() => readMission(character.id));
   const [interior, setInterior] = useState<InteriorId | null>(null);
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
+  const [missionOpen, setMissionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -365,7 +368,10 @@ export default function ExplorationScreen({
         )}
       </section>
 
-      <section className="mission-card" aria-label="Missão atual">
+      <button type="button" className="na-objective-toggle" onClick={() => setMissionOpen((value) => !value)} aria-expanded={missionOpen}>
+        <span>◈ {mission.step === 3 ? "MISSÃO CONCLUÍDA" : "OBJETIVO ATUAL"}</span><span aria-hidden="true">{missionOpen ? "−" : "+"}</span>
+      </button>
+      {missionOpen && <section className="mission-card" aria-label="Missão atual">
         <div className="mission-card-top">
           <div>
             <span className="eyebrow">MISSÃO PRINCIPAL · BAIXADA</span>
@@ -412,7 +418,7 @@ export default function ExplorationScreen({
                 ))}
           </div>
         )}
-      </section>
+      </section>}
 
       <div className="exploration-footer-actions single-action">
         <button type="button" className="explore-secondary" onClick={onOpenBattle}>
@@ -434,6 +440,8 @@ export default function ExplorationScreen({
           sceneTitle={sceneTitle}
           sceneSubtitle={sceneSubtitle}
           onClose={() => setMenuOpen(false)}
+          onReturnToTitle={onReturnToTitle}
+          onOpenTestArena={onOpenBattle}
         />
       )}
 

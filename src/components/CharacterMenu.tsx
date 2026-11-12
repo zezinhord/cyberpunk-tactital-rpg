@@ -19,6 +19,8 @@ interface Props {
   sceneTitle: string;
   sceneSubtitle: string;
   onClose: () => void;
+  onReturnToTitle: () => void;
+  onOpenTestArena: () => void;
 }
 
 const MENU_ITEMS: ReadonlyArray<{ id: MenuSection; code: string; label: string; description: string }> = [
@@ -74,6 +76,8 @@ export default function CharacterMenu({
   sceneTitle,
   sceneSubtitle,
   onClose,
+  onReturnToTitle,
+  onOpenTestArena,
 }: Props) {
   const [activeSection, setActiveSection] = useState<MenuSection>("character");
   const activeItem = MENU_ITEMS.find((item) => item.id === activeSection)!;
@@ -277,6 +281,10 @@ export default function CharacterMenu({
 
             {activeSection === "settings" && (
               <div className="menu-section-stack">
+                <div className="menu-two-columns">
+                  <button type="button" className="menu-close-button" onClick={onReturnToTitle}>← Voltar ao menu inicial</button>
+                  <button type="button" className="menu-close-button" onClick={onOpenTestArena}>Abrir Limbo de Teste</button>
+                </div>
                 <section className="menu-settings-grid">
                   <DataCard label="ORIENTAÇÃO" value="Horizontal" detail="Paisagem obrigatória nesta versão" />
                   <DataCard label="MOVIMENTAÇÃO" value="Toque no cenário" detail="Deslocamento por navegação automática" />
