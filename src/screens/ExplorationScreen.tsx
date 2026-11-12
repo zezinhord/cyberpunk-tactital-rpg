@@ -100,7 +100,7 @@ export default function ExplorationScreen({
 
   const say = (pages: DialoguePage[]) => setDialogue({ pages, index: 0 });
   const v09=readV09(character.id);
-  const objective = mission.step<3 ? (OBJECTIVES[mission.step] ?? OBJECTIVES[0])
+  const objective = mission.step<3 ? ((OBJECTIVES as readonly string[])[mission.step] ?? OBJECTIVES[0])
     : v09.reported ? "O Pátio voltou a operar. Procure a próxima pista sobre o destino da pessoa desaparecida."
     : v09.defeated ? "Retorne a Lia para entregar os registros recuperados da unidade V-09."
     : mission.clues.includes("patio") ? "Confronte a unidade de vigilância V-09 junto ao console do Pátio."
