@@ -7,6 +7,7 @@ import { TurnManager } from "./game/TurnManager";
 import type { GameState, Unit } from "./game/types";
 import {
   createPlayerCharacter,
+  assignCharacterClass,
   getAllOrigins,
   getOriginById,
   getOriginGameplay,
@@ -23,6 +24,8 @@ import {
 } from "./game/inventory";
 import type { ItemId, InventoryState } from "./game/inventory";
 import { getPlayerSpriteUrl } from "./game/baixada/sprites";
+import ClassSelection from "./components/ClassSelection";
+import {getClassById,type ClassId} from "./game/classes/registry";
 import { audioDirector } from "./audio/director";
 import { markV09Defeated } from "./game/story/v09";
 
@@ -67,15 +70,16 @@ function CreationScreen({
 }: {
   initialName: string;
   initialOrigin: OriginId;
-  onCreate: (name: string, originId: OriginId, appearance: TestAppearance) => void;
+  onCreate: (name: string, originId: OriginId, appearance: TestAppearance, classId: ClassId) => void;
   onBackToSaved?: () => void;
 }) {
   const [name, setName] = useState(initialName);
   const [originId, setOriginId] = useState<OriginId>(initialOrigin);
   const [presentation, setPresentation] = useState<TestAppearance>("masculine");
+  const [classId,setClassId]=useState<ClassId|null>(null);
   const selected = getOriginById(originId);
   const profile = getOriginGameplay(originId);
-  const canCreate = name.trim().length >= 2;
+  const canCreate = name.trim().length >= 2 && classId !== null;
 
   return (
     <main className="app-shell creation-shell">
@@ -120,6 +124,8 @@ function CreationScreen({
           </div>
         </section>
 
+        <ClassSelection value={classId} onChange={setClassId} />
+
         <article className="origin-detail">
           <div className="detail-topline"><span>ORIGEM SELECIONADA</span><span>LOCAL DE INÍCIO</span></div>
           <h2>{selected.name}</h2>
@@ -132,8 +138,8 @@ function CreationScreen({
           </div>
         </article>
 
-        <button className="primary-button" type="button" disabled={!canCreate} onClick={() => onCreate(name, originId, presentation)}>Criar protagonista <span>→</span></button>
-        {!canCreate && <p className="validation-note">O nome precisa ter pelo menos 2 caracteres.</p>}
+        <button className="primary-button" type="button" disabled={!canCreate} onClick={() => {if(classId)onCreate(name, originId, presentation, classId);}}>Criar protagonista <span>→</span></button>
+        {!canCreate && <p className="validation-note">Informe um nome com pelo menos 2 caracteres e selecione uma das 11 classes.</p>}
         {onBackToSaved && <button className="text-button" type="button" onClick={onBackToSaved}>Voltar ao menu inicial</button>}
       </section>
       <footer className="screen-footer">Protótipo de desenvolvimento · Os efeitos e valores ainda podem ser balanceados.</footer>
@@ -151,7 +157,7 @@ function ResumeScreen({ character, onContinue, onNew }: { character: PlayerChara
       <article className="saved-card">
         <span className="saved-label">PROTAGONISTA SALVO</span>
         <h2>{character.name}</h2>
-        <p>{origin.name}</p>
+        <p>{origin.name} · {character.classId?getClassById(character.classId).name:"Classe ainda não definida"}</p>
         <div className="saved-meta"><span>Nível {character.level}</span><span>{origin.startingLocation.areaName}</span></div>
         <p className="saved-status">Salvo neste dispositivo · {new Date(character.updatedAt).toLocaleString("pt-BR")}</p>
       </article>
@@ -230,9 +236,17 @@ export default function App() {
     }
   },[screen,character,state]);
 
-  const handleCreate = (name: string, originId: OriginId, presentation: TestAppearance) => {
+  const assignExistingClass=(classId:ClassId)=>{
+    if(!character || character.classId)return;
+    const updated=assignCharacterClass(character,classId);
+    if(updated===character)return;
+    setCharacter(updated);
+    setSaveMessage(saveCharacter(updated)?"Classe registrada no salvamento local":"Não foi possível salvar a classe");
+  };
+
+  const handleCreate = (name: string, originId: OriginId, presentation: TestAppearance, classId:ClassId) => {
     const previousCharacter = loadCharacter();
-    const nextCharacter = createPlayerCharacter(name, originId);
+    const nextCharacter = createPlayerCharacter(name, originId, classId);
     const saved = saveCharacter(nextCharacter);
     if (saved && previousCharacter && previousCharacter.id !== nextCharacter.id) {
       deleteInventory(previousCharacter.id);
@@ -297,6 +311,7 @@ export default function App() {
         character={character}
         appearance={appearance}
         onChangeAppearance={chooseAppearance}
+        onChooseClass={assignExistingClass}
         onOpenBattle={beginBattle}
         onReturnToTitle={() => setScreen("title")}
         inventory={inventory}
@@ -323,7 +338,7 @@ export default function App() {
       </header>
       <section className="arena-field" aria-label="Arena e visualização de personagens">
         <div className="arena-presentation">
-          <strong>{character.name} · {origin.name}</strong>
+          <strong>{character.name} · {origin.name} · {character.classId?getClassById(character.classId).name:"Sem classe"}</strong>
           <div className="arena-appearance-group" role="group" aria-label="Apresentação visual do Operativo de Campo">
             <button type="button" aria-pressed={appearance === "masculine"} onClick={() => chooseAppearance("masculine")}>Masculina</button>
             <button type="button" aria-pressed={appearance === "feminine"} onClick={() => chooseAppearance("feminine")}>Feminina</button>
