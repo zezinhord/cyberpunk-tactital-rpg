@@ -85,7 +85,7 @@
  * rolagem do topo nem modificar o painel inferior de comandos touch. */
 .arena-v030 .arena-class-group{display:flex;flex-direction:column;gap:5px}
 .arena-v030 .arena-class-kicker{font:700 10px var(--mono);letter-spacing:.09em;color:#dbbe88;padding:3px 4px}
-.arena-v030 .arena-class-group .arena-specials{margin:0}
+.arena-v030 .arena-class-group .arena-specials{margin:0;display:grid;grid-template-columns:minmax(0,1fr)}
 .arena-v030 .arena-special.class-exclusive{border-color:#d7a260;background:linear-gradient(125deg,#26353d,#302c29);min-height:102px;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
 .arena-v030 .arena-special.class-exclusive.ready{box-shadow:inset 2px 0 #e6b773}
 .arena-v030 .arena-class-description{font-size:11px;line-height:1.3;color:#d5d2ca;text-align:left;white-space:normal}
