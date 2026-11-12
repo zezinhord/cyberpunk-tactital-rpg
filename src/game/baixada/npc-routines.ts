@@ -11,9 +11,11 @@ export interface CitizenStep { tile: Tile; state: CitizenState; moved: boolean }
  */
 export class CitizenRoutine {
   state: CitizenState = "idle";
+  readonly definition: CitizenDefinition;
   private waypointIndex=0;
   private pauseRemaining: number;
-  constructor(public readonly definition: CitizenDefinition) {
+  constructor(definition: CitizenDefinition) {
+    this.definition=definition;
     if(definition.route.length<2)throw new Error("Rota requer pelo menos dois destinos.");
     this.pauseRemaining=definition.pauseTicks;
   }
