@@ -33,6 +33,14 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Preparar gerador de personagens
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar recursos de geração gráfica
+        run: python -m pip install -r tools/requirements-characters.txt
+
       - name: Instalar dependencias
         run: npm install
 
@@ -44,6 +52,9 @@ jobs:
 
       - name: Compilar aplicacao
         run: npm run build
+
+      - name: Verificar os 12 spritesheets direcionais
+        run: node scripts/test-character-sheets.mjs
 
       - name: Capturar screenshot real da Baixada em Chromium
         if: github.event_name == 'push'
