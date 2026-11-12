@@ -1,0 +1,10 @@
+/* Apresentação corporal estética, preservando mecânica de origem/classe. */
+.creation-body-options { padding:12px 14px; border:1px solid rgba(143,163,199,.24); border-radius:8px; background:#131f24; }
+.creation-body-choices { display:flex; gap:12px; margin-top:8px; flex-wrap:wrap; }
+.creation-body-choices button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; min-width:110px; min-height:122px; border:1px solid #526970; border-radius:7px; background:#17272c; color:#d8e6de; }
+.creation-body-choices button[aria-pressed="true"],.character-body-selection button[aria-pressed="true"] { border-color:#00e5ff; box-shadow:0 0 0 1px #00e5ff inset; color:#bbf5ff; background:#15333b; }
+.creation-sprite-preview { display:block; width:64px; height:80px; background-size:768px 320px; background-repeat:no-repeat; }
+.creation-body-choices strong { font:600 12px var(--display); }
+.menu-character-avatar.sprite-preview { height:70px; width:56px; min-width:56px; border-radius:6px; background-color:#1c3038; background-repeat:no-repeat; }
+.character-body-selection { display:flex; flex-wrap:wrap; gap:7px; margin:7px 0 9px; }
+.character-body-selection button { min-height:48px; min-width:94px; padding:7px 12px; background:#1a282c; border:1px solid #51676b; color:#dce5e0; border-radius:6px; font:600 12px var(--display); }

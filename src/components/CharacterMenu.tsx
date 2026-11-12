@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { OriginGameplayProfile, PlayerCharacter } from "../game/character";
 import { ITEM_CATALOG, ITEM_IDS } from "../game/inventory";
 import type { InventoryState, ItemId } from "../game/inventory";
+import type { TestAppearance } from "../game/test-arena/appearance";
+import { getPlayerSpriteUrl } from "../game/baixada/sprites";
 
 type MenuSection = "character" | "inventory" | "equipment" | "abilities" | "map" | "journal" | "settings";
 
@@ -12,6 +14,8 @@ interface JournalClue {
 
 interface Props {
   character: PlayerCharacter;
+  appearance: TestAppearance;
+  onChangeAppearance: (appearance: TestAppearance) => void;
   originName: string;
   originDescription: string;
   originProfile: OriginGameplayProfile;
@@ -71,6 +75,8 @@ function DataCard({ label, value, detail }: { label: string; value: string; deta
 
 export default function CharacterMenu({
   character,
+  appearance,
+  onChangeAppearance,
   originName,
   originDescription,
   originProfile,
@@ -150,7 +156,10 @@ export default function CharacterMenu({
             {activeSection === "character" && (
               <div className="menu-section-stack">
                 <section className="menu-character-hero">
-                  <div className="menu-character-avatar" aria-hidden="true">{character.name.slice(0, 1).toUpperCase()}</div>
+                  <div className="menu-character-avatar sprite-preview" aria-hidden="true" style={{
+                    backgroundImage: `url("${getPlayerSpriteUrl(character.originId, appearance)}")`,
+                    backgroundSize: "672px 280px", backgroundPosition: "0px -210px",
+                  }} />
                   <div className="menu-character-identity">
                     <span>IDENTIDADE CONFIRMADA</span>
                     <h4>{character.name}</h4>
@@ -159,6 +168,16 @@ export default function CharacterMenu({
                   <div className="menu-level-block"><strong>{String(character.level).padStart(2, "0")}</strong><span>NÍVEL</span></div>
                 </section>
 
+                <section className="menu-info-panel">
+                  <span className="menu-panel-kicker">APRESENTAÇÃO CORPORAL · SEM ALTERAÇÕES MECÂNICAS</span>
+                  <div className="character-body-selection" role="group" aria-label="Apresentação visual do protagonista">
+                    <button type="button" aria-pressed={appearance === "masculine"}
+                      onClick={() => onChangeAppearance("masculine")}>Masculina</button>
+                    <button type="button" aria-pressed={appearance === "feminine"}
+                      onClick={() => onChangeAppearance("feminine")}>Feminina</button>
+                  </div>
+                  <p>Troca apenas o sprite na Baixada e interiores. Atributos, equipamentos e habilidades são idênticos.</p>
+                </section>
                 <div className="menu-data-grid">
                   <DataCard label="ORIGEM" value={originName} detail="Histórico de nascimento e contatos" />
                   <DataCard label="CLASSE" value={character.classId ?? "Não definida"} detail="Escolha de classe ainda não integrada" />

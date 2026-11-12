@@ -6,6 +6,7 @@ import CharacterMenu from "../components/CharacterMenu";
 import type { InventoryState, ItemId } from "../game/inventory";
 import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
+import type { TestAppearance } from "../game/test-arena/appearance";
 
 type MissionStep = 0 | 1 | 2 | 3;
 interface MissionProgress { step: MissionStep; clues: string[] }
@@ -13,6 +14,8 @@ interface DialoguePage { speaker: string; role: string; portrait: string; text: 
 interface DialogueState { pages: DialoguePage[]; index: number }
 interface Props {
   character: PlayerCharacter;
+  appearance: TestAppearance;
+  onChangeAppearance: (appearance: TestAppearance) => void;
   onOpenBattle: () => void;
   onReturnToTitle: () => void;
   inventory: InventoryState;
@@ -66,6 +69,8 @@ function saveMission(characterId: string, progress: MissionProgress): void {
 
 export default function ExplorationScreen({
   character,
+  appearance,
+  onChangeAppearance,
   onOpenBattle,
   onReturnToTitle,
   inventory,
@@ -356,10 +361,11 @@ export default function ExplorationScreen({
           <InteriorWorld
             interior={interior}
             originId={character.originId}
+            appearance={appearance}
             onInteract={handleInteract}
           />
         ) : (
-          <BaixadaWorld originId={character.originId} onInteract={handleInteract} />
+          <BaixadaWorld originId={character.originId} appearance={appearance} onInteract={handleInteract} />
         )}
         <div className="world-instructions">
           <span className="instruction-glyph">⌖</span>
@@ -437,6 +443,8 @@ export default function ExplorationScreen({
       {menuOpen && (
         <CharacterMenu
           character={character}
+          appearance={appearance}
+          onChangeAppearance={onChangeAppearance}
           originName={origin.name}
           originDescription={origin.description}
           originProfile={getOriginGameplay(character.originId)}

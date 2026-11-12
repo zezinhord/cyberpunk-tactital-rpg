@@ -22,6 +22,7 @@ import {
   toggleEquipment, consumeItem, getEquipmentBonuses, grantItem, ITEM_CATALOG,
 } from "./game/inventory";
 import type { ItemId, InventoryState } from "./game/inventory";
+import { getPlayerSpriteUrl } from "./game/baixada/sprites";
 
 function getUnit(state: GameState, id: string): Unit | undefined {
   return state.units.find((unit) => unit.id === id);
@@ -64,11 +65,12 @@ function CreationScreen({
 }: {
   initialName: string;
   initialOrigin: OriginId;
-  onCreate: (name: string, originId: OriginId) => void;
+  onCreate: (name: string, originId: OriginId, appearance: TestAppearance) => void;
   onBackToSaved?: () => void;
 }) {
   const [name, setName] = useState(initialName);
   const [originId, setOriginId] = useState<OriginId>(initialOrigin);
+  const [presentation, setPresentation] = useState<TestAppearance>("masculine");
   const selected = getOriginById(originId);
   const profile = getOriginGameplay(originId);
   const canCreate = name.trim().length >= 2;
@@ -100,6 +102,22 @@ function CreationScreen({
           ))}
         </div>
 
+        <section className="creation-body-options" aria-label="Apresentação corporal, apenas visual">
+          <span className="eyebrow">APRESENTAÇÃO CORPORAL · MESMAS CAPACIDADES</span>
+          <div className="creation-body-choices" role="group" aria-label="Escolha a apresentação visual">
+            {(["masculine", "feminine"] as const).map((choice) => (
+              <button type="button" key={choice} aria-pressed={presentation === choice}
+                onClick={() => setPresentation(choice)}>
+                <span className="creation-sprite-preview" aria-hidden="true" style={{
+                  backgroundImage: `url("${getPlayerSpriteUrl(originId, choice)}")`,
+                  backgroundPosition: "0px -240px",
+                }} />
+                <strong>{choice === "masculine" ? "Masculina" : "Feminina"}</strong>
+              </button>
+            ))}
+          </div>
+        </section>
+
         <article className="origin-detail">
           <div className="detail-topline"><span>ORIGEM SELECIONADA</span><span>LOCAL DE INÍCIO</span></div>
           <h2>{selected.name}</h2>
@@ -112,7 +130,7 @@ function CreationScreen({
           </div>
         </article>
 
-        <button className="primary-button" type="button" disabled={!canCreate} onClick={() => onCreate(name, originId)}>Criar protagonista <span>→</span></button>
+        <button className="primary-button" type="button" disabled={!canCreate} onClick={() => onCreate(name, originId, presentation)}>Criar protagonista <span>→</span></button>
         {!canCreate && <p className="validation-note">O nome precisa ter pelo menos 2 caracteres.</p>}
         {onBackToSaved && <button className="text-button" type="button" onClick={onBackToSaved}>Voltar ao menu inicial</button>}
       </section>
@@ -192,7 +210,7 @@ export default function App() {
     return manager.subscribe(setState);
   }, [manager]);
 
-  const handleCreate = (name: string, originId: OriginId) => {
+  const handleCreate = (name: string, originId: OriginId, presentation: TestAppearance) => {
     const previousCharacter = loadCharacter();
     const nextCharacter = createPlayerCharacter(name, originId);
     const saved = saveCharacter(nextCharacter);
@@ -200,7 +218,8 @@ export default function App() {
       deleteInventory(previousCharacter.id);
     }
     setCharacter(nextCharacter);
-    setAppearance("masculine");
+    setAppearance(presentation);
+    saveTestAppearance(nextCharacter.id, presentation);
     setInventory(createStartingInventory(nextCharacter.id));
     setSaveMessage(saved ? "Personagem salvo neste dispositivo" : "Não foi possível salvar neste dispositivo");
     setScreen("introduction");
@@ -256,6 +275,8 @@ export default function App() {
     return (
       <ExplorationScreen
         character={character}
+        appearance={appearance}
+        onChangeAppearance={chooseAppearance}
         onOpenBattle={() => setScreen("battle")}
         onReturnToTitle={() => setScreen("title")}
         inventory={inventory}
