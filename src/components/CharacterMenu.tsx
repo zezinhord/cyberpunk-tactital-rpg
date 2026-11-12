@@ -52,18 +52,6 @@ const DISTRICTS = [
   { name: "Periferia externa", status: "PLANEJADO", current: false },
 ];
 
-function EmptyState({ code, title, description }: { code: string; title: string; description: string }) {
-  return (
-    <section className="menu-empty-state">
-      <span className="menu-empty-code">{code}</span>
-      <div className="menu-empty-glyph" aria-hidden="true">＋</div>
-      <h3>{title}</h3>
-      <p>{description}</p>
-      <span className="menu-development-label">SISTEMA AINDA NÃO IMPLEMENTADO</span>
-    </section>
-  );
-}
-
 function DataCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
   return (
     <article className="menu-data-card">
