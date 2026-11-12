@@ -75,7 +75,19 @@ jobs:
       - name: Capturar screenshot real da Baixada em Chromium
         if: github.event_name == 'push'
         continue-on-error: true
-        run: node scripts/capture-baixada-visual.mjs
+        run: |
+          # O Chromium do runner pode encerrar antes de abrir a porta CDP.
+          # Repetir o processo inteiro preserva a validação funcional e coleta
+          # exceções reais caso a falha seja de aplicativo, não de startup.
+          for attempt in 1 2 3; do
+            echo "QA visual: tentativa $attempt/3"
+            if node scripts/capture-baixada-visual.mjs; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "QA visual indisponível após três tentativas"
+          exit 1
 
       - name: Publicar captura visual da Baixada
         if: always() && github.event_name == 'push'
