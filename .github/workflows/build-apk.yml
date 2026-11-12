@@ -31,6 +31,12 @@ jobs:
           apt-get install -y python3 >/dev/null
       - name: Gerar icones e audio originais
         run: python3 tools/gen_assets.py
+      - name: Disponibilizar templates e configuracao Android ao runner
+        run: |
+          mkdir -p "$HOME/.local/share/godot" "$HOME/.config/godot"
+          ln -s /root/.local/share/godot/export_templates "$HOME/.local/share/godot/export_templates"
+          cp /root/.config/godot/editor_settings-4.4.tres "$HOME/.config/godot/editor_settings-4.4.tres"
+          test -f "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk"
       - name: Importar os recursos Godot
         run: godot --headless --editor --path . --quit
       - name: Exportar APK instalavel (debug)
