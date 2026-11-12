@@ -10,7 +10,7 @@
 - Código e documentação do modo imersivo Android integrados à geração via GitHub Actions.
 
 ## Proteção de dados
-O save antigo (personagem e missão) não é alterado. Um único slot local é exibido; múltiplos slots não são prometidos. Novo Jogo exige confirmação antes de substituir o registro existente.
+O save antigo (personagem e missão) não é alterado. Um único slot local é exibido; múltiplos slots não são prometidos. Novo Jogo exige confirmação; o registro antigo permanece salvo durante a criação e só é substituído depois que o novo protagonista é criado e salvo.
 
 ## Verificação esperada no aparelho
 1. Instalar APK e abrir: menu inicial paisagem, barras do sistema ocultas.

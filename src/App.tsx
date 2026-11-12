@@ -112,7 +112,7 @@ function CreationScreen({
 
         <button className="primary-button" type="button" disabled={!canCreate} onClick={() => onCreate(name, originId)}>Criar protagonista <span>→</span></button>
         {!canCreate && <p className="validation-note">O nome precisa ter pelo menos 2 caracteres.</p>}
-        {onBackToSaved && <button className="text-button" type="button" onClick={onBackToSaved}>Voltar ao personagem salvo</button>}
+        {onBackToSaved && <button className="text-button" type="button" onClick={onBackToSaved}>Voltar ao menu inicial</button>}
       </section>
       <footer className="screen-footer">Protótipo de desenvolvimento · Os efeitos e valores ainda podem ser balanceados.</footer>
     </main>

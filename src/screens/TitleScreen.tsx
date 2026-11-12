@@ -81,7 +81,7 @@ export default function TitleScreen({ character, onContinue, onNew }: Props) {
             {panel === "confirm" && (
               <>
                 <h2 id="na-title-dialog-title">Iniciar nova história?</h2>
-                <p>O personagem salvo atualmente será substituído quando você confirmar a criação de um novo protagonista. O progresso anterior não poderá ser retomado.</p>
+                <p>Seu protagonista atual continuará salvo até você terminar a criação do novo personagem. Ao criar e salvar o novo, o registro anterior será substituído.</p>
                 <div className="na-modal-actions">
                   <button type="button" className="na-modal-secondary" onClick={() => setPanel("none")}>Cancelar</button>
                   <button type="button" className="na-modal-primary" onClick={onNew}>Criar novo protagonista</button>
