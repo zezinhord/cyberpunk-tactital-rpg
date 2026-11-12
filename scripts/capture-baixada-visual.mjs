@@ -105,8 +105,26 @@ try {
   await poll(() => has("#character-name"), "formulário do protagonista");
 
   await evaluate('(()=>{const e=document.querySelector("#character-name");const p=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value");p.set.call(e,"Visual QA");e.dispatchEvent(new Event("input",{bubbles:true}));return true;})()');
-  await poll(() => evaluate('Boolean(document.querySelector(".creation-shell .primary-button:not([disabled])"))'), "nome validado");
+  // A origem Baixada e a classe Corporativo são escolhas distintas, verificadas
+  // sem reiniciar o protagonista nem exigir origem/classe com mesmo identificador.
+  await poll(() => evaluate('document.querySelectorAll(".class-grid .class-option").length===11'),"11 classes oficiais");
+  await evaluate('document.querySelectorAll(".origin-card")[1].click();true');
+  await evaluate('document.querySelectorAll(".class-grid .class-option")[6].click();true');
+  await poll(() => evaluate('document.querySelectorAll(".class-grid .class-option")[6].getAttribute("aria-pressed")==="true"'),"classe Corpo selecionada");
+  await poll(() => evaluate('Boolean(document.querySelector(".creation-shell .primary-button:not([disabled])"))'),"nome e classe validados");
+  await evaluate('document.querySelector(".class-grid").scrollIntoView({block:"center"});true');
+  await sleep(400);
+  const classSelectionShot=await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false});
+  await mkdir("qa",{recursive:true});
+  await writeFile("qa/selecionar-11-classes-1600x720.png",Buffer.from(classSelectionShot.data,"base64"));
   await evaluate('document.querySelector(".creation-shell .primary-button").click();true');
+  const identity=await evaluate(`(()=>{
+    const raw=localStorage.getItem("cyberpunk-tactical-rpg.character.v1");
+    const c=raw?JSON.parse(raw).character:null;
+    return {origin:c?.originId,classId:c?.classId,abilities:c?.abilities??[]};
+  })()`);
+  if(identity.origin!=="baixada"||identity.classId!=="corporativo"||
+    !identity.abilities.includes("corporativo-protocolo"))throw new Error("Classe/Origem não persistidas de forma independente: "+JSON.stringify(identity));
   await poll(() => has(".intro-shell .primary-button"), "prólogo");
   await evaluate('document.querySelector(".intro-shell .primary-button").click();true');
   await poll(() => has(".baixada-world canvas"), "canvas Phaser");
@@ -200,6 +218,31 @@ try {
       arenaLayout.attack.height < 44 || arenaLayout.turn.height < 44) {
     throw new Error("Painel fixo não está inteiramente utilizável: " + JSON.stringify(arenaLayout));
   }
+  // Executa habilidade exclusiva e observa a alteração real de energia e
+  // Defesa do personagem. Não aceita animação ou mensagem sem mutação de regras.
+  const classButton=await evaluate(`(()=>{
+    const button=document.querySelector(".arena-special.class-exclusive");
+    if(!button)return {found:false};
+    return {found:true,name:button.textContent,disabled:button.getAttribute("aria-disabled")};
+  })()`);
+  if(!classButton.found || !classButton.name.includes("Protocolo de Contingência") ||
+      classButton.disabled!=="false")throw new Error("Habilidade da classe não carregada: "+JSON.stringify(classButton));
+  await evaluate('document.querySelector(".arena-special.class-exclusive").click();true');
+  await poll(()=>evaluate('document.querySelector(".combat-message")?.textContent.includes("Protocolo de Contingência")'),"efeito real da habilidade Corpo");
+  const classMutation=await evaluate(`(()=>{
+    const energy=document.querySelector(".arena-energy strong")?.textContent;
+    const guard=document.querySelector(".arena-effects")?.textContent;
+    const player=document.querySelector(".units")?.textContent;
+    return {energy,guard,player};
+  })()`);
+  if(!classMutation.energy.includes("7 / 10") ||
+     !classMutation.guard.includes("Proteção da classe"))
+    throw new Error("Habilidade sem modificação esperada de regras: "+JSON.stringify(classMutation));
+  await writeFile("qa/arena-habilidade-classe-1600x720.png",
+    Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await writeFile("qa/arena-habilidade-classe-metricas.json",JSON.stringify(classMutation,null,2));
+  console.log("QA classe: Baixada + Corporativo salvos; efeito real da classe executado.");
+
   const arenaShot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   const arenaPng = Buffer.from(arenaShot.data,"base64");
   await writeFile("qa/arena-comandos-fixos-1600x720.png", arenaPng);
