@@ -3,7 +3,7 @@
 Requer Pillow: python -m pip install Pillow
 Execute na raiz do projeto: python tools/generate_character_sprites.py
 """
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -32,7 +32,10 @@ def hx(c):
 def shifted(color, amount):
     r,g,b=hx(color); return (max(0,min(255,r+amount)),max(0,min(255,g+amount)),max(0,min(255,b+amount)))
 
-def draw_frame(cfg, row, frame):
+def draw_frame(cfg, row, frame, action="walk"):
+    """Sprite procedural direcional. Caminhada: 4 quadros; ações: 2 poses cada."""
+    feminine = cfg.get("presentation") == "feminine"
+    origin = cfg.get("origin")
     im=Image.new('RGBA',(CW*S,CH*S),(0,0,0,0)); d=ImageDraw.Draw(im)
     def xy(box): return tuple(int(v*S) for v in box)
     def ellipse(box, fill, outline=None, width=1): d.ellipse(xy(box), fill=fill, outline=outline, width=width*S)
@@ -42,8 +45,8 @@ def draw_frame(cfg, row, frame):
     def line(points, fill, width=1): d.line([(int(x*S),int(y*S)) for x,y in points],fill=fill,width=width*S,joint='curve')
 
     # walk cycle: frames 0 and 2 are contact poses, 1 and 3 passing poses.
-    phase=[0,1,0,-1][frame]
-    bob=[0,-1,0,-1][frame]
+    phase=[0,1,0,-1][frame % 4] if action == "walk" else [0,2][frame % 2]
+    bob=[0,-1,0,-1][frame % 4] if action == "walk" else [0,-2][frame % 2]
     # Rows: 0 SE, 1 SW, 2 NW (back), 3 NE. Face direction changes face/hair and chest detail.
     facing = ['right','left','back','front'][row]
     skin=hx(cfg['skin']); hair=hx(cfg['hair']); hair2=hx(cfg['hair2']); top=hx(cfg['top']); inner=hx(cfg['inner']); pants=hx(cfg['pants']); shoes=hx(cfg['shoes']); acc=hx(cfg['accent']); detail=hx(cfg['detail'])
@@ -66,14 +69,18 @@ def draw_frame(cfg, row, frame):
     # arms swing with gait
     arm_l=-phase*2; arm_r=phase*2
     if facing=='back': arm_l,arm_r=-arm_r,-arm_l
-    roundrect((16,34+bob+arm_l,23,54+bob+arm_l),(3),top,outline,1)
-    roundrect((40,34+bob+arm_r,47,54+bob+arm_r),(3),shade,outline,1)
+    # Ombros e mangas são ajustados geometricamente, não por troca de cor.
+    arm_left,arm_right=(18,39) if feminine else (16,40)
+    roundrect((arm_left,34+bob+arm_l,arm_left+7,54+bob+arm_l),(3),top,outline,1)
+    roundrect((arm_right,34+bob+arm_r,arm_right+7,54+bob+arm_r),(3),shade,outline,1)
     ellipse((17,51+bob+arm_l,23,57+bob+arm_l),skin,outline,1)
     ellipse((40,51+bob+arm_r,46,57+bob+arm_r),skin,outline,1)
 
     # torso shape; jacket body
-    poly([(21,30+bob),(26,27+bob),(38,27+bob),(43,31+bob),(42,54+bob),(22,54+bob)],top,outline)
-    poly([(25,31+bob),(31,29+bob),(37,31+bob),(37,53+bob),(27,53+bob)],inner,None)
+    shoulder_l,shoulder_r=(24,40) if feminine else (21,43)
+    hem_l,hem_r=(21,44) if feminine else (22,42)
+    poly([(shoulder_l,30+bob),(27,27+bob),(37,27+bob),(shoulder_r,31+bob),(hem_r,54+bob),(hem_l,54+bob)],top,outline)
+    poly([(27 if feminine else 25,31+bob),(31,29+bob),(37,31+bob),(37,53+bob),(27,53+bob)],inner,None)
     # shoulder/hem panels
     line([(21,34+bob),(24,51+bob),(42,51+bob),(43,34+bob)],detail,1)
     # style-specific garment details
@@ -171,18 +178,116 @@ def draw_frame(cfg, row, frame):
     elif acc_type=='plants': line([(42,38+bob),(47,29+bob)],detail,2); ellipse((43,26+bob,48,32+bob),acc); ellipse((39,29+bob,44,34+bob),detail)
     elif acc_type=='bag': roundrect((39,36+bob,49,52+bob),2,detail,outline,1); line([(40,36+bob),(32,30+bob)],acc,2)
 
+    # Identidade da origem é conservada em ambos os corpos e nos quatro ângulos.
+    if origin == "corporativo":
+        roundrect((39,41+bob,45,48+bob),1,(27,45,55,255),acc,1)
+        line([(37,43+bob),(42,43+bob)],acc,1)  # datapad de pulso
+        if facing != "back": roundrect((37,17+bob,43,21+bob),1,(28,61,70,255),acc,1)
+    elif origin == "baixada":
+        roundrect((18,30+bob,24,47+bob),2,detail,outline,1)
+        line([(20,36+bob),(21,43+bob)],acc,1)  # mochila de sinal
+    elif origin == "gangue":
+        roundrect((39,36+bob,47,53+bob),2,(48,55,64,255),outline,1)
+        line([(40,42+bob),(45,42+bob)],acc,2)
+        if facing != "back": line([(38,25+bob),(41,28+bob)],acc,2)
+    elif origin == "militar":
+        roundrect((21,32+bob,43,45+bob),2,(79,91,82,255),outline,1)
+        line([(27,39+bob),(36,39+bob)],acc,2)
+        if facing != "back": roundrect((24,15+bob,41,20+bob),2,(28,48,52,255),acc,1)
+    elif origin == "pesquisador":
+        roundrect((29,36+bob,35,44+bob),1,(19,43,52,255),acc,1)
+        line([(31,37+bob),(33,40+bob)],acc,1)  # scanner de peito
+    elif origin == "nomade":
+        poly([(17,33+bob),(39,28+bob),(47,49+bob),(36,53+bob),(22,53+bob)],top,outline)
+        if facing != "back": roundrect((27,22+bob,38,29+bob),2,(43,44,40,255),acc,1)  # respirador
+
+    if feminine:
+        # Cabelo, estrutura da jaqueta e corte da roupa distinguem a apresentação
+        # sem criar armadura sexista nem alterar estatísticas.
+        line([(24,45+bob),(23,55+bob),(43,55+bob),(40,45+bob)],detail,2)
+        if facing == "back": line([(26,17+bob),(26,34+bob)],hair2,3)
+
+    # Poses específicas de ação em todas as direções. Não são interpolação
+    # de um único desenho: cada estado possui quadros rasterizados dedicados.
+    if action == "attack":
+        if frame % 2:
+            poly([(40,43+bob),(52,28+bob),(56,30+bob),(46,48+bob)],(165,190,185,255),outline)
+            line([(48,24+bob),(59,15+bob)],acc,3)
+            ellipse((54,12+bob,61,19+bob),None,acc,2)
+        else:
+            line([(42,43+bob),(47,38+bob),(44,29+bob)],acc,2)
+    elif action == "ability":
+        ex,ey=(50,41) if frame % 2 else (46,47)
+        ellipse((ex-6,ey-6+bob,ex+6,ey+6+bob),None,acc,2)
+        ellipse((ex-2,ey-2+bob,ex+2,ey+2+bob),acc)
+        if frame % 2: line([(ex-9,ey+bob),(ex+9,ey+bob)],acc,2)
+    elif action == "hurt":
+        rect((43,42+bob,48,49+bob),(244,164,145,180))
+        line([(45,42+bob),(52,36+bob)],(235,166,156,255),2)
+
     # lighting edge and small high-contrast details
     line([(22,35+bob),(22,49+bob)],shifted(cfg['top'],35),1)
     if frame in (1,3):
         line([(30,54+bob),(33,54+bob)],acc,1)
-    # downsample smooth anti-aliased vector-pixel finish
+    # Incapacitado: corpo deitado, posição consistente com a âncora dos pés.
+    if action == "down":
+        im = im.rotate(68 if frame % 2 else 50, resample=Image.Resampling.BICUBIC,
+            center=(32*S, 61*S))
     return im.resize((CW,CH),Image.Resampling.LANCZOS)
 
+# Os 11 spritesheets originais seguem intactos para compatibilidade com NPCs
+# e para comparação de regressões de arte.
+OUT.mkdir(parents=True, exist_ok=True)
 for name,cfg in CHARS.items():
     sheet=Image.new('RGBA',(CW*4,CH*4),(0,0,0,0))
     for row in range(4):
         for col in range(4):
-            frame=draw_frame(cfg,row,col)
-            sheet.alpha_composite(frame,(col*CW,row*CH))
+            sheet.alpha_composite(draw_frame(cfg,row,col),(col*CW,row*CH))
     sheet.save(OUT/f'{name}.png', optimize=True)
-print('Generated',len(CHARS),'spritesheets')
+
+ORIGINS={
+    "corporativo":("neat","bun"),
+    "baixada":("curls","braids"),
+    "gangue":("undercut","side"),
+    "militar":("short","bun"),
+    "pesquisador":("side","long"),
+    "nomade":("messy","braids"),
+}
+ACTION_COLUMNS=[
+    ("walk",0),("walk",1),("walk",2),("walk",3),
+    ("attack",0),("attack",1),
+    ("ability",0),("ability",1),
+    ("hurt",0),("hurt",1),
+    ("down",0),("down",1),
+]
+QA=ROOT/"qa"
+QA.mkdir(parents=True,exist_ok=True)
+contact=Image.new("RGB",(6*340,280),(13,22,29))
+dc=ImageDraw.Draw(contact)
+for row,(origin,(masc_hair,fem_hair)) in enumerate(ORIGINS.items()):
+    base=CHARS["player-"+origin]
+    for col,(gender,hairstyle) in enumerate(
+            [("masculine",masc_hair),("feminine",fem_hair)]):
+        cfg={**base,"presentation":gender,"origin":origin,"hair_style":hairstyle}
+        sheet=Image.new("RGBA",(CW*12,CH*4),(0,0,0,0))
+        for direction in range(4):
+            for frame_index,(state,frame) in enumerate(ACTION_COLUMNS):
+                sheet.alpha_composite(
+                    draw_frame(cfg,direction,frame,state),
+                    (frame_index*CW,direction*CH),
+                )
+        path=OUT/f"player-{origin}-{gender}.png"
+        sheet.save(path,optimize=True)
+        # Uma direção frontal e outra diagonal no quadro de conferência.
+        origin_x=row*340
+        start_x=origin_x+(0 if col==0 else 166)
+        for k,direction in enumerate((0,3)):
+            frame=sheet.crop((0,direction*CH,CW,(direction+1)*CH))
+            enlarged=frame.resize((96,120),Image.Resampling.NEAREST)
+            contact.paste(enlarged,(start_x+k*54,48),enlarged)
+        dc.text((start_x+4,20),origin+" / "+("M" if col==0 else "F"),
+                fill=(216,230,224),font=ImageFont.load_default())
+        dc.text((start_x+4,192),"4 dir. / 5 estados",fill=(149,180,182))
+contact.save(QA/"character-matrix.png")
+print("Gerados:",len(CHARS),"sprites legados +",
+      len(ORIGINS)*2,"spritesheets direcionais 12x4; atlas de QA em qa/character-matrix.png.")
