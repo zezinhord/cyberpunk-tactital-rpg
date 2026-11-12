@@ -138,7 +138,8 @@ export class BaixadaScene extends Phaser.Scene {
     this.updateActorLabels();
     const camera = this.cameras.main;
     camera.setBounds(0, 0, BAIXADA_WIDTH, BAIXADA_HEIGHT);
-    camera.setZoom(1.0);
+    this.updateCameraForViewport();
+    this.scale.on("resize", this.updateCameraForViewport, this);
     const start = tileCenter(this.playerTile);
     camera.centerOn(start.x, start.y - 34);
     camera.startFollow(this.player, true, 0.12, 0.12);
@@ -148,7 +149,18 @@ export class BaixadaScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.input.off(Phaser.Input.Events.POINTER_DOWN, this.handleTap, this);
       this.input.keyboard?.off("keydown", this.handleKeyboard, this);
+      this.scale.off("resize", this.updateCameraForViewport, this);
     });
+  }
+
+  private updateCameraForViewport(): void {
+    // A mesma composição 2:1 deve permanecer legível de 16:9 a telas ultrawide.
+    // Zoom uniforme: nunca distorcer a geometria isométrica ou esticar sprites.
+    const zoom = Phaser.Math.Clamp(
+      Math.min(this.scale.width / BAIXADA_VIEW_WIDTH, this.scale.height / 500),
+      0.9, 1.5,
+    );
+    this.cameras.main.setZoom(zoom);
   }
 
   private polygon(
@@ -664,8 +676,6 @@ export class BaixadaScene extends Phaser.Scene {
       playWalk(this.player, texture, direction);
       const point = tileCenter(next);
       this.playerTile = next;
-      this.drawPlayerMarker();
-      this.updateActorLabels();
       this.tweens.add({
         targets: this.player,
         x: point.x,
@@ -673,7 +683,11 @@ export class BaixadaScene extends Phaser.Scene {
         duration: 190,
         ease: "Sine.easeInOut",
         onUpdate: () => this.player.setDepth(this.player.y + 0.32),
-        onComplete: () => nextStep(),
+        onComplete: () => {
+          this.drawPlayerMarker();
+          this.updateActorLabels();
+          nextStep();
+        },
       });
     };
     nextStep();
