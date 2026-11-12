@@ -39,6 +39,13 @@ jobs:
           test -f "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk"
       - name: Importar os recursos Godot
         run: godot --headless --editor --path . --quit
+      - name: Testar a cena principal por 90 quadros
+        run: |
+          godot --headless --path . --quit-after 90 > /tmp/tenebria-smoke.log 2>&1
+          cat /tmp/tenebria-smoke.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Invalid access|Failed to load script' /tmp/tenebria-smoke.log; then
+            exit 1
+          fi
       - name: Exportar APK instalavel (debug)
         run: |
           mkdir -p build
