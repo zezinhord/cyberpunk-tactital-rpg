@@ -45,6 +45,20 @@ jobs:
       - name: Compilar aplicacao
         run: npm run build
 
+      - name: Capturar screenshot real da Baixada em Chromium
+        if: github.event_name == 'push'
+        continue-on-error: true
+        run: node scripts/capture-baixada-visual.mjs
+
+      - name: Publicar captura visual da Baixada
+        if: always() && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Baixada-Visual-QA-1600x720
+          path: qa/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Criar projeto Android
         run: npx cap add android
 
