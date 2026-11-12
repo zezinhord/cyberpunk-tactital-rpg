@@ -17,6 +17,7 @@ interface Props {
   onReturnToTitle: () => void;
   inventory: InventoryState;
   onToggleEquipment: (id: ItemId) => void;
+  onGrantQuestItem: (id: ItemId) => void;
 }
 
 const MISSION_KEY = "cyberpunk-tactical-rpg.mission.v1.";
@@ -69,6 +70,7 @@ export default function ExplorationScreen({
   onReturnToTitle,
   inventory,
   onToggleEquipment,
+  onGrantQuestItem,
 }: Props) {
   const origin = getOriginById(character.originId);
   const [mission, setMission] = useState<MissionProgress>(() => readMission(character.id));
@@ -205,12 +207,13 @@ export default function ExplorationScreen({
 
     if (id === "vendedor") {
       addClue("nilo");
+      onGrantQuestItem("conector_reuso");
       say([
         {
           speaker: "Nilo",
           role: "MECÂNICO / VENDEDOR",
           portrait: "N",
-          text: "Se está procurando peças, tenho algumas recuperadas. Mas essa marca no conector... já vi em equipamento de manutenção do canal. Não é coisa de oficina comum.",
+          text: "Encontrei um conector com marcação de manutenção do canal. Pode ficar com a peça; talvez ajude a entender o que aconteceu. Não é equipamento de oficina comum.",
         },
       ]);
       return;

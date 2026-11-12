@@ -17,7 +17,7 @@ import ExplorationScreen from "./screens/ExplorationScreen";
 import TitleScreen from "./screens/TitleScreen";
 import {
   createStartingInventory, loadInventory, saveInventory, deleteInventory,
-  toggleEquipment, consumeItem, getEquipmentBonuses, ITEM_CATALOG,
+  toggleEquipment, consumeItem, getEquipmentBonuses, grantItem, ITEM_CATALOG,
 } from "./game/inventory";
 import type { ItemId, InventoryState } from "./game/inventory";
 
@@ -240,6 +240,7 @@ export default function App() {
         onReturnToTitle={() => setScreen("title")}
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
+        onGrantQuestItem={(id: ItemId) => setInventory((current) => current.quantities[id] > 0 ? current : grantItem(current, id))}
       />
     );
   }

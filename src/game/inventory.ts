@@ -45,7 +45,7 @@ export const ITEM_CATALOG: Readonly<Record<ItemId, ItemDefinition>> = {
 export function createStartingInventory(ownerId: string): InventoryState {
   return {
     version: 1, ownerId,
-    quantities: { pistola_manutencao: 1, colete_reaproveitado: 1, curativo_campo: 2, conector_reuso: 1 },
+    quantities: { pistola_manutencao: 1, colete_reaproveitado: 1, curativo_campo: 2, conector_reuso: 0 },
     equipped: { weapon: null, armor: null },
   };
 }

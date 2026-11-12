@@ -5,7 +5,7 @@
 - Inventário inicial limitado, persistido por ID do protagonista, independente do save v1 antigo.
 - Equipar e remover arma/colete, com bônus reais de ataque e Defesa no Limbo de Teste.
 - Dois curativos de campo iniciais; cada uso durante o próprio turno consome uma ação bônus, recupera até 5 de Vida e reduz a quantidade salva.
-- Recurso simples de material, sem receita de fabricação ainda.
+- Recurso simples de material, sem receita de fabricação ainda. O conector reutilizável agora é recebido ao conversar com Nilo, apenas uma vez por personagem, como recompensa contextual registrada no inventário.
 - Inventário acessível pela Central do Protagonista, sem ocupar a exploração.
 - Campo de teste mantém regras e controle de turnos, agora com suporte aos modificadores de itens.
 
