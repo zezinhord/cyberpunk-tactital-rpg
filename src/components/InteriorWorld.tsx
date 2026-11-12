@@ -2,24 +2,29 @@ import { useEffect, useRef } from "react";
 import Phaser from "phaser";
 import { InteriorScene, INTERIOR_VIEW_HEIGHT, INTERIOR_VIEW_WIDTH, type InteriorId } from "../game/baixada/InteriorScene";
 import type { OriginId } from "../game/character";
+import type { TestAppearance } from "../game/test-arena/appearance";
 
 export default function InteriorWorld({
   interior,
   originId,
+  appearance,
   onInteract,
 }: {
   interior: InteriorId;
   originId: OriginId;
+  appearance: TestAppearance;
   onInteract: (id: string) => void;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<InteriorScene | null>(null);
   const callbackRef = useRef(onInteract);
   callbackRef.current = onInteract;
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const scene = new InteriorScene(interior, (id) => callbackRef.current(id), originId);
+    const scene = new InteriorScene(interior, (id) => callbackRef.current(id), originId, appearance);
+    sceneRef.current = scene;
     const game = new Phaser.Game({
       type: Phaser.AUTO,
       parent: host,
@@ -30,8 +35,10 @@ export default function InteriorWorld({
       render: { antialias: true, roundPixels: false },
       scene: [scene],
     });
-    return () => game.destroy(true);
+    return () => { sceneRef.current = null; game.destroy(true); };
   }, [interior, originId]);
+
+  useEffect(() => { sceneRef.current?.setAppearance(appearance); }, [appearance]);
 
   return <div className={`baixada-world interior-world ${interior}`} ref={hostRef} aria-label={interior === "clinic" ? "Interior isométrico da clínica comunitária" : interior === "workshop" ? "Interior isométrico da oficina do Nilo" : "Interior isométrico da Galeria do Canal"} />;
 }

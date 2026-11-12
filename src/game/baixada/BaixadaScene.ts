@@ -5,12 +5,14 @@ import {
 } from "./layout";
 import type { Position } from "../types";
 import type { OriginId } from "../character/origins";
+import type { TestAppearance } from "../test-arena/appearance";
 import {
   createCharacterAnimations,
   NPC_TEXTURES,
-  PLAYER_TEXTURES,
+  ActorAnimationController,
+  getPlayerTexture,
+  frameForDirection,
   playIdle,
-  playWalk,
   preloadCharacterSprites,
   type IsoDirection,
 } from "./sprites";
@@ -102,6 +104,8 @@ function nearestApproach(start: Position, target: Position): Position[] | null {
 export class BaixadaScene extends Phaser.Scene {
   private readonly onInteract: (id: string) => void;
   private readonly originId: OriginId;
+  private appearance: TestAppearance;
+  private playerAnimator?: ActorAnimationController;
   private ground!: Phaser.GameObjects.Graphics;
   private details!: Phaser.GameObjects.Graphics;
   private markers!: Phaser.GameObjects.Graphics;
@@ -113,10 +117,17 @@ export class BaixadaScene extends Phaser.Scene {
   private moving = false;
   private pendingInteraction: string | null = null;
 
-  constructor(onInteract: (id: string) => void, originId: OriginId) {
+  constructor(onInteract: (id: string) => void, originId: OriginId, appearance: TestAppearance) {
     super({ key: "BaixadaScene" });
     this.onInteract = onInteract;
     this.originId = originId;
+    this.appearance = appearance;
+  }
+
+  setAppearance(appearance: TestAppearance): void {
+    if (this.appearance === appearance) return;
+    this.appearance = appearance;
+    this.playerAnimator?.setTexture(getPlayerTexture(this.originId, appearance));
   }
 
   preload(): void {
@@ -150,6 +161,7 @@ export class BaixadaScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.input.off(Phaser.Input.Events.POINTER_DOWN, this.handleTap, this);
       this.input.keyboard?.off("keydown", this.handleKeyboard, this);
+      this.playerAnimator?.dispose();
       this.scale.off("resize", this.updateCameraForViewport, this);
     });
   }
@@ -621,10 +633,10 @@ export class BaixadaScene extends Phaser.Scene {
     const point = tileCenter(this.playerTile);
     this.playerShadow = this.add.ellipse(point.x, point.y + 2, 22, 7, 0x071015, 0.22)
       .setDepth(point.y - 0.04);
-    const texture = PLAYER_TEXTURES[this.originId];
-    this.player = this.add.sprite(point.x, point.y, texture, 12)
+    const texture = getPlayerTexture(this.originId, this.appearance);
+    this.player = this.add.sprite(point.x, point.y, texture, frameForDirection(texture, this.playerDirection))
       .setOrigin(0.5, 0.95).setScale(0.94).setDepth(point.y + 0.32);
-    playIdle(this.player, texture, this.playerDirection);
+    this.playerAnimator = new ActorAnimationController(this.player, texture, this.playerDirection);
     this.drawPlayerMarker();
   }
 
@@ -714,20 +726,20 @@ export class BaixadaScene extends Phaser.Scene {
   private walkPath(path: Position[]): void {
     if (path.length <= 1 || this.moving) return;
     this.moving = true;
-    const texture = PLAYER_TEXTURES[this.originId];
     const steps = path.slice(1);
     const nextStep = (): void => {
       const next = steps.shift();
       if (!next || !this.player) {
         this.moving = false;
-        playIdle(this.player, texture, this.playerDirection);
+        this.playerAnimator?.play("idle");
         this.finishPendingInteraction();
         return;
       }
       const previous = this.playerTile;
       const direction: IsoDirection = next.y < previous.y ? 0 : next.x > previous.x ? 1 : next.y > previous.y ? 2 : 3;
       this.playerDirection = direction;
-      playWalk(this.player, texture, direction);
+      this.playerAnimator?.setDirection(direction);
+      this.playerAnimator?.play("walk");
       const point = tileCenter(next);
       this.playerTile = next;
       this.tweens.add({

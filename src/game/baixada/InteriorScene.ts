@@ -1,12 +1,14 @@
 import Phaser from "phaser";
 import type { Position } from "../types";
 import type { OriginId } from "../character/origins";
+import type { TestAppearance } from "../test-arena/appearance";
 import {
   createCharacterAnimations,
   NPC_TEXTURES,
-  PLAYER_TEXTURES,
+  ActorAnimationController,
+  getPlayerTexture,
+  frameForDirection,
   playIdle,
-  playWalk,
   preloadCharacterSprites,
   type IsoDirection,
 } from "./sprites";
@@ -42,6 +44,8 @@ function directionBetween(from: Position, to: Position): IsoDirection {
 export class InteriorScene extends Phaser.Scene {
   private readonly onInteract: (id: string) => void;
   private readonly originId: OriginId;
+  private appearance: TestAppearance;
+  private playerAnimator?: ActorAnimationController;
   private readonly interior: InteriorId;
   private player!: Phaser.GameObjects.Sprite;
   private playerTile: Position = PLAYER_START;
@@ -51,11 +55,18 @@ export class InteriorScene extends Phaser.Scene {
   private direction: IsoDirection = 2;
   private readonly blocked = new Set<string>();
 
-  constructor(interior: InteriorId, onInteract: (id: string) => void, originId: OriginId) {
+  constructor(interior: InteriorId, onInteract: (id: string) => void, originId: OriginId, appearance: TestAppearance) {
     super({ key: `BaixadaInterior-${interior}` });
     this.interior = interior;
     this.onInteract = onInteract;
     this.originId = originId;
+    this.appearance = appearance;
+  }
+
+  setAppearance(appearance: TestAppearance): void {
+    if (this.appearance === appearance) return;
+    this.appearance = appearance;
+    this.playerAnimator?.setTexture(getPlayerTexture(this.originId, appearance));
   }
 
   preload(): void { preloadCharacterSprites(this); }
@@ -75,6 +86,7 @@ export class InteriorScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.input.off(Phaser.Input.Events.POINTER_DOWN, this.handleTap, this);
       this.input.keyboard?.off("keydown", this.handleKeyboard, this);
+      this.playerAnimator?.dispose();
     });
   }
 
@@ -224,9 +236,9 @@ export class InteriorScene extends Phaser.Scene {
 
   private createPlayer(): void {
     const p = center(this.playerTile);
-    const texture = PLAYER_TEXTURES[this.originId];
-    this.player = this.add.sprite(p.x, p.y, texture, 12).setOrigin(0.5, 0.95).setScale(0.9).setDepth(p.y + 120);
-    playIdle(this.player, texture, 2);
+    const texture = getPlayerTexture(this.originId, this.appearance);
+    this.player = this.add.sprite(p.x, p.y, texture, frameForDirection(texture, this.direction)).setOrigin(0.5, 0.95).setScale(0.9).setDepth(p.y + 120);
+    this.playerAnimator = new ActorAnimationController(this.player, texture, this.direction);
   }
 
   private walkable(tile: Position): boolean {
@@ -297,20 +309,20 @@ export class InteriorScene extends Phaser.Scene {
   private walkPath(path: Position[]): void {
     if (path.length <= 1 || this.moving) return;
     this.moving = true;
-    const texture = PLAYER_TEXTURES[this.originId];
     const steps = path.slice(1);
     const nextStep = (): void => {
       const next = steps.shift();
       if (!next) {
         this.moving = false;
-        playIdle(this.player, texture, this.direction);
+        this.playerAnimator?.play("idle");
         const interaction = this.pending; this.pending = null;
         if (interaction) this.onInteract(interaction);
         return;
       }
       const direction = directionBetween(this.playerTile, next);
       this.direction = direction;
-      playWalk(this.player, texture, direction);
+      this.playerAnimator?.setDirection(direction);
+      this.playerAnimator?.play("walk");
       const p = center(next); this.playerTile = next;
       this.tweens.add({ targets: this.player, x: p.x, y: p.y, duration: 190, ease: "Sine.easeInOut", onUpdate: () => this.player.setDepth(this.player.y + 120), onComplete: nextStep });
     };
