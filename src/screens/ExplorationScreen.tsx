@@ -8,16 +8,18 @@ import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
 import type { TestAppearance } from "../game/test-arena/appearance";
 import { audioDirector } from "../audio/director";
+import { isPatioCitizen, getPatioConversation, type ConversationOption } from "../game/dialogues/patio";
+import { readV09,markV09Reported } from "../game/story/v09";
 
 type MissionStep = 0 | 1 | 2 | 3;
 interface MissionProgress { step: MissionStep; clues: string[] }
-interface DialoguePage { speaker: string; role: string; portrait: string; text: string }
+interface DialoguePage { speaker: string; role: string; portrait: string; text: string; choices?: readonly ConversationOption[] }
 interface DialogueState { pages: DialoguePage[]; index: number }
 interface Props {
   character: PlayerCharacter;
   appearance: TestAppearance;
   onChangeAppearance: (appearance: TestAppearance) => void;
-  onOpenBattle: () => void;
+  onOpenBattle: (mode?: "test" | "v09") => void;
   onReturnToTitle: () => void;
   inventory: InventoryState;
   onToggleEquipment: (id: ItemId) => void;
@@ -38,6 +40,11 @@ const CLUE_LABELS: Record<string, string> = {
   canal: "O terminal público registra uma sequência de manutenção fora do horário normal.",
   teo: "Téo viu uma equipe entrar na galeria técnica durante uma janela de manutenção não anunciada.",
   gallery: "O registro da galeria confirma que a ocorrência V-09 foi encaminhada por uma rota de serviço.",
+  lia: "Lia confirmou o manifesto V-09 adulterado na rede de bombas.",
+  ramon: "Ramon identificou credenciais indevidas nos equipamentos de manutenção.",
+  duda: "Duda registrou testemunho do transporte de uma pessoa doente.",
+  patio: "O console do Pátio identificou a unidade de vigilância que interceptou a transferência V-09.",
+  report: "Lia recebeu o relatório da sentinela neutralizada e reabriu os registros da cooperativa.",
 };
 
 function readMission(characterId: string): MissionProgress {
@@ -92,6 +99,12 @@ export default function ExplorationScreen({
   }, [character.id, mission]);
 
   const say = (pages: DialoguePage[]) => setDialogue({ pages, index: 0 });
+  const v09=readV09(character.id);
+  const objective = mission.step<3 ? OBJECTIVES[mission.step]
+    : v09.reported ? "O Pátio voltou a operar. Procure a próxima pista sobre o destino da pessoa desaparecida."
+    : v09.defeated ? "Retorne a Lia para entregar os registros recuperados da unidade V-09."
+    : mission.clues.includes("patio") ? "Confronte a unidade de vigilância V-09 junto ao console do Pátio."
+    : "Explore o Pátio do Reúso, converse com seus moradores e consulte o console V-09.";
   const addClue = (id: string) => {
     setMission((current) =>
       current.clues.includes(id)
@@ -116,6 +129,40 @@ export default function ExplorationScreen({
     }
     if (id === "exit-interior") {
       setInterior(null);
+      return;
+    }
+
+    if(isPatioCitizen(id)){
+      if(v09.defeated && id==="lia" && markV09Reported(character.id)){
+        addClue("report");
+        say([{speaker:"Lia",role:"OPERADORA DAS BOMBAS",portrait:"L",
+          text:"Os registros estavam com a unidade. Agora podemos provar que a autorização não veio da cooperativa. O pessoal do Pátio vai manter uma cópia fora da rede oficial. Você nos deu tempo para agir."}]);
+        return;
+      }
+      const node=getPatioConversation(id,character.originId,v09.defeated);
+      say([{speaker:node.speaker,role:node.role,portrait:node.portrait,text:node.text,choices:node.choices}]);
+      return;
+    }
+    if(id==="patio-console"){
+      if(mission.step<3){
+        say([{speaker:"CONSOLE DE TRIAGEM",role:"REDE DO PÁTIO",portrait:"▤",
+          text:"Registro protegido. Consulte a clínica e recupere a referência V-09 antes de abrir o histórico do Pátio."}]);
+      }else{
+        addClue("patio");
+        say([{speaker:"CONSOLE DE TRIAGEM",role:"REDE DO PÁTIO",portrait:"▤",
+          text:v09.defeated ? "Registros recuperados. A cooperativa reabriu a conexão de manutenção com a Galeria do Canal."
+            :"LOG V-09: transferência interceptada por unidade de vigilância não cadastrada na cooperativa. O sistema aponta uma credencial experimental, mas sua origem é inconclusiva. A unidade ainda bloqueia o acesso."}]);
+      }
+      return;
+    }
+    if(id==="patio-sentinel"){
+      if(v09.defeated){
+        say([{speaker:"UNIDADE V-09",role:"SISTEMA DESATIVADO",portrait:"✕",text:"A unidade não responde. O registro do encontro permanece associado a este protagonista."}]);return;
+      }
+      if(mission.step<3 || !mission.clues.includes("patio")){
+        say([{speaker:"UNIDADE V-09",role:"VIGILÂNCIA NÃO AUTORIZADA",portrait:"!",text:"IDENTIFICAÇÃO PENDENTE. Recupere os registros da clínica e consulte o console do Pátio."}]);return;
+      }
+      onOpenBattle("v09");
       return;
     }
 
@@ -302,6 +349,13 @@ export default function ExplorationScreen({
     ]);
   };
 
+  const selectAnswer=(choice:ConversationOption)=>{
+    if(choice.clue)addClue(choice.clue);
+    const current=dialogue?.pages[dialogue.index];
+    if(!current)return;
+    audioDirector.effect("interact");
+    say([{speaker:current.speaker,role:current.role,portrait:current.portrait,text:choice.reply}]);
+  };
   const currentDialogue = dialogue?.pages[dialogue.index] ?? null;
   const sceneTitle = interior === "clinic"
     ? "Clínica comunitária"
@@ -386,7 +440,7 @@ export default function ExplorationScreen({
       </section>
 
       <button type="button" className="na-objective-toggle" onClick={() => setMissionOpen((value) => !value)} aria-expanded={missionOpen}>
-        <span>◈ {mission.step === 3 ? "MISSÃO CONCLUÍDA" : "OBJETIVO ATUAL"}</span><span aria-hidden="true">{missionOpen ? "−" : "+"}</span>
+        <span>◈ {v09.reported ? "INVESTIGAÇÃO ATUALIZADA" : "OBJETIVO ATUAL"}</span><span aria-hidden="true">{missionOpen ? "−" : "+"}</span>
       </button>
       {missionOpen && <section className="mission-card" aria-label="Missão atual">
         <div className="mission-card-top">
@@ -395,7 +449,7 @@ export default function ExplorationScreen({
             <h2>O nome que sumiu</h2>
           </div>
           <span className={mission.step === 3 ? "mission-status complete" : "mission-status"}>
-            {mission.step === 3 ? "CONCLUÍDA" : "EM ANDAMENTO"}
+            {v09.reported ? "CAPÍTULO 02" : "EM ANDAMENTO"}
           </span>
         </div>
         <p className="mission-summary">
@@ -403,12 +457,10 @@ export default function ExplorationScreen({
         </p>
         <div className="objective-row">
           <span className="objective-index">
-            {mission.step === 3 ? "✓" : String(mission.step + 1).padStart(2, "0")}
+            {mission.step === 3 ? "04" : String(mission.step + 1).padStart(2, "0")}
           </span>
           <strong>
-            {mission.step === 3
-              ? "Missão concluída. A Galeria de Manutenção pode revelar o próximo trecho da rota."
-              : OBJECTIVES[mission.step]}
+            {objective}
           </strong>
         </div>
         <div className="quest-progress" aria-label={mission.step + " de 3 etapas concluídas"}>
@@ -438,7 +490,7 @@ export default function ExplorationScreen({
       </section>}
 
       <div className="exploration-footer-actions single-action">
-        <button type="button" className="explore-secondary" onClick={onOpenBattle}>
+        <button type="button" className="explore-secondary" onClick={() => onOpenBattle("test")}>
           Arena tática de teste
         </button>
       </div>
@@ -452,9 +504,7 @@ export default function ExplorationScreen({
           originDescription={origin.description}
           originProfile={getOriginGameplay(character.originId)}
           missionStep={mission.step}
-          missionObjective={mission.step === 3
-            ? "Missão concluída. A Galeria de Manutenção pode revelar o próximo trecho da rota."
-            : OBJECTIVES[mission.step]}
+          missionObjective={objective}
           clues={mission.clues.map((id) => ({ id, text: CLUE_LABELS[id] ?? "Pista registrada." }))}
           sceneTitle={sceneTitle}
           sceneSubtitle={sceneSubtitle}
@@ -490,6 +540,10 @@ export default function ExplorationScreen({
               </div>
             </div>
             <p>{currentDialogue.text}</p>
+            {currentDialogue.choices && <div className="dialogue-choice-list" role="group" aria-label="Respostas do protagonista">
+              {currentDialogue.choices.map(choice=><button type="button" key={choice.id}
+                onClick={()=>selectAnswer(choice)}>{choice.label}</button>)}
+            </div>}
             <button
               type="button"
               className="dialogue-continue"
