@@ -1,11 +1,12 @@
 import type { OriginId } from "./origins";
+import type { ClassId } from "../classes/registry";
 
 /** Dados persistentes do protagonista, independentes das unidades de combate. */
 export interface PlayerCharacter {
   id: string;
   name: string;
   originId: OriginId;
-  classId: string | null;
+  classId: ClassId | null;
   attributes: Readonly<Record<string, number>>;
   skills: readonly string[];
   abilities: readonly string[];

@@ -1,5 +1,6 @@
 import type { CharacterSave, PlayerCharacter } from "./types";
 import { isOriginId } from "./origins";
+import { isPlayableClass,getStartingClassAbilities,type ClassId } from "../classes/registry";
 
 export const CHARACTER_SAVE_KEY = "cyberpunk-tactical-rpg.character.v1";
 
@@ -22,7 +23,17 @@ export function loadCharacter(): PlayerCharacter | null {
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
     const save = parsed as Partial<CharacterSave>;
-    return save.version === 1 && isPlayerCharacter(save.character) ? save.character : null;
+    if(save.version!==1 || !isPlayerCharacter(save.character))return null;
+    const saved=save.character;
+    // Migração conservadora: saves 0.6.8a sem classe continuam válidos e
+    // poderão defini-la no menu sem perder nome, origem, inventário ou missão.
+    const classId=isPlayableClass(saved.classId)?saved.classId:null;
+    const savedAbilities=Array.isArray(saved.abilities)
+      ? saved.abilities.filter((a):a is string=>typeof a==="string"):[];
+    const starting=classId?getStartingClassAbilities(classId):[];
+    return {...saved,classId,abilities:[...new Set([...savedAbilities,...starting])],
+      skills:Array.isArray(saved.skills)?saved.skills:[],
+      attributes:saved.attributes && typeof saved.attributes==="object"?saved.attributes:{}};
   } catch {
     return null;
   }
@@ -43,7 +54,8 @@ export function deleteCharacterSave(): void {
   try { globalThis.localStorage?.removeItem(CHARACTER_SAVE_KEY); } catch { /* armazenamento indisponível */ }
 }
 
-export function createPlayerCharacter(name: string, originId: PlayerCharacter["originId"]): PlayerCharacter {
+/** A classe é uma escolha separada da origem; legado ainda aceita null. */
+export function createPlayerCharacter(name:string,originId:PlayerCharacter["originId"],classId:ClassId|null=null):PlayerCharacter {
   const now = new Date().toISOString();
   const randomId = typeof globalThis.crypto?.randomUUID === "function"
     ? globalThis.crypto.randomUUID()
@@ -52,10 +64,10 @@ export function createPlayerCharacter(name: string, originId: PlayerCharacter["o
     id: randomId,
     name: name.trim(),
     originId,
-    classId: null,
+    classId,
     attributes: {},
     skills: [],
-    abilities: [],
+    abilities: classId?getStartingClassAbilities(classId):[],
     equipment: [],
     level: 1,
     experience: 0,
@@ -63,4 +75,16 @@ export function createPlayerCharacter(name: string, originId: PlayerCharacter["o
     updatedAt: now,
     introductionCompleted: false,
   };
+}
+
+/** Permite uma única definição de classe para personagens antigos sem classe.
+ * Não reinicia nível, origem, atributos, equipamentos, missões ou inventário.
+ */
+export function assignCharacterClass(character:PlayerCharacter,classId:ClassId):PlayerCharacter {
+ if(character.classId!==null && character.classId!==undefined)
+   return character;
+ if(!isPlayableClass(classId))return character;
+ return {...character,classId,
+   abilities:[...new Set([...(character.abilities??[]),...getStartingClassAbilities(classId)])],
+   updatedAt:new Date().toISOString()};
 }
