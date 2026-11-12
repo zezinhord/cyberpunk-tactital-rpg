@@ -5,6 +5,8 @@ import { ITEM_CATALOG, ITEM_IDS } from "../game/inventory";
 import type { InventoryState, ItemId } from "../game/inventory";
 import type { TestAppearance } from "../game/test-arena/appearance";
 import { getPlayerSpriteUrl } from "../game/baixada/sprites";
+import ClassSelection from "./ClassSelection";
+import {getClassById,CLASS_SKILLS,getClassSkills,type ClassId} from "../game/classes/registry";
 
 type MenuSection = "character" | "inventory" | "equipment" | "abilities" | "map" | "journal" | "settings";
 
@@ -17,6 +19,7 @@ interface Props {
   character: PlayerCharacter;
   appearance: TestAppearance;
   onChangeAppearance: (appearance: TestAppearance) => void;
+  onChooseClass: (classId: ClassId) => void;
   originName: string;
   originDescription: string;
   originProfile: OriginGameplayProfile;
@@ -66,6 +69,7 @@ export default function CharacterMenu({
   character,
   appearance,
   onChangeAppearance,
+  onChooseClass,
   originName,
   originDescription,
   originProfile,
@@ -81,6 +85,7 @@ export default function CharacterMenu({
   onToggleEquipment,
 }: Props) {
   const [activeSection, setActiveSection] = useState<MenuSection>("character");
+  const [pendingClass,setPendingClass]=useState<ClassId|null>(null);
   const activeItem = MENU_ITEMS.find((item) => item.id === activeSection)!;
   const attributeEntries = Object.entries(character.attributes);
   const progress = Math.max(0, Math.min(3, missionStep));
@@ -169,11 +174,25 @@ export default function CharacterMenu({
                 </section>
                 <div className="menu-data-grid">
                   <DataCard label="ORIGEM" value={originName} detail="Histórico de nascimento e contatos" />
-                  <DataCard label="CLASSE" value={character.classId ?? "Não definida"} detail="Escolha de classe ainda não integrada" />
+                  <DataCard label="CLASSE" value={character.classId ? getClassById(character.classId).name : "Não definida"} detail={character.classId?"Especialização mecânica independente da origem":"Escolha uma das 11 classes oficiais"} />
                   <DataCard label="EXPERIÊNCIA" value={String(character.experience)} detail="Pontos registrados" />
                   <DataCard label="MISSÃO PRINCIPAL" value={missionStep === 3 ? "Concluída" : "Em andamento"} detail={progress + " de 3 etapas"} />
                 </div>
 
+                {!character.classId && <section className="menu-info-panel">
+                  <ClassSelection value={pendingClass} onChange={setPendingClass} compact />
+                  <button type="button" className="ability-button" disabled={!pendingClass}
+                    onClick={()=>{if(pendingClass)onChooseClass(pendingClass);}}>
+                    Confirmar classe do protagonista
+                  </button>
+                  <p>Esta seleção será vinculada ao salvamento atual. Sua origem e aparência continuarão inalteradas.</p>
+                </section>}
+                {character.classId&&<section className="menu-info-panel">
+                  <span className="menu-panel-kicker">CLASSE · ESPECIALIZAÇÃO</span>
+                  <h4>{getClassById(character.classId).name}</h4>
+                  <p>{getClassById(character.classId).description}</p>
+                  <p><b>Exploração:</b> {getClassById(character.classId).explorationFocus}</p>
+                </section>}
                 <section className="menu-info-panel">
                   <span className="menu-panel-kicker">HISTÓRICO DE ORIGEM</span>
                   <p>{originDescription}</p>
@@ -263,10 +282,18 @@ export default function CharacterMenu({
                   <p>{originProfile.abilityDescription}</p>
                   <small>O efeito está ligado à arena tática de teste nesta versão.</small>
                 </section>
+                {character.classId&&<section className="menu-info-panel menu-ability-card">
+                  <span className="menu-panel-kicker">HABILIDADE EXCLUSIVA · {getClassById(character.classId).name.toUpperCase()}</span>
+                  {getClassSkills(character.classId).map(skill=><div className="class-ability-readout" key={skill.id}>
+                    <h4>{skill.name}</h4><p>{skill.description}</p>
+                    <small>Custo: {skill.cost} energia · Recarga: {skill.cooldown} turnos · Alcance: {skill.range} células · Nível {skill.minimumLevel}</small>
+                    <p><small>Seu poder só pode ser usado por personagens desta classe.</small></p>
+                  </div>)}
+                </section>}
                 {character.abilities.length > 0 && (
                   <section className="menu-list-panel">
                     <span className="menu-panel-kicker">OUTRAS HABILIDADES REGISTRADAS</span>
-                    {character.abilities.map((ability, index) => <div className="menu-list-row" key={ability + index}><span>HAB-{String(index + 1).padStart(2, "0")}</span><strong>{ability}</strong></div>)}
+                    {character.abilities.map((ability, index) => <div className="menu-list-row" key={ability + index}><span>HAB-{String(index + 1).padStart(2, "0")}</span><strong>{CLASS_SKILLS[ability]?.name??ability}</strong></div>)}
                   </section>
                 )}
               </div>

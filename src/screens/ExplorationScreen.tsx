@@ -8,6 +8,7 @@ import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
 import type { TestAppearance } from "../game/test-arena/appearance";
 import { audioDirector } from "../audio/director";
+import type {ClassId} from "../game/classes/registry";
 import { isPatioCitizen, getPatioConversation, type ConversationOption } from "../game/dialogues/patio";
 import { readV09,markV09Reported } from "../game/story/v09";
 
@@ -19,6 +20,7 @@ interface Props {
   character: PlayerCharacter;
   appearance: TestAppearance;
   onChangeAppearance: (appearance: TestAppearance) => void;
+  onChooseClass: (classId: ClassId) => void;
   onOpenBattle: (mode?: "test" | "v09") => void;
   onReturnToTitle: () => void;
   inventory: InventoryState;
@@ -79,6 +81,7 @@ export default function ExplorationScreen({
   character,
   appearance,
   onChangeAppearance,
+  onChooseClass,
   onOpenBattle,
   onReturnToTitle,
   inventory,
@@ -500,6 +503,7 @@ export default function ExplorationScreen({
           character={character}
           appearance={appearance}
           onChangeAppearance={onChangeAppearance}
+          onChooseClass={onChooseClass}
           originName={origin.name}
           originDescription={origin.description}
           originProfile={getOriginGameplay(character.originId)}
