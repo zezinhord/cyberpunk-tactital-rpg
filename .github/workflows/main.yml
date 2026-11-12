@@ -39,6 +39,9 @@ jobs:
       - name: Testar sistema de habilidades
         run: node --experimental-strip-types scripts/test-abilities.mjs
 
+      - name: Validar planta, colisões e rotas da Baixada
+        run: node --experimental-strip-types scripts/test-baixada-layout.mjs
+
       - name: Compilar aplicacao
         run: npm run build
 
