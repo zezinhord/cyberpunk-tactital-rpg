@@ -3,14 +3,16 @@ import Phaser from "phaser";
 import { BAIXADA_VIEW_HEIGHT, BAIXADA_VIEW_WIDTH, BaixadaScene } from "../game/baixada/BaixadaScene";
 import type { OriginId } from "../game/character";
 import type { TestAppearance } from "../game/test-arena/appearance";
+import { loadWorldLocation, saveWorldLocation } from "../game/baixada/location";
 
 interface BaixadaWorldProps {
   onInteract: (id: string) => void;
   originId: OriginId;
   appearance: TestAppearance;
+  characterId: string;
 }
 
-export default function BaixadaWorld({ onInteract, originId, appearance }: BaixadaWorldProps) {
+export default function BaixadaWorld({ onInteract, originId, appearance, characterId }: BaixadaWorldProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BaixadaScene | null>(null);
   const callbackRef = useRef(onInteract);
@@ -20,7 +22,8 @@ export default function BaixadaWorld({ onInteract, originId, appearance }: Baixa
     const host = hostRef.current;
     if (!host) return;
 
-    const scene = new BaixadaScene((id) => callbackRef.current(id), originId, appearance);
+    const scene = new BaixadaScene((id) => callbackRef.current(id), originId, appearance,
+      loadWorldLocation(characterId), (tile) => saveWorldLocation(characterId,tile));
     sceneRef.current = scene;
     const game = new Phaser.Game({
       type: Phaser.AUTO,
@@ -34,7 +37,7 @@ export default function BaixadaWorld({ onInteract, originId, appearance }: Baixa
     });
 
     return () => { sceneRef.current = null; game.destroy(true); };
-  }, [originId]);
+  }, [originId,characterId]);
 
   useEffect(() => { sceneRef.current?.setAppearance(appearance); }, [appearance]);
 

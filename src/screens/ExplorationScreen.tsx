@@ -368,7 +368,7 @@ export default function ExplorationScreen({
             onInteract={handleInteract}
           />
         ) : (
-          <BaixadaWorld originId={character.originId} appearance={appearance} onInteract={handleInteract} />
+          <BaixadaWorld originId={character.originId} appearance={appearance} characterId={character.id} onInteract={handleInteract} />
         )}
         <div className="world-instructions">
           <span className="instruction-glyph">⌖</span>

@@ -67,6 +67,7 @@ function walkable(tile: Position): boolean { return isWalkable(tile); }
 
 export class BaixadaScene extends Phaser.Scene {
   private readonly onInteract: (id: string) => void;
+  private readonly onPositionChange?: (tile: Position) => void;
   private readonly originId: OriginId;
   private appearance: TestAppearance;
   private playerAnimator?: ActorAnimationController;
@@ -120,11 +121,14 @@ export class BaixadaScene extends Phaser.Scene {
   }
 
 
-  constructor(onInteract: (id: string) => void, originId: OriginId, appearance: TestAppearance) {
+  constructor(onInteract: (id: string) => void, originId: OriginId, appearance: TestAppearance,
+    startTile?: Position, onPositionChange?: (tile: Position) => void) {
     super({ key: "BaixadaScene" });
     this.onInteract = onInteract;
     this.originId = originId;
     this.appearance = appearance;
+    if(startTile && canStand(startTile))this.playerTile={...startTile};
+    this.onPositionChange=onPositionChange;
   }
 
   setAppearance(appearance: TestAppearance): void {
@@ -808,6 +812,7 @@ export class BaixadaScene extends Phaser.Scene {
           this.drawPlayerMarker();
           this.updateActorLabels();
           audioDirector.effect("step");
+          this.onPositionChange?.({...this.playerTile});
           nextStep();
         },
       });
