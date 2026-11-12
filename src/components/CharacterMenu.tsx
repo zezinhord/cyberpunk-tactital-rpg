@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { OriginGameplayProfile, PlayerCharacter } from "../game/character";
+import { ITEM_CATALOG, ITEM_IDS } from "../game/inventory";
+import type { InventoryState, ItemId } from "../game/inventory";
 
 type MenuSection = "character" | "inventory" | "equipment" | "abilities" | "map" | "journal" | "settings";
 
@@ -21,6 +23,8 @@ interface Props {
   onClose: () => void;
   onReturnToTitle: () => void;
   onOpenTestArena: () => void;
+  inventory: InventoryState;
+  onToggleEquipment: (id: ItemId) => void;
 }
 
 const MENU_ITEMS: ReadonlyArray<{ id: MenuSection; code: string; label: string; description: string }> = [
@@ -78,6 +82,8 @@ export default function CharacterMenu({
   onClose,
   onReturnToTitle,
   onOpenTestArena,
+  inventory,
+  onToggleEquipment,
 }: Props) {
   const [activeSection, setActiveSection] = useState<MenuSection>("character");
   const activeItem = MENU_ITEMS.find((item) => item.id === activeSection)!;
@@ -192,26 +198,48 @@ export default function CharacterMenu({
             )}
 
             {activeSection === "inventory" && (
-              <EmptyState
-                code="INVENTÁRIO // 000"
-                title="A mochila ainda não tem registros"
-                description="O inventário geral ainda não foi desenvolvido. Esta seção será o espaço para consultar itens coletados, consumíveis, componentes e objetos de missão quando o sistema de itens estiver integrado."
-              />
+              <div className="menu-section-stack">
+                <section className="menu-list-panel">
+                  <span className="menu-panel-kicker">ITENS DO PROTAGONISTA // SALVAMENTO LOCAL</span>
+                  {ITEM_IDS.filter((id) => inventory.quantities[id] > 0).map((id) => {
+                    const item = ITEM_CATALOG[id];
+                    const equipped = item.slot ? inventory.equipped[item.slot] === id : false;
+                    return (
+                      <article className="na-item-row" key={id}>
+                        <div>
+                          <span>{item.category.toUpperCase()} · QTD {inventory.quantities[id]}</span>
+                          <h4>{item.name}</h4>
+                          <p>{item.description}</p>
+                        </div>
+                        {item.slot && <button type="button" onClick={() => onToggleEquipment(id)}>
+                          {equipped ? "Remover" : "Equipar"}
+                        </button>}
+                      </article>
+                    );
+                  })}
+                  {ITEM_IDS.every((id) => inventory.quantities[id] === 0) && <p className="menu-empty-copy">Inventário vazio.</p>}
+                </section>
+                <p className="menu-footnote">O inventário é salvo neste aparelho. Curativos podem ser usados no Limbo de Teste, durante seu turno.</p>
+              </div>
             )}
 
             {activeSection === "equipment" && (
-              character.equipment.length > 0 ? (
-                <section className="menu-list-panel">
-                  <span className="menu-panel-kicker">EQUIPAMENTOS REGISTRADOS</span>
-                  {character.equipment.map((item, index) => <div className="menu-list-row" key={item + index}><span>EQP-{String(index + 1).padStart(2, "0")}</span><strong>{item}</strong></div>)}
-                </section>
-              ) : (
-                <EmptyState
-                  code="EQUIPAMENTOS // 000"
-                  title="Nenhum equipamento registrado"
-                  description="A ficha ainda não possui armas, trajes ou implantes equipados. O catálogo, a comparação de atributos e a troca de equipamentos serão conectados nesta seção em uma etapa própria."
-                />
-              )
+              <div className="menu-section-stack">
+                <div className="menu-two-columns">
+                  {(["weapon", "armor"] as const).map((slot) => {
+                    const id = inventory.equipped[slot];
+                    return (
+                      <section className="menu-info-panel" key={slot}>
+                        <span className="menu-panel-kicker">{slot === "weapon" ? "ARMA" : "PROTEÇÃO"}</span>
+                        <h4>{id ? ITEM_CATALOG[id].name : "Espaço livre"}</h4>
+                        <p>{id ? ITEM_CATALOG[id].description : "Abra o Inventário para equipar um item."}</p>
+                        {id && <button type="button" className="na-item-unequip" onClick={() => onToggleEquipment(id)}>Remover equipamento</button>}
+                      </section>
+                    );
+                  })}
+                </div>
+                <p className="menu-footnote">Modificadores de arma e proteção são aplicados na próxima entrada no Limbo de Teste.</p>
+              </div>
             )}
 
             {activeSection === "abilities" && (

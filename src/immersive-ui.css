@@ -123,3 +123,13 @@
   .na-title-content { width:95%; padding:24px 20px; }
   .na-title-brand h1 { font-size:clamp(36px,12vw,64px); }
 }
+
+/* Inventário funcional: ações explícitas, alvos de toque acessíveis. */
+.na-item-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 3px; border-top:1px solid rgba(143,163,199,.18); }
+.na-item-row > div { min-width:0; }
+.na-item-row span { color:#dbb57a; font:500 10px var(--mono); letter-spacing:.06em; }
+.na-item-row h4 { margin:3px 0; color:#e7ede4; font:700 16px var(--display); }
+.na-item-row p { margin:0; color:#aab9ae; font-size:12px; line-height:1.5; }
+.na-item-row button,.na-item-unequip { flex:none; min-height:48px; padding:7px 12px; border:1px solid rgba(255,209,102,.45); border-radius:5px; color:#f2dcae; background:#253032; font:700 12px var(--display); }
+.na-item-unequip { margin-top:9px; }
+@media (orientation:landscape) and (max-height:400px) { .na-item-row { padding:6px 3px; } }

@@ -3,6 +3,7 @@ import BaixadaWorld from "../components/BaixadaWorld";
 import InteriorWorld from "../components/InteriorWorld";
 import { getOriginById, getOriginGameplay } from "../game/character";
 import CharacterMenu from "../components/CharacterMenu";
+import type { InventoryState, ItemId } from "../game/inventory";
 import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
 
@@ -14,6 +15,8 @@ interface Props {
   character: PlayerCharacter;
   onOpenBattle: () => void;
   onReturnToTitle: () => void;
+  inventory: InventoryState;
+  onToggleEquipment: (id: ItemId) => void;
 }
 
 const MISSION_KEY = "cyberpunk-tactical-rpg.mission.v1.";
@@ -64,6 +67,8 @@ export default function ExplorationScreen({
   character,
   onOpenBattle,
   onReturnToTitle,
+  inventory,
+  onToggleEquipment,
 }: Props) {
   const origin = getOriginById(character.originId);
   const [mission, setMission] = useState<MissionProgress>(() => readMission(character.id));
@@ -442,6 +447,8 @@ export default function ExplorationScreen({
           onClose={() => setMenuOpen(false)}
           onReturnToTitle={onReturnToTitle}
           onOpenTestArena={onOpenBattle}
+          inventory={inventory}
+          onToggleEquipment={onToggleEquipment}
         />
       )}
 

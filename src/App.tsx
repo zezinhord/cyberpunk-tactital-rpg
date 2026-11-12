@@ -15,6 +15,11 @@ import {
 import type { OriginId, PlayerCharacter } from "./game/character";
 import ExplorationScreen from "./screens/ExplorationScreen";
 import TitleScreen from "./screens/TitleScreen";
+import {
+  createStartingInventory, loadInventory, saveInventory, deleteInventory,
+  toggleEquipment, consumeItem, getEquipmentBonuses, ITEM_CATALOG,
+} from "./game/inventory";
+import type { ItemId, InventoryState } from "./game/inventory";
 
 function getUnit(state: GameState, id: string): Unit | undefined {
   return state.units.find((unit) => unit.id === id);
@@ -160,10 +165,15 @@ export default function App() {
   const [character, setCharacter] = useState<PlayerCharacter | null>(() => loadCharacter());
   const [screen, setScreen] = useState<"title" | "creation" | "resume" | "introduction" | "exploration" | "battle">("title");
   const [battleReset, setBattleReset] = useState(0);
+  const [inventory, setInventory] = useState<InventoryState>(() => loadInventory(loadCharacter()?.id ?? ""));
+  const bonuses = useMemo(() => getEquipmentBonuses(inventory), [inventory]);
+  useEffect(() => {
+    if (character && inventory.ownerId === character.id) saveInventory(inventory);
+  }, [character?.id, inventory]);
   const [saveMessage, setSaveMessage] = useState("Salvamento local ativo");
 
   const originProfile = useMemo(() => character ? getOriginGameplay(character.originId) : undefined, [character?.originId]);
-  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile }), [character?.id, battleReset]);
+  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses }), [character?.id, battleReset, originProfile, bonuses]);
   const [state, setState] = useState<GameState>(() => manager.getState());
   const player = getUnit(state, "runner");
   const enemy = getUnit(state, "drone");
@@ -178,6 +188,7 @@ export default function App() {
   const handleCreate = (name: string, originId: OriginId) => {
     const nextCharacter = createPlayerCharacter(name, originId);
     setCharacter(nextCharacter);
+    setInventory(createStartingInventory(nextCharacter.id));
     setSaveMessage(saveCharacter(nextCharacter) ? "Personagem salvo neste dispositivo" : "Não foi possível salvar neste dispositivo");
     setScreen("introduction");
   };
@@ -191,9 +202,18 @@ export default function App() {
   };
 
   const startNewCharacter = () => {
+    if (character) deleteInventory(character.id);
     deleteCharacterSave();
+    setInventory(createStartingInventory(""));
     setCharacter(null);
     setScreen("creation");
+  };
+
+  const handleUseMedkit = () => {
+    if (inventory.quantities.curativo_campo < 1) return;
+    if (manager.useMedicalSupply(ITEM_CATALOG.curativo_campo.healAmount ?? 0)) {
+      setInventory((current) => consumeItem(current, "curativo_campo"));
+    }
   };
 
   if (screen === "title") {
@@ -218,6 +238,8 @@ export default function App() {
         character={character}
         onOpenBattle={() => setScreen("battle")}
         onReturnToTitle={() => setScreen("title")}
+        inventory={inventory}
+        onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
       />
     );
   }
@@ -269,6 +291,7 @@ export default function App() {
           <ActionChip label="Bônus" ready={state.bonusActionAvailable} />
         </div>
         <div className="actions">
+          <button type="button" className="end-turn-button" disabled={state.activeSide !== "player" || state.combatComplete || !state.bonusActionAvailable || !player || player.hp >= player.maxHp || inventory.quantities.curativo_campo < 1} onClick={handleUseMedkit}>Curativo ({inventory.quantities.curativo_campo})</button>
           <button className="end-turn-button" onClick={() => { buzz(); manager.endPlayerTurn(); }} disabled={state.activeSide !== "player" || state.combatComplete}>Encerrar turno</button>
           <button className="attack-button" onClick={() => { buzz(20); manager.attack(); }} disabled={!canAttack}>Ataque corpo a corpo</button>
         </div>

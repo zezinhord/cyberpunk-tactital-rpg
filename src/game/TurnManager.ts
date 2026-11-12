@@ -18,6 +18,7 @@ function livingUnit(units: Unit[], id: string): Unit | undefined {
 export interface TurnManagerOptions {
   playerName?: string;
   originProfile?: OriginGameplayProfile;
+  equipmentBonuses?: { attackBonus: number; armorBonus: number };
 }
 
 export class TurnManager {
@@ -43,8 +44,8 @@ export class TurnManager {
           y: 6,
           hp: maxHp,
           maxHp,
-          armorClass: 12 + (this.originProfile?.armorBonus ?? 0),
-          attackBonus: 5 + (this.originProfile?.attackBonus ?? 0),
+          armorClass: 12 + (this.originProfile?.armorBonus ?? 0) + (options.equipmentBonuses?.armorBonus ?? 0),
+          attackBonus: 5 + (this.originProfile?.attackBonus ?? 0) + (options.equipmentBonuses?.attackBonus ?? 0),
         },
         {
           id: "drone",
@@ -136,6 +137,21 @@ export class TurnManager {
     }
     this.addLog(`[ORIGEM] ${profile.abilityName} foi utilizada.`);
     this.publish();
+  }
+
+  useMedicalSupply(amount: number): boolean {
+    const player = livingUnit(this.state.units, "runner");
+    if (!player || !Number.isFinite(amount) || amount <= 0 || this.state.activeSide !== "player"
+        || !this.state.bonusActionAvailable || this.state.combatComplete || player.hp >= player.maxHp) {
+      return false;
+    }
+    const healed = Math.min(Math.floor(amount), player.maxHp - player.hp);
+    player.hp += healed;
+    this.state.bonusActionAvailable = false;
+    this.state.message = "Curativo de campo: " + healed + " pontos de Vida recuperados.";
+    this.addLog("[ITEM] Curativo utilizado: +" + healed + " Vida.");
+    this.publish();
+    return true;
   }
 
   movePlayerTo(x: number, y: number): void {
