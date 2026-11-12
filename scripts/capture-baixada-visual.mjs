@@ -145,6 +145,29 @@ try {
     sameCanvasAfterAppearanceChange: persisted, runtimeExceptions: session.exceptions,
   }, null, 2));
 
+  // Percorre a mesma sessão salva em novo ponto de spawn válido no Pátio:
+  // valida layout real do setor industrial sem reescrever o mapa em teste.
+  const relocated = await evaluate(`(()=>{
+    const raw=localStorage.getItem("cyberpunk-tactical-rpg.character.v1");
+    if(!raw)return false;
+    const id=JSON.parse(raw)?.character?.id;
+    if(!id)return false;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+id,
+      JSON.stringify({x:28,y:12}));
+    return true;
+  })()`);
+  if(!relocated)throw new Error("QA industrial: personagem salvo não encontrado.");
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"menu para restaurar exploração");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".baixada-world canvas"),"mapa industrial restaurado");
+  await sleep(2100);
+  const patioShot=await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false});
+  const patioPng=Buffer.from(patioShot.data,"base64");
+  if(patioPng.length<15000)throw new Error("QA industrial: screenshot vazio");
+  await writeFile("qa/patio-reuso-1600x720.png",patioPng);
+  console.log("QA industrial: Pátio do Reúso capturado em 1600×720.");
+
   // QA móvel da arena: comandos devem permanecer disponíveis mesmo
   // quando a seção de recursos e habilidades excede o viewport.
   await evaluate('document.querySelector(".menu-trigger").click();true');
