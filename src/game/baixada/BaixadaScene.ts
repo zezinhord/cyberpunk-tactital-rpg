@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import {
   ACTOR_TILES, BUILDINGS, GRID_HEIGHT, GRID_WIDTH, PLAYER_START, PROPS,
-  cellKey, isInside, isStreet, isWalkable, type BuildingSpec,
+  isInside, isStreet, isWalkable, type BuildingSpec,
 } from "./layout";
 import type { Position } from "../types";
 import { route as safeRoute, approachRoute, canTraverse, canStand } from "./navigation";
@@ -58,7 +58,6 @@ function tileCenter({ x, y }: Position): Point {
 }
 
 function inside(tile: Position): boolean { return isInside(tile); }
-function keyOf(tile: Position): string { return cellKey(tile); }
 function walkable(tile: Position): boolean { return isWalkable(tile); }
 
 function findPath(start: Position, end: Position): Position[] | null {
