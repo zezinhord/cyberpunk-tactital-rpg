@@ -3,6 +3,7 @@
  */
 export const SPECIAL_IDS = ["pulse-emp", "barrier", "regeneration"] as const;
 export type SpecialId = (typeof SPECIAL_IDS)[number];
+import type { OriginId } from "../character/origins";
 export type AbilityKind = "offense" | "defense" | "support" | "control" | "mobility";
 export type AbilityTarget = "enemy" | "self";
 export type AbilityCondition = "enemy-in-range" | "injured" | "barrier-not-active";
@@ -13,6 +14,8 @@ export interface SpecialDefinition {
   name: string;
   description: string;
   archetype: "field-operative";
+  requiredOrigin?: OriginId;
+  requiredClass?: string;
   minimumLevel: number;
   kind: AbilityKind;
   target: AbilityTarget;

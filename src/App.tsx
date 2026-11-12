@@ -180,7 +180,7 @@ export default function App() {
   const [saveMessage, setSaveMessage] = useState("Salvamento local ativo");
 
   const originProfile = useMemo(() => character ? getOriginGameplay(character.originId) : undefined, [character?.originId]);
-  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses }), [character?.id, battleReset, originProfile, bonuses]);
+  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId }), [character?.id, character?.level, character?.originId, character?.classId, battleReset, originProfile, bonuses]);
   const [state, setState] = useState<GameState>(() => manager.getState());
   const player = getUnit(state, "runner");
   const enemy = getUnit(state, "drone");

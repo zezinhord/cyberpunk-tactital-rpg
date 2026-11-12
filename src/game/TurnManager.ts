@@ -23,6 +23,9 @@ export interface TurnManagerOptions {
   playerName?: string;
   originProfile?: OriginGameplayProfile;
   equipmentBonuses?: { attackBonus: number; armorBonus: number };
+  characterLevel?: number;
+  originId?: string;
+  classId?: string | null;
 }
 
 export class TurnManager {
@@ -64,6 +67,8 @@ export class TurnManager {
         },
       ],
       activeSide: "player",
+      archetypeId: "field-operative", characterLevel: options.characterLevel ?? 1,
+      originId: options.originId ?? "corporativo", classId: options.classId ?? null,
       energy: 10, maxEnergy: 10,
       cooldowns: { "pulse-emp": 0, barrier: 0, regeneration: 0 },
       barrierTurns: 0, enemyJamTurns: 0, terminalUsed: false, cue: null,

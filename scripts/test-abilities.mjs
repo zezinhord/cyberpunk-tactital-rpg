@@ -11,7 +11,7 @@ function game() {
     ],
     activeSide:"player",round:1,movementRemaining:6,movementPerTurn:6,
     mainActionAvailable:true,bonusActionAvailable:true,originAbilityAvailable:false,originAbilityName:"",
-    combatComplete:false,message:"",log:[], energy:10,maxEnergy:10,
+    combatComplete:false,message:"",log:[], archetypeId:"field-operative",characterLevel:1,originId:"baixada",classId:null,energy:10,maxEnergy:10,
     cooldowns:{"pulse-emp":0,barrier:0,regeneration:0},barrierTurns:0,enemyJamTurns:0,terminalUsed:false,
     cue:null,
   };
@@ -19,6 +19,11 @@ function game() {
 
 assert.equal(SPECIALS["pulse-emp"].cost,3);
 assert.equal(SPECIALS.barrier.armorBonus,3);
+const locked=game();locked.archetypeId="other";
+assert.equal(checkSpecial(locked,"barrier").available,false);
+assert.equal(locked.energy,10);
+const underleveled=game();underleveled.characterLevel=0;
+assert.equal(checkSpecial(underleveled,"pulse-emp").available,false);
 
 const emp=game();
 assert.equal(useSpecial(emp,"pulse-emp").ok,true);

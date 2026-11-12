@@ -22,6 +22,10 @@ export interface CombatCue { sequence: number; visual: CombatVisual; target: "pl
 
 export interface GameState {
   units: Unit[];
+  archetypeId: string;
+  characterLevel: number;
+  originId: string;
+  classId: string | null;
   energy: number;
   maxEnergy: number;
   cooldowns: Record<SpecialId, number>;

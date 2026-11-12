@@ -22,6 +22,11 @@ export function distanceManhattan(a: { x: number; y: number }, b: { x: number; y
 export function checkSpecial(state: GameState, id: SpecialId): AbilityCheck {
   const def = SPECIALS[id];
   const { player, enemy } = getUnits(state);
+  if (state.archetypeId !== def.archetype || state.characterLevel < def.minimumLevel ||
+      (def.requiredOrigin && state.originId !== def.requiredOrigin) ||
+      (def.requiredClass && state.classId !== def.requiredClass)) {
+    return { available: false, reason: "Habilidade ainda não desbloqueada." };
+  }
   if (state.combatComplete || state.activeSide !== "player" || !player || player.hp <= 0) {
     return { available: false, reason: "Fora do seu turno." };
   }
