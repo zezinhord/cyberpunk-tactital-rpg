@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import {
-  ACTOR_TILES, BUILDINGS, GRID_HEIGHT, GRID_WIDTH, PLAYER_START, PROPS,
+  ACTOR_TILES, BUILDINGS, GRID_HEIGHT, GRID_WIDTH, PLAYER_START, PROPS, isIndustrialSector,
   isInside, isStreet, isWalkable, type BuildingSpec,
 } from "./layout";
 import type { Position } from "../types";
@@ -18,8 +18,8 @@ import {
   type IsoDirection,
 } from "./sprites";
 
-export const BAIXADA_WIDTH = 1120;
-export const BAIXADA_HEIGHT = 720;
+export const BAIXADA_WIDTH = 1660;
+export const BAIXADA_HEIGHT = 970;
 export const BAIXADA_VIEW_WIDTH = 960;
 export const BAIXADA_VIEW_HEIGHT = 540;
 
@@ -197,6 +197,15 @@ export class BaixadaScene extends Phaser.Scene {
     // Fundo atmosférico em camadas: névoa quente de oficinas e luz fria de anúncios.
     graphics.fillStyle(0x174448, 0.18);
     graphics.fillEllipse(390, 250, 530, 300);
+    // Horizonte industrial distante: pano de fundo, jamais collider.
+    graphics.fillStyle(0x26363a, 0.46);
+    for(let n=0;n<14;n+=1) {
+      const x=730+n*65;
+      const height=40+(n*17%53);
+      graphics.fillRect(x, 104-height, 37+(n%3)*7, height);
+    }
+    graphics.lineStyle(2,0x6e6654,0.3);
+    graphics.beginPath();graphics.moveTo(780,68);graphics.lineTo(1640,68);graphics.strokePath();
     graphics.fillStyle(0x8a4e42, 0.12);
     graphics.fillEllipse(590, 360, 430, 210);
 
@@ -207,9 +216,12 @@ export class BaixadaScene extends Phaser.Scene {
           const center = tileCenter({ x, y });
           const street = isStreet({ x, y });
           const variation = (x * 7 + y * 11) % 5;
-          const color = street
-            ? [0x424846, 0x3d4747, 0x404b48, 0x424846, 0x3e4747][variation] ?? 0x424846
-            : [0x475046, 0x424c45, 0x4a4e43, 0x485046, 0x435048][variation] ?? 0x475046;
+          const industrial = isIndustrialSector({x,y});
+          const color = industrial
+            ? street ? [0x393e40,0x394044,0x3f4242,0x363e41,0x414849][variation] ?? 0x393e40
+              : [0x514d44,0x555247,0x4c4d48,0x54504a,0x524e46][variation] ?? 0x514d44
+            : street ? [0x424846, 0x3d4747, 0x404b48, 0x424846, 0x3e4747][variation] ?? 0x424846
+              : [0x475046, 0x424c45, 0x4a4e43, 0x485046, 0x435048][variation] ?? 0x475046;
           this.polygon(graphics, this.diamond(center.x, center.y), color, 1, 0x52615a, 0.28, 0.8);
 
           if (street && (x + y) % 6 === 0) {
@@ -264,12 +276,18 @@ export class BaixadaScene extends Phaser.Scene {
   private drawRoadDrainage(): void {
     const graphics = this.details;
     graphics.lineStyle(2, 0x17262c, 0.9);
-    for (let x = 2; x < 19; x += 1) {
+    for (let x = 2; x < GRID_WIDTH - 1; x += 1) {
       const point = tileCenter({ x, y: 6 });
       graphics.beginPath();
       graphics.moveTo(point.x - 11, point.y + 4);
       graphics.lineTo(point.x + 10, point.y + 4);
       graphics.strokePath();
+    }
+    // Rede de águas pluviais do Pátio: continuidade com o ramal antigo.
+    for(let x=20;x<GRID_WIDTH;x+=1){
+      const p=tileCenter({x,y:12});
+      graphics.lineStyle(2,0x857153,0.45);graphics.beginPath();
+      graphics.moveTo(p.x-11,p.y+4);graphics.lineTo(p.x+11,p.y+4);graphics.strokePath();
     }
     graphics.fillStyle(0x66c9c1, 0.25);
     graphics.fillEllipse(490, 255, 35, 7);
@@ -411,7 +429,7 @@ export class BaixadaScene extends Phaser.Scene {
         g.fillRect(x, y, 11, 9);
       }
     }
-    if (building.style === "market" || building.style === "workshop") {
+    if (building.style === "market" || building.style === "workshop" || building.style === "depot") {
       const shade = building.style === "market" ? 0xa16e50 : 0xb28b58;
       const awningX = Phaser.Math.Linear(d.x, c.x, 0.55);
       const awningY = Phaser.Math.Linear(d.y, c.y, 0.55) - 31;
@@ -428,6 +446,13 @@ export class BaixadaScene extends Phaser.Scene {
 
     // Volume único por cobertura, e não antena e caixa repetidas em todos os telhados.
     const roofCenter = { x: (at.x + bt.x + ct.x + dt.x) / 4, y: (at.y + bt.y + ct.y + dt.y) / 4 };
+    if (building.style === "factory") {
+      g.fillStyle(0x2e3438,1);
+      g.fillRect(roofCenter.x-21,roofCenter.y-20,11,26);
+      g.fillRect(roofCenter.x+13,roofCenter.y-33,10,39);
+      g.fillStyle(0xbc9270,0.65);
+      g.fillRect(roofCenter.x-22,roofCenter.y-19,13,3);
+    }
     if (building.style === "utility" || building.style === "canal") {
       g.fillStyle(0x334449, 1);
       g.fillRoundedRect(roofCenter.x - 13, roofCenter.y - 15, 26, 21, 5);
@@ -535,6 +560,8 @@ export class BaixadaScene extends Phaser.Scene {
       { id: "enter-workshop", name: "Entrar na oficina", kind: "door", tile: ACTOR_TILES["enter-workshop"], role: "INTERIOR" },
       { id: "enter-canal-gallery", name: "Descer para a galeria", kind: "door", tile: ACTOR_TILES["enter-canal-gallery"], role: "ACESSO TÉCNICO" },
       { id: "terminal-canal", name: "Terminal do Canal", kind: "terminal", tile: ACTOR_TILES["terminal-canal"], role: "SERVIÇOS DO DISTRITO" },
+      { id: "patio-console", name: "Console V-09", kind: "terminal", tile: ACTOR_TILES["patio-console"], role: "PÁTIO DO REÚSO" },
+      { id: "patio-sentinel", name: "Sentinela V-09", kind: "person", tile: ACTOR_TILES["patio-sentinel"], texture: NPC_TEXTURES.teo, role: "UNIDADE DE VIGILÂNCIA" },
     ];
 
     for (const actor of this.actors) {
@@ -543,6 +570,7 @@ export class BaixadaScene extends Phaser.Scene {
         actor.visual = this.add.sprite(point.x, point.y, actor.texture, 12)
           .setOrigin(0.5, 0.95).setScale(0.86).setDepth(point.y + 0.2);
         playIdle(actor.visual, actor.texture, 2);
+        if(actor.id === "patio-sentinel") actor.visual.setTint(0xff648f);
         this.tweens.add({ targets: actor.visual, y: point.y - 1.5, duration: 1500 + (actor.tile.x % 3) * 170, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
         actor.label = this.add.text(point.x, point.y - 73, actor.name, {
           fontFamily: "IBM Plex Mono, monospace", fontSize: "13px", color: "#eef7ec", backgroundColor: "#111b20dd", padding: { x: 4, y: 2 },
