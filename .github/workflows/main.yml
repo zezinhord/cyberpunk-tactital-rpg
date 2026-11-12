@@ -50,6 +50,18 @@ jobs:
       - name: Testar colisões físicas e portas da Baixada
         run: node --experimental-strip-types scripts/test-baixada-collisions.mjs
 
+      - name: Testar NPCs, dialogos e persistencia da campanha
+        run: |
+          node --experimental-strip-types scripts/test-npc-routines.mjs
+          node --experimental-strip-types scripts/test-patio-dialogues.mjs
+          node --experimental-strip-types scripts/test-story-v09.mjs
+          node --experimental-strip-types scripts/test-world-location.mjs
+
+      - name: Verificar audio e regras de classes
+        run: |
+          node --experimental-strip-types scripts/test-audio.mjs
+          node --experimental-strip-types scripts/test-class-abilities.mjs
+
       - name: Validar planta, colisões e rotas da Baixada
         run: node --experimental-strip-types scripts/test-baixada-layout.mjs
 

@@ -8,3 +8,8 @@
 .menu-character-avatar.sprite-preview { height:70px; width:56px; min-width:56px; border-radius:6px; background-color:#1c3038; background-repeat:no-repeat; }
 .character-body-selection { display:flex; flex-wrap:wrap; gap:7px; margin:7px 0 9px; }
 .character-body-selection button { min-height:48px; min-width:94px; padding:7px 12px; background:#1a282c; border:1px solid #51676b; color:#dce5e0; border-radius:6px; font:600 12px var(--display); }
+
+/* Respostas narrativas com toque confortável em landscape. */
+.dialogue-choice-list{display:flex;flex-direction:column;gap:7px;margin-top:12px}
+.dialogue-choice-list button{width:100%;min-height:48px;padding:10px 12px;background:#1e333c;color:#e1eae7;border:1px solid #6c9694;border-radius:7px;text-align:left;font-size:13px}
+.dialogue-choice-list button:active{border-color:#e8c087;background:#304147}
