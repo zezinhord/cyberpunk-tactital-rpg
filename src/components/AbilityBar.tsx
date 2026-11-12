@@ -34,6 +34,18 @@ export default function AbilityBar({ state, manager }: { state: GameState; manag
           );
         })}
       </div>
+      {manager.getClassAbilities().length>0&&<div className="arena-specials" aria-label="Habilidades da classe">
+        {manager.getClassAbilities().map(skill=>{
+          const availability=manager.getClassAvailability(skill.id);
+          return <button type="button" key={skill.id} className="arena-special"
+            aria-disabled={!availability.available}
+            title={availability.available?skill.description:availability.reason}
+            onClick={()=>{audioDirector.effect("tech");manager.activateClassAbility(skill.id);}}>
+            <strong>{skill.name}</strong><span className="arena-special-bottom">
+              <small>{skill.cost} EN</small><small>RECARGA {state.classCooldowns[skill.id]??0}</small>
+            </span></button>;
+        })}
+      </div>}
       <div className="arena-effects">
         {state.barrierTurns > 0 && <span>◈ Barreira: {state.barrierTurns} ação(ões)</span>}
         {state.enemyJamTurns > 0 && <span>⚡ Sentinela bloqueada: {state.enemyJamTurns}</span>}

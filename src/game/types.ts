@@ -26,6 +26,10 @@ export interface GameState {
   characterLevel: number;
   originId: string;
   classId: string | null;
+  characterAbilities: readonly string[];
+  classCooldowns: Record<string,number>;
+  classGuardBonus: number;
+  classGuardTurns: number;
   encounterId: "test" | "v09";
   energy: number;
   maxEnergy: number;

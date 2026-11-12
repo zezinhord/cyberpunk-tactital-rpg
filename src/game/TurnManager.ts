@@ -1,4 +1,6 @@
 import { TypedEventBus } from "./EventBus";
+import { CLASS_SKILLS,getClassSkills } from "./classes/registry";
+import { checkClassSkill,executeClassSkill,advanceClassRound,advanceClassGuard } from "./classes/engine";
 import { checkSpecial, useSpecial, advanceSpecialRound, isEnemyJammed, advanceBarrierAfterEnemyAction } from "./abilities/engine.ts";
 import type { SpecialId } from "./abilities/catalog";
 import type { AbilityCheck } from "./abilities/engine.ts";
@@ -26,6 +28,7 @@ export interface TurnManagerOptions {
   characterLevel?: number;
   originId?: string;
   classId?: string | null;
+  characterAbilities?: readonly string[];
   encounterId?: "test" | "v09";
 }
 
@@ -71,6 +74,7 @@ export class TurnManager {
       encounterId: options.encounterId ?? "test",
       archetypeId: "field-operative", characterLevel: options.characterLevel ?? 1,
       originId: options.originId ?? "corporativo", classId: options.classId ?? null,
+      characterAbilities: options.characterAbilities ?? [], classCooldowns:{}, classGuardBonus:0, classGuardTurns:0,
       energy: 10, maxEnergy: 10,
       cooldowns: { "pulse-emp": 0, barrier: 0, regeneration: 0 },
       barrierTurns: 0, enemyJamTurns: 0, terminalUsed: false, cue: null,
@@ -93,6 +97,7 @@ export class TurnManager {
       units: this.state.units.map((unit) => ({ ...unit })),
       log: [...this.state.log],
       cooldowns: { ...this.state.cooldowns },
+      classCooldowns:{...this.state.classCooldowns},
       cue: this.state.cue ? { ...this.state.cue } : null,
     };
   }
@@ -101,6 +106,20 @@ export class TurnManager {
     return this.events.on("game:state", listener);
   }
 
+  getClassAbilities(){return getClassSkills(this.state.classId);}
+  getClassAvailability(id:string):AbilityCheck{
+    const skill=CLASS_SKILLS[id];
+    return skill?checkClassSkill(this.state,skill):{available:false,reason:"Habilidade desconhecida."};
+  }
+  activateClassAbility(id:string):void{
+    const skill=CLASS_SKILLS[id];
+    if(!skill){this.setMessage("Habilidade desconhecida.");return;}
+    const result=executeClassSkill(this.state,skill);
+    if(!result.ok){this.setMessage(result.message);return;}
+    this.addLog("[CLASSE] "+result.message);
+    this.setCue(skill.visual,skill.damage>0?"enemy":"player",result.amount);
+    this.publish();
+  }
   getSpecialAvailability(id: SpecialId): AbilityCheck {
     return checkSpecial(this.state, id);
   }
@@ -316,6 +335,7 @@ export class TurnManager {
       }
     }
     advanceBarrierAfterEnemyAction(this.state);
+    advanceClassGuard(this.state);
     if (this.temporaryArmorBonus > 0) {
       player.armorClass -= this.temporaryArmorBonus;
       this.temporaryArmorBonus = 0;
@@ -340,6 +360,7 @@ export class TurnManager {
       this.temporaryMovementBonus = 0;
     }
     advanceSpecialRound(this.state);
+    advanceClassRound(this.state);
     this.state.movementRemaining = this.state.movementPerTurn;
     this.state.mainActionAvailable = true;
     this.state.bonusActionAvailable = true;
