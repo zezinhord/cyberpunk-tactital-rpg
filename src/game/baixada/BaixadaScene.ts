@@ -1,10 +1,11 @@
 import Phaser from "phaser";
 import {
-  ACTOR_TILES, BUILDINGS, GRID_HEIGHT, GRID_WIDTH, PLAYER_START, PROPS, isIndustrialSector,
+  ACTOR_TILES, BUILDINGS, GRID_HEIGHT, GRID_WIDTH, PLAYER_START, PROPS, ROAMING_NPCS, isIndustrialSector,
   isInside, isStreet, isWalkable, type BuildingSpec,
 } from "./layout";
 import type { Position } from "../types";
 import { route as safeRoute, approachRoute, canTraverse, canStand } from "./navigation";
+import { CitizenRoutine } from "./npc-routines";
 import type { OriginId } from "../character/origins";
 import type { TestAppearance } from "../test-arena/appearance";
 import {
@@ -14,6 +15,7 @@ import {
   getPlayerTexture,
   frameForDirection,
   playIdle,
+  playWalk,
   preloadCharacterSprites,
   type IsoDirection,
 } from "./sprites";
@@ -41,6 +43,8 @@ interface WorldActor {
   role?: string;
   visual?: Phaser.GameObjects.Sprite;
   label?: Phaser.GameObjects.Text;
+  routine?: CitizenRoutine;
+  busy?: boolean;
 }
 
 const DIRECTIONS: Position[] = [
@@ -60,13 +64,6 @@ function tileCenter({ x, y }: Position): Point {
 function inside(tile: Position): boolean { return isInside(tile); }
 function walkable(tile: Position): boolean { return isWalkable(tile); }
 
-function findPath(start: Position, end: Position): Position[] | null {
-  return safeRoute(start, end);
-}
-function nearestApproach(start: Position, target: Position): Position[] | null {
-  return approachRoute(start, target);
-}
-
 export class BaixadaScene extends Phaser.Scene {
   private readonly onInteract: (id: string) => void;
   private readonly originId: OriginId;
@@ -82,6 +79,45 @@ export class BaixadaScene extends Phaser.Scene {
   private actors: WorldActor[] = [];
   private moving = false;
   private pendingInteraction: string | null = null;
+
+  private dynamicOccupancy(except?: string, includePlayer = false): Set<string> {
+    const occupied = new Set<string>();
+    for (const actor of this.actors) {
+      if (actor.routine && actor.id !== except) occupied.add(actor.tile.x + "," + actor.tile.y);
+    }
+    if (includePlayer) occupied.add(this.playerTile.x + "," + this.playerTile.y);
+    return occupied;
+  }
+  private findWorldPath(start: Position, target: Position): Position[] | null {
+    return safeRoute(start, target, { occupied: this.dynamicOccupancy() });
+  }
+  private findApproachPath(start: Position, target: Position): Position[] | null {
+    return approachRoute(start, target, { occupied: this.dynamicOccupancy() });
+  }
+  private tickCitizens(): void {
+    for(const actor of this.actors) {
+      if(!actor.routine || !actor.visual || actor.busy) continue;
+      const occupied=this.dynamicOccupancy(actor.id,true);
+      const previous={...actor.tile};
+      const next=actor.routine.tick(previous,occupied);
+      if(!next.moved || !canTraverse(previous,next.tile,{occupied})) continue;
+      const direction: IsoDirection = next.tile.y < previous.y ? 0
+        : next.tile.x > previous.x ? 1 : next.tile.y > previous.y ? 2 : 3;
+      actor.tile={...next.tile};
+      actor.busy=true;
+      playWalk(actor.visual,actor.texture!,direction);
+      const dest=tileCenter(next.tile);
+      this.tweens.add({targets:actor.visual,x:dest.x,y:dest.y,duration:440,ease:"Sine.easeInOut",
+        onUpdate:()=>{
+          actor.visual!.setDepth(actor.visual!.y+0.2);
+          actor.label?.setPosition(actor.visual!.x,actor.visual!.y-73);
+          actor.label?.setDepth(actor.visual!.y+0.42);
+        },
+        onComplete:()=>{actor.busy=false;playIdle(actor.visual!,actor.texture!,direction);this.drawPlayerMarker();this.updateActorLabels();}
+      });
+    }
+  }
+
 
   constructor(onInteract: (id: string) => void, originId: OriginId, appearance: TestAppearance) {
     super({ key: "BaixadaScene" });
@@ -114,6 +150,7 @@ export class BaixadaScene extends Phaser.Scene {
     this.markers.setDepth(20);
     this.createPlayer();
     this.updateActorLabels();
+    this.time.addEvent({delay:1450,loop:true,callback:()=>this.tickCitizens()});
     const camera = this.cameras.main;
     camera.setBounds(0, 0, BAIXADA_WIDTH, BAIXADA_HEIGHT);
     this.updateCameraForViewport();
@@ -562,6 +599,11 @@ export class BaixadaScene extends Phaser.Scene {
       { id: "terminal-canal", name: "Terminal do Canal", kind: "terminal", tile: ACTOR_TILES["terminal-canal"], role: "SERVIÇOS DO DISTRITO" },
       { id: "patio-console", name: "Console V-09", kind: "terminal", tile: ACTOR_TILES["patio-console"], role: "PÁTIO DO REÚSO" },
       { id: "patio-sentinel", name: "Sentinela V-09", kind: "person", tile: ACTOR_TILES["patio-sentinel"], texture: NPC_TEXTURES.teo, role: "UNIDADE DE VIGILÂNCIA" },
+      ...ROAMING_NPCS.map((spec,index)=>({
+        id:spec.id,name:spec.name,kind:"person" as const,tile:{...spec.route[0]},
+        texture:[NPC_TEXTURES.joana,NPC_TEXTURES.teo,NPC_TEXTURES.saira][index],
+        role:spec.role,routine:new CitizenRoutine(spec),
+      })),
     ];
 
     for (const actor of this.actors) {
@@ -684,8 +726,8 @@ export class BaixadaScene extends Phaser.Scene {
     const center = tileCenter(target);
     const localX = Math.abs(worldPoint.x - center.x) / (TILE_WIDTH / 2);
     const localY = Math.abs(worldPoint.y - center.y) / (TILE_HEIGHT / 2);
-    if (!inside(target) || localX + localY > 1.1 || !canStand(target)) return;
-    const path = findPath(this.playerTile, target);
+    if (!inside(target) || localX + localY > 1.1 || !canStand(target,{occupied:this.dynamicOccupancy()})) return;
+    const path = this.findWorldPath(this.playerTile, target);
     if (path) this.walkPath(path);
   }
 
@@ -698,13 +740,14 @@ export class BaixadaScene extends Phaser.Scene {
           : key === "arrowleft" || key === "a" ? DIRECTIONS[3] : undefined;
     if (!direction) return;
     const next = { x: this.playerTile.x + direction.x, y: this.playerTile.y + direction.y };
-    const path = findPath(this.playerTile, next);
+    const path = this.findWorldPath(this.playerTile, next);
     if (path) this.walkPath(path);
   }
 
   private approachActor(actor: WorldActor): void {
     this.pendingInteraction = actor.id;
-    const path = nearestApproach(this.playerTile, actor.tile);
+    actor.routine?.interact();
+    const path = this.findApproachPath(this.playerTile, actor.tile);
     if (!path) {
       this.pendingInteraction = null;
       return;
@@ -732,7 +775,7 @@ export class BaixadaScene extends Phaser.Scene {
       const previous = this.playerTile;
       // Proteção física no momento da movimentação: nenhuma interpolação
       // executa um passo que atravessaria um edifício, pessoa ou obstáculo.
-      if (!canTraverse(previous, next)) {
+      if (!canTraverse(previous, next,{occupied:this.dynamicOccupancy()})) {
         steps.length = 0;
         this.pendingInteraction = null;
         this.moving = false;
@@ -775,6 +818,8 @@ export class BaixadaScene extends Phaser.Scene {
     if (!this.pendingInteraction) return;
     const id = this.pendingInteraction;
     this.pendingInteraction = null;
+    const actor=this.actors.find((a)=>a.id===id);
+    if (actor && Math.abs(actor.tile.x-this.playerTile.x)+Math.abs(actor.tile.y-this.playerTile.y)>1) return;
     this.onInteract(id);
   }
 }
