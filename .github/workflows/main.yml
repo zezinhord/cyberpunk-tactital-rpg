@@ -48,6 +48,9 @@ jobs:
       - name: Aplicar orientacao horizontal
         run: node scripts/lock-android-landscape.mjs
 
+      - name: Ativar tela imersiva Android
+        run: node scripts/enable-android-immersive.mjs
+
       - name: Gerar APK
         working-directory: android
         run: |
