@@ -296,7 +296,7 @@ export default function App() {
         </div>
         <div className="turn">
           <span className="turn-pill" data-side={state.activeSide}>
-            {state.activeSide === "player" ? "Seu turno" : "Turno hostil"}
+            {state.combatComplete ? (victory ? "Vitória" : "Derrota") : state.activeSide === "player" ? "Seu turno" : "Turno hostil"}
           </span>
           <span>Rodada {state.round}</span>
         </div>
@@ -316,6 +316,7 @@ export default function App() {
         </section>
       </section>
       <aside className="arena-console" aria-label="Painel de combate e habilidades">
+        <div className="arena-console-scroll" aria-label="Informações e habilidades">
         <section className="units" aria-label="Unidades em combate">
           <UnitCard unit={player} role="Protagonista" accent="cyan" />
           <UnitCard unit={enemy} role="Sentinela" accent="pink" />
@@ -326,6 +327,13 @@ export default function App() {
           <div className="power-heading"><div><span className="eyebrow">VANTAGEM DE ORIGEM</span><strong>{originProfile.passiveDescription}</strong><small>{originProfile.passiveEffect}</small></div><span className="passive-tag">PASSIVA</span></div>
           <div className="power-action"><div><span className="eyebrow">HABILIDADE ÚNICA · 1 USO</span><strong>{originProfile.abilityName}</strong><small>{originProfile.abilityDescription}</small></div><button type="button" className="ability-button" disabled={!state.originAbilityAvailable || state.activeSide !== "player" || state.combatComplete} onClick={() => { buzz(18); manager.activateOriginAbility(); }}>{state.originAbilityAvailable ? "Usar" : "Usada"}</button></div>
         </section>
+        <details className="log-panel">
+          <summary>Registro do teste <span>{state.log.length}</span></summary>
+          <p className="objective">Use movimento por toque, ataque básico, 3 habilidades e o terminal de recarga. Este ambiente não é um distrito da campanha.</p>
+          <ol className="log-list">{state.log.slice(-8).reverse().map((entry,index) => <li key={index}>{entry}</li>)}</ol>
+          <p className="build-note">{saveMessage}</p>
+        </details>
+        </div>
         <section className="control-sheet" aria-label="Comandos do turno">
           {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? "Sentinela neutralizada" : "Operativo incapacitado"}</div>}
           <div className="economy">
@@ -340,12 +348,7 @@ export default function App() {
           </div>
           <div className="secondary-actions"><button type="button" onClick={() => setBattleReset((value) => value + 1)}>Reiniciar arena</button><button type="button" onClick={() => setScreen("exploration")}>Voltar à Baixada</button></div>
         </section>
-        <details className="log-panel">
-          <summary>Registro do teste <span>{state.log.length}</span></summary>
-          <p className="objective">Use movimento por toque, ataque básico, 3 habilidades e o terminal de recarga. Este ambiente não é um distrito da campanha.</p>
-          <ol className="log-list">{state.log.slice(-8).reverse().map((entry,index) => <li key={index}>{entry}</li>)}</ol>
-          <p className="build-note">{saveMessage}</p>
-        </details>
+
       </aside>
     </main>
   );

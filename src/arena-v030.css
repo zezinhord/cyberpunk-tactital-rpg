@@ -23,7 +23,9 @@
  .arena-v030 .map-label { flex:none; padding:4px 9px; font-size:9px; }
  .arena-v030 .battlefield-canvas { flex:1 1 auto; width:100%; height:auto; min-height:0; max-height:none; aspect-ratio:auto; }
  .arena-v030 .board-hint { flex:none; padding:4px; color:#b6cbc9; font-size:11px; }
- .arena-v030 .arena-console { display:flex; flex-direction:column; min-height:0; grid-column:2; grid-row:2; gap:6px; overflow-y:auto; overscroll-behavior:contain; padding:0 2px 4px; }
+ .arena-v030 .arena-console { display:grid; grid-template-rows:minmax(0,1fr) auto; min-height:0; grid-column:2; grid-row:2; gap:5px; overflow:hidden; padding:0 2px 4px; }
+ .arena-v030 .arena-console-scroll { display:flex; flex-direction:column; min-height:0; gap:6px; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
+ .arena-v030 .arena-console .control-sheet { background:#101b27; border:1px solid rgba(104,149,157,.55); box-shadow:0 -4px 18px rgba(0,0,0,.24); }
  .arena-v030 .units { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:0; }
  .arena-v030 .unit-card { padding:6px 7px; }
  .arena-v030 .unit-head strong { font-size:12px; }
@@ -76,5 +78,5 @@
  .arena-v030 .arena-presentation > strong { font-size:10px; }
  .arena-v030 .arena-appearance-group button { padding:3px 5px; }
  .arena-special { min-height:78px; padding:5px; }
- .arena-v030 .arena-console { gap:4px; }
+ .arena-v030 .arena-console-scroll { gap:4px; }
 }
