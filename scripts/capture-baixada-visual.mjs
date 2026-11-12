@@ -122,10 +122,30 @@ try {
   if (bytes.length < 15000) throw new Error("Captura PNG pequena ou vazia: " + bytes.length + " bytes.");
   await mkdir("qa", { recursive: true });
   await writeFile(OUT, bytes);
-  await writeFile("qa/baixada-metricas.json", JSON.stringify({ metrics, pngBytes: bytes.length,
-    runtimeExceptions: session.exceptions }, null, 2));
 
-  console.log("QA visual: captura Phaser criada em " + OUT);
+  // Verifica integração do personagem: trocar a apresentação não pode remontar
+  // o canvas Phaser, reiniciar a Baixada nem alterar a identidade salva.
+  await evaluate('window.__qaCanvas = document.querySelector(".baixada-world canvas");true');
+  await evaluate('document.querySelector(".menu-trigger").click();true');
+  await poll(() => has(".character-body-selection"), "troca corporal na central");
+  await evaluate('document.querySelectorAll(".character-body-selection button")[1].click();true');
+  await poll(() => evaluate('document.querySelectorAll(".character-body-selection button")[1]?.getAttribute("aria-pressed") === "true"'),
+    "apresentação feminina selecionada");
+  const persisted = await evaluate('document.querySelector(".baixada-world canvas") === window.__qaCanvas');
+  if (!persisted) throw new Error("A troca corporal remontou o canvas Phaser e pode ter reiniciado a posição.");
+  await evaluate('document.querySelector(".menu-close-button").click();true');
+  await poll(() => evaluate('!document.querySelector(".character-menu-shell")'), "fechamento do menu");
+  await sleep(650);
+  const femaleShot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  const femaleBytes = Buffer.from(femaleShot.data, "base64");
+  if (femaleBytes.length < 15000) throw new Error("Captura da variante feminina inválida.");
+  await writeFile("qa/baixada-feminina-1600x720.png", femaleBytes);
+  await writeFile("qa/baixada-metricas.json", JSON.stringify({
+    metrics, pngBytes: bytes.length, femalePngBytes: femaleBytes.length,
+    sameCanvasAfterAppearanceChange: persisted, runtimeExceptions: session.exceptions,
+  }, null, 2));
+
+  console.log("QA visual: capturas masculina/feminina; canvas preservado após alternância.");
   console.log("Viewport: " + JSON.stringify(metrics) + ", PNG: " + bytes.length + " bytes");
   if (session.exceptions.length) {
     throw new Error("Exceções de execução detectadas no navegador: " + session.exceptions.join(" | ").slice(0,1500));
