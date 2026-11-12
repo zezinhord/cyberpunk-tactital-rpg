@@ -1,6 +1,6 @@
 import type { CharacterSave, PlayerCharacter } from "./types";
-import { isOriginId } from "./origins";
-import { isPlayableClass,getStartingClassAbilities,type ClassId } from "../classes/registry";
+import { isOriginId } from "./origins.ts";
+import { isPlayableClass,getStartingClassAbilities,type ClassId } from "../classes/registry.ts";
 
 export const CHARACTER_SAVE_KEY = "cyberpunk-tactical-rpg.character.v1";
 

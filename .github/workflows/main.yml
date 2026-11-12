@@ -61,6 +61,7 @@ jobs:
         run: |
           node --experimental-strip-types scripts/test-audio.mjs
           node --experimental-strip-types scripts/test-class-abilities.mjs
+          node --experimental-strip-types scripts/test-class-saves.mjs
 
       - name: Validar planta, colisões e rotas da Baixada
         run: node --experimental-strip-types scripts/test-baixada-layout.mjs
