@@ -44,13 +44,33 @@ Primeira versão executável do incremento 0.6.8. Base: 0.6.7a, Build #109 (`186
 - Estado do confronto, relatório e posição exterior persistem em armazenamentos separados por personagem, sem migrar ou apagar o save anterior.
 - A opção Limbo de Teste continua independente da campanha.
 
-## 6. Origens × classes (restrição de cânone)
-O repositório e a documentação verificada definem **seis origens**, mas **não definem classes jogáveis aprovadas/selecionáveis**. `classId` permanece independente e nulo nos novos protagonistas. Não se deve promover "Veterano Militar", "Pesquisador" etc. a classes, nem declarar o arquétipo piloto "Operativo de Campo" uma classe canônica.
+## 6. Onze classes oficiais (incremento 0.6.8-alpha.2)
+**Decisão de design aprovada após a primeira build 0.6.8:** são 11 classes e seis origens independentes. As classes não alteram o passado nem a apresentação corporal. Uma origem pode ser combinada livremente com qualquer classe: 6 × 11 = **66 pares válidos**.
 
-Foram implementados `classes/registry.ts` e `classes/engine.ts` para futura associação classe → habilidade exclusiva, economia de ação, energia, recarga, dano, cura, proteção e desbloqueio por nível. O motor foi testado com uma classe simulada **somente nos testes**, sem registrar essa classe no jogo. **Não há habilidades exclusivas de classes jogáveis neste build** porque o catálogo aprovado ainda não existe.
+O catálogo em `src/game/classes/registry.ts` é a fonte única dos IDs, nomes, descrições, especialidades, vantagens estratégicas, usos exploratórios previstos e habilidades. Cada classe possui uma técnica ativa exclusiva de nível 1 com parâmetros de custo, recarga, alcance, efeitos, alvo, progressão futura e efeitos visuais.
+
+| Classe | Habilidade exclusiva inicial | Efeito real na arena |
+|---|---|---|
+| Solo | Ruptura de Guarda | 7 dano adjacente, +2 movimento no turno |
+| Netrunner | Intrusão de Sinal | 3 dano à distância, bloqueia 1 ação hostil |
+| Técnico (Techie / Engenheiro) | Recalibração de Campo | +5 energia (até o máximo) e +1 Defesa temporária |
+| Tecnólogo Médico (Medtech) | Triagem de Emergência | +8 Vida (até o máximo) e +1 Defesa temporária |
+| Garoto Roqueiro (Rockerboy) | Grito de Levante | próximo ataque básico +3 dano e +1 movimento |
+| Mídia (Media) | Dossiê de Vulnerabilidade | alvo sofre −3 Defesa por 2 ações hostis |
+| Corporativo/Executivo (Corpo) | Protocolo de Contingência | +4 Defesa por 2 ações hostis, +1 energia |
+| Policial/Homem da Lei (Lawman) | Ordem de Contenção | 2 dano e −3 ataque do inimigo por 2 ações hostis |
+| Nômade (Nomad) | Rota de Evasão | +4 movimento no turno, +1 energia |
+| Marginal da Rua (Street Kid) | Esquiva de Beco | +3 Defesa temporária, +2 movimento |
+| Fixador (Fixer) | Favor de Última Hora | +4 energia e +2 dano no próximo ataque básico |
+
+As habilidades foram implementadas como **dados + interpretador de efeitos** (`src/game/classes/engine.ts`) sem código especial por classe no `TurnManager`. O interpretador aplica dano, cura, energia, controle, mudanças de Defesa/Ataque, movimentação, bônus para próximos ataques, recarga e duração. Os efeitos temporários são revertidos na ação hostil adequada e o movimento extraordinário desaparece no turno seguinte.
+
+A criação do protagonista exige uma classe, com seletor reutilizável `ClassSelection` e prévia das habilidades. O ID de classe e as habilidades iniciais são salvos junto ao protagonista; salvamentos anteriores sem classe continuam acessíveis e podem escolher **uma única classe** na Central do Personagem sem perder origem, inventário, nível ou progresso. Origens e apresentações corporais não restringem classes.
+
+**Ainda não implementado:** passivas ativas no motor, supers de alto impacto, ramificações da progressão, árvore de especializações e soluções distintas das missões por classe. Há somente *metadados claramente planejados* sobre esses recursos; a integração com terminais, moradores e escolhas narrativas será ampliada nas versões 0.6.9 a 0.7.1. Não declarar esses recursos completos nesta release.
 
 ## 7. Testes e limites
-- CI: testes de layout, colisão, rotinas NPC, diálogos, história V-09, localização, áudio, regras de classes, habilidades comuns, assets de personagens e TypeScript.
+- CI: testes de layout, colisão, rotinas NPC, diálogos, história V-09, localização, áudio, 11 classes com técnicas exclusivas, 66 combinações origem-classe e migração de saves, habilidades comuns, assets de personagens e TypeScript.
 - Navegador Chromium: captura da Baixada, variantes corporais, comandos da arena e **novo setor Pátio do Reúso** em landscape 1600×720.
 - Capacitor/Gradle: workflow gera a APK debug.
 - Limites: testes geométricos e screenshots não certificam todas as oclusões, áudio em alto-falante físico, fluidez de NPCs nem usabilidade real em cada aparelho.
@@ -68,4 +88,4 @@ Foram implementados `classes/registry.ts` e `classes/engine.ts` para futura asso
 9. Repetir o percurso em celulares com alturas de landscape diferentes.
 
 ## Próxima entrega
-0.6.9: aprovar nomes/regras de classes e integrar habilidades realmente exclusivas, dar sprites próprios aos três habitantes, avaliar oclusões de fachadas e expandir as animações de combate da campanha.
+0.6.9: implementar passivas, técnicas de alto impacto e progressão/árvores para as 11 classes, dar sprites próprios aos três habitantes, avaliar oclusões e expandir animações. Em 0.7.0/0.7.1, ampliar interações e consequências narrativas por classe.
