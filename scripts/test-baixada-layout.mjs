@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {
-  GRID_WIDTH, GRID_HEIGHT, PLAYER_START, ACTOR_TILES, BUILDINGS, PROPS,
+  GRID_WIDTH, GRID_HEIGHT, PLAYER_START, ACTOR_TILES, BUILDINGS, PROPS, ROAMING_NPCS,
   BUILDING_CELLS, ACTOR_CELLS, PROP_CELLS, cellKey, isInside, isWalkable,
 } from "../src/game/baixada/layout.ts";
 
@@ -18,7 +18,7 @@ for (const building of BUILDINGS) {
   }
 }
 assert.equal(seenBuildingCells.size, BUILDING_CELLS.size);
-assert.equal(BUILDINGS.length, 7);
+assert.ok(BUILDINGS.length >= 13, "Pátio do Reúso: seis edifícios adicionais.");
 assert.ok(isWalkable(PLAYER_START), "Posição inicial bloqueada.");
 
 for (const [id, tile] of Object.entries(ACTOR_TILES)) {
@@ -39,6 +39,11 @@ for (const [kind, tiles] of Object.entries(PROPS)) {
   }
 }
 assert.equal(propKeys.size, count);
+for(const npc of ROAMING_NPCS) {
+  for(const point of npc.route) {
+    assert.ok(isWalkable(point),"Rota de "+npc.name+" bloqueada em "+cellKey(point));
+  }
+}
 
 function neighbors(tile) {
   return [{ x:tile.x - 1,y:tile.y },{ x:tile.x + 1,y:tile.y },{ x:tile.x,y:tile.y - 1 },{ x:tile.x,y:tile.y + 1 }];

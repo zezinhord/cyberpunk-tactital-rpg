@@ -3,7 +3,7 @@
  * A planta de circulação é intencionalmente mais importante que a decoração.
  */
 export interface Tile { readonly x: number; readonly y: number }
-export type BuildingStyle = "housing" | "clinic" | "workshop" | "market" | "canal" | "utility";
+export type BuildingStyle = "housing" | "clinic" | "workshop" | "market" | "canal" | "utility" | "factory" | "depot";
 export interface BuildingSpec {
   readonly id: string;
   readonly x: number;
@@ -18,8 +18,8 @@ export interface BuildingSpec {
   readonly sign?: string;
 }
 
-export const GRID_WIDTH = 20;
-export const GRID_HEIGHT = 16;
+export const GRID_WIDTH = 33;
+export const GRID_HEIGHT = 20;
 export const PLAYER_START: Tile = { x: 6, y: 9 };
 
 /** Entradas e NPCs preservados nas mesmas células da campanha anterior. */
@@ -31,6 +31,8 @@ export const ACTOR_TILES = {
   "enter-workshop": { x: 3, y: 8 },
   "enter-canal-gallery": { x: 14, y: 13 },
   "terminal-canal": { x: 10, y: 12 },
+  "patio-console": { x: 29, y: 13 },
+  "patio-sentinel": { x: 30, y: 12 },
 } as const satisfies Record<string, Tile>;
 
 /** Sete volumes distintos; sem prédios de preenchimento sobre as vias principais. */
@@ -42,6 +44,13 @@ export const BUILDINGS: ReadonlyArray<BuildingSpec> = [
   { id:"mercado", x:16,y:0,width:3,depth:3,height:78,wall:0x876759,roof:0x6b594f,accent:0xd1ae72,style:"market",sign:"PONTE / TROCAS" },
   { id:"moradias-canal", x:16,y:9,width:3,depth:3,height:88,wall:0x647068,roof:0x566a67,accent:0xb6b494,style:"canal" },
   { id:"caixa-agua", x:8,y:13,width:3,depth:2,height:72,wall:0x747b70,roof:0x67796d,accent:0xb5ac85,style:"utility" },
+  // Setor industrial: Pátio do Reúso. Ruas conectadas sem preenchimento gratuito.
+  { id:"galpao-bombas", x:21,y:1,width:3,depth:3,height:112,wall:0x68645a,roof:0x5a6664,accent:0xd4a05a,style:"factory",sign:"BOMBAS / 02" },
+  { id:"cooperativa-reuso", x:27,y:1,width:4,depth:3,height:98,wall:0x82624f,roof:0x626d62,accent:0xe2b879,style:"depot",sign:"REÚSO / COOP" },
+  { id:"oficina-industrial", x:21,y:9,width:3,depth:3,height:94,wall:0x715b4b,roof:0x665a4e,accent:0xdaaf78,style:"workshop",sign:"OFICINA 17" },
+  { id:"reservatorio-sul", x:28,y:8,width:3,depth:3,height:121,wall:0x5b696b,roof:0x4b5c63,accent:0xb0b8a6,style:"utility" },
+  { id:"deposito-triagem", x:25,y:15,width:4,depth:3,height:100,wall:0x755e55,roof:0x59615f,accent:0xe2a979,style:"depot",sign:"TRIAGEM / V-09" },
+  { id:"galpao-fim", x:31,y:15,width:2,depth:3,height:91,wall:0x66534e,roof:0x5c5b59,accent:0xc39c75,style:"factory" },
 ];
 
 /** Decoração deliberada: cada objeto ocupa uma célula visual e lógica.
@@ -49,11 +58,23 @@ export const BUILDINGS: ReadonlyArray<BuildingSpec> = [
  */
 export const PROPS = {
   marketStalls: [{ x: 16, y: 4 }],
-  palms: [{ x: 5, y: 2 }, { x: 18, y: 8 }, { x: 5, y: 14 }],
-  lamps: [{ x: 6, y: 5 }, { x: 15, y: 10 }],
-  bins: [{ x: 11, y: 5 }, { x: 15, y: 8 }, { x: 8, y: 11 }],
-  crates: [{ x: 5, y: 8 }, { x: 12, y: 11 }, { x: 18, y: 7 }],
+  palms: [{ x: 5, y: 2 }, { x: 18, y: 8 }, { x: 5, y: 14 }, { x: 21, y: 18 }],
+  lamps: [{ x: 6, y: 5 }, { x: 15, y: 10 }, { x: 25, y: 6 }, { x: 32, y: 10 }],
+  bins: [{ x: 11, y: 5 }, { x: 15, y: 8 }, { x: 8, y: 11 }, { x: 31, y: 7 }],
+  crates: [{ x: 5, y: 8 }, { x: 12, y: 11 }, { x: 18, y: 7 }, { x: 27, y: 7 }, { x: 20, y: 15 }],
 } as const satisfies Record<string, ReadonlyArray<Tile>>;
+
+/** Habitantes com rotas próprias; não são pontos sólidos permanentes. */
+export const ROAMING_NPCS = [
+  { id:"lia", name:"Lia", role:"OPERADORA DE BOMBAS",
+    route:[{x:22,y:6},{x:23,y:6},{x:24,y:6},{x:24,y:7},{x:23,y:7}], pauseTicks:2 },
+  { id:"ramon", name:"Ramon", role:"RECUPERADOR DE PEÇAS",
+    route:[{x:26,y:12},{x:27,y:12},{x:28,y:12},{x:28,y:13},{x:27,y:13}], pauseTicks:1 },
+  { id:"duda", name:"Duda", role:"MORADORA DO PÁTIO",
+    route:[{x:22,y:15},{x:23,y:15},{x:23,y:16},{x:22,y:16}], pauseTicks:3 },
+] as const;
+export type RoamingNpcId = (typeof ROAMING_NPCS)[number]["id"];
+export function isIndustrialSector(tile: Tile): boolean { return tile.x >= 20; }
 
 export function cellKey(tile: Tile): string { return tile.x + "," + tile.y; }
 export function isInside(tile: Tile): boolean {
@@ -78,6 +99,8 @@ export function isStreet(tile: Tile): boolean {
   const { x, y } = tile;
   return y === 6 || (x === 7 && y >= 3 && y <= 11)
     || (y === 7 && x >= 3 && x <= 10)
-    || (y === 12 && x >= 5 && x <= 19)
-    || (x === 14 && y >= 4 && y <= 14);
+    || (y === 12 && x >= 5 && x <= 32)
+    || (x === 14 && y >= 4 && y <= 14)
+    || (x === 24 && y >= 4 && y <= 19) || (x === 29 && y >= 4 && y <= 19)
+    || (y === 14 && x >= 19 && x <= 32);
 }
