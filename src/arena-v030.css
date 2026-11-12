@@ -1,0 +1,80 @@
+/* Módulo 0.3.0 — Arena de personagens/habilidades (sem alterar o layout da cidade). */
+@media (orientation: landscape) {
+ .game-shell.arena-v030 {
+   display:grid!important;
+   grid-template-columns:minmax(0,1fr) clamp(264px,34vw,390px);
+   grid-template-rows:48px minmax(0,1fr);
+   gap:5px 8px;
+   width:100%; max-width:none; min-height:100dvh; height:100dvh!important;
+   padding:max(4px,env(safe-area-inset-top)) max(7px,env(safe-area-inset-right))
+     max(4px,env(safe-area-inset-bottom)) max(7px,env(safe-area-inset-left));
+   overflow:hidden!important;
+ }
+ .arena-v030 .arena-head { grid-column:1 / -1; grid-row:1; min-height:0; padding:0 7px; }
+ .arena-v030 .mission h1 { font-size:clamp(16px,2vw,20px); }
+ .arena-v030 .mission p { font-size:10px; }
+ .arena-v030 .arena-field { display:flex; flex-direction:column; min-width:0; min-height:0; grid-column:1; grid-row:2; gap:4px; }
+ .arena-v030 .arena-presentation { display:flex; align-items:center; justify-content:space-between; gap:8px; flex:none; min-height:43px; }
+ .arena-v030 .arena-presentation > strong { color:#d3e0d9; font:700 12px var(--display); }
+ .arena-v030 .arena-appearance-group { display:flex; align-items:center; gap:4px; }
+ .arena-v030 .arena-appearance-group button { min-height:44px; padding:4px 8px; border:1px solid #546764; border-radius:6px; background:#16252c; color:#b8c6c2; font:600 11px var(--display); }
+ .arena-v030 .arena-appearance-group button[aria-pressed="true"] { color:#08232b; border-color:#00e5ff; background:#7fdfe6; }
+ .arena-v030 .battle-panel { display:flex; flex:1 1 auto; flex-direction:column; min-height:0; overflow:hidden; border:1px solid #2c4852; border-radius:8px; background:#0d1220; }
+ .arena-v030 .map-label { flex:none; padding:4px 9px; font-size:9px; }
+ .arena-v030 .battlefield-canvas { flex:1 1 auto; width:100%; height:auto; min-height:0; max-height:none; aspect-ratio:auto; }
+ .arena-v030 .board-hint { flex:none; padding:4px; color:#b6cbc9; font-size:11px; }
+ .arena-v030 .arena-console { display:flex; flex-direction:column; min-height:0; grid-column:2; grid-row:2; gap:6px; overflow-y:auto; overscroll-behavior:contain; padding:0 2px 4px; }
+ .arena-v030 .units { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:0; }
+ .arena-v030 .unit-card { padding:6px 7px; }
+ .arena-v030 .unit-head strong { font-size:12px; }
+ .arena-v030 .unit-head span { font-size:10px; }
+ .arena-v030 .unit-stats { margin:2px 0 4px; font-size:10px; }
+ .arena-v030 .unit-stats b { font-size:16px; }
+ .arena-v030 .unit-card .hp-track { height:5px; }
+ .arena-v030 .combat-message { flex:none; margin:0; padding:6px 9px; font-size:12px; }
+ .arena-v030 .origin-power-panel { flex:none; padding:6px 9px; }
+ .arena-v030 .origin-power-panel .power-heading { display:none; }
+ .arena-v030 .origin-power-panel .power-action { gap:6px; }
+ .arena-v030 .origin-power-panel .power-action small { display:none; }
+ .arena-v030 .origin-power-panel .power-action strong { font-size:12px; }
+ .arena-v030 .origin-power-panel .eyebrow { font-size:9px; }
+ .arena-v030 .origin-power-panel .ability-button { min-height:44px; }
+ .arena-v030 .log-panel { flex:none; }
+ .arena-v030 .log-panel summary { min-height:44px; padding:6px 8px; }
+ .arena-v030 .control-sheet { flex:none; position:static; padding:5px; margin:0; gap:5px; border-radius:8px; }
+ .arena-v030 .sheet-handle { display:none; }
+ .arena-v030 .control-sheet .economy { gap:4px; }
+ .arena-v030 .control-sheet .eco { height:30px; padding:0 4px; font-size:11px; }
+ .arena-v030 .control-sheet .pips { gap:1px; }
+ .arena-v030 .control-sheet .pips i { width:4px; height:10px; }
+ .arena-v030 .actions { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+ .arena-v030 .actions button { min-width:0; min-height:45px; font-size:11px; border-radius:7px; }
+ .arena-v030 .attack-button { grid-column:1 / -1; }
+ .arena-v030 .secondary-actions { display:flex; gap:5px; }
+ .arena-v030 .secondary-actions button { flex:1; min-height:44px; font-size:11px; }
+}
+.arena-energy { display:flex; flex-direction:column; gap:2px; padding:7px 9px; border:1px solid #36505b; border-radius:8px; background:rgba(13,26,34,.95); }
+.arena-energy > div:first-child { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.arena-energy > div:first-child span { color:#93b9c5; font:500 9px var(--mono); letter-spacing:.06em; }
+.arena-energy strong { font:700 15px var(--display); color:#e7f7fc; }
+.arena-energy-track { height:7px; overflow:hidden; border-radius:7px; background:#304b55; }
+.arena-energy-track span { display:block; height:100%; background:#00e5ff; transition:width 180ms; }
+.arena-energy > small { color:#89a6af; font-size:9px; }
+.arena-specials { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+.arena-special { display:flex; flex-direction:column; justify-content:space-between; gap:6px; min-height:90px; min-width:0; padding:7px; border:1px solid #536b75; border-radius:7px; background:linear-gradient(135deg,#253944,#12212b); color:#deeaf0; text-align:left; }
+.arena-special.ready { border-color:#3aafc1; }
+.arena-special.unavailable { opacity:.69; }
+.arena-special-index { color:#89c9d3; font:500 10px var(--mono); }
+.arena-special strong { overflow-wrap:anywhere; font:700 11px/1.13 var(--display); }
+.arena-special-bottom { display:flex; flex-direction:column; gap:2px; }
+.arena-special-bottom small { color:#bdced1; font:500 9px var(--mono); }
+.arena-special.ready .arena-special-bottom small:last-child { color:#7cd9e8; }
+.arena-effects { display:flex; gap:5px; flex-wrap:wrap; }
+.arena-effects span { color:#e2c68e; font:500 10px var(--mono); }
+@media (orientation:landscape) and (max-height:420px) {
+ .arena-v030 .arena-head { grid-row:1; }
+ .arena-v030 .arena-presentation > strong { font-size:10px; }
+ .arena-v030 .arena-appearance-group button { padding:3px 5px; }
+ .arena-special { min-height:78px; padding:5px; }
+ .arena-v030 .arena-console { gap:4px; }
+}

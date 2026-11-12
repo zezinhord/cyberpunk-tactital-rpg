@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Battlefield from "./components/Battlefield";
+import AbilityBar from "./components/AbilityBar";
+import { loadTestAppearance, saveTestAppearance } from "./game/test-arena/appearance";
+import type { TestAppearance } from "./game/test-arena/appearance";
 import { TurnManager } from "./game/TurnManager";
 import type { GameState, Unit } from "./game/types";
 import {
@@ -164,6 +167,11 @@ export default function App() {
   const [character, setCharacter] = useState<PlayerCharacter | null>(() => loadCharacter());
   const [screen, setScreen] = useState<"title" | "creation" | "resume" | "introduction" | "exploration" | "battle">("title");
   const [battleReset, setBattleReset] = useState(0);
+  const [appearance, setAppearance] = useState<TestAppearance>(() => loadTestAppearance(loadCharacter()?.id ?? ""));
+  const chooseAppearance = (choice: TestAppearance) => {
+    setAppearance(choice);
+    if (character) saveTestAppearance(character.id, choice);
+  };
   const [inventory, setInventory] = useState<InventoryState>(() => loadInventory(loadCharacter()?.id ?? ""));
   const bonuses = useMemo(() => getEquipmentBonuses(inventory), [inventory.equipped.weapon, inventory.equipped.armor]);
   useEffect(() => {
@@ -192,6 +200,7 @@ export default function App() {
       deleteInventory(previousCharacter.id);
     }
     setCharacter(nextCharacter);
+    setAppearance("masculine");
     setInventory(createStartingInventory(nextCharacter.id));
     setSaveMessage(saved ? "Personagem salvo neste dispositivo" : "Não foi possível salvar neste dispositivo");
     setScreen("introduction");
@@ -215,6 +224,7 @@ export default function App() {
   const cancelNewCharacter = () => {
     const saved = loadCharacter();
     setCharacter(saved);
+    setAppearance(loadTestAppearance(saved?.id ?? ""));
     setInventory(loadInventory(saved?.id ?? ""));
     setScreen("title");
   };
@@ -256,58 +266,66 @@ export default function App() {
   }
 
   const origin = getOriginById(character.originId);
-
   return (
-    <main className="app-shell game-shell">
-      <header className="topbar">
-        <div className="mission"><h1>Limbo de Teste</h1><p>Mapa provisório · Arena de validação isométrica</p></div>
-        <div className="turn"><span className="turn-pill" data-side={state.activeSide}>{state.activeSide === "player" ? "Seu turno" : "Turno hostil"}</span><span>Rodada {state.round}</span></div>
+    <main className="app-shell game-shell arena-v030">
+      <header className="topbar arena-head">
+        <div className="mission">
+          <h1>Limbo de Teste · Personagens e Habilidades</h1>
+          <p>Operativo de Campo // módulo experimental 0.3.0</p>
+        </div>
+        <div className="turn">
+          <span className="turn-pill" data-side={state.activeSide}>
+            {state.activeSide === "player" ? "Seu turno" : "Turno hostil"}
+          </span>
+          <span>Rodada {state.round}</span>
+        </div>
       </header>
-
-      <section className="character-strip">
-        <div><span className="eyebrow">PROTAGONISTA</span><strong>{character.name}</strong><small>{origin.name} · Nível {character.level}</small></div>
-        <span className="save-indicator"><i /> {saveMessage}</span>
-      </section>
-
-      <section className="units" aria-label="Unidades em combate">
-        <UnitCard unit={player} role="Protagonista" accent="cyan" />
-        <UnitCard unit={enemy} role="Sentinela" accent="pink" />
-      </section>
-
-      <section className="battle-panel" aria-label="Combate tático isométrico">
-        <div className="map-label"><span>SIMULAÇÃO 01</span><span>8 × 8 · PERSPECTIVA 2D ISOMÉTRICA</span></div>
-        <Battlefield manager={manager} />
-        <p className="board-hint">{getHint(state, canAttack)}</p>
-      </section>
-      <p className="combat-message" role="status">{state.message}</p>
-
-      <section className="origin-power-panel">
-        <div className="power-heading"><div><span className="eyebrow">VANTAGEM DE ORIGEM</span><strong>{originProfile.passiveDescription}</strong><small>{originProfile.passiveEffect}</small></div><span className="passive-tag">PASSIVA</span></div>
-        <div className="power-action"><div><span className="eyebrow">HABILIDADE ÚNICA · 1 USO</span><strong>{originProfile.abilityName}</strong><small>{originProfile.abilityDescription}</small></div><button type="button" className="ability-button" disabled={!state.originAbilityAvailable || state.activeSide !== "player" || state.combatComplete} onClick={() => { buzz(18); manager.activateOriginAbility(); }}>{state.originAbilityAvailable ? "Usar" : "Usada"}</button></div>
-      </section>
-
-      <details className="log-panel">
-        <summary>Missão e registro <span>{state.log.length} eventos</span></summary>
-        <p className="objective">Teste de combate: neutralize a unidade sentinela. Este mapa não representa ainda um distrito definitivo da campanha.</p>
-        <ol className="log-list">{state.log.slice(-8).reverse().map((entry, index) => <li key={`${entry}-${index}`}>{entry}</li>)}</ol>
-        <p className="build-note">Protótipo consolidado · personagem salvo localmente.</p>
-      </details>
-
-      <section className="control-sheet" aria-label="Comandos do turno">
-        <span className="sheet-handle" aria-hidden="true" />
-        {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? "Objetivo de teste concluído" : "Protagonista incapacitado"}</div>}
-        <div className="economy">
-          <div className="eco move">Mover<span className="pips" aria-hidden="true">{Array.from({ length: state.movementPerTurn }, (_, index) => <i key={index} className={index < state.movementRemaining ? "on" : undefined} />)}</span><b>{state.movementRemaining}/{state.movementPerTurn}</b></div>
-          <ActionChip label="Principal" ready={state.mainActionAvailable} />
-          <ActionChip label="Bônus" ready={state.bonusActionAvailable} />
+      <section className="arena-field" aria-label="Arena e visualização de personagens">
+        <div className="arena-presentation">
+          <strong>{character.name} · {origin.name}</strong>
+          <div className="arena-appearance-group" role="group" aria-label="Apresentação visual do Operativo de Campo">
+            <button type="button" aria-pressed={appearance === "masculine"} onClick={() => chooseAppearance("masculine")}>Masculina</button>
+            <button type="button" aria-pressed={appearance === "feminine"} onClick={() => chooseAppearance("feminine")}>Feminina</button>
+          </div>
         </div>
-        <div className="actions">
-          <button type="button" className="end-turn-button" disabled={state.activeSide !== "player" || state.combatComplete || !state.bonusActionAvailable || !player || player.hp >= player.maxHp || inventory.quantities.curativo_campo < 1} onClick={handleUseMedkit}>Curativo ({inventory.quantities.curativo_campo})</button>
-          <button className="end-turn-button" onClick={() => { buzz(); manager.endPlayerTurn(); }} disabled={state.activeSide !== "player" || state.combatComplete}>Encerrar turno</button>
-          <button className="attack-button" onClick={() => { buzz(20); manager.attack(); }} disabled={!canAttack}>Ataque corpo a corpo</button>
-        </div>
-        <div className="secondary-actions"><button type="button" onClick={() => setBattleReset((value) => value + 1)}>Reiniciar mapa de teste</button><button type="button" onClick={() => setScreen("exploration")}>Retornar à Baixada</button></div>
+        <section className="battle-panel" aria-label="Combate tático isométrico">
+          <div className="map-label"><span>SIMULAÇÃO 01 · 8 × 8</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
+          <Battlefield manager={manager} appearance={appearance} />
+          <p className="board-hint">{getHint(state, canAttack)}</p>
+        </section>
       </section>
+      <aside className="arena-console" aria-label="Painel de combate e habilidades">
+        <section className="units" aria-label="Unidades em combate">
+          <UnitCard unit={player} role="Protagonista" accent="cyan" />
+          <UnitCard unit={enemy} role="Sentinela" accent="pink" />
+        </section>
+        <AbilityBar state={state} manager={manager} />
+        <p className="combat-message" role="status">{state.message}</p>
+        <section className="origin-power-panel">
+          <div className="power-heading"><div><span className="eyebrow">VANTAGEM DE ORIGEM</span><strong>{originProfile.passiveDescription}</strong><small>{originProfile.passiveEffect}</small></div><span className="passive-tag">PASSIVA</span></div>
+          <div className="power-action"><div><span className="eyebrow">HABILIDADE ÚNICA · 1 USO</span><strong>{originProfile.abilityName}</strong><small>{originProfile.abilityDescription}</small></div><button type="button" className="ability-button" disabled={!state.originAbilityAvailable || state.activeSide !== "player" || state.combatComplete} onClick={() => { buzz(18); manager.activateOriginAbility(); }}>{state.originAbilityAvailable ? "Usar" : "Usada"}</button></div>
+        </section>
+        <section className="control-sheet" aria-label="Comandos do turno">
+          {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? "Sentinela neutralizada" : "Operativo incapacitado"}</div>}
+          <div className="economy">
+            <div className="eco move">Mover<span className="pips" aria-hidden="true">{Array.from({ length: state.movementPerTurn }, (_, index) => <i key={index} className={index < state.movementRemaining ? "on" : undefined} />)}</span><b>{state.movementRemaining}/{state.movementPerTurn}</b></div>
+            <ActionChip label="Principal" ready={state.mainActionAvailable} />
+            <ActionChip label="Bônus" ready={state.bonusActionAvailable} />
+          </div>
+          <div className="actions">
+            <button type="button" className="end-turn-button" disabled={state.activeSide !== "player" || state.combatComplete || !state.bonusActionAvailable || !player || player.hp >= player.maxHp || inventory.quantities.curativo_campo < 1} onClick={handleUseMedkit}>Curativo ({inventory.quantities.curativo_campo})</button>
+            <button type="button" className="end-turn-button" onClick={() => { buzz(); manager.endPlayerTurn(); }} disabled={state.activeSide !== "player" || state.combatComplete}>Encerrar turno</button>
+            <button type="button" className="attack-button" onClick={() => { buzz(20); manager.attack(); }} disabled={!canAttack}>Ataque básico</button>
+          </div>
+          <div className="secondary-actions"><button type="button" onClick={() => setBattleReset((value) => value + 1)}>Reiniciar arena</button><button type="button" onClick={() => setScreen("exploration")}>Voltar à Baixada</button></div>
+        </section>
+        <details className="log-panel">
+          <summary>Registro do teste <span>{state.log.length}</span></summary>
+          <p className="objective">Use movimento por toque, ataque básico, 3 habilidades e o terminal de recarga. Este ambiente não é um distrito da campanha.</p>
+          <ol className="log-list">{state.log.slice(-8).reverse().map((entry,index) => <li key={index}>{entry}</li>)}</ol>
+          <p className="build-note">{saveMessage}</p>
+        </details>
+      </aside>
     </main>
   );
 }

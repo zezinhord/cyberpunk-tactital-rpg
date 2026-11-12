@@ -36,6 +36,9 @@ jobs:
       - name: Instalar dependencias
         run: npm install
 
+      - name: Testar sistema de habilidades
+        run: node --experimental-strip-types scripts/test-abilities.mjs
+
       - name: Compilar aplicacao
         run: npm run build
 

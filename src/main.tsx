@@ -4,6 +4,7 @@ import App from "./App";
 import "./styles.css";
 import "./landscape.css";
 import "./immersive-ui.css";
+import "./arena-v030.css";
 
 const rootElement = document.getElementById("root");
 
