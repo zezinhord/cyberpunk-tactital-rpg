@@ -1,6 +1,7 @@
 import type { GameState } from "../game/types";
 import type { TurnManager } from "../game/TurnManager";
 import { SPECIAL_IDS, SPECIALS } from "../game/abilities/catalog";
+import { audioDirector } from "../audio/director";
 
 export default function AbilityBar({ state, manager }: { state: GameState; manager: TurnManager }) {
   return (
@@ -25,7 +26,7 @@ export default function AbilityBar({ state, manager }: { state: GameState; manag
               key={id} aria-disabled={!availability.available}
               title={availability.available ? definition.description : availability.reason}
               aria-label={definition.name + ". Custo " + definition.cost + ". " + (availability.available ? "Disponível" : availability.reason)}
-              onClick={() => manager.activateSpecial(id)}>
+              onClick={() => { audioDirector.effect("tech"); manager.activateSpecial(id); }}>
               <span className="arena-special-index">{String(index + 1).padStart(2,"0")}</span>
               <strong>{definition.name}</strong>
               <span className="arena-special-bottom"><small>{definition.cost} EN</small><small>{status}</small></span>

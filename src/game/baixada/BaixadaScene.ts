@@ -6,6 +6,7 @@ import {
 import type { Position } from "../types";
 import { route as safeRoute, approachRoute, canTraverse, canStand } from "./navigation";
 import { CitizenRoutine } from "./npc-routines";
+import { audioDirector } from "../../audio/director";
 import type { OriginId } from "../character/origins";
 import type { TestAppearance } from "../test-arena/appearance";
 import {
@@ -806,6 +807,7 @@ export class BaixadaScene extends Phaser.Scene {
         onComplete: () => {
           this.drawPlayerMarker();
           this.updateActorLabels();
+          audioDirector.effect("step");
           nextStep();
         },
       });

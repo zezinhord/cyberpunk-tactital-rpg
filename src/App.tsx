@@ -23,6 +23,7 @@ import {
 } from "./game/inventory";
 import type { ItemId, InventoryState } from "./game/inventory";
 import { getPlayerSpriteUrl } from "./game/baixada/sprites";
+import { audioDirector } from "./audio/director";
 
 function getUnit(state: GameState, id: string): Unit | undefined {
   return state.units.find((unit) => unit.id === id);
@@ -182,9 +183,11 @@ function IntroductionScreen({ character, onContinue }: { character: PlayerCharac
 }
 
 export default function App() {
+  useEffect(()=>{audioDirector.install();},[]);
   const [character, setCharacter] = useState<PlayerCharacter | null>(() => loadCharacter());
   const [screen, setScreen] = useState<"title" | "creation" | "resume" | "introduction" | "exploration" | "battle">("title");
   const [battleReset, setBattleReset] = useState(0);
+  useEffect(()=>{audioDirector.setScene(screen==="battle"?"battle":screen==="exploration"?"exploration":screen==="title"?"menu":"story");},[screen]);
   const [appearance, setAppearance] = useState<TestAppearance>(() => loadTestAppearance(loadCharacter()?.id ?? ""));
   const chooseAppearance = (choice: TestAppearance) => {
     setAppearance(choice);

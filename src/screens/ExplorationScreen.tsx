@@ -7,6 +7,7 @@ import type { InventoryState, ItemId } from "../game/inventory";
 import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
 import type { TestAppearance } from "../game/test-arena/appearance";
+import { audioDirector } from "../audio/director";
 
 type MissionStep = 0 | 1 | 2 | 3;
 interface MissionProgress { step: MissionStep; clues: string[] }
@@ -84,6 +85,7 @@ export default function ExplorationScreen({
   const [journalOpen, setJournalOpen] = useState(false);
   const [missionOpen, setMissionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(()=>{audioDirector.setScene(interior?"interior":"exploration");},[interior]);
 
   useEffect(() => {
     saveMission(character.id, mission);
@@ -99,6 +101,7 @@ export default function ExplorationScreen({
   };
 
   const handleInteract = (id: string) => {
+    audioDirector.effect(id.startsWith("enter-")||id==="exit-interior"?"door":id.startsWith("terminal")||id.includes("console")?"terminal":"interact");
     if (id === "enter-clinic") {
       setInterior("clinic");
       return;
