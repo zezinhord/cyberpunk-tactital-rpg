@@ -1,0 +1,31 @@
+name: Generate Nova Arcadia npm lockfile (one-time)
+on:
+  push:
+    branches:
+      - feature/landscape-mobile-v1
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  lock:
+    if: github.ref == 'refs/heads/feature/landscape-mobile-v1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate pinned dependency tree and commit once
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "Lockfile already exists. No changes."
+            exit 0
+          fi
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "build: pin transitive npm dependencies for Android builds"
+          git push origin HEAD:feature/landscape-mobile-v1
