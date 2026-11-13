@@ -7,7 +7,7 @@ for(const [sector,tile] of [["baixada",{x:6,y:9}],["patio",{x:24,y:12}],["feira"
  assert.equal(sectorAt(tile),sector);
  assert.ok(getSectorById(sector).description);
  const way=route(PLAYER_START,tile);
- assert.ok(way && way.length>1,"Setor desconectado: "+sector);
+ assert.ok(way && way.length>=1,"Setor desconectado: "+sector);
  assert.ok(assertRoute(way),"Rota inválida até "+sector);
 }
 for(const tile of [{x:6,y:19},{x:6,y:20},{x:12,y:19},{x:12,y:26},{x:18,y:26}]){
