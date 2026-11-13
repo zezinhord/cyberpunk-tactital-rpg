@@ -114,11 +114,26 @@ jobs:
       - name: Ativar tela imersiva Android
         run: node scripts/enable-android-immersive.mjs
 
-      - name: Restaurar assinatura Android de teste
+      - name: Restaurar chave de assinatura Android da branch
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
-          key: nova-arcadia-debug-keystore-v1
+          key: nova-arcadia-android-debug-key-v2
+
+      - name: Criar chave Android de teste se nao estiver em cache
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          if [ ! -s "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -noprompt \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Nova Arcadia Debug,O=Nova Arcadia,C=BR"
+          fi
+          test -s "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -alias androiddebugkey
 
       - name: Gerar APK
         working-directory: android
@@ -126,12 +141,17 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Registrar impressao digital do certificado
+      - name: Validar assinatura real da APK
         run: |
+          set -euo pipefail
           mkdir -p qa
-          keytool -list -v -keystore "$HOME/.android/debug.keystore" \
-            -storepass android -keypass android -alias androiddebugkey \
-            | grep -E 'SHA256:|Alias name:' | tee qa/assinatura-debug.txt
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          APKSIGNER="$(find "$SDK/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs \
+            android/app/build/outputs/apk/debug/app-debug.apk \
+            | tee qa/assinatura-debug.txt
+          grep -q 'certificate SHA-256 digest' qa/assinatura-debug.txt
 
       - name: Publicar identidade da assinatura
         uses: actions/upload-artifact@v4
