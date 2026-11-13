@@ -14,7 +14,7 @@ for(const tile of [{x:6,y:19},{x:6,y:20},{x:12,y:19},{x:12,y:26},{x:18,y:26}]){
  assert.ok(isStreet(tile),"Rua nova não renderizada "+JSON.stringify(tile));
  assert.ok(canStand(tile),"Cruzamento bloqueado "+JSON.stringify(tile));
 }
-const target={x:13,y:26};
+const target={x:17,y:29};
 const access=approachRoute(PLAYER_START,target);
 assert.ok(access&&assertRoute(access));
 assert.equal(ROAMING_NPCS.length,5);

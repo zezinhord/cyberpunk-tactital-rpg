@@ -35,7 +35,7 @@ export const ACTOR_TILES = {
   "patio-sentinel": { x: 30, y: 12 },
   "feira-corretor": { x: 11, y: 24 },
   "feira-ajuda": { x: 6, y: 25 },
-  "feira-archive": { x: 13, y: 26 },
+  "feira-archive": { x: 17, y: 29 },
 } as const satisfies Record<string, Tile>;
 
 /** Sete volumes distintos; sem prédios de preenchimento sobre as vias principais. */
