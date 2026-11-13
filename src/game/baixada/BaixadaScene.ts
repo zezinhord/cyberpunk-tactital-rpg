@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import {
-  ACTOR_TILES, BUILDINGS, GRID_HEIGHT, GRID_WIDTH, PLAYER_START, PROPS, ROAMING_NPCS, isIndustrialSector,
+  ACTOR_TILES, BUILDINGS, GRID_HEIGHT, GRID_WIDTH, PLAYER_START, PROPS, ROAMING_NPCS, isIndustrialSector, isCommercialSector,
   isInside, isStreet, isWalkable, type BuildingSpec,
 } from "./layout";
 import type { Position } from "../types";
@@ -21,15 +21,15 @@ import {
   type IsoDirection,
 } from "./sprites";
 
-export const BAIXADA_WIDTH = 1660;
-export const BAIXADA_HEIGHT = 970;
+export const BAIXADA_WIDTH = 1840;
+export const BAIXADA_HEIGHT = 1120;
 export const BAIXADA_VIEW_WIDTH = 960;
 export const BAIXADA_VIEW_HEIGHT = 540;
 
 const TILE_WIDTH = 48;
 const TILE_HEIGHT = 24;
-const ORIGIN_X = 580;
-const ORIGIN_Y = 140;
+const ORIGIN_X = 770;
+const ORIGIN_Y = 135;
 
 type Point = { x: number; y: number };
 type ActorKind = "person" | "terminal" | "door";
@@ -260,8 +260,10 @@ export class BaixadaScene extends Phaser.Scene {
         if(point.x < -38||point.x>BAIXADA_WIDTH+38||
            point.y < -38||point.y>BAIXADA_HEIGHT+38)continue;
         const industrial=isIndustrialSector({x,y});
+        const commercial=isCommercialSector({x,y});
         const tone=(x*11+y*17)%5;
-        const palette=industrial
+        const palette=commercial ? [0x413e39,0x49453c,0x433d39,0x453e36,0x403f37]
+          : industrial
           ? [0x303b3c,0x34413f,0x35413f,0x303c3b,0x333e3e]
           : [0x34443e,0x314039,0x38453d,0x35413a,0x37473e];
         this.polygon(graphics,this.diamond(point.x,point.y),
@@ -281,7 +283,11 @@ export class BaixadaScene extends Phaser.Scene {
           const street = isStreet({ x, y });
           const variation = (x * 7 + y * 11) % 5;
           const industrial = isIndustrialSector({x,y});
-          const color = industrial
+          const commercial = isCommercialSector({x,y});
+          const color = commercial
+            ? street ? [0x534c44,0x554a41,0x594f44,0x53463d,0x514941][variation] ?? 0x544c44
+              : [0x6b6152,0x6d6253,0x665d4e,0x716253,0x686052][variation] ?? 0x685e50
+            : industrial
             ? street ? [0x393e40,0x394044,0x3f4242,0x363e41,0x414849][variation] ?? 0x393e40
               : [0x514d44,0x555247,0x4c4d48,0x54504a,0x524e46][variation] ?? 0x514d44
             : street ? [0x424846, 0x3d4747, 0x404b48, 0x424846, 0x3e4747][variation] ?? 0x424846
@@ -417,7 +423,7 @@ export class BaixadaScene extends Phaser.Scene {
     }
 
     // Acabamentos locais, sem adicionar objetos avulsos ao eixo de circulação.
-    if (building.style === "housing" || building.style === "canal") {
+    if (building.style === "housing" || building.style === "canal" || building.style === "community") {
       // Cobogós e reboco irregular: elementos integrados à fachada.
       const cobogoY = Phaser.Math.Linear(bt.y, ct.y, 0.25) + 16;
       const cobogoX = Phaser.Math.Linear(bt.x, ct.x, 0.25);
@@ -493,7 +499,7 @@ export class BaixadaScene extends Phaser.Scene {
         g.fillRect(x, y, 11, 9);
       }
     }
-    if (building.style === "market" || building.style === "workshop" || building.style === "depot") {
+    if (building.style === "market" || building.style === "workshop" || building.style === "depot" || building.style === "community") {
       const shade = building.style === "market" ? 0xa16e50 : 0xb28b58;
       const awningX = Phaser.Math.Linear(d.x, c.x, 0.55);
       const awningY = Phaser.Math.Linear(d.y, c.y, 0.55) - 31;
@@ -626,9 +632,12 @@ export class BaixadaScene extends Phaser.Scene {
       { id: "terminal-canal", name: "Terminal do Canal", kind: "terminal", tile: ACTOR_TILES["terminal-canal"], role: "SERVIÇOS DO DISTRITO" },
       { id: "patio-console", name: "Console V-09", kind: "terminal", tile: ACTOR_TILES["patio-console"], role: "PÁTIO DO REÚSO" },
       { id: "patio-sentinel", name: "Sentinela V-09", kind: "person", tile: ACTOR_TILES["patio-sentinel"], texture: NPC_TEXTURES.teo, role: "UNIDADE DE VIGILÂNCIA" },
+      { id: "feira-corretor", name: "Davi", kind:"person",tile:ACTOR_TILES["feira-corretor"],texture:NPC_TEXTURES.nilo,role:"INTERMEDIÁRIO DE ACESSOS" },
+      { id: "feira-ajuda", name: "Marta", kind:"person",tile:ACTOR_TILES["feira-ajuda"],texture:NPC_TEXTURES.joana,role:"ARTICULADORA COMUNITÁRIA" },
+      { id: "feira-archive", name:"Mural de Boletins",kind:"terminal",tile:ACTOR_TILES["feira-archive"],role:"REDE COMUNITÁRIA" },
       ...ROAMING_NPCS.map((spec,index)=>({
         id:spec.id,name:spec.name,kind:"person" as const,tile:{...spec.route[0]},
-        texture:[NPC_TEXTURES.joana,NPC_TEXTURES.teo,NPC_TEXTURES.saira][index],
+        texture:[NPC_TEXTURES.joana,NPC_TEXTURES.teo,NPC_TEXTURES.saira][index%3],
         role:spec.role,routine:new CitizenRoutine(spec),
       })),
     ];
@@ -646,7 +655,7 @@ export class BaixadaScene extends Phaser.Scene {
         }).setOrigin(0.5).setDepth(point.y + 0.42);
       } else if (actor.kind === "terminal") {
         this.drawTerminal(point.x, point.y);
-        actor.label = this.add.text(point.x, point.y - 47, "TERMINAL", {
+        actor.label = this.add.text(point.x, point.y - 47, actor.id==="feira-archive" ? "MURAL · CONSULTAR" : "TERMINAL", {
           fontFamily: "IBM Plex Mono, monospace", fontSize: "12px", color: "#ffe3a0", backgroundColor: "#2b2417dd", padding: { x: 4, y: 2 },
         }).setOrigin(0.5).setDepth(point.y + 0.42);
       } else {
