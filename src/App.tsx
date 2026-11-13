@@ -27,7 +27,7 @@ import { getPlayerSpriteUrl } from "./game/baixada/sprites";
 import ClassSelection from "./components/ClassSelection";
 import {getClassById,type ClassId} from "./game/classes/registry";
 import { audioDirector } from "./audio/director";
-import { markV09Defeated } from "./game/story/v09";
+import { markV09Defeated,grantV09Experience } from "./game/story/v09";
 
 function getUnit(state: GameState, id: string): Unit | undefined {
   return state.units.find((unit) => unit.id === id);
@@ -229,10 +229,22 @@ export default function App() {
   useEffect(()=>{
     if(screen!=="battle" || !character || state.encounterId!=="v09" || !state.combatComplete)return;
     const defeated=state.units.find(u=>u.id==="drone")?.hp===0;
-    if(defeated && markV09Defeated(character.id)){
-      const next={...character,experience:character.experience+15,updatedAt:new Date().toISOString()};
-      setCharacter(next);saveCharacter(next);
+    if(!defeated)return;
+    const reward=grantV09Experience(character);
+    if(!reward.awarded){
+      // Em caso de encerramento entre as duas gravações, a recompensa
+      // atômica no personagem permite restaurar o marco narrativo.
+      markV09Defeated(character.id);
+      return;
+    }
+    // XP e marcador de recompensa pertencem a UM registro local. A história
+    // só é marcada após a persistência da recompensa; nunca o inverso.
+    if(saveCharacter(reward.character)){
+      markV09Defeated(character.id);
+      setCharacter(reward.character);
       audioDirector.effect("victory");
+    }else{
+      setSaveMessage("Falha ao salvar recompensa V-09. Libere espaço no aparelho.");
     }
   },[screen,character,state]);
 

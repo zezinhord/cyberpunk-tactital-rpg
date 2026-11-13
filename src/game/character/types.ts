@@ -13,6 +13,8 @@ export interface PlayerCharacter {
   equipment: readonly string[];
   level: number;
   experience: number;
+  /** Identificadores de recompensas já concedidas, para impedir XP duplicada. */
+  questRewards: readonly string[];
   createdAt: string;
   updatedAt: string;
   introductionCompleted: boolean;

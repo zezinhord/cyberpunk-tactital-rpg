@@ -1,5 +1,6 @@
 import type { CharacterSave, PlayerCharacter } from "./types";
 import { isOriginId } from "./origins.ts";
+import {readV09,markV09Defeated} from "../story/v09.ts";
 import { isPlayableClass,getStartingClassAbilities,type ClassId } from "../classes/registry.ts";
 
 export const CHARACTER_SAVE_KEY = "cyberpunk-tactical-rpg.character.v1";
@@ -11,8 +12,8 @@ function isPlayerCharacter(value: unknown): value is PlayerCharacter {
     && typeof candidate.name === "string"
     && candidate.name.trim().length > 0
     && isOriginId(candidate.originId)
-    && typeof candidate.level === "number"
-    && typeof candidate.experience === "number"
+    && typeof candidate.level === "number" && Number.isSafeInteger(candidate.level) && candidate.level >= 1
+    && typeof candidate.experience === "number" && Number.isSafeInteger(candidate.experience) && candidate.experience >= 0
     && typeof candidate.introductionCompleted === "boolean";
 }
 
@@ -31,9 +32,17 @@ export function loadCharacter(): PlayerCharacter | null {
     const savedAbilities=Array.isArray(saved.abilities)
       ? saved.abilities.filter((a):a is string=>typeof a==="string"):[];
     const starting=classId?getStartingClassAbilities(classId):[];
-    return {...saved,classId,abilities:[...new Set([...savedAbilities,...starting])],
+    const rewardIds=Array.isArray(saved.questRewards)
+      ? saved.questRewards.filter((id):id is string=>typeof id==="string"):[];
+    // Compatibilidade: personagens que venceram a V-09 antes deste patch já
+    // receberam a recompensa pelo formato legado. Nunca conceder XP duas vezes.
+    if(readV09(saved.id).defeated && !rewardIds.includes("v09"))rewardIds.push("v09");
+    const normalized:PlayerCharacter={...saved,classId,abilities:[...new Set([...savedAbilities,...starting])],
       skills:Array.isArray(saved.skills)?saved.skills:[],
+      questRewards:[...new Set(rewardIds)],
       attributes:saved.attributes && typeof saved.attributes==="object"?saved.attributes:{}};
+    if(normalized.questRewards.includes("v09"))markV09Defeated(saved.id);
+    return normalized;
   } catch {
     return null;
   }
@@ -71,6 +80,7 @@ export function createPlayerCharacter(name:string,originId:PlayerCharacter["orig
     equipment: [],
     level: 1,
     experience: 0,
+    questRewards: [],
     createdAt: now,
     updatedAt: now,
     introductionCompleted: false,

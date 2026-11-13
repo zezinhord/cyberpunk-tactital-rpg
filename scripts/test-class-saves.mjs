@@ -18,6 +18,7 @@ for(const [i,originId] of origins.entries()){
   assert.equal(saveCharacter(c),true);
   const restored=loadCharacter();
   assert.equal(restored?.id,c.id,"Identificador mudou após save");
+  assert.deepEqual(restored?.questRewards,[]);
   assert.equal(restored?.originId,originId,"Origem alterada no save");
   assert.equal(restored?.classId,classId,"Classe alterada no save");
   assert.deepEqual(restored?.abilities,c.abilities);
@@ -52,5 +53,10 @@ const migrated=loadCharacter();
 assert.equal(migrated?.id,"legacy");
 assert.equal(migrated?.classId,null);
 assert.deepEqual(migrated?.abilities,[]);
+assert.deepEqual(migrated?.questRewards,[]);
+const corrupt=createPlayerCharacter("Corrompido","baixada","solo");
+corrupt.level=-3;
+assert.equal(saveCharacter(corrupt),true);
+assert.equal(loadCharacter(),null,"Nível inválido não deve contaminar regras");
 assert.equal(migrated?.originId,"baixada");
 console.log("Save: 66 combinações origem-classe, desbloqueios, ID persistente e migração de personagem sem classe.");
