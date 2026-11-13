@@ -32,4 +32,9 @@ assert.equal(canStand({x:7,y:9},{occupied:dynamic}),false);
 const detour=route({x:6,y:9},{x:8,y:9},{occupied:dynamic});
 assert.ok(detour&&assertRoute(detour,{occupied:dynamic}));
 assert.equal(collisionAt({x:-1,y:0}),"outside");
+for(const tile of [{x:1.2,y:7},{x:5.5,y:10},{x:NaN,y:6},{x:Infinity,y:8}]){
+  assert.equal(collisionAt(tile),"outside","Coordenadas não inteiras nunca podem ser caminháveis: "+JSON.stringify(tile));
+  assert.equal(canStand(tile),false);
+  assert.equal(route(PLAYER_START,tile),null);
+}
 console.log("Física: edifícios, paredes, portas, diagonais, passos rápidos, props e bloqueio dinâmico aprovados.");

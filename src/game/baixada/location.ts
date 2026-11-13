@@ -15,7 +15,7 @@ export function loadWorldLocation(characterId:string):Tile {
   }catch{return {...PLAYER_START};}
 }
 export function saveWorldLocation(characterId:string,tile:Tile):void {
-  if(!characterId||!canStand(tile))return;
+  if(!characterId||!Number.isInteger(tile.x)||!Number.isInteger(tile.y)||!canStand(tile))return;
   try{globalThis.localStorage?.setItem(KEY+characterId,JSON.stringify(tile));}catch{}
 }
 export function sameTile(a:Tile,b:Tile):boolean{return cellKey(a)===cellKey(b);}

@@ -107,7 +107,8 @@ export function getSectorById(id:SectorId){return SECTORS.find(s=>s.id===id)!;}
 
 export function cellKey(tile: Tile): string { return tile.x + "," + tile.y; }
 export function isInside(tile: Tile): boolean {
-  return tile.x >= 0 && tile.y >= 0 && tile.x < GRID_WIDTH && tile.y < GRID_HEIGHT;
+  return Number.isInteger(tile.x) && Number.isInteger(tile.y)
+    && tile.x >= 0 && tile.y >= 0 && tile.x < GRID_WIDTH && tile.y < GRID_HEIGHT;
 }
 export const BUILDING_CELLS: ReadonlySet<string> = (() => {
   const result = new Set<string>();

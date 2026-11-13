@@ -98,7 +98,8 @@ export class BaixadaScene extends Phaser.Scene {
   }
   private tickCitizens(): void {
     for(const actor of this.actors) {
-      if(!actor.routine || !actor.visual || actor.busy) continue;
+      // Não deixar o interlocutor fugir enquanto o protagonista se aproxima.
+      if(!actor.routine || !actor.visual || actor.busy || this.pendingInteraction===actor.id) continue;
       const occupied=this.dynamicOccupancy(actor.id,true);
       const previous={...actor.tile};
       const next=actor.routine.tick(previous,occupied);
@@ -800,6 +801,8 @@ export class BaixadaScene extends Phaser.Scene {
     if (path.length <= 1 || this.moving) return;
     this.moving = true;
     const steps = path.slice(1);
+    const destination=path[path.length-1]!;
+    let alternateAttempts=0;
     const nextStep = (): void => {
       const next = steps.shift();
       if (!next || !this.player) {
@@ -812,6 +815,18 @@ export class BaixadaScene extends Phaser.Scene {
       // Proteção física no momento da movimentação: nenhuma interpolação
       // executa um passo que atravessaria um edifício, pessoa ou obstáculo.
       if (!canTraverse(previous, next,{occupied:this.dynamicOccupancy()})) {
+        // A rota era válida quando começou, mas um morador pode ter ocupado
+        // o próximo passo. Recalcular a partir da célula real (sem atravessar
+        // o ator), em vez de abandonar silenciosamente a intenção do usuário.
+        if(alternateAttempts<2){
+          alternateAttempts+=1;
+          const alternate=this.findWorldPath(previous,destination);
+          if(alternate&&alternate.length>1){
+            steps.splice(0,steps.length,...alternate.slice(1));
+            nextStep();
+            return;
+          }
+        }
         steps.length = 0;
         this.pendingInteraction = null;
         this.moving = false;
