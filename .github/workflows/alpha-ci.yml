@@ -1,0 +1,54 @@
+name: Tenebria Alpha 0.1.0 - Android
+on:
+  push:
+    branches: [tenebria-alpha-010]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    container:
+      image: barichello/godot-ci:4.4.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Preparar gerador de recursos originais
+        run: |
+          apt-get update -qq
+          apt-get install -y python3 >/dev/null
+          python3 tools/gen_assets.py
+      - name: Configurar templates Android
+        run: |
+          mkdir -p "$HOME/.local/share/godot" "$HOME/.config/godot"
+          ln -sf /root/.local/share/godot/export_templates "$HOME/.local/share/godot/export_templates"
+          cp /root/.config/godot/editor_settings-4.4.tres "$HOME/.config/godot/editor_settings-4.4.tres"
+          test -f "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk"
+      - name: Importar arquivos
+        run: godot --headless --editor --path . --quit
+      - name: Testar catalogo e regras
+        run: |
+          godot --headless --path . --script res://tests/test_catalog.gd
+          godot --headless --path . --script res://tests/test_turns.gd
+      - name: Smoke test cena 3D
+        run: |
+          godot --headless --path . --quit-after 110 > /tmp/tenebria-alpha.log 2>&1
+          cat /tmp/tenebria-alpha.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Invalid access|Failed to load script' /tmp/tenebria-alpha.log; then exit 1; fi
+      - name: Exportar debug APK ARM64
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug Android build/Tenebria-Alpha-010.apk
+      - name: Limite de pacote 4 GB
+        run: |
+          test -s build/Tenebria-Alpha-010.apk
+          stat -c 'APK: %s bytes' build/Tenebria-Alpha-010.apk
+          test "$(stat -c %s build/Tenebria-Alpha-010.apk)" -le 4000000000
+      - name: Publicar APK testavel
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenebria-alpha-010-android-arm64
+          path: build/Tenebria-Alpha-010.apk
+          retention-days: 30
+          if-no-files-found: error
