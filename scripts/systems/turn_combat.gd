@@ -172,6 +172,8 @@ func action(action_id: String, target_id: String = "") -> bool:
      damage += rng.randi_range(1,4)
     "Espadachim Oriental":
      actor["statuses"]["enchanted"] = rng.randi_range(1,4)
+  if action_id == "skill" and str(actor.get("race","")) == "Abominu":
+   damage += 1
   if action_id != "skill" and int(actor["statuses"].get("enchanted",0)) > 0:
    damage += 1
   _hit(target,maxi(1,damage),actor)

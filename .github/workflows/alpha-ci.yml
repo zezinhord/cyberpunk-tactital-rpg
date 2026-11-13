@@ -31,6 +31,7 @@ jobs:
         run: |
           godot --headless --path . --script res://tests/test_catalog.gd
           godot --headless --path . --script res://tests/test_turns.gd
+          godot --headless --path . --script res://tests/test_integration.gd
       - name: Smoke test cena 3D
         run: |
           godot --headless --path . --quit-after 110 > /tmp/tenebria-alpha.log 2>&1

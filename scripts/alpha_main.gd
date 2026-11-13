@@ -40,6 +40,8 @@ var companion_visual: TenebriaHero
 var extra_npcs: Dictionary = {}
 var extra_objects: Dictionary = {}
 var dungeon_built := false
+var defeated_enemy_keys: Array[String] = []
+var used_world_objects: Array[String] = []
 var quality_profile: Array[String] = ["Corajoso","Item Herdado"]
 var sector_name := "Vigília das Cinzas"
 var log_expanded := false
@@ -88,9 +90,20 @@ func _unhandled_input(event: InputEvent) -> void:
     super._unhandled_input(event)
 
 func _spawn_foe(place: Vector3,is_boss: bool) -> void:
+    var key: String="%d_%d_%d" % [int(place.x),int(place.z),1 if is_boss else 0]
+    if key in defeated_enemy_keys:
+        return
     super._spawn_foe(place,is_boss)
     if not foes.is_empty() and is_instance_valid(foes[-1]):
         foes[-1].set_physics_process(false)
+        foes[-1].set_meta("spawn_id",key)
+
+func _on_enemy_eliminated(enemy: TenebriaFoe) -> void:
+    var key: String=str(enemy.get_meta("spawn_id",""))
+    if not key.is_empty() and not key in defeated_enemy_keys:
+        defeated_enemy_keys.append(key)
+    inventory["Fragmento Astral"]=int(inventory.get("Fragmento Astral",0))+1
+    super._on_enemy_eliminated(enemy)
 
 func _start_new() -> void:
     creator_layer.show()
@@ -111,6 +124,19 @@ func _resume() -> void:
     _load_alpha_state()
 
 func _begin(role: String,race: String,from_save: bool) -> void:
+    if from_save:
+        var previous:=ConfigFile.new()
+        if previous.load(SAVE_FILE)==OK:
+            defeated_enemy_keys.clear()
+            var gone: Array=previous.get_value("alpha","defeated_enemies",[])
+            for key in gone:
+                defeated_enemy_keys.append(str(key))
+    else:
+        defeated_enemy_keys.clear()
+        used_world_objects.clear()
+        for key in extra_objects:
+            extra_objects[key]["used"]=false
+            extra_objects[key]["node"].show()
     super._begin(role,race,from_save)
     hero.set_physics_process(true)
     if not from_save:
@@ -856,6 +882,9 @@ func _use_world_object(key: String,info: Dictionary) -> void:
             _grant_xp(2)
             _notice("INSCRIÇÃO: O selo de Morcânia foi um pacto, não o fim da guerra.",6)
 
+    if bool(info["used"]) and not key in used_world_objects:
+        used_world_objects.append(key)
+
 func _show_moral_dialogue() -> void:
     var dlg:=ConfirmationDialog.new()
     dlg.title="HASAM: A FERIDA DE OBSCURE"
@@ -905,6 +934,8 @@ func _save_game() -> void:
     config.set_value("alpha","reputation",reputation)
     config.set_value("alpha","quests",quest_flags)
     config.set_value("alpha","companion",companion_joined)
+    config.set_value("alpha","defeated_enemies",defeated_enemy_keys)
+    config.set_value("alpha","used_objects",used_world_objects)
     var temp: String=SAVE_FILE+".tmp"
     if config.save(temp)==OK:
         DirAccess.rename_absolute(temp,SAVE_FILE)
@@ -930,6 +961,14 @@ func _load_alpha_state() -> void:
     reputation=int(config.get_value("alpha","reputation",0))
     quest_flags=config.get_value("alpha","quests",quest_flags)
     companion_joined=bool(config.get_value("alpha","companion",false))
+    used_world_objects.clear()
+    var stored_used: Array=config.get_value("alpha","used_objects",[])
+    for key in stored_used:
+        used_world_objects.append(str(key))
+    for key in used_world_objects:
+        if extra_objects.has(key):
+            extra_objects[key]["used"]=true
+            extra_objects[key]["node"].hide()
     var hp:=hero.hp
     var fatigue:=hero.fatigue
     var will:=hero.willpower
