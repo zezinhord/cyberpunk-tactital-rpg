@@ -228,7 +228,7 @@ func _build_creator() -> void:
     for key in ["f","h","v","m"]:
         var row := HBoxContainer.new()
         column.add_child(row)
-        var label_name := {"f":"Físico","h":"Habilidade","v":"Vigor","m":"Mental"}[key]
+        var label_name: String = str({"f":"Físico","h":"Habilidade","v":"Vigor","m":"Mental"}[key])
         var name_lbl := _label(row,label_name,18,Color("ece2cf"))
         name_lbl.custom_minimum_size.x = 200
         var minus := Button.new()
@@ -717,7 +717,7 @@ func _on_combat_log(message: String) -> void:
         _refresh_combat_hud()
 
 func _conclude_battle() -> void:
-    var victory:=combat.result=="victory"
+    var victory: bool=combat.result=="victory"
     var actor: Dictionary=combat.get_actor("hero")
     if not actor.is_empty():
         hero.hp=maxi(1,int(actor["hp"])) if victory else 1
