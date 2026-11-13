@@ -1,0 +1,60 @@
+name: Tenebria Isometrico - Build Android
+on:
+  push:
+    branches:
+      - tenebria-isometrico-020
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    container:
+      image: barichello/godot-ci:4.4.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preparar assets procedurais
+        run: |
+          apt-get update -qq
+          apt-get install -y python3 >/dev/null
+          python3 tools/gen_assets.py
+      - name: Preparar Android export
+        run: |
+          mkdir -p "$HOME/.local/share/godot" "$HOME/.config/godot"
+          ln -sf /root/.local/share/godot/export_templates "$HOME/.local/share/godot/export_templates"
+          cp /root/.config/godot/editor_settings-4.4.tres "$HOME/.config/godot/editor_settings-4.4.tres"
+          test -f "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk"
+      - name: Importar e verificar scripts
+        run: |
+          godot --headless --editor --path . --quit > /tmp/import.log 2>&1
+          cat /tmp/import.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Failed to load script' /tmp/import.log; then exit 1; fi
+      - name: Testar dados, batalha, mundo e salvamento
+        run: |
+          timeout 70s godot --headless --path . --script res://iso/tests/test_rules.gd
+      - name: Testar interface e fluxo integrado
+        run: |
+          timeout 70s godot --headless --path . --script res://iso/tests/test_game.gd
+      - name: Verificar inicializacao da cena por 150 quadros
+        run: |
+          godot --headless --path . --quit-after 150 > /tmp/iso-smoke.log 2>&1
+          cat /tmp/iso-smoke.log
+          if grep -E 'SCRIPT ERROR|Parse Error|Invalid call|Invalid access|Failed to load script' /tmp/iso-smoke.log; then exit 1; fi
+      - name: Exportar APK ARM64
+        run: |
+          mkdir -p build
+          godot --headless --path . --export-debug Android build/Tenebria-Isometrico-Android.apk > /tmp/export.log 2>&1
+          cat /tmp/export.log
+      - name: Validar instalador e tamanho
+        run: |
+          test -s build/Tenebria-Isometrico-Android.apk
+          stat -c "APK final %s bytes" build/Tenebria-Isometrico-Android.apk
+          test "$(stat -c %s build/Tenebria-Isometrico-Android.apk)" -lt 4000000000
+      - name: Disponibilizar instalador
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenebria-isometrico-android-debug
+          path: build/Tenebria-Isometrico-Android.apk
+          retention-days: 30
+          if-no-files-found: error
