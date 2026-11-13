@@ -11,6 +11,9 @@ import { audioDirector } from "../audio/director";
 import type {ClassId} from "../game/classes/registry";
 import { isPatioCitizen, getPatioConversation, type ConversationOption } from "../game/dialogues/patio";
 import { readV09,markV09Reported } from "../game/story/v09";
+import { MARKET_CLUE_TEXT,applyMarketAction,getMarketConversation,isMarketActor,readMarket,saveMarket } from "../game/story/market";
+import { getSectorById,sectorAt,type SectorId } from "../game/baixada/layout";
+import { loadWorldLocation } from "../game/baixada/location";
 
 type MissionStep = 0 | 1 | 2 | 3;
 interface MissionProgress { step: MissionStep; clues: string[] }
@@ -47,6 +50,7 @@ const CLUE_LABELS: Record<string, string> = {
   duda: "Duda registrou testemunho do transporte de uma pessoa doente.",
   patio: "O console do Pátio identificou a unidade de vigilância que interceptou a transferência V-09.",
   report: "Lia recebeu o relatório da sentinela neutralizada e reabriu os registros da cooperativa.",
+  ...MARKET_CLUE_TEXT,
 };
 
 function readMission(characterId: string): MissionProgress {
@@ -95,16 +99,21 @@ export default function ExplorationScreen({
   const [journalOpen, setJournalOpen] = useState(false);
   const [missionOpen, setMissionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [market,setMarket]=useState(()=>readMarket(character.id));
+  const [sectorId,setSectorId]=useState<SectorId>(()=>sectorAt(loadWorldLocation(character.id)));
   useEffect(()=>{audioDirector.setScene(interior?"interior":"exploration");},[interior]);
 
   useEffect(() => {
     saveMission(character.id, mission);
   }, [character.id, mission]);
+  useEffect(()=>{saveMarket(character.id,market);},[character.id,market]);
 
   const say = (pages: DialoguePage[]) => setDialogue({ pages, index: 0 });
   const v09=readV09(character.id);
   const objective = mission.step<3 ? ((OBJECTIVES as readonly string[])[mission.step] ?? OBJECTIVES[0])
-    : v09.reported ? "O Pátio voltou a operar. Procure a próxima pista sobre o destino da pessoa desaparecida."
+    : v09.reported ? (market.clues.length>=2 ?
+        "A feira reuniu provas de manipulação dos serviços. Descubra quem autorizou a triagem e proteja as testemunhas."
+        : "Investigue o Mercado dos Cabos: fale com moradores, consulte o mural e siga as informações sobre o Projeto Éden.")
     : v09.defeated ? "Retorne a Lia para entregar os registros recuperados da unidade V-09."
     : mission.clues.includes("patio") ? "Confronte a unidade de vigilância V-09 junto ao console do Pátio."
     : "Explore o Pátio do Reúso, converse com seus moradores e consulte o console V-09.";
@@ -135,6 +144,12 @@ export default function ExplorationScreen({
       return;
     }
 
+    if(isMarketActor(id)){
+      const node=getMarketConversation(id,character.classId,market,v09.reported,character.originId);
+      say([{speaker:node.speaker,role:node.role,portrait:node.portrait,
+        text:node.text,choices:node.choices}]);
+      return;
+    }
     if(isPatioCitizen(id)){
       if(v09.defeated && id==="lia" && markV09Reported(character.id)){
         addClue("report");
@@ -353,6 +368,13 @@ export default function ExplorationScreen({
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    if(choice.marketAction){
+      const result=applyMarketAction(market,choice.marketAction,character.classId);
+      if(result.applied){
+        setMarket(result.state);
+        if(result.clue)addClue(result.clue);
+      }
+    }
     if(choice.clue)addClue(choice.clue);
     const current=dialogue?.pages[dialogue.index];
     if(!current)return;
@@ -366,14 +388,14 @@ export default function ExplorationScreen({
       ? "Oficina do Nilo"
       : interior === "canal"
         ? "Galeria do Canal"
-        : "Baixada";
+        : getSectorById(sectorId).name;
   const sceneSubtitle = interior === "clinic"
     ? "RECEPÇÃO / TRIAGEM"
     : interior === "workshop"
       ? "REPAROS / COMÉRCIO INFORMAL"
       : interior === "canal"
         ? "ACESSO TÉCNICO / CANAL SUL"
-        : "CANAL SUL // MERCADO DA PONTE";
+        : getSectorById(sectorId).description.toUpperCase();
 
   return (
     <main className="exploration-shell">
@@ -387,7 +409,7 @@ export default function ExplorationScreen({
           <div className="district-status">
             <span className="signal-dot" />
             <strong>REDE LOCAL</strong>
-            <span>SETOR 04 · BAIXADA</span>
+            <span>{getSectorById(sectorId).type.toUpperCase()} · {market.heat>2?"ATENÇÃO ELEVADA":"REDE LOCAL"}</span>
           </div>
           <button type="button" className="menu-trigger" onClick={() => setMenuOpen(true)} aria-label="Abrir menu do protagonista">
             <span className="menu-trigger-mark" aria-hidden="true">≡</span>
@@ -404,7 +426,7 @@ export default function ExplorationScreen({
         <div className="explorer-character-data">
           <span className="eyebrow">PROTAGONISTA · NÍVEL {character.level}</span>
           <strong>{character.name}</strong>
-          <small>{origin.name}</small>
+          <small>{origin.name} · {getSectorById(sectorId).name}</small>
         </div>
         <div className="district-clock">
           <span>18:40</span>
@@ -425,7 +447,8 @@ export default function ExplorationScreen({
             onInteract={handleInteract}
           />
         ) : (
-          <BaixadaWorld originId={character.originId} appearance={appearance} characterId={character.id} onInteract={handleInteract} />
+          <BaixadaWorld originId={character.originId} appearance={appearance} characterId={character.id}
+            onSectorChange={setSectorId} onInteract={handleInteract} />
         )}
         <div className="world-instructions">
           <span className="instruction-glyph">⌖</span>
@@ -455,6 +478,7 @@ export default function ExplorationScreen({
             {v09.reported ? "CAPÍTULO 02" : "EM ANDAMENTO"}
           </span>
         </div>
+        <p className="market-state-strip">COMUNIDADE {market.trust}/5 · ALERTA DA REDE {market.heat}/5 · PISTAS DO MERCADO {market.clues.length}</p>
         <p className="mission-summary">
           Uma pessoa desapareceu depois de procurar atendimento por causa de um implante defeituoso. O registro oficial foi apagado, mas a clínica preservou uma cópia local.
         </p>

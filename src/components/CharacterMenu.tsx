@@ -46,7 +46,9 @@ const MENU_ITEMS: ReadonlyArray<{ id: MenuSection; code: string; label: string; 
 ];
 
 const DISTRICTS = [
-  { name: "Baixada", status: "ÁREA JOGÁVEL", current: true },
+  { name: "Baixada Central", status: "ÁREA JOGÁVEL", current: true },
+  { name: "Pátio do Reúso", status: "SETOR INDUSTRIAL JOGÁVEL", current: true },
+  { name: "Mercado dos Cabos", status: "SETOR COMERCIAL JOGÁVEL", current: true },
   { name: "Áurea", status: "PLANEJADO", current: false },
   { name: "Ferrugem", status: "PLANEJADO", current: false },
   { name: "Subsolo", status: "PLANEJADO", current: false },
