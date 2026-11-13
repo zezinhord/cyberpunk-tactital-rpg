@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {readV09,markV09Defeated} from "../src/game/story/v09.ts";
 import { CLASS_IDS,getStartingClassAbilities } from "../src/game/classes/registry.ts";
 import { createPlayerCharacter,assignCharacterClass,loadCharacter,saveCharacter,CHARACTER_SAVE_KEY } from "../src/game/character/storage.ts";
+import {removeCharacterSlot} from "../src/game/character/slots.ts";
 const db=new Map();
 globalThis.localStorage={
  getItem:k=>db.get(k)??null,
@@ -23,6 +24,7 @@ for(const [i,originId] of origins.entries()){
   assert.equal(restored?.originId,originId,"Origem alterada no save");
   assert.equal(restored?.classId,classId,"Classe alterada no save");
   assert.deepEqual(restored?.abilities,c.abilities);
+  assert.equal(removeCharacterSlot(c.id),true);
  }
 }
 const legacy=createPlayerCharacter("Antigo","nomade",null);
@@ -57,8 +59,7 @@ assert.deepEqual(migrated?.abilities,[]);
 assert.deepEqual(migrated?.questRewards,[]);
 const corrupt=createPlayerCharacter("Corrompido","baixada","solo");
 corrupt.level=-3;
-assert.equal(saveCharacter(corrupt),true);
-assert.equal(loadCharacter(),null,"Nível inválido não deve contaminar regras");
+assert.equal(saveCharacter(corrupt),false,"Salvar nível inválido deve ser rejeitado");
 assert.equal(migrated?.originId,"baixada");
 const alreadyRewarded=createPlayerCharacter("Vencedor","baixada","solo");
 alreadyRewarded.questRewards=["v09"];

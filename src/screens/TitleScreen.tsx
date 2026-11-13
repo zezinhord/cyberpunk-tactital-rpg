@@ -32,7 +32,6 @@ export default function TitleScreen({
   const [notice,setNotice]=useState("");
   const [importing,setImporting]=useState(false);
   const [reduceMotion, setReduceMotion] = useState(readMotionPreference);
-  const origin = character ? getOriginById(character.originId) : null;
 
   useEffect(() => {
     document.documentElement.classList.toggle("na-reduce-motion", reduceMotion);
@@ -125,11 +124,11 @@ export default function TitleScreen({
                   <span>Restaurar backup JSON do aparelho</span>
                   <input type="file" accept=".json,application/json" disabled={importing}
                     onChange={async(e)=>{
-                      const file=e.currentTarget.files?.[0];if(!file)return;
+                      const input=e.currentTarget;
+                      const file=input.files?.[0];if(!file)return;
                       setImporting(true);
-                      setNotice(await onImport(file));
-                      setImporting(false);
-                      e.currentTarget.value="";
+                      try{setNotice(await onImport(file));}
+                      finally{setImporting(false);input.value="";}
                     }}/>
                 </label>
                 <p className="na-title-modal-note" role="status">{notice||saveNotice}</p>

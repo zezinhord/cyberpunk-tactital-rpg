@@ -8,6 +8,7 @@ import "./arena-v030.css";
 import "./character-presentation.css";
 import "./audio-controls.css";
 import "./class-selection.css";
+import "./save-slots.css";
 
 const rootElement = document.getElementById("root");
 

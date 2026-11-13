@@ -220,7 +220,7 @@ export default function App() {
 
   const originProfile = useMemo(() => character ? getOriginGameplay(character.originId) : undefined, [character?.originId]);
   const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,
-    currentHp:loadHealth(character?.id??"",18+(originProfile?.maxHpBonus??0)),encounterId:battleMode }), [character?.id, character?.level, character?.originId, character?.classId,character?.abilities, battleReset, battleMode, originProfile, bonuses]);
+    currentHp:loadHealth(character?.id??"",18+(originProfile?.maxHpBonus??0)),encounterId:battleMode }), [character?.id, battleReset, battleMode, originProfile, bonuses]);
   const [state, setState] = useState<GameState>(() => manager.getState());
   const player = getUnit(state, "runner");
   const enemy = getUnit(state, "drone");
@@ -279,7 +279,6 @@ export default function App() {
   };
 
   const handleCreate = (name: string, originId: OriginId, presentation: TestAppearance, classId:ClassId) => {
-    const previousCharacter = loadCharacter();
     const nextCharacter = createPlayerCharacter(name, originId, classId);
     const saved = saveCharacter(nextCharacter);
     // Nunca apagar inventário ou missão de um protagonista antigo: ele tem seu slot.

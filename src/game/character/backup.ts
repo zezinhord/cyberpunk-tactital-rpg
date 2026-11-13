@@ -1,6 +1,6 @@
 import type {PlayerCharacter} from "./types.ts";
 import {isPlayerCharacter,parseCharacterSave,saveCharacter} from "./storage.ts";
-import {containsCharacterSlot,hasSlotCapacity,loadCharacterSlot} from "./slots.ts";
+import {containsCharacterSlot,hasSlotCapacity,readCharacterSlot} from "./slots.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
  */
@@ -19,7 +19,7 @@ export interface CharacterBackup{
  character:PlayerCharacter;data:Partial<Record<BackupField,string>>;
 }
 export function exportCharacterBackup(id:string):string {
- const character=loadCharacterSlot(id);
+ const character=readCharacterSlot(id);
  if(!character)throw new Error("O slot solicitado não foi encontrado.");
  const data:Partial<Record<BackupField,string>>={};
  for(const [field,key] of Object.entries(CHARACTER_BACKUP_KEYS)){

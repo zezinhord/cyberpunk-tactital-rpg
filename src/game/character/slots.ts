@@ -17,10 +17,15 @@ export function listCharacterSlots():PlayerCharacter[]{
  return [...found.values()].sort((a,b)=>
    Date.parse(b.updatedAt||"")-Date.parse(a.updatedAt||""));
 }
-export function loadCharacterSlot(id:string):PlayerCharacter|null {
+export function readCharacterSlot(id:string):PlayerCharacter|null {
  if(!readSlotIds().includes(id))return null;
  const raw=readRawSlot(id),character=raw?parseCharacterSave(raw):null;
- if(!character||character.id!==id||!setActiveRaw(raw!))return null;
+ return character?.id===id?character:null;
+}
+export function loadCharacterSlot(id:string):PlayerCharacter|null {
+ const character=readCharacterSlot(id);
+ const raw=readRawSlot(id);
+ if(!character||!raw||!setActiveRaw(raw))return null;
  return character;
 }
 export function containsCharacterSlot(id:string):boolean{
