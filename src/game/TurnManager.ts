@@ -26,6 +26,7 @@ export interface TurnManagerOptions {
   originProfile?: OriginGameplayProfile;
   equipmentBonuses?: { attackBonus: number; armorBonus: number };
   characterLevel?: number;
+  currentHp?: number;
   originId?: string;
   classId?: string | null;
   characterAbilities?: readonly string[];
@@ -53,7 +54,9 @@ export class TurnManager {
           side: "player",
           x: 1,
           y: 6,
-          hp: maxHp,
+          hp: Number.isFinite(options.currentHp)
+            ? Math.min(maxHp,Math.max(1,Math.floor(options.currentHp!)))
+            : maxHp,
           maxHp,
           armorClass: 12 + (this.originProfile?.armorBonus ?? 0) + (options.equipmentBonuses?.armorBonus ?? 0),
           attackBonus: 5 + (this.originProfile?.attackBonus ?? 0) + (options.equipmentBonuses?.attackBonus ?? 0),
