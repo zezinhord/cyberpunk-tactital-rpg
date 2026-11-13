@@ -19,7 +19,7 @@ import type { OriginId, PlayerCharacter } from "./game/character";
 import ExplorationScreen from "./screens/ExplorationScreen";
 import TitleScreen from "./screens/TitleScreen";
 import {
-  createStartingInventory, loadInventory, saveInventory, deleteInventory,
+  createStartingInventory, loadInventory, saveInventory,
   toggleEquipment, consumeItem, getEquipmentBonuses, grantItem, ITEM_CATALOG,
 } from "./game/inventory";
 import type { ItemId, InventoryState } from "./game/inventory";
@@ -28,6 +28,9 @@ import ClassSelection from "./components/ClassSelection";
 import {getClassById,type ClassId} from "./game/classes/registry";
 import { audioDirector } from "./audio/director";
 import { markV09Defeated,grantV09Experience } from "./game/story/v09";
+import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity} from "./game/character/slots";
+import {exportCharacterBackup,importCharacterBackup} from "./game/character/backup";
+import {loadHealth,saveHealth,healAtClinic} from "./game/combat/health";
 
 function getUnit(state: GameState, id: string): Unit | undefined {
   return state.units.find((unit) => unit.id === id);
@@ -194,6 +197,7 @@ function IntroductionScreen({ character, onContinue }: { character: PlayerCharac
 export default function App() {
   useEffect(()=>{audioDirector.install();},[]);
   const [character, setCharacter] = useState<PlayerCharacter | null>(() => loadCharacter());
+  const [slots,setSlots]=useState<PlayerCharacter[]>(()=>listCharacterSlots());
   const [screen, setScreen] = useState<"title" | "creation" | "resume" | "introduction" | "exploration" | "battle">("title");
   const [battleReset, setBattleReset] = useState(0);
   const [battleMode, setBattleMode] = useState<"test" | "v09">("test");
@@ -209,9 +213,14 @@ export default function App() {
     if (character && inventory.ownerId === character.id) saveInventory(inventory);
   }, [character?.id, inventory]);
   const [saveMessage, setSaveMessage] = useState("Salvamento local ativo");
+  const [healthValue,setHealthValue]=useState(()=>{
+    const saved=loadCharacter();
+    return loadHealth(saved?.id??"",18+(saved?getOriginGameplay(saved.originId).maxHpBonus:0));
+  });
 
   const originProfile = useMemo(() => character ? getOriginGameplay(character.originId) : undefined, [character?.originId]);
-  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities, encounterId:battleMode }), [character?.id, character?.level, character?.originId, character?.classId,character?.abilities, battleReset, battleMode, originProfile, bonuses]);
+  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,
+    currentHp:loadHealth(character?.id??"",18+(originProfile?.maxHpBonus??0)),encounterId:battleMode }), [character?.id, character?.level, character?.originId, character?.classId,character?.abilities, battleReset, battleMode, originProfile, bonuses]);
   const [state, setState] = useState<GameState>(() => manager.getState());
   const player = getUnit(state, "runner");
   const enemy = getUnit(state, "drone");
@@ -220,8 +229,17 @@ export default function App() {
 
   useEffect(() => {
     setState(manager.getState());
-    return manager.subscribe(setState);
-  }, [manager]);
+    return manager.subscribe((next)=>{
+      setState(next);
+      if(screen==="battle"&&character?.id){
+        const unit=next.units.find(u=>u.id==="runner");
+        if(unit){
+          saveHealth(character.id,unit.hp,unit.maxHp);
+          setHealthValue(Math.max(1,unit.hp));
+        }
+      }
+    });
+  }, [manager,screen,character?.id]);
 
   const beginBattle = (mode: "test" | "v09" = "test") => {
     setBattleMode(mode);
@@ -255,21 +273,27 @@ export default function App() {
     const updated=assignCharacterClass(character,classId);
     if(updated===character)return;
     setCharacter(updated);
-    setSaveMessage(saveCharacter(updated)?"Classe registrada no salvamento local":"Não foi possível salvar a classe");
+    const saved=saveCharacter(updated);
+    if(saved)setSlots(listCharacterSlots());
+    setSaveMessage(saved?"Classe registrada no salvamento local":"Não foi possível salvar a classe");
   };
 
   const handleCreate = (name: string, originId: OriginId, presentation: TestAppearance, classId:ClassId) => {
     const previousCharacter = loadCharacter();
     const nextCharacter = createPlayerCharacter(name, originId, classId);
     const saved = saveCharacter(nextCharacter);
-    if (saved && previousCharacter && previousCharacter.id !== nextCharacter.id) {
-      deleteInventory(previousCharacter.id);
+    // Nunca apagar inventário ou missão de um protagonista antigo: ele tem seu slot.
+    if(!saved){
+      setSaveMessage("Falha ao criar o slot. Exporte um backup ou libere um slot.");
+      return;
     }
+    setSlots(listCharacterSlots());
     setCharacter(nextCharacter);
     setAppearance(presentation);
     saveTestAppearance(nextCharacter.id, presentation);
     setInventory(createStartingInventory(nextCharacter.id));
-    setSaveMessage(saved ? "Personagem salvo neste dispositivo" : "Não foi possível salvar neste dispositivo");
+    setHealthValue(18+getOriginGameplay(nextCharacter.originId).maxHpBonus);
+    setSaveMessage("Personagem salvo em slot próprio neste dispositivo");
     setScreen("introduction");
   };
 
@@ -282,7 +306,11 @@ export default function App() {
   };
 
   const startNewCharacter = () => {
-    // A criação não apaga o último save: permite voltar ao título com segurança.
+    if(!hasSlotCapacity()){
+      setSaveMessage("Limite de slots atingido. Exporte ou exclua um antes de criar.");
+      return;
+    }
+    // O protagonista anterior permanece no índice e mantém todos seus dados.
     setInventory(createStartingInventory(""));
     setCharacter(null);
     setScreen("creation");
@@ -296,6 +324,70 @@ export default function App() {
     setScreen("title");
   };
 
+  const handleLoadSlot=(id:string)=>{
+    const selected=loadCharacterSlot(id);
+    if(!selected){setSaveMessage("Não foi possível carregar esse slot.");return;}
+    setCharacter(selected);
+    setAppearance(loadTestAppearance(selected.id));
+    setInventory(loadInventory(selected.id));
+    setHealthValue(loadHealth(selected.id,18+getOriginGameplay(selected.originId).maxHpBonus));
+    setSlots(listCharacterSlots());
+    setScreen(selected.introductionCompleted?"exploration":"introduction");
+  };
+  const handleDeleteSlot=(id:string)=>{
+    if(!window.confirm("Excluir permanentemente este protagonista deste dispositivo? Faça um backup primeiro."))return;
+    if(!removeCharacterSlot(id)){setSaveMessage("Falha ao excluir o slot.");return;}
+    const active=loadCharacter();
+    setCharacter(active);
+    setAppearance(loadTestAppearance(active?.id??""));
+    setInventory(loadInventory(active?.id??""));
+    setSlots(listCharacterSlots());
+    setSaveMessage("Slot excluído. Outros personagens foram preservados.");
+  };
+  const handleExport=async(id:string):Promise<string>=>{
+    try{
+      const data=exportCharacterBackup(id);
+      const filename="nova-arcadia-backup-"+id.slice(0,16)+".json";
+      const file=new File([data],filename,{type:"application/json"});
+      if(navigator.canShare?.({files:[file]})){
+        try{await navigator.share({files:[file],title:"Backup Nova Arcádia"});
+          return "Backup enviado ao compartilhamento do Android.";}
+        catch{/* usar exportação pelo navegador */}
+      }
+      const url=URL.createObjectURL(new Blob([data],{type:"application/json"}));
+      const a=document.createElement("a");
+      a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),5000);
+      return "Backup gerado. Confira os downloads do aparelho.";
+    }catch(e){return "Não foi possível exportar: "+(e instanceof Error?e.message:"erro desconhecido");}
+  };
+  const handleImport=async(file:File):Promise<string>=>{
+    try{
+      const contents=await file.text();
+      let result=importCharacterBackup(contents);
+      if(!result.ok && result.message.includes("Já existe um slot")){
+        if(window.confirm("Este backup já existe. Sobrescrever os dados do mesmo personagem?"))
+          result=importCharacterBackup(contents,true);
+      }
+      if(!result.ok)return result.message;
+      const selected=loadCharacter();
+      setCharacter(selected);
+      setSlots(listCharacterSlots());
+      setInventory(loadInventory(selected?.id??""));
+      setAppearance(loadTestAppearance(selected?.id??""));
+      setHealthValue(loadHealth(selected?.id??"",18+(selected?getOriginGameplay(selected.originId).maxHpBonus:0)));
+      return result.message;
+    }catch(e){return "Erro ao importar backup: "+(e instanceof Error?e.message:"arquivo inválido");}
+  };
+  const treatAtClinic=():number=>{
+    if(!character)return 0;
+    const max=18+getOriginGameplay(character.originId).maxHpBonus;
+    const current=loadHealth(character.id,max);
+    if(!healAtClinic(character.id,max))return 0;
+    setHealthValue(max);
+    return Math.max(0,max-current);
+  };
+
   const handleUseMedkit = () => {
     if (inventory.quantities.curativo_campo < 1) return;
     if (manager.useMedicalSupply(ITEM_CATALOG.curativo_campo.healAmount ?? 0)) {
@@ -304,7 +396,10 @@ export default function App() {
   };
 
   if (screen === "title") {
-    return <TitleScreen character={character} onContinue={() => setScreen(character?.introductionCompleted ? "exploration" : "introduction")} onNew={startNewCharacter} />;
+    return <TitleScreen character={character} slots={slots} onLoadSlot={handleLoadSlot}
+      onDeleteSlot={handleDeleteSlot} onExport={handleExport} onImport={handleImport}
+      saveNotice={saveMessage}
+      onContinue={() => setScreen(character?.introductionCompleted ? "exploration" : "introduction")} onNew={startNewCharacter} />;
   }
   if (screen === "creation") {
     return <CreationScreen initialName="" initialOrigin="corporativo" onCreate={handleCreate} onBackToSaved={cancelNewCharacter} />;
@@ -327,6 +422,9 @@ export default function App() {
         onChangeAppearance={chooseAppearance}
         onChooseClass={assignExistingClass}
         onOpenBattle={beginBattle}
+        onTreatAtClinic={treatAtClinic}
+        currentHp={healthValue}
+        maxHp={18+originProfile.maxHpBonus}
         onReturnToTitle={() => setScreen("title")}
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
