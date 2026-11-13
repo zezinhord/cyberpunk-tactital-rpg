@@ -421,8 +421,8 @@ func _render_skill_rows() -> void:
  var role: String=creator_class.get_item_text(creator_class.selected)
  for child in overlay_content.get_children():
   if child.is_in_group("creator_skill_rows"):
+   overlay_content.remove_child(child)
    child.queue_free()
- var current_info: Label=creator_feedback
  for skill in DATA.SKILLS.get(role,[]):
   var row:=_row(overlay_content)
   row.add_to_group("creator_skill_rows")
@@ -433,9 +433,10 @@ func _render_skill_rows() -> void:
   value.custom_minimum_size.x=48
   creator_skill_labels[str(skill["id"])]=value
   _button(row,"+",_change_skill.bind(str(skill["id"]),1),Vector2(56,39))
-  row.move_to_front()
- # Colocar as habilidades entre o titulo e o feedback; o formulario e recriado ao trocar classe.
- current_info.move_to_front()
+  var before_info: int=overlay_content.get_children().find(creator_feedback)
+  if before_info>=0:
+   overlay_content.move_child(row,before_info)
+ # As tecnicas ficam na secao de habilidades, antes do feedback da distribuicao.
 
 func _skill_spent() -> int:
  var total:=0
