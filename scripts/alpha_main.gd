@@ -142,6 +142,9 @@ func _begin(role: String,race: String,from_save: bool) -> void:
     if not from_save:
         inventory = {"Atadura":3,"Erva cinzenta":0,"Fragmento Astral":0}
         equipment = CATALOG.default_equipment(role)
+        for piece in equipment.values():
+            if not str(piece).is_empty():
+                inventory[str(piece)] = 1
         xp = 0
         level = 1
         krovs = 14
