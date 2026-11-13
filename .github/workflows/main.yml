@@ -56,6 +56,8 @@ jobs:
           node --experimental-strip-types scripts/test-patio-dialogues.mjs
           node --experimental-strip-types scripts/test-story-v09.mjs
           node --experimental-strip-types scripts/test-world-location.mjs
+          node --experimental-strip-types scripts/test-market-story.mjs
+          node --experimental-strip-types scripts/test-semiopen-world.mjs
 
       - name: Verificar audio e regras de classes
         run: |

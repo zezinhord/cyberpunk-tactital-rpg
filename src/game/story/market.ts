@@ -58,7 +58,9 @@ export function getMarketConversation(actor:MarketActorId,classId:ClassId|null,
  const base=ACTORS[actor];
  const text=base.text
    +(reported?" Após a queda da sentinela V-09, circulam novas informações de quem controlava as transferências.":"")
-   +(originId==="baixada"?" Você conhece estes caminhos desde antes do último bloqueio.":"");
+   +(originId==="baixada"?" Você conhece estes caminhos desde antes do último bloqueio.":"")
+   +(state.heat>=3?" A vigilância municipal aumentou as rondas depois das consultas à rede; os comerciantes baixam o tom de voz.":"")
+   +(state.trust>=2?" Os trabalhadores conhecem seus atos em favor da comunidade e compartilham informações com mais confiança.":"");
  return {...base,text,choices:MARKET_ACTIONS.filter(action=>
    action.actor===actor&&(!action.classId||action.classId===classId)&&!state.decisions.includes(action.id))
    .map(action=>({id:action.id,label:action.label,reply:action.reply,marketAction:action.id}))};

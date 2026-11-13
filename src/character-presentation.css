@@ -13,3 +13,6 @@
 .dialogue-choice-list{display:flex;flex-direction:column;gap:7px;margin-top:12px}
 .dialogue-choice-list button{width:100%;min-height:48px;padding:10px 12px;background:#1e333c;color:#e1eae7;border:1px solid #6c9694;border-radius:7px;text-align:left;font-size:13px}
 .dialogue-choice-list button:active{border-color:#e8c087;background:#304147}
+
+/* Indicadores sociais urbanos do novo setor. */
+.market-state-strip{font:600 11px var(--mono);letter-spacing:.035em;color:#f0c995;padding:6px 10px;margin:6px 0;background:rgba(60,46,30,.55);border:1px solid rgba(177,136,77,.42);border-radius:6px}
