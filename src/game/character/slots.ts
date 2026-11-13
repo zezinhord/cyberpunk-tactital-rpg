@@ -3,6 +3,15 @@ import {loadCharacter,parseCharacterSave,saveCharacter} from "./storage.ts";
 import {CHARACTER_SAVE_KEY,CHARACTER_SLOT_INDEX,CHARACTER_SLOT_PREFIX,
   MAX_CHARACTER_SLOTS,readSlotIds,readRawSlot,setActiveRaw} from "./slot-core.ts";
 export {MAX_CHARACTER_SLOTS} from "./slot-core.ts";
+const OWNED_DATA_KEYS=[
+ "cyberpunk-tactical-rpg.inventory.v1.",
+ "cyberpunk-tactical-rpg.arena-appearance.v1.",
+ "cyberpunk-tactical-rpg.world-location.v068.",
+ "cyberpunk-tactical-rpg.mission.v1.",
+ "cyberpunk-tactical-rpg.story-v09.v068.",
+ "cyberpunk-tactical-rpg.market.v1.",
+ "cyberpunk-tactical-rpg.health.v1.",
+] as const;
 /** Descobre e preserva automaticamente o slot único de versões anteriores. */
 export function listCharacterSlots():PlayerCharacter[]{
  const current=loadCharacter();
@@ -44,6 +53,9 @@ export function removeCharacterSlot(id:string):boolean{
      if(remaining[0])setActiveRaw(JSON.stringify({version:1,character:remaining[0]}));
      else storage.removeItem(CHARACTER_SAVE_KEY);
    }
+   // A exclusão explícita também elimina dados órfãos deste protagonista;
+   // outros slots permanecem intactos.
+   for(const prefix of OWNED_DATA_KEYS)storage.removeItem(prefix+id);
    return true;
  }catch{return false;}
 }

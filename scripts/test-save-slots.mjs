@@ -68,6 +68,9 @@ assert.equal(db.get("cyberpunk-tactical-rpg.world-location.v068."+id),JSON.strin
 assert.ok(listCharacterSlots().length===1);
 assert.equal(loadCharacterSlot(b.id),null,"Slots não existentes neste dispositivo não devem aparecer");
 assert.equal(removeCharacterSlot(a.id),true);
+assert.equal(db.get(HEALTH_KEY+a.id),undefined);
+assert.equal(db.get("cyberpunk-tactical-rpg.inventory.v1."+a.id),undefined);
+assert.equal(db.get("cyberpunk-tactical-rpg.mission.v1."+a.id),undefined);
 assert.equal(loadCharacter(),null);
 assert.equal(listCharacterSlots().length,0);
 // Migração a partir da chave única v1 sem índice.
