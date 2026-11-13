@@ -283,6 +283,33 @@ try {
   await writeFile("qa/arena-comandos-metricas.json",JSON.stringify(arenaLayout,null,2));
   console.log("QA arena: comandos sempre visíveis:",JSON.stringify(arenaLayout));
 
+  // Regressão Android de entrada: slot carregável e controles de toque em 914x411.
+  await send("Emulation.setDeviceMetricsOverride",{
+    width:914,height:411,deviceScaleFactor:1.75,mobile:true,
+    screenOrientation:{type:"landscapePrimary",angle:90},
+  });
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"menu de slots em viewport móvel");
+  await evaluate('document.querySelectorAll(".na-title-option")[2].click();true');
+  await poll(()=>has(".save-slot-entry"),"slot individual na nova central");
+  const saveUi=await evaluate(`(()=>{
+    const modal=document.querySelector(".na-title-modal");
+    const rows=[...document.querySelectorAll(".save-slot-entry")];
+    const actionButtons=[...document.querySelectorAll(".save-slot-actions button")];
+    const r=modal.getBoundingClientRect();
+    return {slots:rows.length,modalTop:r.top,modalBottom:r.bottom,
+      viewport:innerHeight,importFile:!!document.querySelector('.backup-import-label input[type="file"]'),
+      minButton:Math.min(...actionButtons.map(b=>b.getBoundingClientRect().height)),
+      activeName:rows[0]?.textContent};
+  })()`);
+  if(saveUi.slots<1||!saveUi.importFile||saveUi.modalTop<-2||
+     saveUi.modalBottom>saveUi.viewport+2||saveUi.minButton<43)
+     throw new Error("QA slots Android 914x411: "+JSON.stringify(saveUi));
+  await writeFile("qa/slots-914x411.png",Buffer.from((await send("Page.captureScreenshot",{
+    format:"png",captureBeyondViewport:false})).data,"base64"));
+  await writeFile("qa/slots-914x411-metricas.json",JSON.stringify(saveUi,null,2));
+  console.log("QA slots Android 914×411:",JSON.stringify(saveUi));
+
   console.log("QA visual: capturas masculina/feminina; canvas preservado após alternância.");
   console.log("Viewport: " + JSON.stringify(metrics) + ", PNG: " + bytes.length + " bytes");
   if (session.exceptions.length) {
