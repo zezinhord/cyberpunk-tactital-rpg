@@ -111,8 +111,12 @@ export default function ExplorationScreen({
   const say = (pages: DialoguePage[]) => setDialogue({ pages, index: 0 });
   const v09=readV09(character.id);
   const objective = mission.step<3 ? ((OBJECTIVES as readonly string[])[mission.step] ?? OBJECTIVES[0])
-    : v09.reported ? (market.clues.length>=2 ?
-        "A feira reuniu provas de manipulação dos serviços. Descubra quem autorizou a triagem e proteja as testemunhas."
+    : v09.reported ? (market.decisions.includes("mercado-publicar")
+        ? "O dossiê comunitário foi publicado. Proteja as testemunhas da feira enquanto a Helix contesta a autoria."
+        : market.decisions.includes("mercado-proteger")
+        ? "As provas estão preservadas fora da rede. Investigue a autoria da triagem antes de expor os moradores."
+        : market.clues.length>=2
+        ? "As provas revelam uma triagem contestada. Retorne ao mural e decida se vai publicá-las ou protegê-las."
         : "Investigue o Mercado dos Cabos: fale com moradores, consulte o mural e siga as informações sobre o Projeto Éden.")
     : v09.defeated ? "Retorne a Lia para entregar os registros recuperados da unidade V-09."
     : mission.clues.includes("patio") ? "Confronte a unidade de vigilância V-09 junto ao console do Pátio."
@@ -369,7 +373,7 @@ export default function ExplorationScreen({
 
   const selectAnswer=(choice:ConversationOption)=>{
     if(choice.marketAction){
-      const result=applyMarketAction(market,choice.marketAction,character.classId);
+      const result=applyMarketAction(market,choice.marketAction,character.classId,v09.reported);
       if(result.applied){
         setMarket(result.state);
         if(result.clue)addClue(result.clue);

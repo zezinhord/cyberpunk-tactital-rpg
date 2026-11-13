@@ -13,6 +13,7 @@ export interface MarketAction {
   readonly label:string; readonly reply:string;
   readonly classId?:ClassId; readonly clue:string;
   readonly trustDelta:number;readonly heatDelta:number;
+  readonly minClues?:number;readonly requiresV09Report?:boolean;readonly exclusiveGroup?:string;
 }
 export interface MarketConversation {
   readonly speaker:string;readonly role:string;readonly portrait:string;readonly text:string;
@@ -41,6 +42,14 @@ export const MARKET_ACTIONS:readonly MarketAction[]=[
   {id:"nomad-desvio",actor:"iza",classId:"nomade",label:"Nômade · Reconstituir trajeto dos caminhões",reply:"As marcas nos pneus indicam uma rota de serviço fora do mapa oficial. Iza recebe uma alternativa segura para futuras entregas.",clue:"market-hidden-route",trustDelta:1,heatDelta:0},
   {id:"street-atalho",actor:"feira-corretor",classId:"marginal",label:"Marginal · Consultar rede de becos",reply:"Os contatos de rua identificam um operador que troca credenciais por água e energia. O acesso ao mercado informal fica registrado.",clue:"market-broker",trustDelta:1,heatDelta:0},
   {id:"fixer-negocio",actor:"feira-corretor",classId:"fixador",label:"Fixador · Negociar acesso aos registros",reply:"Davi aceita um acordo de reciprocidade. A cooperativa compartilha um manifesto de cargas sem exigir pagamento dos moradores.",clue:"market-deal",trustDelta:2,heatDelta:0},
+  // Dilema de fim do capítulo: duas decisões mutuamente exclusivas. Ambas
+  // exigem o relatório V-09 e duas provas investigadas no Mercado dos Cabos.
+  {id:"mercado-publicar",actor:"feira-archive",label:"Tornar públicos os registros contestados",
+    reply:"A comunidade publica um dossiê com as assinaturas de triagem E.D.N. e o desvio de serviços. A autoria continua em investigação, mas os moradores agora conhecem a ordem. A vigilância reforça as rondas.",
+    clue:"market-public",trustDelta:2,heatDelta:2,minClues:2,requiresV09Report:true,exclusiveGroup:"decisao-mural"},
+  {id:"mercado-proteger",actor:"feira-archive",label:"Guardar as provas em cópias comunitárias",
+    reply:"As provas ficam em dispositivos independentes, distribuídos pela cooperativa e pela clínica. A rede oficial não recebe um alerta imediato, mas a denúncia pública será adiada até haver testemunhas protegidas.",
+    clue:"market-sealed",trustDelta:1,heatDelta:-1,minClues:2,requiresV09Report:true,exclusiveGroup:"decisao-mural"},
 ] as const;
 const ACTORS:Readonly<Record<MarketActorId,{speaker:string;role:string;portrait:string;text:string}>>={
  "feira-corretor":{speaker:"Davi",role:"INTERMEDIÁRIO DE ACESSOS",portrait:"D",text:"Não existe mercado livre se metade das rotas passa por uma chave corporativa. Eu vendo contatos, mas também sei quando dizer não."},
@@ -60,15 +69,27 @@ export function getMarketConversation(actor:MarketActorId,classId:ClassId|null,
    +(reported?" Após a queda da sentinela V-09, circulam novas informações de quem controlava as transferências.":"")
    +(originId==="baixada"?" Você conhece estes caminhos desde antes do último bloqueio.":"")
    +(state.heat>=3?" A vigilância municipal aumentou as rondas depois das consultas à rede; os comerciantes baixam o tom de voz.":"")
-   +(state.trust>=2?" Os trabalhadores conhecem seus atos em favor da comunidade e compartilham informações com mais confiança.":"");
+   +(state.trust>=2?" Os trabalhadores conhecem seus atos em favor da comunidade e compartilham informações com mais confiança.":"")
+   +(state.decisions.includes("mercado-publicar")?" O dossiê agora circula publicamente.":"")
+   +(state.decisions.includes("mercado-proteger")?" As provas foram repartidas em arquivos independentes.":"");
  return {...base,text,choices:MARKET_ACTIONS.filter(action=>
-   action.actor===actor&&(!action.classId||action.classId===classId)&&!state.decisions.includes(action.id))
+   action.actor===actor
+   && (!action.classId||action.classId===classId)
+   && !state.decisions.includes(action.id)
+   && (!action.requiresV09Report||reported)
+   && state.clues.length >= (action.minClues??0)
+   && (!action.exclusiveGroup||!state.decisions.some(id=>
+       MARKET_ACTIONS.some(previous=>previous.id===id&&previous.exclusiveGroup===action.exclusiveGroup))))
    .map(action=>({id:action.id,label:action.label,reply:action.reply,marketAction:action.id}))};
 }
-export function applyMarketAction(state:MarketState,actionId:string,classId:ClassId|null):
+export function applyMarketAction(state:MarketState,actionId:string,classId:ClassId|null,reported=false):
   {state:MarketState;applied:boolean;clue?:string}{
  const action=MARKET_ACTIONS.find(a=>a.id===actionId);
- if(!action||state.decisions.includes(action.id)||action.classId&&action.classId!==classId)
+ if(!action||state.decisions.includes(action.id)||action.classId&&action.classId!==classId
+   ||action.requiresV09Report&&!reported
+   ||state.clues.length < (action.minClues??0)
+   ||action.exclusiveGroup&&state.decisions.some(id=>
+       MARKET_ACTIONS.some(previous=>previous.id===id&&previous.exclusiveGroup===action.exclusiveGroup)))
    return {state,applied:false};
  const next:MarketState={
    decisions:[...state.decisions,action.id],

@@ -25,4 +25,16 @@ for(const [idx,classId] of CLASS_IDS.entries()){
 }
 assert.deepEqual(readMarket("char-other"),INITIAL_MARKET);
 assert.ok(getMarketConversation("feira-archive","netrunner",INITIAL_MARKET,true,"corporativo").text.includes("V-09"));
-console.log("Mercado: 5 habitantes/pontos, 11 soluções por classe, 11 pistas, atenção, confiança e persistência independentes aprovadas.");
+const clues=["market-lot","market-receipts"];
+const pre={...INITIAL_MARKET,clues};
+assert.equal(getMarketConversation("feira-archive","netrunner",pre,false,"baixada").choices.some(c=>c.id==="mercado-publicar"),false);
+assert.equal(applyMarketAction(pre,"mercado-publicar","netrunner",false).applied,false,"Publicação antes de V-09");
+const after=getMarketConversation("feira-archive","netrunner",pre,true,"baixada");
+assert.ok(after.choices.some(c=>c.id==="mercado-publicar"));
+assert.ok(after.choices.some(c=>c.id==="mercado-proteger"));
+const revealed=applyMarketAction(pre,"mercado-publicar","netrunner",true);
+assert.ok(revealed.applied);
+assert.ok(revealed.state.heat>pre.heat);
+assert.equal(applyMarketAction(revealed.state,"mercado-proteger","netrunner",true).applied,false,"Duas consequências mutuamente exclusivas");
+assert.equal(getMarketConversation("feira-archive","netrunner",revealed.state,true,"baixada").choices.some(c=>c.id==="mercado-proteger"),false);
+console.log("Mercado: 5 atores, 11 soluções de classe, pistas, escolhas públicas/privadas excludentes e persistência aprovadas.");
