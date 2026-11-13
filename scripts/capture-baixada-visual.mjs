@@ -186,6 +186,40 @@ try {
   await writeFile("qa/patio-reuso-1600x720.png",patioPng);
   console.log("QA industrial: Pátio do Reúso capturado em 1600×720.");
 
+  // Percurso adicional: restaura o mesmo protagonista em célula caminhável do
+  // Mercado dos Cabos. É uma preparação de QA, não um teleporte de gameplay.
+  const marketReady=await evaluate(`(()=>{
+    const raw=localStorage.getItem("cyberpunk-tactical-rpg.character.v1");
+    const id=raw&&JSON.parse(raw)?.character?.id;
+    if(!id)return false;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+id,
+      JSON.stringify({x:12,y:26}));
+    return true;
+  })()`);
+  if(!marketReady)throw new Error("QA feira: salvamento não encontrado.");
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título da feira");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".baixada-world canvas"),"cena da feira");
+  await poll(()=>evaluate('document.querySelector(".district-brand h1")?.textContent.includes("Mercado dos Cabos")'),"identidade visual da feira");
+  await sleep(1700);
+  const marketPng=Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64");
+  if(marketPng.length<15000)throw new Error("QA feira: screenshot vazio");
+  await writeFile("qa/mercado-dos-cabos-1600x720.png",marketPng);
+  const marketMetrics=await evaluate(`(()=>{
+    const canvas=document.querySelector(".baixada-world canvas");
+    const label=document.querySelector(".district-brand h1")?.textContent;
+    const save=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1"));
+    return {canvas:!!canvas,sector:label,origin:save.character.originId,
+      classId:save.character.classId,position:JSON.parse(localStorage.getItem(
+      "cyberpunk-tactical-rpg.world-location.v068."+save.character.id))};
+  })()`);
+  if(marketMetrics.origin!=="baixada"||marketMetrics.classId!=="corporativo"||
+     marketMetrics.position?.y!==26)throw new Error("QA feira: origem/classe/posição alteradas "+JSON.stringify(marketMetrics));
+  await writeFile("qa/mercado-dos-cabos-metricas.json",JSON.stringify(marketMetrics,null,2));
+  console.log("QA Mercado dos Cabos: setor, personagem e geometria capturados.");
+
+
   // QA móvel da arena: comandos devem permanecer disponíveis mesmo
   // quando a seção de recursos e habilidades excede o viewport.
   await evaluate('document.querySelector(".menu-trigger").click();true');
