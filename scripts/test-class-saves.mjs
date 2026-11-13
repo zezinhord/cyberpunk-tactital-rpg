@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {readV09,markV09Defeated} from "../src/game/story/v09.ts";
 import { CLASS_IDS,getStartingClassAbilities } from "../src/game/classes/registry.ts";
 import { createPlayerCharacter,assignCharacterClass,loadCharacter,saveCharacter,CHARACTER_SAVE_KEY } from "../src/game/character/storage.ts";
 const db=new Map();
@@ -59,4 +60,21 @@ corrupt.level=-3;
 assert.equal(saveCharacter(corrupt),true);
 assert.equal(loadCharacter(),null,"Nível inválido não deve contaminar regras");
 assert.equal(migrated?.originId,"baixada");
-console.log("Save: 66 combinações origem-classe, desbloqueios, ID persistente e migração de personagem sem classe.");
+const alreadyRewarded=createPlayerCharacter("Vencedor","baixada","solo");
+alreadyRewarded.questRewards=["v09"];
+alreadyRewarded.experience=15;
+saveCharacter(alreadyRewarded);
+assert.equal(readV09(alreadyRewarded.id).defeated,false);
+const reconciled=loadCharacter();
+assert.equal(reconciled?.experience,15);
+assert.deepEqual(reconciled?.questRewards,["v09"]);
+assert.equal(readV09(alreadyRewarded.id).defeated,true,
+  "Vitória não recuperada após salvar XP mas antes do marco narrativo");
+const legacyWinner=createPlayerCharacter("Veterano","nomade","tecnico");
+legacyWinner.experience=99;
+saveCharacter(legacyWinner);
+markV09Defeated(legacyWinner.id);
+const normalized=loadCharacter();
+assert.equal(normalized?.experience,99,"Recompensa legada não pode ser concedida novamente");
+assert.ok(normalized?.questRewards.includes("v09"));
+console.log("Save: 66 origens/classes, migração, níveis válidos e recuperação segura da recompensa V-09.");

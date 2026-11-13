@@ -291,8 +291,11 @@ export class TurnManager {
     }
     if (enemy.hp <= 0) {
       this.state.combatComplete = true;
-      this.state.message = "Sentinela neutralizada. Área de teste temporariamente segura.";
-      this.addLog("[MISSÃO] Objetivo de teste concluído.");
+      const mission=this.state.encounterId==="v09";
+      this.state.message = mission
+        ? "V-09 neutralizada. Os registros da cooperativa foram recuperados."
+        : "Sentinela neutralizada. Área de teste temporariamente segura.";
+      this.addLog(mission?"[MISSÃO] Interceptação V-09 encerrada.":"[MISSÃO] Objetivo de teste concluído.");
     }
     this.publish();
   }
@@ -349,14 +352,20 @@ export class TurnManager {
     }
     if (player.hp <= 0) {
       this.state.combatComplete = true;
-      this.state.message = "Operativo incapacitado. Teste encerrado.";
-      this.addLog("[MISSÃO] Falha: o operativo foi incapacitado.");
+      this.state.message = this.state.encounterId==="v09"
+        ? "Operativo incapacitado. A unidade V-09 continua ativa."
+        : "Operativo incapacitado. Teste encerrado.";
+      this.addLog(this.state.encounterId==="v09"
+        ? "[MISSÃO] Confronto V-09 perdido; investigação ainda em andamento."
+        : "[MISSÃO] Falha: o operativo foi incapacitado.");
       this.publish();
       return;
     }
     if (enemy.hp <= 0) {
       this.state.combatComplete = true;
-      this.state.message = "Sentinela neutralizada. Área de teste temporariamente segura.";
+      this.state.message = this.state.encounterId==="v09"
+        ? "V-09 neutralizada. Os registros da cooperativa foram recuperados."
+        : "Sentinela neutralizada. Área de teste temporariamente segura.";
       this.publish();
       return;
     }

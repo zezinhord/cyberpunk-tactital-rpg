@@ -56,7 +56,9 @@ function ActionChip({ label, ready }: { label: string; ready: boolean }) {
 }
 
 function getHint(state: GameState, canAttack: boolean): string {
-  if (state.combatComplete) return "Combate de teste encerrado";
+  if (state.combatComplete) return state.encounterId==="v09"
+    ? "Confronto V-09 encerrado. Retorne à Baixada para continuar a investigação."
+    : "Combate de teste encerrado";
   if (state.activeSide !== "player") return "A sentinela está agindo";
   if (canAttack) return "Alvo ao alcance. Confirme o ataque";
   return "Toque em uma célula ciano para mover";
@@ -366,7 +368,7 @@ export default function App() {
         <div className="arena-console-scroll" aria-label="Informações e habilidades">
         <section className="units" aria-label="Unidades em combate">
           <UnitCard unit={player} role="Protagonista" accent="cyan" />
-          <UnitCard unit={enemy} role="Sentinela" accent="pink" />
+          <UnitCard unit={enemy} role={battleMode==="v09"?"VIGILÂNCIA · V-09":"Sentinela"} accent="pink" />
         </section>
         <AbilityBar state={state} manager={manager} />
         <p className="combat-message" role="status">{state.message}</p>
@@ -375,7 +377,7 @@ export default function App() {
           <div className="power-action"><div><span className="eyebrow">HABILIDADE ÚNICA · 1 USO</span><strong>{originProfile.abilityName}</strong><small>{originProfile.abilityDescription}</small></div><button type="button" className="ability-button" disabled={!state.originAbilityAvailable || state.activeSide !== "player" || state.combatComplete} onClick={() => { buzz(18); manager.activateOriginAbility(); }}>{state.originAbilityAvailable ? "Usar" : "Usada"}</button></div>
         </section>
         <details className="log-panel">
-          <summary>Registro do teste <span>{state.log.length}</span></summary>
+          <summary>{battleMode==="v09"?"Relatório de confronto":"Registro do teste"} <span>{state.log.length}</span></summary>
           <p className="objective">{battleMode==="v09" ? "A unidade interceptou os registros V-09. Sua derrota terá consequências persistentes para a cooperativa." : "Use movimento por toque, ataque básico, 3 habilidades e o terminal de recarga. Este ambiente não é um distrito da campanha."}</p>
           <ol className="log-list">{state.log.slice(-8).reverse().map((entry,index) => <li key={index}>{entry}</li>)}</ol>
           <p className="build-note">{saveMessage}</p>

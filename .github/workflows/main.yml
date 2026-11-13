@@ -76,7 +76,8 @@ jobs:
 
       - name: Capturar screenshot real da Baixada em Chromium
         if: github.event_name == 'push'
-        continue-on-error: true
+        # Falhas de UX ou erros em JS devem impedir uma entrega marcada
+        # como validada. O bloco abaixo já repete falhas transitórias do CDP.
         run: |
           # O Chromium do runner pode encerrar antes de abrir a porta CDP.
           # Repetir o processo inteiro preserva a validação funcional e coleta

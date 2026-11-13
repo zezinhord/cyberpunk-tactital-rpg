@@ -1,5 +1,5 @@
 /** Captura real da interface Phaser, sem Playwright nem dependências externas.
- * O Chromium é disponibilizado pelo runner Ubuntu; falhas visuais NÃO bloqueiam o APK.
+ * A captura é bloqueante após retries; não aprovar build com erro em runtime.
  */
 import { spawn, spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";

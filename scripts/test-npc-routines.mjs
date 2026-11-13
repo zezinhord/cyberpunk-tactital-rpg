@@ -23,4 +23,4 @@ for(const spec of ROAMING_NPCS){
   assert.equal(routine.state,"return");
   assert.ok(visited.size>=3,"Rota com poucos destinos");
 }
-console.log("NPCs: 3 rotinas com movimento, colisão, idle, interação e retorno validadas.");
+console.log("NPCs: "+ROAMING_NPCS.length+" rotinas com movimento, colisão, idle, interação e retorno validadas.");
