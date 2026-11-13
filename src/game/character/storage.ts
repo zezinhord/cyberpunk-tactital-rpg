@@ -2,10 +2,12 @@ import type { CharacterSave, PlayerCharacter } from "./types";
 import { isOriginId } from "./origins.ts";
 import {readV09,markV09Defeated} from "../story/v09.ts";
 import { isPlayableClass,getStartingClassAbilities,type ClassId } from "../classes/registry.ts";
+import {CHARACTER_SAVE_KEY,persistActiveAndSlot} from "./slot-core.ts";
+export {CHARACTER_SAVE_KEY} from "./slot-core.ts";
 
-export const CHARACTER_SAVE_KEY = "cyberpunk-tactical-rpg.character.v1";
 
-function isPlayerCharacter(value: unknown): value is PlayerCharacter {
+
+export function isPlayerCharacter(value: unknown): value is PlayerCharacter {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return typeof candidate.id === "string"
@@ -17,10 +19,8 @@ function isPlayerCharacter(value: unknown): value is PlayerCharacter {
     && typeof candidate.introductionCompleted === "boolean";
 }
 
-export function loadCharacter(): PlayerCharacter | null {
+export function parseCharacterSave(raw:string):PlayerCharacter|null {
   try {
-    const raw = globalThis.localStorage?.getItem(CHARACTER_SAVE_KEY);
-    if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
     const save = parsed as Partial<CharacterSave>;
@@ -48,12 +48,17 @@ export function loadCharacter(): PlayerCharacter | null {
   }
 }
 
+export function loadCharacter():PlayerCharacter|null {
+ try{const raw=globalThis.localStorage?.getItem(CHARACTER_SAVE_KEY);
+   return raw?parseCharacterSave(raw):null;
+ }catch{return null;}
+}
+
 export function saveCharacter(character: PlayerCharacter): boolean {
   try {
-    if (typeof globalThis.localStorage === "undefined") return false;
+    if(!isPlayerCharacter(character))return false;
     const save: CharacterSave = { version: 1, character: { ...character, updatedAt: new Date().toISOString() } };
-    globalThis.localStorage?.setItem(CHARACTER_SAVE_KEY, JSON.stringify(save));
-    return true;
+    return persistActiveAndSlot(character.id,JSON.stringify(save));
   } catch {
     return false;
   }
