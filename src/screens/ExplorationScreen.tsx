@@ -25,6 +25,9 @@ interface Props {
   onChangeAppearance: (appearance: TestAppearance) => void;
   onChooseClass: (classId: ClassId) => void;
   onOpenBattle: (mode?: "test" | "v09") => void;
+  onTreatAtClinic: () => number;
+  currentHp: number;
+  maxHp: number;
   onReturnToTitle: () => void;
   inventory: InventoryState;
   onToggleEquipment: (id: ItemId) => void;
@@ -87,6 +90,9 @@ export default function ExplorationScreen({
   onChangeAppearance,
   onChooseClass,
   onOpenBattle,
+  onTreatAtClinic,
+  currentHp,
+  maxHp,
   onReturnToTitle,
   inventory,
   onToggleEquipment,
@@ -410,6 +416,9 @@ export default function ExplorationScreen({
           <span>{sceneSubtitle}</span>
         </div>
         <div className="explore-header-actions">
+          <span className="na-explore-health" aria-label={"Vida: "+currentHp+" de "+maxHp}>
+            VIDA <strong>{currentHp}/{maxHp}</strong>
+          </span>
           <div className="district-status">
             <span className="signal-dot" />
             <strong>REDE LOCAL</strong>
@@ -520,6 +529,16 @@ export default function ExplorationScreen({
         )}
       </section>}
 
+      {interior==="clinic" && <div className="na-clinic-treatment">
+        <span>CLÍNICA COMUNITÁRIA · ESTABILIZAÇÃO DE FERIMENTOS</span>
+        <button type="button" disabled={currentHp>=maxHp}
+          onClick={()=>{
+            const recovered=onTreatAtClinic();
+            say([{speaker:"Dra. Amara Solis",role:"ATENDIMENTO COMUNITÁRIO",portrait:"A",
+              text:recovered>0 ? "Seus ferimentos foram tratados. Vida restaurada em "+recovered+" pontos. O atendimento não altera as pistas da investigação."
+                : "Seu estado já está estabilizado. Nenhum tratamento adicional foi necessário."}]);
+          }}>Receber tratamento ({Math.max(0,maxHp-currentHp)} PV)</button>
+      </div>}
       <div className="exploration-footer-actions single-action">
         <button type="button" className="explore-secondary" onClick={() => onOpenBattle("test")}>
           Arena tática de teste
