@@ -1,43 +1,52 @@
-# Tenebria: Ecos de Ruturam — Alpha 0.1.0 em desenvolvimento
+# TENEBRIA • ECOS DE RUTURAM — EDIÇÃO ISOMÉTRICA
 
-Projeto Godot 4.4.1 para Android ARM64, com RPG 3D em terceira pessoa e combate por turnos, baseado nos nomes, universo e regras do livro TENEBRIA REVISADO 3.0 enviado pelo usuário.
+RPG tático 2D isométrico offline para Android ARM64, desenvolvido em Godot 4.4.1. O livro TENEBRIA REVISADO 3.0 é referência para universo e regras.
 
-**Status:** código e APK de depuração compiláveis, mas ainda NÃO se declara concluída a Alpha definida no GDD. A execução no Moto G34 5G e uma campanha completa precisam de validação manual.
+**Estado:** versão de desenvolvimento e testes. O objetivo de **4 GB** é um orçamento de conteúdo útil, não uma meta artificial de tamanho: a arte procedural produz um pacote substancialmente menor. Não foram adicionados arquivos sem função para inflar a instalação.
 
-## APK pelo celular
+## Instalar no celular
 
-Abra a guia Actions: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/workflows/alpha-ci.yml?query=branch%3Atenebria-alpha-010
+Acesse a execução mais recente em:
+https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/workflows/iso-ci.yml?query=branch%3Atenebria-isometrico-020
 
-Escolha a execução mais recente com sinal verde; no final, em Artifacts, baixe o arquivo "tenebria-alpha-010-android-arm64". Extraia o ZIP e instale o APK. A assinatura é **debug** (apenas para testes), não Play Store.
+Quando os testes estiverem verdes, baixe **tenebria-isometrico-android-debug** em Artifacts, extraia o ZIP e instale **Tenebria-Isometrico-Android.apk**.
 
-## Implementado na ramificação tenebria-alpha-010
+É uma versão debug. Este app usa o mesmo identificador Android da versão 3D, porém o formato de saves foi alterado. O save 3D antigo não é migrado automaticamente.
 
-- Exploração 3D em terceira pessoa, joystick de toque, câmera, ruínas, bosque, povoado da Vigília e cripta.
-- Catálogo das 27 raças e 27 classes do livro, das quais **4 raças e 4 classes** estão liberadas inicialmente.
-- Criador com atributos (8 pontos sem zeros), limites por raça, duas qualidades, nome e apresentação. A alteração visual da apresentação ainda não foi produzida.
-- Motor de batalha por turnos separado do mundo, iniciativa D20, grid, movimentação, ataque físico, habilidades de quatro classes, guarda, consumíveis e IA inicial.
-- Inimigos de quatro perfis digitais e um Guardião, grupo com Maera recrutável, experiência e nivelamento.
-- Inventário, itens equipáveis com impacto na defesa e no dano, coleta de ervas, baús, comerciante e ataduras.
-- Prólogo de Hasam, escolha com impacto na reputação, missão principal e três objetivos secundários.
-- Salvamento local de personagem, missões, companheira, inventário, objetos coletados e oponentes derrotados.
-- Testes automatizados do catálogo, regras de turno e inicialização; GitHub Actions compila APK ARM64.
+## Conteúdo já programado
 
-Os visuais são **bloqueios 3D procedurais** e não modelos de arte final. Não foram reproduzidas as ilustrações do livro.
+- Seis regiões conectadas: Vigília das Cinzas, Bosque das Viúvas, Pântano de Ferro, Cripta do Pacto, Fortaleza dos Sem-Rosto e Limiar de Ruturam.
+- Mapas isométricos procedurais, ambientação sombria, casas, árvores, criptas, rios, santuários, caminhos e baús; toque para caminhar e pathfinding BFS.
+- 27 raças e 27 classes **catalogadas**; 6 raças/6 classes iniciais **selecionáveis** e 18 habilidades digitais distribuídas entre elas.
+- Criação do protagonista com oito pontos de atributos, limites raciais, duas qualidades e compra de 5 pontos iniciais de habilidades.
+- Sistema tático de combate por turnos, movimento em grade, iniciativa D20, acerto contra defesa, técnicas de classe, guarda, atadura, condições de queimadura/sangramento/fraqueza, IA e segunda fase dos chefes.
+- 12 perfis de inimigos, dois chefes, encontros em grupo e recompensas.
+- 37 itens, receitas de criação, compra, inventário, equipagem com efeitos, coleta e saques que não reaparecem após salvar.
+- 14 registros de missão, arco com prólogo, recuperação da Chave Velada e duas possibilidades de conclusão, NPCs com decisões e reputação.
+- Três companheiros recrutáveis: Maera, Doran e Ilyra, controláveis em combate.
+- Códice com doze textos originais, corrupção introdutória, progressão de 10 XP por nível, salvamento offline com cópia de segurança.
 
-## Limitações técnicas abertas
+## Controles
 
-Os efeitos completos das 27 raças, 27 classes, perícias, corrupção, especializações, progressão de habilidades e tabela de PV por classe ainda precisam ser adaptados. O valor provisório de PV = Físico + 12 **não é uma regra canônica de Tenebria**. O criador ainda não permite gastar individualmente os cinco pontos de habilidade iniciais do livro. A movimentação tática não implementa obstrução real por todos os objetos 3D; o visual e as animações do combate precisam de aprimoramento.
+Na exploração: toque no chão para caminhar, controles direcionais na esquerda, **INTERAGIR**, **MOCHILA**, **MISSÕES**, **FICHA**, **MAPA**, **OFICINA**, **SALVAR**, **PAUSA**. Via teclado opcional: WASD, E, I, J e Esc.
 
-Nenhum resultado de FPS, memória ou estabilidade no Moto G34 5G foi medido. O pacote reduzido ocorre porque os modelos são procedurais; não se pretende preencher artificialmente 4–8 GB.
+No combate: **ATACAR**, **TÉCNICAS**, **MOVER**, **GUARDA**, **ATADURA**, **ALVO**, **FIM DO TURNO**. Ataques verificam distância, atributos, recursos e turno.
 
-## Organização do repositório
+## Arquitetura
 
-- scripts/alpha_main.gd: orquestração de mundo, UI, missões e combate
-- scripts/rules/catalog.gd: 27 raças, 27 classes, habilidades iniciais e equipamentos
-- scripts/systems/turn_combat.gd: motor testável de combate por turnos
-- scripts/main.gd, hero.gd, foe.gd: base 3D reaproveitada
-- docs/rules_matrix.md: diferenças entre [LIVRO], [ADAPTAÇÃO] e [PENDENTE]
-- tests/: casos de catálogo, combate e integração de cena
-- .github/workflows/alpha-ci.yml: testes automatizados e APK
+- iso/content.gd — regiões, missões, itens, habilidades, inimigos e NPCs
+- iso/world.gd — arte procedural isométrica, personagens, props e caminhos
+- iso/battle.gd — motor de combate independente da interface
+- iso/save.gd — persistência local atômica, versionada e com backup
+- iso/game.gd — integração, HUD, criação, diálogos, exploração, escolhas, crafting e progressão
+- iso/tests — testes de regras e de integração
+- scenes/iso_main.tscn — cena principal
+- scripts/rules/catalog.gd — catálogo do livro preservado
+- docs/isometric_rules.md — matriz de fidelidade
+- .github/workflows/iso-ci.yml — CI Android e publicação do APK
 
-Uso narrativo experimental; antes de distribuição comercial é necessária a revisão dos direitos de adaptação do universo e marca do livro.
+## Limitações e dívida técnica
+
+O objetivo é um produto extenso, mas a construção atual não é um jogo comercial completo. As ilustrações e animações são procedurais e não substituem arte final. As 27 raças/classes precisam de suas habilidades e corpos próprios; outras 21 classes e raças permanecem bloqueadas. A IA não possui linha de visão nem obstáculos complexos, os efeitos raciais são parciais, os diálogos não têm dublagem, e a tabela de corrupção não foi integralmente implementada.
+
+É obrigatório validar bateria, memória, FPS e controles no Moto G34 5G real. Um pipeline bem-sucedido não comprova 30 FPS no aparelho. Direitos de publicação e comercialização do universo exigem autorização apropriada.

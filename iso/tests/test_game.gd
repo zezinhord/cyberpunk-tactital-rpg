@@ -25,6 +25,7 @@ func run() -> void:
  game._interact()
  game._choose_hasam("proteger")
  if not validate(game.main_stage==1,"missao principal ativa"):return
+ if not validate(game.world.enemies.size()>0,"encontros e inimigos carregados"):return
  var first=game.world.enemies[0]
  game._begin_fight(first)
  if not validate(game.in_battle,"combate iniciado"):return

@@ -589,7 +589,8 @@ func _unhandled_input(event: InputEvent) -> void:
   if world.walkable(tile):
    path=world.path_to(hero_pos,tile)
    world.focus_tile=tile
-   world.current_steps=path.duplicate()
+   world.current_steps.clear()
+   world.current_steps.append_array(path)
    world.queue_redraw()
  if event is InputEventKey and event.pressed and not event.echo:
   if event.keycode==KEY_E:_interact()
@@ -834,7 +835,9 @@ func _recruit(id: String) -> void:
  var model: Dictionary=DATA.COMPANIONS[id].duplicate(true)
  model["id"]=id
  party.append(model)
- world.companions=party.duplicate(true)
+ world.companions.clear()
+ for ally in party:
+  world.companions.append(ally.duplicate(true))
  world.queue_redraw()
  reputation+=1
  _close_overlay()

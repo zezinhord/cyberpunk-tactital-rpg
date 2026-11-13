@@ -26,10 +26,14 @@ func configure(region: String,hero_tile: Vector2,removed: Dictionary,dead: Dicti
  player_tile=hero_tile
  found=removed
  defeated=dead
- npcs=DATA.NPCS.get(region,[]).duplicate(true)
+ npcs.clear()
+ for npc in DATA.NPCS.get(region,[]):
+  npcs.append(npc.duplicate(true))
  objects=DATA.generate_objects(region)
  enemies=DATA.generate_encounters(region)
- companions=party.duplicate(true)
+ companions.clear()
+ for ally in party:
+  companions.append(ally.duplicate(true))
  combat_mode=false
  current_steps.clear()
  focus_tile=Vector2i(-1,-1)
