@@ -41,8 +41,8 @@ jobs:
       - name: Instalar recursos de geração gráfica
         run: python -m pip install -r tools/requirements-characters.txt
 
-      - name: Instalar dependencias
-        run: npm install
+      - name: Instalar dependencias imutaveis
+        run: npm ci --no-audit --no-fund
 
       - name: Testar sistema de habilidades
         run: node --experimental-strip-types scripts/test-abilities.mjs
