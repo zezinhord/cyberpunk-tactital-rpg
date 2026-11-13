@@ -64,6 +64,7 @@ jobs:
           node --experimental-strip-types scripts/test-audio.mjs
           node --experimental-strip-types scripts/test-class-abilities.mjs
           node --experimental-strip-types scripts/test-class-saves.mjs
+          node --experimental-strip-types scripts/test-save-slots.mjs
 
       - name: Validar planta, colisões e rotas da Baixada
         run: node --experimental-strip-types scripts/test-baixada-layout.mjs
@@ -113,11 +114,31 @@ jobs:
       - name: Ativar tela imersiva Android
         run: node scripts/enable-android-immersive.mjs
 
+      - name: Restaurar assinatura Android de teste
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: nova-arcadia-debug-keystore-v1
+
       - name: Gerar APK
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
+
+      - name: Registrar impressao digital do certificado
+        run: |
+          mkdir -p qa
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -keypass android -alias androiddebugkey \
+            | grep -E 'SHA256:|Alias name:' | tee qa/assinatura-debug.txt
+
+      - name: Publicar identidade da assinatura
+        uses: actions/upload-artifact@v4
+        with:
+          name: Assinatura-Android-QA
+          path: qa/assinatura-debug.txt
+          retention-days: 30
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
