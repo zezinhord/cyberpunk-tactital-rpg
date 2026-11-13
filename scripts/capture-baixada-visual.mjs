@@ -310,6 +310,42 @@ try {
   await writeFile("qa/slots-914x411-metricas.json",JSON.stringify(saveUi,null,2));
   console.log("QA slots Android 914×411:",JSON.stringify(saveUi));
 
+  // QA persistência de Vida: um protagonista que volta a combater deve
+  // manter seus ferimentos e ganhar HP real ao consumir um curativo.
+  await evaluate(`(()=>{
+    const c=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    localStorage.setItem("cyberpunk-tactical-rpg.health.v1."+c.id,
+      JSON.stringify({hp:6,maxHp:18}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título após salvar ferimentos");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-explore-health"),"HUD de Vida na Baixada");
+  const healthBefore=await evaluate('document.querySelector(".na-explore-health")?.textContent.trim()');
+  if(!healthBefore.includes("6/"))throw new Error("A Vida não foi restaurada da exploração: "+healthBefore);
+  await evaluate('document.querySelector(".exploration-footer-actions.single-action button").click();true');
+  await poll(()=>has(".unit-card.cyan"),"personagem ferido no combate");
+  const arenaHp=await evaluate('document.querySelector(".unit-card.cyan .unit-stats b")?.textContent.trim()');
+  if(!arenaHp.startsWith("6/"))throw new Error("Arena reinicializou a Vida: "+arenaHp);
+  await evaluate('document.querySelector(".actions .end-turn-button").click();true');
+  await poll(()=>evaluate('document.querySelector(".combat-message")?.textContent.includes("Curativo de campo")'),
+    "uso real de curativo");
+  const healResult=await evaluate(`(()=>{
+    const c=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    const health=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.health.v1."+c.id));
+    return {hp:health.hp,shown:document.querySelector(".unit-card.cyan .unit-stats b")?.textContent};
+  })()`);
+  if(healResult.hp!==11||!healResult.shown.startsWith("11/"))
+    throw new Error("Curativo não persistiu Vida real: "+JSON.stringify(healResult));
+  await evaluate('document.querySelector(".secondary-actions button:last-child").click();true');
+  await poll(()=>has(".na-explore-health"),"retorno à exploração com Vida salva");
+  const healthAfter=await evaluate('document.querySelector(".na-explore-health")?.textContent.trim()');
+  if(!healthAfter.includes("11/"))throw new Error("Retorno perdeu Vida: "+healthAfter);
+  await writeFile("qa/vida-persistente-914x411.png",Buffer.from((await send("Page.captureScreenshot",{
+    format:"png",captureBeyondViewport:false})).data,"base64"));
+  console.log("QA Vida: ferimentos entre cenas 6 HP → curativo 11 HP → exploração 11 HP.");
+
   console.log("QA visual: capturas masculina/feminina; canvas preservado após alternância.");
   console.log("Viewport: " + JSON.stringify(metrics) + ", PNG: " + bytes.length + " bytes");
   if (session.exceptions.length) {
