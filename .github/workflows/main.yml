@@ -103,24 +103,30 @@ jobs:
           retention-days: 14
 
       - name: Criar projeto Android
+        if: github.event_name != 'pull_request'
         run: npx cap add android
 
       - name: Sincronizar Capacitor
+        if: github.event_name != 'pull_request'
         run: npx cap sync android
 
       - name: Aplicar orientacao horizontal
+        if: github.event_name != 'pull_request'
         run: node scripts/lock-android-landscape.mjs
 
       - name: Ativar tela imersiva Android
+        if: github.event_name != 'pull_request'
         run: node scripts/enable-android-immersive.mjs
 
       - name: Restaurar chave de assinatura Android da branch
+        if: github.event_name != 'pull_request'
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
           key: nova-arcadia-android-debug-key-v2
 
       - name: Criar chave Android de teste se nao estiver em cache
+        if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.android"
@@ -136,15 +142,18 @@ jobs:
             -storepass android -alias androiddebugkey
 
       - name: Vincular certificado persistente ao Gradle
+        if: github.event_name != 'pull_request'
         run: node scripts/force-android-signing.mjs
 
       - name: Gerar APK
+        if: github.event_name != 'pull_request'
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
 
       - name: Validar assinatura real da APK
+        if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
           mkdir -p qa
@@ -156,8 +165,18 @@ jobs:
             | tee qa/assinatura-debug.txt
           grep -q 'certificate SHA-256 digest' qa/assinatura-debug.txt
           grep -q 'CN=Nova Arcadia Debug' qa/assinatura-debug.txt
+          if [ "$GITHUB_REF" = "refs/heads/feature/landscape-mobile-v1" ]; then
+            EXPECTED="$(cat config/android-debug-cert.sha256)"
+            ACTUAL="$(sed -n 's/^V2 Signer: certificate SHA-256 digest: //p' qa/assinatura-debug.txt | head -n 1)"
+            if [ "$ACTUAL" != "$EXPECTED" ]; then
+              echo "ERRO: assinatura mudou. Não distribua APK incompatível. Esperado: $EXPECTED; atual: $ACTUAL" >&2
+              exit 1
+            fi
+            echo "Certificado Android estável confirmado: $ACTUAL"
+          fi
 
       - name: Publicar identidade da assinatura
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: Assinatura-Android-QA
@@ -165,6 +184,7 @@ jobs:
           retention-days: 30
 
       - name: Disponibilizar APK
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: Cyberpunk-Tactical-RPG-APK
