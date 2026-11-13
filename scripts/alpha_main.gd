@@ -462,8 +462,9 @@ func _open_menu(tab: String) -> void:
                     if item=="Atadura":
                         _button(row,"USAR",Vector2.ZERO,Vector2(100,36),func() -> void: _use_bandage(),14)
             for name in ["Espada gasta","Machado de ferro","Bastão de freixo","Arco de teixo","Gibão de couro","Cota de malha","Escudo de madeira"]:
-                var item: Dictionary = CATALOG.ITEMS[name]
-                _button(menu_content,"EQUIPAR %s [%s]" % [name,str(item["slot"])],Vector2.ZERO,Vector2(560,36),_equip.bind(name),14)
+                if int(inventory.get(name,0)) > 0:
+                    var item: Dictionary = CATALOG.ITEMS[name]
+                    _button(menu_content,"EQUIPAR %s [%s]" % [name,str(item["slot"])],Vector2.ZERO,Vector2(560,36),_equip.bind(name),14)
         "Personagem":
             _label(menu_content,"%s | %s | %s | Nível %d | XP %d/10" % [chosen_name,hero.race_name if hero != null else "—",hero.role_name if hero != null else "—",level,xp],17,Color("ded4c1"))
             if hero != null:
@@ -489,10 +490,11 @@ func _equip(item_name: String) -> void:
     var data: Dictionary = CATALOG.ITEMS.get(item_name,{})
     if data.is_empty():
         return
-    var slot: String = data["slot"]
+    if int(inventory.get(item_name,0)) <= 0:
+        _notice("Item não adquirido: "+item_name)
+        return
+    var slot: String = str(data["slot"])
     equipment[slot]=item_name
-    if not inventory.has(item_name):
-        inventory[item_name]=1
     _notice("Equipado: "+item_name)
     _open_menu("Inventário")
     _save_game()
