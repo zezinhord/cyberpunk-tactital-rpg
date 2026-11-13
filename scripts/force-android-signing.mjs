@@ -10,8 +10,8 @@ const marker="// NOVA_ARCADIA_PERSISTENT_DEBUG_SIGNING";
 if(text.includes(marker))throw new Error("Configuração de assinatura já aplicada.");
 // Todas as versões anteriores geradas pelo template usavam versionCode 1.
 // Uma versão maior permite atualização in-place quando o certificado coincide.
-const versionCode=/\\bversionCode\\s+\\d+\\b/;
-const versionName=/\\bversionName\\s+["'][^"']+["']/;
+const versionCode=/\bversionCode\s+\d+\b/;
+const versionName=/\bversionName\s+["'][^"']+["']/;
 if(!versionCode.test(text)||!versionName.test(text))
  throw new Error("Campos versionCode/versionName ausentes no template Android.");
 const versioned=text.replace(versionCode,"versionCode 685")
