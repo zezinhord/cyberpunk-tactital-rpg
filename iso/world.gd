@@ -58,7 +58,7 @@ func world_to_tile(p: Vector2) -> Vector2i:
  return Vector2i(roundi((a+b)*0.5),roundi((b-a)*0.5))
 
 func in_bounds(p: Vector2i) -> bool:
- return p.x>=2 and p.y>=2 and p.x<SIZE.x-2 and p.y<SIZE.y-2
+ return p.x>=1 and p.y>=1 and p.x<SIZE.x-1 and p.y<SIZE.y-1
 
 func walkable(p: Vector2i) -> bool:
  return in_bounds(p)

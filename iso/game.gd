@@ -367,7 +367,7 @@ func _build_creator_form() -> void:
   var i: int=creator_class.item_count-1
   creator_class.set_item_disabled(i,not str(role) in DATA.PLAYABLE_CLASSES)
   if str(role)=="Guerreiro":creator_class.select(i)
- creator_class.item_selected.connect(func(_i: int)->void:_reset_skills();_refresh_creator())
+ creator_class.item_selected.connect(func(_i: int)->void:_reset_skills();_render_skill_rows();_refresh_creator())
  creator_race.item_selected.connect(func(_i: int)->void:_refresh_creator())
  var appearance_row:=_row(col)
  _label(appearance_row,"APRESENTAÇÃO",16,Color("#d8b789"))
@@ -648,7 +648,7 @@ func _notify(message: String,seconds: float=3.0) -> void:
  hint_label.text=message
  print("[TENEBRIA] "+message)
  message_timer=seconds
- _sound("collect") if message.begins_with("ENCONTRO") else null
+ if message.begins_with("ENCONTRO"):_sound("collect")
 
 func _interact() -> void:
  if not playing or in_battle or paused:return
@@ -1181,11 +1181,20 @@ func _open_codex() -> void:
 func _open_settings() -> void:
  _modal("CONFIGURAÇÕES")
  _label(overlay_content,"Os modos gráficos são orientados ao Moto G34 5G; 30 FPS é a meta, não uma medição.",16)
- _button(overlay_content,"ECONOMIA DE ENERGIA • 30 FPS",func()->void:Engine.max_fps=30,_notify("Limite de 30 FPS aplicado"),Vector2(440,46))
- _button(overlay_content,"60 FPS (EXPERIMENTAL)",func()->void:Engine.max_fps=60,_notify("Modo experimental aplicado"),Vector2(440,46))
+ _button(overlay_content,"ECONOMIA DE ENERGIA • 30 FPS",Callable(self,"_set_fps").bind(30),Vector2(440,46))
+ _button(overlay_content,"60 FPS (EXPERIMENTAL)",Callable(self,"_set_fps").bind(60),Vector2(440,46))
  _button(overlay_content,"ZOOM +",func()->void:camera.zoom*=Vector2(1.1,1.1),Vector2(250,42))
  _button(overlay_content,"ZOOM −",func()->void:camera.zoom*=Vector2(.9,.9),Vector2(250,42))
- _button(overlay_content,"ÁUDIO ON/OFF",func()->void:audio_enabled=not audio_enabled;ambient.stream_paused=not audio_enabled,Vector2(250,42))
+ _button(overlay_content,"ÁUDIO ON/OFF",Callable(self,"_toggle_audio"),Vector2(250,42))
+
+func _set_fps(value: int) -> void:
+ Engine.max_fps=value
+ _notify("Limite de %d FPS aplicado." % value)
+
+func _toggle_audio() -> void:
+ audio_enabled=not audio_enabled
+ ambient.stream_paused=not audio_enabled
+ _notify("Áudio "+("ativado" if audio_enabled else "desativado"))
 
 func _open_credits() -> void:
  _modal("CRÉDITOS")
