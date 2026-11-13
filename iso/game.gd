@@ -541,6 +541,8 @@ func _enter_region(next_region: String,spawn: Vector2i) -> void:
  hero_pos=spawn
  discovered[region]=true
  path.clear()
+ world.hero_race=str(player.get("race","Humano"))
+ world.hero_class=str(player.get("role","Guerreiro"))
  world.configure(region,Vector2(hero_pos),objects_collected,defeated,party)
  camera.position=world.tile_to_world(Vector2(hero_pos))
  _update_hud()

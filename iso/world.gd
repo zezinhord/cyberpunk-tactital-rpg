@@ -6,6 +6,8 @@ const TH: float=38.0
 const SIZE := Vector2i(38,36)
 
 var region_id: String="vigilia"
+var hero_race: String="Humano"
+var hero_class: String="Guerreiro"
 var player_tile: Vector2=Vector2(18,19)
 var npcs: Array[Dictionary]=[]
 var enemies: Array[Dictionary]=[]
@@ -358,6 +360,22 @@ func _draw_actor(p: Vector2,look: String,label: String,hostile: bool=false) -> v
   "hero":
    body=_hex("384e65")
    head=_hex("bca38e")
+   match hero_race:
+    "Anão":
+     body=_hex("687275")
+     head=_hex("be9c83")
+    "Elfo":
+     body=_hex("465d69")
+     head=_hex("c4b7ac")
+    "Abominu":
+     body=_hex("777788")
+     head=_hex("d4c3c4")
+    "Darklin":
+     body=_hex("4b415f")
+     head=_hex("8e7a95")
+    "Draconiano":
+     body=_hex("415b66")
+     head=_hex("7da4a2")
   "elder":body=_hex("807466")
   "trader":body=_hex("897252")
   "mage":body=_hex("63537f")
@@ -407,6 +425,37 @@ func _draw_actor(p: Vector2,look: String,label: String,hostile: bool=false) -> v
   draw_rect(Rect2(p+Vector2(-5,-41),Vector2(10,4)),_hex("d26d7d"))
  if look=="hero":
   draw_line(p+Vector2(-14,-8),p+Vector2(14,-8),_hex("d4ab70"),3)
+  match hero_race:
+   "Anão":
+    draw_colored_polygon(PackedVector2Array([p+Vector2(-8,-38),p+Vector2(0,-23),p+Vector2(8,-38)]),_hex("73574d"))
+    draw_rect(Rect2(p+Vector2(-12,-54),Vector2(24,7)),_hex("87989e"))
+   "Elfo":
+    draw_colored_polygon(PackedVector2Array([p+Vector2(-9,-47),p+Vector2(-25,-52),p+Vector2(-9,-41)]),head)
+    draw_colored_polygon(PackedVector2Array([p+Vector2(9,-47),p+Vector2(25,-52),p+Vector2(9,-41)]),head)
+    draw_line(p+Vector2(-6,-54),p+Vector2(7,-57),_hex("d9dade"),4)
+   "Abominu":
+    draw_colored_polygon(PackedVector2Array([p+Vector2(-12,-48),p+Vector2(0,-56),p+Vector2(0,-7),p+Vector2(-12,-6)]),_hex("dbd4d8"))
+    draw_circle(p+Vector2(-4,-43),2.2,_hex("d94c70"))
+    draw_circle(p+Vector2(4,-43),2.2,_hex("8fd6d1"))
+   "Darklin":
+    draw_line(p+Vector2(-7,-50),p+Vector2(-16,-63),_hex("9b79be"),4)
+    draw_line(p+Vector2(7,-50),p+Vector2(16,-63),_hex("9b79be"),4)
+    draw_circle(p+Vector2(0,-32),5.0,Color("9c5eb8",.27))
+   "Draconiano":
+    draw_colored_polygon(PackedVector2Array([p+Vector2(-11,-49),p+Vector2(-19,-62),p+Vector2(-3,-52)]),_hex("9bc8bd"))
+    draw_colored_polygon(PackedVector2Array([p+Vector2(11,-49),p+Vector2(19,-62),p+Vector2(3,-52)]),_hex("9bc8bd"))
+    for j in range(3):
+     draw_line(p+Vector2(-10+j*9,-32),p+Vector2(-10+j*9,-15),_hex("6bb2a7"),2)
+  match hero_class:
+   "Mago","Sacerdote":
+    draw_line(p+Vector2(-17,-16),p+Vector2(-20,-65),_hex("b9a5a5"),3)
+    draw_circle(p+Vector2(-20,-65),5,_hex("ad7cb2"))
+   "Patrulheiro":
+    draw_arc(p+Vector2(19,-28),13,-PI*.75,PI*.75,12,_hex("c7a77d"),3)
+    draw_line(p+Vector2(10,-37),p+Vector2(26,-19),_hex("dacbb0"),1)
+   "Bárbaro":
+    draw_line(p+Vector2(18,-16),p+Vector2(18,-62),_hex("8c705e"),4)
+    draw_rect(Rect2(p+Vector2(13,-62),Vector2(20,13)),_hex("94969c"))
  if hostile:
   draw_circle(p+Vector2(0,-59),3.5,_hex("ed6676"))
  var tag_color:=_hex("e8c99c") if look in ["hero","elder","trader","mage","cleric","guard","hunter","scholar","alchemist","poor","spirit"] else _hex("dc9294")
