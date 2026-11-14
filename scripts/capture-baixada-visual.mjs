@@ -254,6 +254,16 @@ try {
   }
   // Executa habilidade exclusiva e observa a alteração real de energia e
   // Defesa do personagem. Não aceita animação ou mensagem sem mutação de regras.
+  const arenaTexture=await evaluate('document.querySelector(".battlefield-canvas canvas")?.getAttribute("data-player-texture")');
+  const fixedPowers=await evaluate('[...document.querySelectorAll(".arena-powers-fixed button")].map(b=>({name:b.textContent,height:Math.round(b.getBoundingClientRect().height)}))');
+  if(arenaTexture!=="player-baixada-feminine" ||
+     !fixedPowers.some(b=>b.name.includes("Protocolo de Contingência")) ||
+     fixedPowers.some(b=>b.height<42)) {
+    throw new Error("Arena não preservou sprite/poderes: "+JSON.stringify({arenaTexture,fixedPowers}));
+  }
+  await writeFile("qa/arena-identidade-e-poderes.json",JSON.stringify({arenaTexture,fixedPowers},null,2));
+  console.log("QA combate: sprite Baixada feminino e habilidade da classe fixada nos comandos.");
+
   const classButton=await evaluate(`(()=>{
     const button=document.querySelector(".arena-special.class-exclusive");
     if(!button)return {found:false};
@@ -345,6 +355,19 @@ try {
   await writeFile("qa/vida-persistente-914x411.png",Buffer.from((await send("Page.captureScreenshot",{
     format:"png",captureBeyondViewport:false})).data,"base64"));
   console.log("QA Vida: ferimentos entre cenas 6 HP → curativo 11 HP → exploração 11 HP.");
+  // QA da nova campanha: início pelo jogador e persistência do primeiro objetivo.
+  await poll(()=>has(".na-trial-panel"),"Campanha de teste no mapa");
+  const trialButton=await evaluate('document.querySelector(".na-trial-panel button")?.textContent');
+  if(!trialButton?.includes("Iniciar operação"))throw new Error("Campanha não pode ser iniciada: "+trialButton);
+  await evaluate('document.querySelector(".na-trial-panel button").click();true');
+  await poll(()=>has(".na-trial-objective"),"Primeiro objetivo de campanha");
+  const activeStage=await evaluate('document.querySelector(".na-trial-objective strong")?.textContent');
+  if(!activeStage?.includes("Dra. Amara"))throw new Error("Objetivo de campanha errado: "+activeStage);
+  await writeFile("qa/operacao-circuito-914x411.png",
+    Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  console.log("QA campanha: missão iniciada com etapa da Dra. Amara.");
+
+
 
   console.log("QA visual: capturas masculina/feminina; canvas preservado após alternância.");
   console.log("Viewport: " + JSON.stringify(metrics) + ", PNG: " + bytes.length + " bytes");
