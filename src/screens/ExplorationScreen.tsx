@@ -10,7 +10,7 @@ import type { TestAppearance } from "../game/test-arena/appearance";
 import { audioDirector } from "../audio/director";
 import type {ClassId} from "../game/classes/registry";
 import type {EncounterId} from "../game/types";
-import type {StatId} from "../game/progression/tree";
+import {statRank,type StatId} from "../game/progression/tree";
 import {ESTIMATED_MINUTES,TRIAL_STEPS,readTrial,saveTrial,startTrial,
  currentTrialStep,trialCombatForActor,advanceTrial,reconcileTrial} from "../game/story/field-test";
 import { isPatioCitizen, getPatioConversation, type ConversationOption } from "../game/dialogues/patio";
@@ -409,7 +409,8 @@ export default function ExplorationScreen({
 
   const selectAnswer=(choice:ConversationOption)=>{
     if(choice.marketAction){
-      const result=applyMarketAction(market,choice.marketAction,character.classId,v09.reported);
+      const result=applyMarketAction(market,choice.marketAction,character.classId,v09.reported,
+        statRank(character,"influencia"));
       if(result.applied){
         setMarket(result.state);
         if(result.clue)addClue(result.clue);

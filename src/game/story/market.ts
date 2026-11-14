@@ -82,7 +82,7 @@ export function getMarketConversation(actor:MarketActorId,classId:ClassId|null,
        MARKET_ACTIONS.some(previous=>previous.id===id&&previous.exclusiveGroup===action.exclusiveGroup))))
    .map(action=>({id:action.id,label:action.label,reply:action.reply,marketAction:action.id}))};
 }
-export function applyMarketAction(state:MarketState,actionId:string,classId:ClassId|null,reported=false):
+export function applyMarketAction(state:MarketState,actionId:string,classId:ClassId|null,reported=false,influence=0):
   {state:MarketState;applied:boolean;clue?:string}{
  const action=MARKET_ACTIONS.find(a=>a.id===actionId);
  if(!action||state.decisions.includes(action.id)||action.classId&&action.classId!==classId
@@ -94,7 +94,8 @@ export function applyMarketAction(state:MarketState,actionId:string,classId:Clas
  const next:MarketState={
    decisions:[...state.decisions,action.id],
    clues:state.clues.includes(action.clue)?state.clues:[...state.clues,action.clue],
-   trust:Math.max(0,Math.min(5,state.trust+action.trustDelta)),
+   trust:Math.max(0,Math.min(5,state.trust+action.trustDelta+
+     (Number.isInteger(influence)&&influence>0?1:0))),
    heat:Math.max(0,Math.min(5,state.heat+action.heatDelta)),
  };
  return {state:next,applied:true,clue:action.clue};

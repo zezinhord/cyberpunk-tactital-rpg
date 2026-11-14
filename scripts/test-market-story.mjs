@@ -37,4 +37,8 @@ assert.ok(revealed.applied);
 assert.ok(revealed.state.heat>pre.heat);
 assert.equal(applyMarketAction(revealed.state,"mercado-proteger","netrunner",true).applied,false,"Duas consequências mutuamente exclusivas");
 assert.equal(getMarketConversation("feira-archive","netrunner",revealed.state,true,"baixada").choices.some(c=>c.id==="mercado-proteger"),false);
-console.log("Mercado: 5 atores, 11 soluções de classe, pistas, escolhas públicas/privadas excludentes e persistência aprovadas.");
+const influenced=applyMarketAction(INITIAL_MARKET,"boletim","solo",false,1);
+assert.equal(influenced.state.trust,1,"Influência deve elevar confiança real no cenário");
+assert.equal(applyMarketAction(influenced.state,"boletim","solo",false,5).applied,false,
+ "Influência não deve permitir acumular confiança repetindo o mesmo diálogo");
+console.log("Mercado: 11 classes, investigação, decisões excludentes e atributo Influência funcional.");
