@@ -7,6 +7,7 @@ import type { Position } from "../types";
 import { route as safeRoute, approachRoute, canTraverse, canStand } from "./navigation";
 import { CitizenRoutine } from "./npc-routines";
 import { audioDirector } from "../../audio/director";
+import {isEconomyMode} from "../performance";
 import type { OriginId } from "../character/origins";
 import type { TestAppearance } from "../test-arena/appearance";
 import {
@@ -186,9 +187,10 @@ export class BaixadaScene extends Phaser.Scene {
   private updateCameraForViewport(): void {
     // A mesma composição 2:1 deve permanecer legível de 16:9 a telas ultrawide.
     // Zoom uniforme: nunca distorcer a geometria isométrica ou esticar sprites.
+    const economy=isEconomyMode();
     const zoom = Phaser.Math.Clamp(
       Math.min(this.scale.width / BAIXADA_VIEW_WIDTH, this.scale.height / 500),
-      0.9, 1.5,
+      economy?0.72:0.85, economy?1.16:1.5,
     );
     this.cameras.main.setZoom(zoom);
   }
