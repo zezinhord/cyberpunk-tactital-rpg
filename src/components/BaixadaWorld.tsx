@@ -4,7 +4,7 @@ import { BAIXADA_VIEW_HEIGHT, BAIXADA_VIEW_WIDTH, BaixadaScene } from "../game/b
 import type { OriginId } from "../game/character";
 import type { TestAppearance } from "../game/test-arena/appearance";
 import { loadWorldLocation, saveWorldLocation } from "../game/baixada/location";
-import {sectorAt,type SectorId} from "../game/baixada/layout";
+import {sectorAt,ACTOR_TILES,type SectorId,type Tile} from "../game/baixada/layout";
 
 interface BaixadaWorldProps {
   onInteract: (id: string) => void;
@@ -12,16 +12,27 @@ interface BaixadaWorldProps {
   appearance: TestAppearance;
   characterId: string;
   onSectorChange?: (sector:SectorId)=>void;
+  onNearbyAccess?: (actorId:string|null)=>void;
 }
 
-export default function BaixadaWorld({ onInteract, originId, appearance, characterId,onSectorChange }: BaixadaWorldProps) {
+export default function BaixadaWorld({ onInteract, originId, appearance, characterId,onSectorChange,onNearbyAccess }: BaixadaWorldProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BaixadaScene | null>(null);
   const callbackRef = useRef(onInteract);
   callbackRef.current = onInteract;
+  const accessCallbackRef=useRef(onNearbyAccess);
+  accessCallbackRef.current=onNearbyAccess;
   const sectorCallbackRef=useRef(onSectorChange);
   sectorCallbackRef.current=onSectorChange;
   const lastSectorRef=useRef<SectorId|null>(null);
+  const reportNearby=(tile:Tile)=>{
+    const entries=["enter-sewer-drain","enter-sewer-deep"] as const;
+    const target=entries.find(id=>{
+      const other=ACTOR_TILES[id];
+      return Math.abs(other.x-tile.x)+Math.abs(other.y-tile.y)<=2;
+    });
+    accessCallbackRef.current?.(target??null);
+  };
 
   useEffect(() => {
     const host = hostRef.current;
@@ -30,6 +41,7 @@ export default function BaixadaWorld({ onInteract, originId, appearance, charact
     const scene = new BaixadaScene((id) => callbackRef.current(id), originId, appearance,
       loadWorldLocation(characterId), (tile) => {
         saveWorldLocation(characterId,tile);
+        reportNearby(tile);
         const sector=sectorAt(tile);
         if(sector!==lastSectorRef.current){
           lastSectorRef.current=sector;
@@ -37,7 +49,9 @@ export default function BaixadaWorld({ onInteract, originId, appearance, charact
         }
       });
     sceneRef.current = scene;
-    lastSectorRef.current=sectorAt(loadWorldLocation(characterId));
+    const spawn=loadWorldLocation(characterId);
+    reportNearby(spawn);
+    lastSectorRef.current=sectorAt(spawn);
     sectorCallbackRef.current?.(lastSectorRef.current);
     const game = new Phaser.Game({
       type: Phaser.AUTO,
@@ -55,5 +69,5 @@ export default function BaixadaWorld({ onInteract, originId, appearance, charact
 
   useEffect(() => { sceneRef.current?.setAppearance(appearance); }, [appearance]);
 
-  return <div className="baixada-world" ref={hostRef} aria-label="Baixada semiaberta: ruas do Canal, Pátio do Reúso e Mercado dos Cabos com NPCs, lojas e acessos" />;
+  return <div className="baixada-world" ref={hostRef} aria-label="Baixada semiaberta expandida: ruas, Pátio Sul, Mercado dos Cabos e acessos aos dois níveis de esgoto" />;
 }
