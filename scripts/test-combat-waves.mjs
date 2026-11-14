@@ -56,5 +56,4 @@ const {TurnManager}=require("../src/game/TurnManager.ts");
    }
   }
  }
- console.log("Combat: 2+2+3 ondas reais, três fontes de dano, energia e classe preservadas.");
 console.log("Combat: 2+2+3 ondas reais, três fontes de dano, energia e classe preservadas.");
