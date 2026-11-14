@@ -67,7 +67,7 @@ function walkable(tile: Position): boolean { return isWalkable(tile); }
 
 export class BaixadaScene extends Phaser.Scene {
   private readonly onInteract: (id: string) => void;
-  private readonly onPositionChange?: (tile: Position) => void;
+  private readonly onPositionChange?: (tile: Position, settled?:boolean) => void;
   private readonly originId: OriginId;
   private appearance: TestAppearance;
   private playerAnimator?: ActorAnimationController;
@@ -131,7 +131,7 @@ export class BaixadaScene extends Phaser.Scene {
 
 
   constructor(onInteract: (id: string) => void, originId: OriginId, appearance: TestAppearance,
-    startTile?: Position, onPositionChange?: (tile: Position) => void) {
+    startTile?: Position, onPositionChange?: (tile: Position, settled?:boolean) => void) {
     super({ key: "BaixadaScene" });
     this.onInteract = onInteract;
     this.originId = originId;
