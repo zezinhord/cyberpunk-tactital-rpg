@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Battlefield from "./components/Battlefield";
 import AbilityBar from "./components/AbilityBar";
+import CombatAbilityPicker from "./components/CombatAbilityPicker";
 import { loadTestAppearance, saveTestAppearance } from "./game/test-arena/appearance";
 import type { TestAppearance } from "./game/test-arena/appearance";
 import { TurnManager } from "./game/TurnManager";
@@ -204,6 +205,7 @@ export default function App() {
   const [screen, setScreen] = useState<"title" | "creation" | "resume" | "introduction" | "exploration" | "battle">("title");
   const [battleReset, setBattleReset] = useState(0);
   const [battleMode, setBattleMode] = useState<EncounterId>("test");
+  const [abilityPickerOpen,setAbilityPickerOpen] = useState(false);
   useEffect(()=>{audioDirector.setScene(screen==="battle"?"battle":screen==="exploration"?"exploration":screen==="title"?"menu":"story");},[screen]);
   const [appearance, setAppearance] = useState<TestAppearance>(() => loadTestAppearance(loadCharacter()?.id ?? ""));
   const chooseAppearance = (choice: TestAppearance) => {
@@ -248,6 +250,7 @@ export default function App() {
   }, [manager,screen,character?.id]);
 
   const beginBattle = (mode: EncounterId = "test") => {
+    setAbilityPickerOpen(false);
     setBattleMode(mode);
     setBattleReset((n)=>n+1);
     setScreen("battle");
@@ -547,18 +550,12 @@ export default function App() {
         </details>
         </div>
         <section className="control-sheet" aria-label="Comandos do turno">
-          <div className="arena-powers-fixed" aria-label="Habilidades permanentes da classe">
-            {manager.getClassAbilities().length ? manager.getClassAbilities().map(skill=>{
-              const check=manager.getClassAvailability(skill.id);
-              return <button type="button" key={skill.id} aria-disabled={!check.available}
-                aria-label={skill.name+": "+(check.available?"pronta":check.reason)}
-                title={skill.description}
-                onClick={()=>manager.activateClassAbility(skill.id)}>
-                <strong>{skill.name}</strong>
-                <small>{check.available?skill.cost+" EN · PRONTA":check.reason}</small>
-              </button>;
-            }) : <span className="arena-quick-empty">Sem poder de classe desbloqueado · selecione uma classe na Central</span>}
-          </div>
+          <button type="button" className="na-abilities-open" onClick={()=>setAbilityPickerOpen(true)}
+            aria-haspopup="dialog" aria-expanded={abilityPickerOpen}
+            aria-label="Escolher habilidades de combate">
+            <span><strong>⚡ HABILIDADES</strong><small>{manager.getClassAbilities().length} da classe · 3 comuns · 1 de origem</small></span>
+            <b>ESCOLHER ›</b>
+          </button>
           {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? (battleMode==="v09" ? "V-09 neutralizada · registros recuperados"
               : isTrialEncounter(battleMode)?"Interceptação vencida · campanha continua"
               :"Sentinela neutralizada") : "Operativo incapacitado"}</div>}
@@ -576,6 +573,10 @@ export default function App() {
         </section>
 
       </aside>
+      {abilityPickerOpen&&<CombatAbilityPicker manager={manager} state={state}
+        className={character.classId?getClassById(character.classId).name:"Sem classe"}
+        originDescription={originProfile.abilityDescription}
+        onClose={()=>setAbilityPickerOpen(false)}/>}
     </main>
   );
 }
