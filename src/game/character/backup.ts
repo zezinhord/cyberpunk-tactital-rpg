@@ -2,6 +2,7 @@ import type {PlayerCharacter} from "./types.ts";
 import {isPlayerCharacter,parseCharacterSave,saveCharacter} from "./storage.ts";
 import {containsCharacterSlot,hasSlotCapacity,readCharacterSlot} from "./slots.ts";
 import {CHARACTER_SAVE_KEY,CHARACTER_SLOT_INDEX,CHARACTER_SLOT_PREFIX} from "./slot-core.ts";
+import {TRIAL_STEPS} from "../story/field-test.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
  */
@@ -49,12 +50,26 @@ export function importCharacterBackup(text:string,overwrite=false):
    return {ok:false,message:"Dados adicionais inválidos."};
  const data=parsed.data??{};
  for(const field of Object.keys(data)){
-   if(!(field in CHARACTER_BACKUP_KEYS))return {ok:false,message:"Chave de backup não autorizada."};
+   if(!Object.prototype.hasOwnProperty.call(CHARACTER_BACKUP_KEYS,field))
+     return {ok:false,message:"Chave de backup não autorizada."};
    const value=data[field as BackupField];
    if(typeof value!=="string"||value.length>200_000)
      return {ok:false,message:"Campo do backup inválido: "+field};
    if(field!=="appearance"){
-     try{JSON.parse(value);}catch{return {ok:false,message:"Conteúdo inválido: "+field};}
+     let decoded:unknown;
+     try{decoded=JSON.parse(value);}
+     catch{return {ok:false,message:"Conteúdo inválido: "+field};}
+     if(field==="trial"){
+       if(!decoded||typeof decoded!=="object"||Array.isArray(decoded))
+         return {ok:false,message:"Progresso da campanha inválido."};
+       const progress=decoded as Record<string,unknown>;
+       if(typeof progress.started!=="boolean"||typeof progress.completed!=="boolean"||
+          !Number.isSafeInteger(progress.step)||Number(progress.step)<0||
+          Number(progress.step)>TRIAL_STEPS.length||!Array.isArray(progress.history)||
+          !progress.history.every(id=>typeof id==="string"&&TRIAL_STEPS.some(step=>step.id===id))||
+          (progress.completed===true&&progress.step!==TRIAL_STEPS.length))
+         return {ok:false,message:"Progresso da campanha inválido."};
+     }
    }else if(value!=="masculine"&&value!=="feminine")
      return {ok:false,message:"Apresentação corporal inválida."};
  }
