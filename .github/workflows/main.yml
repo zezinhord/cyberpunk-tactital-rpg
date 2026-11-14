@@ -90,6 +90,12 @@ jobs:
       - name: Validar planta, colisões e rotas da Baixada
         run: node --experimental-strip-types scripts/test-baixada-layout.mjs
 
+      - name: Restaurar trilhas originais entre builds
+        uses: actions/cache@v4
+        with:
+          path: public/assets/soundscapes
+          key: nova-arcadia-original-score-v1-${{ hashFiles('tools/generate_soundscapes.py') }}
+
       - name: Instalar e validar sintetizador de trilha original
         run: |
           set -euo pipefail

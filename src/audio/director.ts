@@ -3,7 +3,7 @@
  * Fallback procedural leve evita silêncio em dev/Chrome sem codec disponível.
  * Não há streaming remoto, anúncios ou telemetria.
  */
-import {getSong,isRadioDistrict,isRadioMood,RADIO_MOODS,type RadioDistrict,
+import {getSong,isRadioDistrict,isRadioMood,type RadioDistrict,
  type RadioMood} from "./soundscapes.ts";
 export type SoundScene="menu"|"exploration"|"interior"|"battle"|"story";
 export type SoundChannel="music"|"effects"|"ambient";
