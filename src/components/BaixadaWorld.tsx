@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import Phaser from "phaser";
+import {performanceGameConfig} from "../game/performance";
 import { BAIXADA_VIEW_HEIGHT, BAIXADA_VIEW_WIDTH, BaixadaScene } from "../game/baixada/BaixadaScene";
 import type { OriginId } from "../game/character";
 import type { TestAppearance } from "../game/test-arena/appearance";
@@ -67,7 +68,7 @@ export default function BaixadaWorld({ onInteract, originId, appearance, charact
       height: BAIXADA_VIEW_HEIGHT,
       backgroundColor: "#101820",
       scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
-      render: { antialias: true, roundPixels: false },
+      ...performanceGameConfig(),
       scene: [scene],
     });
 
