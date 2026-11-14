@@ -189,7 +189,7 @@ export default function CharacterMenu({
                   <DataCard label="ORIGEM" value={originName} detail="Histórico de nascimento e contatos" />
                   <DataCard label="CLASSE" value={character.classId ? getClassById(character.classId).name : "Não definida"} detail={character.classId?"Especialização mecânica independente da origem":"Escolha uma das 11 classes oficiais"} />
                   <DataCard label="EXPERIÊNCIA" value={String(character.experience)} detail="Pontos registrados" />
-                  <DataCard label="MISSÃO PRINCIPAL" value={missionStep === 3 ? "Concluída" : "Em andamento"} detail={progress + " de 3 etapas"} />
+                  <DataCard label="MISSÃO PRINCIPAL" value={missionStep === 3 ? (sewerProgress.manifestRecovered ? "Esgoto investigado" : "Rota V-09 ativa") : "Em andamento"} detail={progress + " de 3 etapas da clínica"} />
                 </div>
 
                 {!character.classId && <section className="menu-info-panel">
