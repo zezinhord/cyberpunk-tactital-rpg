@@ -19,14 +19,26 @@ export function persistActiveAndSlot(id:string,serialized:string):boolean{
  const ids=readSlotIds();
  if(!ids.includes(id)&&ids.length>=MAX_CHARACTER_SLOTS)return false;
  const updated=ids.includes(id)?ids:[...ids,id];
+ const keys=[CHARACTER_SLOT_PREFIX+id,CHARACTER_SLOT_INDEX,CHARACTER_SAVE_KEY];
+ const previous:(string|null)[]=[];
  try{
-   // Primeiro preservar o slot individual, depois ativá-lo. O save legado
-   // continua acessível, mesmo que a escrita do índice falhe.
-   storage.setItem(CHARACTER_SLOT_PREFIX+id,serialized);
-   storage.setItem(CHARACTER_SLOT_INDEX,JSON.stringify(updated));
-   storage.setItem(CHARACTER_SAVE_KEY,serialized);
+   for(const key of keys)previous.push(storage.getItem(key));
+   // Grava primeiro o slot, em seguida o índice e a seleção ativa.
+   storage.setItem(keys[0]!,serialized);
+   storage.setItem(keys[1]!,JSON.stringify(updated));
+   storage.setItem(keys[2]!,serialized);
    return true;
- }catch{return false;}
+ }catch{
+   // O armazenamento de um navegador pode falhar por falta de espaço.
+   // Reverte gravações parciais, sem comprometer os outros protagonistas.
+   for(let index=previous.length-1;index>=0;index--){
+     try{
+       if(previous[index]===null)storage.removeItem(keys[index]!);
+       else storage.setItem(keys[index]!,previous[index]!);
+     }catch{/* Reversão parcial: não perder o backup já gravado. */}
+   }
+   return false;
+ }}
 }
 export function readRawSlot(id:string):string|null{
  try{return globalThis.localStorage?.getItem(CHARACTER_SLOT_PREFIX+id)??null;}catch{return null;}
