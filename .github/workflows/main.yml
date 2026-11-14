@@ -66,6 +66,12 @@ jobs:
           node --experimental-strip-types scripts/test-class-saves.mjs
           node --experimental-strip-types scripts/test-save-slots.mjs
 
+      - name: Testar progressao, campanha e ondas de combate
+        run: |
+          node --experimental-strip-types scripts/test-progression.mjs
+          node --experimental-strip-types scripts/test-field-test.mjs
+          node scripts/test-combat-waves.mjs
+
       - name: Validar planta, colisões e rotas da Baixada
         run: node --experimental-strip-types scripts/test-baixada-layout.mjs
 

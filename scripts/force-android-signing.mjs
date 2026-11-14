@@ -14,8 +14,8 @@ const versionCode=/\bversionCode\s+\d+\b/;
 const versionName=/\bversionName\s+["'][^"']+["']/;
 if(!versionCode.test(text)||!versionName.test(text))
  throw new Error("Campos versionCode/versionName ausentes no template Android.");
-const versioned=text.replace(versionCode,"versionCode 685")
-  .replace(versionName,'versionName "0.6.8-alpha.5"');
+const versioned=text.replace(versionCode,"versionCode 691")
+  .replace(versionName,'versionName "0.6.9-alpha.1"');
 const block=`
 \n${marker}
 // Chave de desenvolvimento, nunca uma chave privada de produção.
