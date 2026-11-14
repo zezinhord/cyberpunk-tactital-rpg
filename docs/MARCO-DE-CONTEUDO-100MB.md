@@ -1,4 +1,18 @@
-# Nova Arcádia — marco de conteúdo para APK de até ~100 MB
+# Nova Arcádia — marco de conteúdo original de pelo menos 100 MB
+
+## Marco da RC 0.7.0
+
+A geração determinística de áudio fornece **56 temas originais**, cada um com 108 segundos,
+Ogg/Opus estéreo 128 kbps, separados por 7 distritos e 8 situações. A produção do pacote
+resultou em **97.563.256 bytes de música original** (medido no GitHub Actions antes de
+empacotar). O jogo oferece um rádio para reproduzir **todas** as composições; portanto
+não há arquivos inseridos apenas para aumentar o tamanho do APK.
+
+A Baixada, Ferrugem e os cinco novos distritos oferecem mapas isométricos próprios,
+35 missões adicionais, 5 interceptações Helix, escolhas finais, XP e saves isolados.
+O APK é medido após o Gradle; o job de publicação falha caso tenha menos de
+**100.000.000 bytes**. O limite superior do orçamento é 115 MB para impedir bloat.
+Memória RAM durante jogo é controlada por mapa e por reprodução individual de áudio.
 
 ## Regra de produção
 
@@ -42,7 +56,7 @@ O tamanho do ZIP do artifact do GitHub não é o tamanho da APK interna.
 8. Publicar instalador de produção com assinatura e ciclo de atualizações estáveis,
    somente após validação em aparelhos reais.
 
-## Orçamento preliminar para conteúdo, NÃO tamanho já alcançado
+## Estimativas históricas de produção (substituídas pelo orçamento medido acima)
 
 | Família de recursos | Orçamento máximo de planejamento |
 |---|---:|
@@ -64,3 +78,9 @@ Cada incremento precisa ter ao menos um circuito jogável, testes de navegação
 compilação Android bem-sucedida, compatibilidade do backup e evidências de que
 os novos recursos não elevaram o consumo de RAM indevidamente. **Não declarar o
 jogo concluído pelo tamanho isolado da APK.**
+
+### Testes de campo pendentes
+
+A meta de distribuição só estará concluída ao verificar o APK; a qualidade de
+FPS, os fechamentos espontâneos e o equilíbrio narrativo ainda dependem de
+Galaxy A07, Redmi Note 12S e outros aparelhos Android reais.

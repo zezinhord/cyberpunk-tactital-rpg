@@ -81,7 +81,7 @@ export default function TitleScreen({
         </div>
         <footer className="na-title-foot">
           <span>PROJETO ÉDEN // TRANSMISSÃO 01</span>
-          <span>RPG TÁTICO · TESTE FECHADO 0.6.9 RC6</span>
+          <span>RPG TÁTICO · TESTE FECHADO 0.7.0 RC1</span>
         </footer>
       </section>
 

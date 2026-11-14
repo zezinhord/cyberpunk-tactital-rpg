@@ -1,4 +1,4 @@
-# Nova Arcádia 0.6.9-rc.6 — Preparação da primeira prévia pública
+# Nova Arcádia 0.7.0-rc.1 — Marco de conteúdo 100 MB
 
 **Estado:** candidata em validação; **não publicada**.  
 **Branch de homologação:** `feature/landscape-mobile-v1`.  
@@ -43,6 +43,22 @@ Se algum item falhar, **bloquear publicação**, documentar passos de reproduç�
 **Fronteira de escopo:** prólogo e dois mapas subterrâneos estão implementados na RC4. A revisão integral dos sprites, o balanceamento final de inimigos e testes de desempenho em diferentes aparelhos permanecem pendentes.
 
 [Questionário da prévia fechada — 8 perguntas (0–5)](AVALIACAO-TESTADORES.md)
+
+## Homologação da versão 0.7.0 RC1 — 100 MB reais
+
+- [ ] Workflow compila 56 faixas Ogg/Opus de origem autoral e verifica duração, arquivos e tamanho.
+- [ ] APK real mede 100.000.000 a 115.000.000 bytes; não confundir com tamanho do ZIP do GitHub.
+- [ ] A estação interdistrital do Pátio Sul abre o seletor após o manifesto V-09.
+- [ ] Áurea, Subsolo, Setor Zero, Prisma e Periferia: verificar movimentação, colisões, atores e retorno à Baixada.
+- [ ] Concluir sete passos em cada região, com vitória nos confrontos Helix; validar XP único e progressão.
+- [ ] Testar as duas escolhas finais em saves diferentes sem duplicar recompensas ou perder confiança/alerta.
+- [ ] Fechar app no meio de Áurea e retomar no mesmo distrito; confirmar coordenadas salvas e outras regiões isoladas.
+- [ ] Exportar/importar personagem com capítulos e locais, inclusive save anterior RC6.
+- [ ] Conferir o rádio manual nas sete estações e oito faixas, troca automática, volume zero e reprodução sem internet.
+- [ ] No Galaxy A07 e Redmi Note 12S, explorar com perfil Economia por pelo menos 20 minutos, abrindo cinco distritos em sequência e observando RAM/FPS.
+- [ ] Conferir que nenhuma textura antiga fica acumulada após trocar de área.
+
+**A meta de 100 MB não substitui homologação física em dispositivos.**
 
 ## Homologação da RC6 — Ferrugem e fabricação
 

@@ -1,6 +1,6 @@
 # Nova Arcádia — Projeto Éden
 
-**Candidata à primeira prévia pública: 0.6.9-rc.6 (Android, em validação).**
+**Candidata à primeira prévia pública: 0.7.0-rc.1 (Android, em validação).**
 
 RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambientado em uma cidade cyberpunk tropical. Projeto independente com React, TypeScript, Phaser 4, Vite e Capacitor 8.
 
@@ -40,6 +40,40 @@ A restauração exige confirmação ao substituir um slot existente. Em caso de 
 - **Missões sempre encontráveis:** o HUD da Baixada mostra o próximo passo, permite recolher o painel e dá acesso à **Operação Circuito Fantasma**; quem já concluiu "O nome que sumiu" recebe orientação para investigar o Pátio do Reúso.
 - **Habilidades durante a luta:** toque em **HABILIDADES → ESCOLHER**, selecione uma técnica de classe, comum ou de origem e confirme em **Usar habilidade**. O painel informa custo, alcance e o motivo quando a habilidade não está pronta. Técnicas ofensivas são aplicadas automaticamente ao inimigo se estiver ao alcance; é necessário aproximar-se antes de lançar uma técnica distante demais.
 - **Compatibilidade:** não foram alteradas as chaves de armazenamento dos saves nem reiniciada a campanha. Exporte o backup antes de atualizar.
+
+## RC 0.7.0 — Marco de 100 MB de conteúdo original
+
+**O APK precisa atingir pelo menos 100.000.000 bytes REAIS** no pipeline de publicação.
+A compilação mede o pacote pronto e bloqueia a entrega se a meta não for alcançada,
+sem arquivos de preenchimento. A trilha original gerada tem **97.563.256 bytes**
+em Ogg/Opus, medida antes do empacotamento. O motor Android e as cenas complementam
+o tamanho final, que deve ser conferido no workflow da versão entregue.
+
+- **Sete distritos exploráveis:** Baixada, Ferrugem, Áurea, Subsolo, Setor Zero, Prisma e Periferia.
+  A Baixada possui ruas, Mercado, Pátio e os dois níveis subterrâneos; as cinco
+  novas regiões possuem mapas isométricos próprios com edifícios, NPCs, terminais,
+  rotas seguras e transporte a partir do Pátio Sul.
+- **35 novos objetivos narrativos:** cinco capítulos de sete etapas, com investigações
+  únicas para cada região, duas escolhas finais por capítulo e consequências na
+  confiança comunitária ou alerta da rede.
+- **5 novos combates de segurança Helix:** ondas táticas no repetidor de cada distrito;
+  as provas e o XP só são liberados após vitória.
+- **Rádio de Nova Arcádia:** **56 músicas originais** (7 distritos × 8 contextos),
+  cada faixa com cerca de 108 segundos, cerca de 100 minutos de material.
+  A música local é reproduzida sob demanda, **uma faixa por vez**, com modo automático
+  para a cena e sintonia manual nas configurações; controles existentes de volume
+  continuam disponíveis. Sem baixar áudio pela internet.
+- **Saves e continuação:** áreas visitadas, passos dos capítulos, decisões finais e
+  posição no mapa são salvos por protagonista e integrados à exportação/importação.
+  Saves RC6 continuam compatíveis. Não desinstale antes de exportar o backup.
+- **Compatibilidade Android:** perfil econômico de 30 FPS preservado por padrão,
+  texturas dos mapas geradas apenas ao abrir cada área; os 100 MB são tamanho
+  de instalação, **não 100 MB carregados ao mesmo tempo na memória RAM**.
+
+**Validação:** 35 passos e 10 desfechos testados por regras; screenshots reais dos
+mapas em Chromium, validação do pacote de áudio e build Android no GitHub Actions.
+O teste físico no Galaxy A07 e Redmi Note 12S continua necessário.
+O projeto não é considerado finalizado em gameplay apenas por atingir 100 MB.
 
 ## RC6 — Ferrugem, fabricação e continuidade
 
@@ -95,7 +129,7 @@ Após criar o primeiro personagem, o jogador assiste a uma **cutscene estática 
 
 ## Desenvolvimento e validação
 
-Requisitos: Node.js **22.12+**, npm, Python 3 e Pillow (o comando de build regenera os sprites durante o pré-build).
+Requisitos: Node.js **22.12+**, npm, Python 3, Pillow e FFmpeg com codificador libopus (o pré-build regenera sprites e compõe a trilha original local de 56 faixas).
 
 ```bash
 python -m pip install -r tools/requirements-characters.txt
@@ -109,7 +143,7 @@ Os testes automatizados estão em `scripts/test-*.mjs` e são executados no [Git
 
 ## Limitações conhecidas da prévia
 
-- Um distrito semiaberto jogável; os outros distritos, os veículos e a campanha maior ainda não estão completos.
+- Sete distritos possuem cenas e histórias jogáveis, mas fora da Baixada os mapas são menores e ainda exigem maior variedade de NPCs, veículos e missões secundárias.
 - O combate usa uma arena própria, com confrontos simplificados. Não equivale ainda ao combate integrado ao cenário de exploração.
 - IA, arte, animações, inventário, lojas e economia continuam em evolução.
 - A campanha de 35–50 minutos ainda não foi cronometrada com usuários reais.
