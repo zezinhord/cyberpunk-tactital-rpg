@@ -1,4 +1,4 @@
-# Nova Arcádia 0.6.9-rc.3 — Preparação da primeira prévia pública
+# Nova Arcádia 0.6.9-rc.4 — Preparação da primeira prévia pública
 
 **Estado:** candidata em validação; **não publicada**.  
 **Branch de homologação:** `feature/landscape-mobile-v1`.  
@@ -40,9 +40,22 @@ Se algum item falhar, **bloquear publicação**, documentar passos de reproduç�
 - [ ] Com a opção Reduzir movimento habilitada, o texto deve aparecer imediatamente.
 - [ ] Reinstalar somente depois de exportar um backup. Confirmar que o save legado não reinicia o prólogo.
 
-**Fronteira de escopo:** o novo prólogo está implementado; **os dois mapas subterrâneos, a expansão do esgoto e a revisão geral dos sprites ainda estão pendentes**. Não afirmar aos avaliadores que esses conteúdos já estão jogáveis.
+**Fronteira de escopo:** prólogo e dois mapas subterrâneos estão implementados na RC4. A revisão integral dos sprites, o balanceamento final de inimigos e testes de desempenho em diferentes aparelhos permanecem pendentes.
 
 [Questionário da prévia fechada — 8 perguntas (0–5)](AVALIACAO-TESTADORES.md)
+
+## Homologação de esgoto e expansão da RC4
+
+- [ ] Confirmar que a Baixada abriu em 39×34 células e as ruas do leste são caminháveis sem travar a câmera.
+- [ ] Na missão V-09 depois da clínica, objetivo conduz à escada de esgoto no Pátio Sul.
+- [ ] Acessar a **Galeria de Drenagem Sul** pelo mapa e pelo botão de proximidade; validar mapa, câmera, paredes, água e toque nos objetos.
+- [ ] Examinar rastros V-09; bomba não pode ativar antes da pista, comporta não pode abrir antes da bomba.
+- [ ] Abrir comporta e explorar a **Câmara de Recalque 04**, sem perda de classe, aparência ou itens.
+- [ ] Recuperar manifesto e opcionalmente contêiner; sair pelo acesso de superfície da Câmara ou retornar pela galeria.
+- [ ] Console do Pátio e sentinela exigem manifesto para novos personagens, mas saves antigos que já venceram V-09 não ficam bloqueados.
+- [ ] Fechar o app após cada marco, reabrir e verificar progresso. Exportar JSON, restaurar e conferir checkpoints da galeria e da câmara.
+- [ ] Registrar temperatura, queda de frames, toques inconsistentes e perda de progresso no Android real.
+- [ ] Submeter as oito perguntas do questionário aos avaliadores, separando pontuação de bugs bloqueantes.
 
 ## Roteiro de homologação — 30 a 60 minutos
 

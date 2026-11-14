@@ -1,6 +1,6 @@
 # Nova Arcádia — Projeto Éden
 
-**Candidata à primeira prévia pública: 0.6.9-rc.3 (Android, em validação).**
+**Candidata à primeira prévia pública: 0.6.9-rc.4 (Android, em validação).**
 
 RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambientado em uma cidade cyberpunk tropical. Projeto independente com React, TypeScript, Phaser 4, Vite e Capacitor 8.
 
@@ -41,6 +41,17 @@ A restauração exige confirmação ao substituir um slot existente. Em caso de 
 - **Habilidades durante a luta:** toque em **HABILIDADES → ESCOLHER**, selecione uma técnica de classe, comum ou de origem e confirme em **Usar habilidade**. O painel informa custo, alcance e o motivo quando a habilidade não está pronta. Técnicas ofensivas são aplicadas automaticamente ao inimigo se estiver ao alcance; é necessário aproximar-se antes de lançar uma técnica distante demais.
 - **Compatibilidade:** não foram alteradas as chaves de armazenamento dos saves nem reiniciada a campanha. Exporte o backup antes de atualizar.
 
+## Expansão jogável do Pátio Sul · RC4
+
+- **Baixada ampliada:** planta 39×34 células, novas estruturas da Subestação Sul e vias de serviço. Entradas de esgoto acessíveis no mapa e por botão contextual de proximidade.
+- **Galeria de Drenagem Sul (nível -01):** água bloqueando a passagem, passarelas, terminal de rastros V-09, comando de bomba e comporta com desbloqueio real.
+- **Câmara de Recalque 04 (nível -02):** novo mapa com passarelas, manifesto V-09, evidência opcional, repetidor clandestino, retorno à galeria e saída de emergência para a superfície.
+- **Missão principal reestruturada:** a clínica encaminha às escadas do Pátio Sul; a investigação só avança ao console e à sentinela do Pátio após a recuperação do manifesto, salvo personagens antigos que já venceram V-09.
+- **Checkpoint por personagem:** cada marco do esgoto é salvo de forma independente e incluído nos backups JSON. A rota da Operação Circuito Fantasma original continua disponível.
+- **Controles:** toque para caminhar, toque no terminal ou use o botão de acesso quando estiver junto à escada; no esgoto, o objetivo compacto abre o registro completo.
+
+**Roteiro de teste:** clínica → escada do Pátio Sul → rastros → bomba → comporta → manifesto → saída da Câmara → console do Pátio → sentinela V-09. Não confundir mapas visualmente apresentados com conteúdo de missões completamente balanceado: o teste físico ainda é necessário.
+
 ## Abertura cinematográfica · RC3
 
 Após criar o primeiro personagem, o jogador assiste a uma **cutscene estática em seis quadros**, com textos surgindo progressivamente. O prólogo apresenta a cidade, o Projeto Éden, a desigualdade entre distritos, os registros apagados e o gancho V-09. A quinta cena inclui nome e história de origem do protagonista.
@@ -49,7 +60,7 @@ Após criar o primeiro personagem, o jogador assiste a uma **cutscene estática 
 
 **Salvamentos anteriores:** saves anteriores à RC3 continuam acessíveis e não são obrigados a repetir o prólogo. Personagens novos recebem o marcador opcional `openingSeen`; concluir ou pular a apresentação preserva atributos, inventário e missões. Mesmo que o app feche durante a cutscene, a apresentação retorna ao continuar.
 
-**Teste fechado:** use a [ficha de avaliação de 8 perguntas, notas de 0 a 5](docs/AVALIACAO-TESTADORES.md). Recomenda-se testar em diferentes aparelhos e registrar vídeos curtos de bugs. Ainda faltam os dois mapas subterrâneos e a ampliação da missão pelo esgoto; **esses mapas não estão incluídos nesta compilação**.
+**Teste fechado:** use a [ficha de avaliação de 8 perguntas, notas de 0 a 5](docs/AVALIACAO-TESTADORES.md). Recomenda-se testar em diferentes aparelhos e registrar vídeos curtos de bugs. A missão V-09 agora usa **duas áreas subterrâneas navegáveis**, com checkpoints persistentes. A revisão integral dos sprites e a homologação em múltiplos aparelhos permanecem pendentes.
 
 ## Comandos
 
