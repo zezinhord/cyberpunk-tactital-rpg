@@ -119,6 +119,9 @@ jobs:
       - name: Verificar os 12 spritesheets direcionais
         run: node scripts/test-character-sheets.mjs
 
+      - name: Testar primeiro boot Android sem cache, Phaser ou WebGL
+        run: node scripts/test-android-cold-boot.mjs
+
       - name: Capturar screenshot real da Baixada em Chromium
         if: github.event_name == 'push'
         # Falhas de UX ou erros em JS devem impedir uma entrega marcada
