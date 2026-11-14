@@ -70,7 +70,7 @@ export default function OpeningCutscene({character,onFinish,error}:Props){
  const [index,setIndex]=useState(0);
  const [visible,setVisible]=useState(0);
  const [reducedMotion]=useState(reducedMotionPreference);
- const panel=OPENING_PANELS[index]??OPENING_PANELS[0];
+ const panel=OPENING_PANELS[index]??OPENING_PANELS[0]!;
  const fullText=useMemo(()=>openingLines(panel,character).join("\n\n"),[panel,character]);
  useEffect(()=>{
    if(reducedMotion){setVisible(fullText.length);return;}
