@@ -283,7 +283,7 @@ try {
       options:document.querySelectorAll(".na-ability-choice").length,
       titles:[...document.querySelectorAll(".na-ability-picker-group h3")].map(el=>el.textContent)};
   })()`);
-  if(pickerLayout.options!==5||pickerLayout.top<0||pickerLayout.bottom>innerHeight+1||
+  if(pickerLayout.options!==5||pickerLayout.top<0||pickerLayout.bottom>arenaLayout.windowHeight+1||
      !pickerLayout.titles.includes("Técnicas da classe"))
     throw new Error("Seletor inacessível: "+JSON.stringify(pickerLayout));
   await evaluate('document.querySelector(".na-ability-choice").click();true');
