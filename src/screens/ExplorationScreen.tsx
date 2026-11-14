@@ -187,6 +187,7 @@ export default function ExplorationScreen({
       return;
     }
     if(id==="enter-sewer-drain"){
+      setHubOpen(false);
       setReturnFromDeep(false);
       setInterior("sewer-drain");
       return;
@@ -197,6 +198,7 @@ export default function ExplorationScreen({
           text:"A escada de manutenção está bloqueada pelo sistema subterrâneo. Entre pela Galeria de Drenagem Sul, próxima à subestação, e recupere o manifesto V-09."}]);
         return;
       }
+      setHubOpen(false);
       setReturnFromDeep(false);
       setInterior("sewer-deep");
       return;
@@ -250,6 +252,7 @@ export default function ExplorationScreen({
         role:result.allowed?"INVESTIGAÇÃO SUBTERRÂNEA":"ACESSO BLOQUEADO",
         portrait:"▤",text:result.message}]);
       if(event==="sewer-gate"&&result.allowed){
+        setHubOpen(false);
         setReturnFromDeep(false);
         setInterior("sewer-deep");
       }
