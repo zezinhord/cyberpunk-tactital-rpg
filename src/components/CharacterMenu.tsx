@@ -63,12 +63,12 @@ const DISTRICTS = [
   { name: "Baixada Central", status: "ÁREA JOGÁVEL", current: true },
   { name: "Pátio do Reúso", status: "SETOR INDUSTRIAL JOGÁVEL", current: true },
   { name: "Mercado dos Cabos", status: "SETOR COMERCIAL JOGÁVEL", current: true },
-  { name: "Áurea", status: "PLANEJADO", current: false },
+  { name: "Áurea", status: "DISTRITO JOGÁVEL · CAMPANHA ATIVA", current: true },
   { name: "Ferrugem", status: "DISTRITO INDUSTRIAL JOGÁVEL", current: true },
-  { name: "Subsolo", status: "PLANEJADO", current: false },
-  { name: "Setor Zero", status: "PLANEJADO", current: false },
-  { name: "Prisma", status: "PLANEJADO", current: false },
-  { name: "Periferia externa", status: "PLANEJADO", current: false },
+  { name: "Subsolo", status: "DISTRITO JOGÁVEL · CAMPANHA ATIVA", current: true },
+  { name: "Setor Zero", status: "DISTRITO JOGÁVEL · CAMPANHA ATIVA", current: true },
+  { name: "Prisma", status: "DISTRITO JOGÁVEL · CAMPANHA ATIVA", current: true },
+  { name: "Periferia externa", status: "DISTRITO JOGÁVEL · CAMPANHA ATIVA", current: true },
 ];
 
 function DataCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
@@ -367,7 +367,7 @@ export default function CharacterMenu({
                     <small>{area.subtitle} · JOGÁVEL</small>
                   </div>)}
                 </section>
-                <p className="menu-footnote">Baixada, Ferrugem e as duas áreas subterrâneas são jogáveis. Para Ferrugem, utilize o terminal de transporte no Pátio Sul.</p>
+                <p className="menu-footnote">Sete distritos possuem exploração e missões: Baixada, Ferrugem, Áurea, Subsolo, Setor Zero, Prisma e Periferia. Utilize a estação de trânsito no Pátio Sul depois de recuperar o manifesto V-09.</p>
               </div>
             )}
 

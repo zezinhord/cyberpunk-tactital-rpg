@@ -188,3 +188,31 @@
   padding:7px 9px;background:#514437;color:#fff0d4;}
 .na-performance-options small{color:#f5d7a4;font-size:11px;}
 @media(max-width:380px){.na-performance-options>div{grid-template-columns:1fr;}}
+
+/* Central de transportes: destinos selecionáveis, leitura legível em 914×411. */
+.na-transit-shade{position:fixed;inset:0;z-index:3000;display:grid;place-items:center;
+ padding:12px;background:rgba(5,13,21,.93);}
+.na-transit-panel{width:min(790px,98vw);max-height:94dvh;overflow-y:auto;
+ display:flex;flex-direction:column;gap:10px;
+ background:linear-gradient(135deg,#1b2c36,#242b36);color:#f3f2e8;
+ border:1px solid #b38d70;border-radius:10px;padding:16px;box-shadow:0 14px 40px #000b;}
+.na-transit-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.na-transit-head span{font:700 10px "IBM Plex Mono",monospace;color:#f0bd89;}
+.na-transit-head h2{margin:4px 0;font-size:23px;line-height:1.1;}
+.na-transit-head button{min-height:44px;min-width:82px;
+ background:#374650;color:#fce6c9;border:1px solid #8c9b9e;border-radius:7px;}
+.na-transit-panel>p{margin:0;color:#d1e1df;font-size:12px;line-height:1.45;}
+.na-transit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;}
+.na-transit-grid button{display:flex;flex-direction:column;gap:5px;min-height:79px;
+ padding:10px;text-align:left;border:1px solid #71848b;border-radius:8px;
+ background:#283e49;color:#f4e1c3;}
+.na-transit-grid button:active{background:#42525a;transform:translateY(1px);}
+.na-transit-grid strong{font:800 12px "IBM Plex Mono",monospace;}
+.na-transit-grid small{font:500 10px/1.4 "IBM Plex Mono",monospace;color:#d8e5e1;}
+@media(max-width:650px){.na-transit-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:390px){.na-transit-grid{grid-template-columns:1fr;}}
+@media(orientation:landscape) and (max-height:430px){
+ .na-transit-panel{padding:10px;gap:6px;max-height:96dvh;}
+ .na-transit-head h2{font-size:18px}
+ .na-transit-grid button{min-height:58px;padding:7px;}
+}

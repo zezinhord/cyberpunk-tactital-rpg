@@ -5,6 +5,8 @@ import {CHARACTER_SAVE_KEY,CHARACTER_SLOT_INDEX,CHARACTER_SLOT_PREFIX} from "./s
 import {TRIAL_STEPS} from "../story/field-test.ts";
 import {FERRUGEM_STEPS} from "../ferrugem/story.ts";
 import {isSavedWorldArea} from "../baixada/world-area.ts";
+import {validateDistrictBackup} from "../districts/progress.ts";
+import {validateDistrictPositions} from "../districts/positions.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
  */
@@ -20,6 +22,8 @@ export const CHARACTER_BACKUP_KEYS={
  sewer:"cyberpunk-tactical-rpg.sewer-v09.v1.",
  ferrugem:"cyberpunk-tactical-rpg.ferrugem.v1.",
  area:"cyberpunk-tactical-rpg.world-area.v1.",
+ city:"cyberpunk-tactical-rpg.city-chapters.v1.",
+ districtPositions:"cyberpunk-tactical-rpg.district-positions.v1.",
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
 export interface CharacterBackup{
@@ -64,6 +68,10 @@ export function importCharacterBackup(text:string,overwrite=false):
      let decoded:unknown;
      try{decoded=JSON.parse(value);}
      catch{return {ok:false,message:"Conteúdo inválido: "+field};}
+     if(field==="city"&&!validateDistrictBackup(decoded))
+       return {ok:false,message:"Capítulos da cidade inválidos."};
+     if(field==="districtPositions"&&!validateDistrictPositions(decoded))
+       return {ok:false,message:"Coordenadas dos distritos inválidas."};
      if(field==="area"&&!isSavedWorldArea(decoded))
        return {ok:false,message:"Área ativa inválida no backup."};
      if(field==="sewer"){

@@ -6,6 +6,7 @@ import type {InteriorId} from "./InteriorScene.ts";
 export const WORLD_AREA_KEY="cyberpunk-tactical-rpg.world-area.v1.";
 const ALLOWED:readonly InteriorId[]=[
  "clinic","workshop","canal","sewer-drain","sewer-deep","ferrugem",
+ "aurea","subsolo","setor-zero","prisma","periferia",
 ] as const;
 export function isSavedWorldArea(input:unknown):input is InteriorId|null{
  return input===null||(typeof input==="string"&&ALLOWED.some(a=>a===input));
