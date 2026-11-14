@@ -79,7 +79,9 @@ export function loadInventory(ownerId: string): InventoryState {
 export function saveInventory(inventory: InventoryState): boolean {
   if (!inventory.ownerId) return false;
   try {
-    globalThis.localStorage?.setItem(INVENTORY_KEY + inventory.ownerId, JSON.stringify(inventory));
+    const storage=globalThis.localStorage;
+    if(!storage)return false;
+    storage.setItem(INVENTORY_KEY + inventory.ownerId, JSON.stringify(inventory));
     return true;
   } catch { return false; }
 }
