@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import type {SewerId} from "./sewer-layout";
 import type { Position } from "../types";
 import type { OriginId } from "../character/origins";
 import type { TestAppearance } from "../test-arena/appearance";
@@ -13,7 +14,7 @@ import {
   type IsoDirection,
 } from "./sprites";
 
-export type InteriorId = "clinic" | "workshop" | "canal";
+export type InteriorId = "clinic" | "workshop" | "canal" | SewerId;
 export const INTERIOR_VIEW_WIDTH = 960;
 export const INTERIOR_VIEW_HEIGHT = 540;
 
