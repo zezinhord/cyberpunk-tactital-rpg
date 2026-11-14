@@ -1,6 +1,6 @@
 # Nova Arcádia — Projeto Éden
 
-**Candidata à primeira prévia pública: 0.7.0-rc.1 (Android, em validação).**
+**Candidata à primeira prévia pública: 0.7.0-rc.2 (Android, em validação).**
 
 RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambientado em uma cidade cyberpunk tropical. Projeto independente com React, TypeScript, Phaser 4, Vite e Capacitor 8.
 
@@ -40,6 +40,24 @@ A restauração exige confirmação ao substituir um slot existente. Em caso de 
 - **Missões sempre encontráveis:** o HUD da Baixada mostra o próximo passo, permite recolher o painel e dá acesso à **Operação Circuito Fantasma**; quem já concluiu "O nome que sumiu" recebe orientação para investigar o Pátio do Reúso.
 - **Habilidades durante a luta:** toque em **HABILIDADES → ESCOLHER**, selecione uma técnica de classe, comum ou de origem e confirme em **Usar habilidade**. O painel informa custo, alcance e o motivo quando a habilidade não está pronta. Técnicas ofensivas são aplicadas automaticamente ao inimigo se estiver ao alcance; é necessário aproximar-se antes de lançar uma técnica distante demais.
 - **Compatibilidade:** não foram alteradas as chaves de armazenamento dos saves nem reiniciada a campanha. Exporte o backup antes de atualizar.
+
+## Hotfix 0.7.0 RC2 — Cenário vazio no Android
+
+A RC2 responde à falha reportada na Baixada: **HUD visível e mapa totalmente escuro**.
+O projeto foi atualizado para usar, no modo Economia do Android, o **renderer Canvas 2D**
+antes de tentar WebGL. A escolha preserva a possibilidade de 30 FPS e evita depender
+da inicialização bem-sucedida do contexto gráfico WebGL em dispositivos problemáticos.
+
+O carregamento do mapa agora verifica dois aspectos: a cena foi totalmente criada
+(piso, atores e câmera) e existem **pixels reais, não apenas uma tag canvas com tamanho**.
+Se a imagem não aparecer, o jogo tenta o renderer alternativo e mostra botão
+**Reiniciar cenário no modo alternativo**, sem deletar nem reinicializar personagens.
+No Android, **o painel de missões começa recolhido**, deixando a cena livre.
+
+O pipeline incluiu teste visual simulado de Android/WebView com perfil Economia:
+reabre save, exige renderer Canvas, confirma pixels de várias cores no mapa,
+valida o HUD recolhido e publica o screenshot. Não substitui teste em hardware
+Android, sobretudo no Galaxy A07 / Redmi Note 12S. O APK mantém meta ≥100 MB.
 
 ## RC 0.7.0 — Marco de 100 MB de conteúdo original
 

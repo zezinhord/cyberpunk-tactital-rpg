@@ -1,4 +1,4 @@
-# Nova Arcádia 0.7.0-rc.1 — Marco de conteúdo 100 MB
+# Nova Arcádia 0.7.0-rc.2 — Marco de conteúdo 100 MB
 
 **Estado:** candidata em validação; **não publicada**.  
 **Branch de homologação:** `feature/landscape-mobile-v1`.  
@@ -43,6 +43,20 @@ Se algum item falhar, **bloquear publicação**, documentar passos de reproduç�
 **Fronteira de escopo:** prólogo e dois mapas subterrâneos estão implementados na RC4. A revisão integral dos sprites, o balanceamento final de inimigos e testes de desempenho em diferentes aparelhos permanecem pendentes.
 
 [Questionário da prévia fechada — 8 perguntas (0–5)](AVALIACAO-TESTADORES.md)
+
+## RC2 — recuperação do mapa em branco
+
+- [ ] Abrir personagem no Galaxy A07 e Redmi Note 12S, perfil Economia e tela horizontal; confirmar que o piso e os NPCs aparecem, não apenas a interface.
+- [ ] O painel de objetivos começa recolhido; deve abrir/fechar sem bloquear movimento da câmera.
+- [ ] Mover o personagem por toque e setas, abrir clínica e transportes, voltar e observar se as texturas persistem.
+- [ ] Trocar entre modo Economia e Balanceado nas configurações, reabrir a exploração e verificar se os dois renderizadores funcionam.
+- [ ] Forçar reinicialização com problema de renderer; o jogo deve oferecer recuperação, sem apagar o slot.
+- [ ] Verificar a captura do Chromium com user-agent Android e teste de pixels reais da Baixada.
+- [ ] APK continua assinado com a mesma chave, com tamanho ≥100.000.000 bytes.
+
+**Causa exata no aparelho:** ainda não comprovada sem logs Android. O hotfix
+previne o cenário preto por falhas na inicialização gráfica e expõe mensagem
+recuperável quando o mapa não estiver renderizado.
 
 ## Homologação da versão 0.7.0 RC1 — 100 MB reais
 
