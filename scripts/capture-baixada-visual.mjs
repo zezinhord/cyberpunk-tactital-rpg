@@ -658,6 +658,16 @@ try {
     throw new Error("Novo distrito ou missão Ferrugem não foi inicializado: "+JSON.stringify(ferrugemMetrics));
   await writeFile("qa/ferrugem-914x411.png",Buffer.from(
     (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".menu-trigger").click();true');
+  await poll(()=>has(".character-menu-shell"),"menu de Ferrugem");
+  await evaluate('[...document.querySelectorAll(".character-menu-nav button")].find(b=>b.textContent?.includes("Inventário")).click();true');
+  await poll(()=>has(".na-crafting-panel"),"oficina de fabricação no inventário");
+  const recipes=await evaluate('document.querySelectorAll(".na-crafting-recipe").length');
+  if(recipes!==2)throw new Error("Receitas não aparecem no inventário: "+recipes);
+  await writeFile("qa/ferrugem-fabricacao-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".menu-close-button").click();true');
+  await poll(()=>evaluate('!document.querySelector(".character-menu-shell")'),"fechar oficina");
   await evaluate('document.querySelector(".area-return").click();true');
   await poll(()=>has(".baixada-world:not(.interior-world) canvas"),"volta de Ferrugem à Baixada");
   const ferrugemSaved=await evaluate(`(()=>{
