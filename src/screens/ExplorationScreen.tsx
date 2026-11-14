@@ -20,6 +20,9 @@ import { getSectorById,sectorAt,type SectorId } from "../game/baixada/layout";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
 import {readSewer,saveSewer,sewerNextObjective,sewerStatus,applySewerEvent,
  hasSewerEvidence,type SewerEvent} from "../game/story/sewer-v09";
+import {FERRUGEM_ACTORS,isFerrugemActor} from "../game/ferrugem/layout";
+import {FERRUGEM_STEPS,readFerrugem,saveFerrugem,startFerrugem,advanceFerrugem,
+ currentFerrugemStep,ferrugemObjective,type FerrugemEnding} from "../game/ferrugem/story";
 
 type MissionStep = 0 | 1 | 2 | 3;
 interface MissionProgress { step: MissionStep; clues: string[] }
@@ -117,6 +120,9 @@ export default function ExplorationScreen({
   const [nearSewerAccess,setNearSewerAccess] = useState<string|null>(null);
   const [sewer,setSewer] = useState(()=>readSewer(character.id));
   const [sewerNotice,setSewerNotice] = useState("");
+  const [ferrugem,setFerrugem] = useState(()=>readFerrugem(character.id));
+  const [ferrugemNotice,setFerrugemNotice] = useState("");
+  const [ferrugemDecisionPending,setFerrugemDecisionPending] = useState(false);
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
   const [missionOpen, setMissionOpen] = useState(true);
@@ -155,6 +161,34 @@ export default function ExplorationScreen({
     );
   };
 
+  const registerFerrugemEvent=(actorId:string,ending?:FerrugemEnding):void=>{
+    const result=advanceFerrugem(ferrugem,actorId,ending);
+    if(!result.advanced||!result.stage){
+      setFerrugemNotice(result.message);
+      say([{speaker:"ROTA INDUSTRIAL",role:"INVESTIGAÇÃO FERRUGEM",portrait:"▤",
+        text:result.message}]);
+      return;
+    }
+    if(!saveFerrugem(character.id,result.progress)){
+      setFerrugemNotice("O progresso não foi salvo. Verifique o armazenamento antes de sair.");
+      say([{speaker:"ARQUIVO LOCAL",role:"FALHA DE SALVAMENTO",portrait:"!",
+        text:"A evidência não pôde ser registrada. Libere armazenamento e tente novamente."}]);
+      return;
+    }
+    setFerrugem(result.progress);
+    const rewarded=onQuestXp("ferrugem-"+result.stage.id,result.stage.xp);
+    setFerrugemNotice(result.stage.title+
+      (rewarded?" · +"+result.stage.xp+" XP.":" · progresso preservado.")+
+      (result.progress.completed?" CAPÍTULO CONCLUÍDO.":""));
+    const outcome=result.progress.completed
+      ? result.progress.ending==="publicar"
+        ?"Rosa concordou em publicar o dossiê de produção. A Helix conhecerá os nomes das testemunhas, e a comunidade organizará proteção e acompanhamento."
+        :"Rosa entregou cópias à assembleia. A comunidade preservará os nomes e organizará uma denúncia coletiva antes da divulgação."
+      : result.message;
+    say([{speaker:result.stage.speaker,role:result.stage.role,portrait:"▤",text:outcome}]);
+    audioDirector.effect("victory");
+  };
+
   const handleInteract = (id: string) => {
     const campaignBattle=trialCombatForActor(trial,id);
     if(campaignBattle){
@@ -175,6 +209,45 @@ export default function ExplorationScreen({
       }
     }
     audioDirector.effect(id.startsWith("enter-")||id==="exit-interior"?"door":id.startsWith("terminal")||id.includes("console")?"terminal":"interact");
+    if(id==="enter-ferrugem"){
+      if(!hasSewerEvidence(sewer)&&!v09.reported){
+        say([{speaker:"TRANSPORTE INDUSTRIAL",role:"CREDENCIAL DE ACESSO",portrait:"▤",
+          text:"Acesso à zona de Ferrugem exige o manifesto de manutenção V-09. Complete a investigação do esgoto e retorne."}]);
+        return;
+      }
+      const progress=startFerrugem(ferrugem);
+      if(progress!==ferrugem&&!saveFerrugem(character.id,progress)){
+        setFerrugemNotice("Não foi possível iniciar o capítulo industrial: armazenamento indisponível.");
+        return;
+      }
+      if(progress!==ferrugem)setFerrugem(progress);
+      setFerrugemDecisionPending(false);
+      setHubOpen(false);setInterior("ferrugem");
+      return;
+    }
+    if(id==="ferrugem-exit"){
+      saveWorldLocation(character.id,{x:36,y:22});
+      setFerrugemDecisionPending(false);
+      setInterior(null);
+      return;
+    }
+    if(isFerrugemActor(id)){
+      const stage=currentFerrugemStep(ferrugem);
+      const actor=FERRUGEM_ACTORS.find(a=>a.id===id);
+      if(ferrugem.completed){
+        say([{speaker:actor?.title??"ARQUIVO INDUSTRIAL",role:"FERRUGEM · CAPÍTULO CONCLUÍDO",
+          portrait:"▤",text:ferrugemObjective(ferrugem)}]);
+        return;
+      }
+      if(stage?.id==="decisao"&&id==="ferrugem-foreman"){
+        setFerrugemDecisionPending(true);
+        say([{speaker:"Rosa",role:"OPERADORA DA SIDERÚRGICA",portrait:"R",
+          text:stage.message}]);
+        return;
+      }
+      registerFerrugemEvent(id);
+      return;
+    }
     if (id === "enter-clinic") {
       setInterior("clinic");
       return;
@@ -506,7 +579,8 @@ export default function ExplorationScreen({
     say([{speaker:current.speaker,role:current.role,portrait:current.portrait,text:choice.reply}]);
   };
   const currentDialogue = dialogue?.pages[dialogue.index] ?? null;
-  const sceneTitle = interior === "sewer-drain" ? "Galeria de Drenagem Sul"
+  const sceneTitle = interior === "ferrugem" ? "Ferrugem · Distrito Industrial"
+    : interior === "sewer-drain" ? "Galeria de Drenagem Sul"
     : interior === "sewer-deep" ? "Câmara de Recalque 04"
     : interior === "clinic"
     ? "Clínica comunitária"
@@ -515,7 +589,8 @@ export default function ExplorationScreen({
       : interior === "canal"
         ? "Galeria do Canal"
         : getSectorById(sectorId).name;
-  const sceneSubtitle = interior === "sewer-drain" ? "NÍVEL -01 · GALERIA HIDRÁULICA"
+  const sceneSubtitle = interior === "ferrugem" ? "SIDERÚRGICA · REDE INDUSTRIAL · PROJETO ÉDEN"
+    : interior === "sewer-drain" ? "NÍVEL -01 · GALERIA HIDRÁULICA"
     : interior === "sewer-deep" ? "NÍVEL -02 · ESGOTO PROFUNDO"
     : interior === "clinic"
     ? "RECEPÇÃO / TRIAGEM"
@@ -596,6 +671,7 @@ export default function ExplorationScreen({
             if(interior==="sewer-deep"){
               setReturnFromDeep(true);setInterior("sewer-drain");
             }else{
+              if(interior==="ferrugem")saveWorldLocation(character.id,{x:36,y:22});
               if(interior==="sewer-drain")saveWorldLocation(character.id,{x:33,y:20});
               setReturnFromDeep(false);setInterior(null);
             }
@@ -604,20 +680,23 @@ export default function ExplorationScreen({
           </button>
         )}
       </section>
-      {(interior==="sewer-drain"||interior==="sewer-deep")&&<button type="button"
+      {(interior==="sewer-drain"||interior==="sewer-deep"||interior==="ferrugem")&&<button type="button"
         className="na-sewer-objective-hint" onClick={()=>setHubOpen(true)}
         aria-label="Abrir objetivos da investigação subterrânea">
-        <span>◈ OBJETIVO SUBTERRÂNEO · TOQUE PARA DETALHES</span>
-        <strong>{sewerNextObjective(sewer)}</strong>
+        <span>{interior==="ferrugem"?"◈ MISSÃO EM FERRUGEM · TOQUE PARA DETALHES":
+          "◈ OBJETIVO SUBTERRÂNEO · TOQUE PARA DETALHES"}</span>
+        <strong>{interior==="ferrugem"?ferrugemObjective(ferrugem):sewerNextObjective(sewer)}</strong>
       </button>}
       {!interior&&nearSewerAccess&&<button type="button"
         className="na-sewer-quick-access"
-        aria-label={nearSewerAccess==="enter-sewer-drain"?
-          "Entrar na Galeria de Drenagem Sul":"Entrar na Câmara de Recalque 04"}
+        aria-label={nearSewerAccess==="enter-ferrugem"?"Viajar ao Distrito Ferrugem":
+          nearSewerAccess==="enter-sewer-drain"?"Entrar na Galeria de Drenagem Sul":
+          "Entrar na Câmara de Recalque 04"}
         onClick={()=>handleInteract(nearSewerAccess)}>
-        <strong>{nearSewerAccess==="enter-sewer-drain"?
+        <strong>{nearSewerAccess==="enter-ferrugem"?"→ TRANSPORTE PARA FERRUGEM":
+          nearSewerAccess==="enter-sewer-drain"?
           "↓ ENTRAR NA GALERIA DE DRENAGEM":"↓ ACESSO À CÂMARA 04"}</strong>
-        <small>Escada próxima · toque para descer</small>
+        <small>{nearSewerAccess==="enter-ferrugem"?"Terminal de transporte próximo":"Escada próxima · toque para descer"}</small>
       </button>}
 
       <aside className={"na-mission-hub"+(hubOpen?"":" collapsed")} aria-label="Próximas missões e objetivos">
@@ -708,6 +787,22 @@ export default function ExplorationScreen({
         </div>
         {sewer.sampleRecovered&&<small>Prova opcional: implante adulterado recuperado.</small>}
         {sewerNotice&&<small role="status">{sewerNotice}</small>}
+      </section>
+      <section className="na-ferrugem-panel" aria-label="Capítulo Ferrugem">
+        <div className="na-ferrugem-heading">
+          <span>◈ CAPÍTULO 03 · ECOS DE FERRUGEM</span>
+          <strong>{ferrugem.completed?"CONCLUÍDO":ferrugem.started?
+            (ferrugem.step+1)+"/"+FERRUGEM_STEPS.length:"BLOQUEADO"}</strong>
+        </div>
+        <p>{ferrugemObjective(ferrugem)}</p>
+        <small>{ferrugem.started?"A investigação começa com Rosa e atravessa os galpões da Ferrugem.":
+          "Recupere o manifesto V-09 no esgoto para utilizar o transporte do Pátio Sul."}</small>
+        {ferrugemNotice&&<small role="status">{ferrugemNotice}</small>}
+        {ferrugem.started&&<details>
+          <summary>Consultar etapas de Ferrugem</summary>
+          {FERRUGEM_STEPS.map((step,index)=>
+            <p key={step.id}>{index<ferrugem.step?"✓":index===ferrugem.step?"▶":"○"} {index+1}. {step.title}</p>)}
+        </details>}
       </section>
       <section className="na-trial-panel" aria-label="Operação Circuito Fantasma">
         <div className="na-trial-heading">
@@ -810,6 +905,18 @@ export default function ExplorationScreen({
               </div>
             </div>
             <p>{currentDialogue.text}</p>
+            {ferrugemDecisionPending&&currentDialogue.speaker==="Rosa"&&
+             currentFerrugemStep(ferrugem)?.id==="decisao"&&
+             <div className="na-ferrugem-choices" role="group" aria-label="Destino das provas de Ferrugem">
+              <button type="button" onClick={()=>{
+                setFerrugemDecisionPending(false);
+                registerFerrugemEvent("ferrugem-foreman","publicar");
+              }}>Publicar as provas agora</button>
+              <button type="button" onClick={()=>{
+                setFerrugemDecisionPending(false);
+                registerFerrugemEvent("ferrugem-foreman","proteger");
+              }}>Proteger as testemunhas primeiro</button>
+             </div>}
             {currentDialogue.choices && <div className="dialogue-choice-list" role="group" aria-label="Respostas do protagonista">
               {currentDialogue.choices.map(choice=><button type="button" key={choice.id}
                 onClick={()=>selectAnswer(choice)}>{choice.label}</button>)}
