@@ -91,6 +91,7 @@ export default function BaixadaWorld({ onInteract, originId, appearance, charact
       if(disposed||confirmed||!sceneCreated||!game?.canvas)return;
       frames++;
       if(frames<6)return;
+      if(useCanvas&&frames%15!==0)return; // Uma leitura por ~0,5 s no modo Economia.
       const canvas=game.canvas;
       if(canvas.clientWidth<200||canvas.clientHeight<150)return;
       // O renderizador Canvas permite checar a presença de pixels reais.

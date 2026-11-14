@@ -730,6 +730,43 @@ try {
     await poll(()=>has(".baixada-world:not(.interior-world) canvas"),"retorno "+id+" à Baixada");
     await poll(()=>has(".na-sewer-quick-access"),"central de transporte após "+id);
   }
+  // Reproduzir o caso relatado pelo usuário: WebView Android horizontal,
+  // perfil Economia/Canvas. O antigo QA testava dimensões, não pixels.
+  await send("Emulation.setUserAgentOverride",{userAgent:
+    "Mozilla/5.0 (Linux; Android 15; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"});
+  await evaluate('localStorage.removeItem("cyberpunk-tactical-rpg.graphics-mode.v1");true');
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título Android simulado");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>evaluate('document.querySelector(".baixada-world[data-scene-state=ready] canvas")?.width>200'),
+    "cena realmente renderizada no Android Economy Canvas",100);
+  const androidPixels=await evaluate(`(()=>{
+    const host=document.querySelector(".baixada-world");
+    const canvas=host?.querySelector("canvas");
+    const ctx=canvas?.getContext("2d");
+    if(!ctx)return {status:host?.dataset.sceneState,renderer:host?.dataset.renderer,colors:0};
+    const colors=new Set();
+    for(let y=1;y<=5;y++)for(let x=1;x<=7;x++){
+      const d=ctx.getImageData(Math.floor(canvas.width*x/8),
+        Math.floor(canvas.height*y/6),1,1).data;
+      colors.add(d[0]+","+d[1]+","+d[2]);
+    }
+    return {status:host?.dataset.sceneState,renderer:host?.dataset.renderer,colors:colors.size,
+      panelCollapsed:document.querySelector(".na-mission-hub")?.classList.contains("collapsed")};
+  })()`);
+  if(androidPixels.renderer!=="canvas"||androidPixels.status!=="ready"||
+    androidPixels.colors<4||androidPixels.panelCollapsed!==true)
+    throw new Error("O Android mostra mapa em branco ou o HUD o bloqueia: "+JSON.stringify(androidPixels));
+  const androidShot=Buffer.from((await send("Page.captureScreenshot",{
+    format:"png",captureBeyondViewport:false})).data,"base64");
+  await writeFile("qa/baixada-android-canvas-914x411.png",androidShot);
+  const pixelCheck=spawnSync("python3",["-c",
+    "from PIL import Image;import sys;im=Image.open(sys.argv[1]).convert('RGB');w,h=im.size;a=im.crop((int(w*.19),int(h*.30),int(w*.53),int(h*.80)));colors=set(a.getdata());print('Mapa Android: cores reais =',len(colors));sys.exit(0 if len(colors)>20 else 1)",
+    "qa/baixada-android-canvas-914x411.png"],{encoding:"utf8"});
+  if(pixelCheck.status!==0)
+    throw new Error("Screenshot em branco detectado no modo Android: "+pixelCheck.stdout+" "+pixelCheck.stderr);
+  console.log("QA Android: Canvas real, "+androidPixels.colors+" amostras, HUD recolhido e pixels coloridos.");
+
   console.log("QA cidade: 5 novos mapas, central de transporte, capítulos e retomada após fechar.");
 
   console.log("QA visual: capturas masculina/feminina; canvas preservado após alternância.");
