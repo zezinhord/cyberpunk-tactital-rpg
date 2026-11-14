@@ -25,6 +25,10 @@ import {readSewer,saveSewer,sewerNextObjective,sewerStatus,applySewerEvent,
 import {FERRUGEM_ACTORS,isFerrugemActor} from "../game/ferrugem/layout";
 import {FERRUGEM_STEPS,readFerrugem,saveFerrugem,startFerrugem,advanceFerrugem,
  currentFerrugemStep,ferrugemObjective,type FerrugemEnding} from "../game/ferrugem/story";
+import {DISTRICTS,isDistrictId,getDistrict,actorFromId,type DistrictId} from "../game/districts/catalog";
+import {CHAPTERS,readDistrictProgress,saveDistrictProgress,beginDistrict,
+ districtCurrentStep,districtObjective,advanceDistrict,type ChapterProgress,
+ type DistrictEnding} from "../game/districts/progress";
 
 type MissionStep = 0 | 1 | 2 | 3;
 interface MissionProgress { step: MissionStep; clues: string[] }
@@ -135,6 +139,16 @@ export default function ExplorationScreen({
   const [ferrugem,setFerrugem] = useState(()=>readFerrugem(character.id));
   const [ferrugemNotice,setFerrugemNotice] = useState("");
   const [ferrugemDecisionPending,setFerrugemDecisionPending] = useState(false);
+  const [transitOpen,setTransitOpen]=useState(false);
+  const [cityDecision,setCityDecision]=useState<DistrictId|null>(null);
+  const [cityNotice,setCityNotice]=useState("");
+  const [cityChapters,setCityChapters]=useState<Record<DistrictId,ChapterProgress>>(()=>({
+    aurea:readDistrictProgress(character.id,"aurea"),
+    subsolo:readDistrictProgress(character.id,"subsolo"),
+    "setor-zero":readDistrictProgress(character.id,"setor-zero"),
+    prisma:readDistrictProgress(character.id,"prisma"),
+    periferia:readDistrictProgress(character.id,"periferia"),
+  }));
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
   const [missionOpen, setMissionOpen] = useState(true);
@@ -145,7 +159,7 @@ export default function ExplorationScreen({
   const [trialNotice,setTrialNotice]=useState("");
   const [sectorId,setSectorId]=useState<SectorId>(()=>sectorAt(loadWorldLocation(character.id)));
   useEffect(()=>{
-    audioDirector.setDistrict(interior==="ferrugem"?"ferrugem":"baixada");
+    audioDirector.setDistrict(isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":"baixada");
     audioDirector.setScene(interior?"interior":"exploration");
   },[interior]);
 
@@ -218,7 +232,93 @@ export default function ExplorationScreen({
     audioDirector.effect("victory");
   };
 
+  const enterTransit=(destination:DistrictId|"ferrugem"):void=>{
+    if(!hasSewerEvidence(sewer)&&!v09.reported){
+      setTransitOpen(false);
+      say([{speaker:"CENTRAL DE TRANSPORTE",role:"ACESSO RESTRITO",portrait:"▤",
+        text:"A rota interdistrital precisa da credencial do manifesto V-09. Termine primeiro a investigação subterrânea."}]);
+      return;
+    }
+    if(destination==="ferrugem"){
+      const started=startFerrugem(ferrugem);
+      if(started!==ferrugem&&!saveFerrugem(character.id,started)){
+        setCityNotice("Não foi possível salvar o capítulo de Ferrugem.");return;
+      }
+      if(started!==ferrugem)setFerrugem(started);
+    }else{
+      const started=beginDistrict(cityChapters[destination]);
+      if(!saveDistrictProgress(character.id,destination,started)){
+        setCityNotice("Não foi possível iniciar o capítulo. Verifique espaço no aparelho.");
+        return;
+      }
+      setCityChapters(old=>({...old,[destination]:started}));
+    }
+    setTransitOpen(false);setCityDecision(null);setHubOpen(false);
+    setInterior(destination);
+  };
+  const registerCityEvent=(district:DistrictId,actorId:string,ending?:DistrictEnding):void=>{
+    const current=cityChapters[district];
+    const result=advanceDistrict(district,current,actorId,ending);
+    if(!result.advanced||!result.step){
+      setCityNotice(result.message);
+      say([{speaker:getDistrict(district).name,role:"ARQUIVO LOCAL",portrait:"▤",
+        text:result.message}]);return;
+    }
+    const rewardId="district-"+district+"-"+result.step.id;
+    if(!onQuestXp(rewardId,result.step.xp)){
+      setCityNotice("Não foi possível salvar a experiência. Libere espaço e repita a interação.");
+      return;
+    }
+    if(!saveDistrictProgress(character.id,district,result.state)){
+      setCityNotice("Experiência preservada, mas a etapa não foi registrada. Interaja novamente.");
+      return;
+    }
+    setCityChapters(old=>({...old,[district]:result.state}));
+    if(result.step.id==="prova"){
+      const item:ItemId=district==="aurea"?"celula_energia":
+        district==="subsolo"?"conector_reuso":
+        district==="setor-zero"?"residuo_metalico":
+        district==="prisma"?"celula_energia":"residuo_metalico";
+      onGrantIndustrialItem(item);
+    }
+    if(result.state.completed){
+      const adjusted={...market,
+        trust:Math.min(5,market.trust+(result.state.ending==="resguardar"?1:0)),
+        heat:Math.min(5,market.heat+(result.state.ending==="divulgar"?1:0))};
+      if(saveMarket(character.id,adjusted))setMarket(adjusted);
+    }
+    setCityNotice(result.step.title+" · +"+result.step.xp+
+      " XP."+(result.state.completed?" CAPÍTULO CONCLUÍDO.":""));
+    const conclusion=result.state.completed
+      ? result.state.ending==="divulgar"
+        ?"O dossiê tornou-se público. A população ganhou provas, mas a Helix aumentou a vigilância sobre as testemunhas."
+        :"Uma cópia segura foi entregue à comunidade. Os nomes permanecem protegidos enquanto uma denúncia coletiva é preparada."
+      :result.message;
+    say([{speaker:result.step.id==="escolha"?getDistrict(district).guideName:
+      getDistrict(district).name,role:"INVESTIGAÇÃO · "+getDistrict(district).name,
+      portrait:"▤",text:conclusion}]);
+    audioDirector.effect("victory");
+  };
+
   const handleInteract = (id: string) => {
+    const cityActor=actorFromId(id);
+    if(cityActor){
+      const {district,slot}=cityActor;
+      if(slot==="exit"){
+        setCityDecision(null);saveWorldLocation(character.id,{x:36,y:26});
+        setInterior(null);return;
+      }
+      const state=cityChapters[district];
+      const stage=districtCurrentStep(district,state);
+      if(stage?.id==="escolha"&&stage.slot===slot){
+        setCityDecision(district);
+        say([{speaker:getDistrict(district).guideName,
+          role:"DECISÃO COLETIVA · "+getDistrict(district).name,portrait:"◆",
+          text:stage.message}]);return;
+      }
+      registerCityEvent(district,id);
+      return;
+    }
     const campaignBattle=trialCombatForActor(trial,id);
     if(campaignBattle){
       setTrialNotice("Interceptação iniciada · a recompensa é concedida apenas após vencer todas as ondas.");
@@ -238,6 +338,14 @@ export default function ExplorationScreen({
       }
     }
     audioDirector.effect(id.startsWith("enter-")||id==="exit-interior"?"door":id.startsWith("terminal")||id.includes("console")?"terminal":"interact");
+    if(id==="enter-city-transit"){
+      if(!hasSewerEvidence(sewer)&&!v09.reported){
+        say([{speaker:"CENTRAL DE TRANSPORTE",role:"ACESSO RESTRITO",portrait:"▤",
+          text:"Recupere primeiro o manifesto V-09 na Câmara de Recalque 04. A credencial desbloqueia o transporte entre os distritos."}]);
+        return;
+      }
+      setTransitOpen(true);return;
+    }
     if(id==="enter-ferrugem"){
       if(!hasSewerEvidence(sewer)&&!v09.reported){
         say([{speaker:"TRANSPORTE INDUSTRIAL",role:"CREDENCIAL DE ACESSO",portrait:"▤",
@@ -608,7 +716,8 @@ export default function ExplorationScreen({
     say([{speaker:current.speaker,role:current.role,portrait:current.portrait,text:choice.reply}]);
   };
   const currentDialogue = dialogue?.pages[dialogue.index] ?? null;
-  const sceneTitle = interior === "ferrugem" ? "Ferrugem · Distrito Industrial"
+  const sceneTitle = isDistrictId(interior) ? getDistrict(interior).name+" · Nova Arcádia"
+    : interior === "ferrugem" ? "Ferrugem · Distrito Industrial"
     : interior === "sewer-drain" ? "Galeria de Drenagem Sul"
     : interior === "sewer-deep" ? "Câmara de Recalque 04"
     : interior === "clinic"
@@ -618,7 +727,8 @@ export default function ExplorationScreen({
       : interior === "canal"
         ? "Galeria do Canal"
         : getSectorById(sectorId).name;
-  const sceneSubtitle = interior === "ferrugem" ? "SIDERÚRGICA · REDE INDUSTRIAL · PROJETO ÉDEN"
+  const sceneSubtitle = isDistrictId(interior) ? getDistrict(interior).subtitle
+    : interior === "ferrugem" ? "SIDERÚRGICA · REDE INDUSTRIAL · PROJETO ÉDEN"
     : interior === "sewer-drain" ? "NÍVEL -01 · GALERIA HIDRÁULICA"
     : interior === "sewer-deep" ? "NÍVEL -02 · ESGOTO PROFUNDO"
     : interior === "clinic"
@@ -661,7 +771,7 @@ export default function ExplorationScreen({
         <div className="explorer-character-data">
           <span className="eyebrow">PROTAGONISTA · NÍVEL {character.level}</span>
           <strong>{character.name}</strong>
-          <small>{origin.name} · {interior==="ferrugem"?"Ferrugem":getSectorById(sectorId).name}</small>
+          <small>{origin.name} · {isDistrictId(interior)?getDistrict(interior).name:interior==="ferrugem"?"Ferrugem":getSectorById(sectorId).name}</small>
         </div>
         <div className="district-clock">
           <span>18:40</span>
@@ -671,12 +781,14 @@ export default function ExplorationScreen({
 
       <section className="district-scene-section">
         <div className="district-scene-heading">
-          <span>{interior==="ferrugem"?"DISTRITO INDUSTRIAL":interior?"ÁREA INTERNA":"EXPLORAÇÃO ISOMÉTRICA"}</span>
+          <span>{isDistrictId(interior)?"DISTRITO EXPLORÁVEL":interior==="ferrugem"?"DISTRITO INDUSTRIAL":interior?"ÁREA INTERNA":"EXPLORAÇÃO ISOMÉTRICA"}</span>
           <span>TOQUE PARA SE MOVER</span>
         </div>
         {interior ? (
           <InteriorWorld
             interior={interior}
+            characterId={character.id}
+            districtTarget={isDistrictId(interior)?districtCurrentStep(interior,cityChapters[interior])?.slot??null:null}
             originId={character.originId}
             appearance={appearance}
             onInteract={handleInteract}
@@ -701,6 +813,7 @@ export default function ExplorationScreen({
             if(interior==="sewer-deep"){
               setReturnFromDeep(true);setInterior("sewer-drain");
             }else{
+              if(isDistrictId(interior))saveWorldLocation(character.id,{x:36,y:26});
               if(interior==="ferrugem")saveWorldLocation(character.id,{x:36,y:22});
               if(interior==="sewer-drain")saveWorldLocation(character.id,{x:33,y:20});
               setReturnFromDeep(false);setInterior(null);
@@ -710,25 +823,48 @@ export default function ExplorationScreen({
           </button>
         )}
       </section>
-      {(interior==="sewer-drain"||interior==="sewer-deep"||interior==="ferrugem")&&<button type="button"
+      {(interior==="sewer-drain"||interior==="sewer-deep"||interior==="ferrugem"||isDistrictId(interior))&&<button type="button"
         className="na-sewer-objective-hint" onClick={()=>setHubOpen(true)}
-        aria-label={interior==="ferrugem"?"Abrir objetivos da missão Ferrugem":"Abrir objetivos da investigação subterrânea"}>
-        <span>{interior==="ferrugem"?"◈ MISSÃO EM FERRUGEM · TOQUE PARA DETALHES":
+        aria-label={isDistrictId(interior)?"Abrir objetivos de "+getDistrict(interior).name:
+          interior==="ferrugem"?"Abrir objetivos da missão Ferrugem":"Abrir objetivos da investigação subterrânea"}>
+        <span>{isDistrictId(interior)?"◈ "+getDistrict(interior).name.toUpperCase()+" · MISSÃO ATIVA":
+          interior==="ferrugem"?"◈ MISSÃO EM FERRUGEM · TOQUE PARA DETALHES":
           "◈ OBJETIVO SUBTERRÂNEO · TOQUE PARA DETALHES"}</span>
-        <strong>{interior==="ferrugem"?ferrugemObjective(ferrugem):sewerNextObjective(sewer)}</strong>
+        <strong>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
+          interior==="ferrugem"?ferrugemObjective(ferrugem):sewerNextObjective(sewer)}</strong>
       </button>}
       {!interior&&nearSewerAccess&&<button type="button"
         className="na-sewer-quick-access"
-        aria-label={nearSewerAccess==="enter-ferrugem"?"Viajar ao Distrito Ferrugem":
+        aria-label={nearSewerAccess==="enter-city-transit"?"Abrir transporte entre distritos":nearSewerAccess==="enter-ferrugem"?"Viajar ao Distrito Ferrugem":
           nearSewerAccess==="enter-sewer-drain"?"Entrar na Galeria de Drenagem Sul":
           "Entrar na Câmara de Recalque 04"}
         onClick={()=>handleInteract(nearSewerAccess)}>
-        <strong>{nearSewerAccess==="enter-ferrugem"?"→ TRANSPORTE PARA FERRUGEM":
+        <strong>{nearSewerAccess==="enter-city-transit"?"→ TRANSPORTE INTERDISTRITAL":nearSewerAccess==="enter-ferrugem"?"→ TRANSPORTE PARA FERRUGEM":
           nearSewerAccess==="enter-sewer-drain"?
           "↓ ENTRAR NA GALERIA DE DRENAGEM":"↓ ACESSO À CÂMARA 04"}</strong>
-        <small>{nearSewerAccess==="enter-ferrugem"?"Terminal de transporte próximo":"Escada próxima · toque para descer"}</small>
+        <small>{nearSewerAccess==="enter-city-transit"?"Explore Áurea, Subsolo, Setor Zero, Prisma e Periferia":nearSewerAccess==="enter-ferrugem"?"Terminal de transporte próximo":"Escada próxima · toque para descer"}</small>
       </button>}
 
+      {transitOpen&&<div className="na-transit-shade">
+        <section className="na-transit-panel" role="dialog" aria-modal="true"
+          aria-label="Central de Transporte Nova Arcádia">
+          <div className="na-transit-head">
+            <div><span>REDE DE TRANSPORTE · PROJETO ÉDEN</span><h2>Escolha um distrito</h2></div>
+            <button type="button" onClick={()=>setTransitOpen(false)}>Fechar ×</button>
+          </div>
+          <p>A credencial V-09 permite acessar as seis zonas exteriores. Cada região possui
+            suas próprias pistas, encontros, recompensas e áudio ambiente.</p>
+          <div className="na-transit-grid">
+            <button type="button" onClick={()=>enterTransit("ferrugem")}>
+              <strong>FERRUGEM</strong><small>Fábricas, cooperativa e engenharia</small>
+            </button>
+            {DISTRICTS.map(d=><button type="button" key={d.id} onClick={()=>enterTransit(d.id)}>
+              <strong>{d.name.toUpperCase()}</strong><small>{d.intro}</small>
+            </button>)}
+          </div>
+          {cityNotice&&<small role="status">{cityNotice}</small>}
+        </section>
+      </div>}
       <aside className={"na-mission-hub"+(hubOpen?"":" collapsed")} aria-label="Próximas missões e objetivos">
         <button className="na-hub-toggle" type="button" onClick={()=>setHubOpen(open=>!open)}
           aria-expanded={hubOpen} aria-controls="na-mission-details">
@@ -736,8 +872,8 @@ export default function ExplorationScreen({
         </button>
         <div id="na-mission-details" className="na-mission-details">
         <div className="na-next-step" role="status">
-          <span>PRÓXIMO PASSO · {interior==="ferrugem"?"ECOS DE FERRUGEM":trial.started&&!trial.completed?"OPERAÇÃO CIRCUITO FANTASMA":mission.step<3?"O NOME QUE SUMIU":!v09.reported?"INVESTIGAÇÃO V-09":"NOVO CAPÍTULO"}</span>
-          <strong>{interior==="ferrugem"?ferrugemObjective(ferrugem):trial.started&&!trial.completed
+          <span>PRÓXIMO PASSO · {isDistrictId(interior)?"CAMPANHA "+getDistrict(interior).name.toUpperCase():interior==="ferrugem"?"ECOS DE FERRUGEM":trial.started&&!trial.completed?"OPERAÇÃO CIRCUITO FANTASMA":mission.step<3?"O NOME QUE SUMIU":!v09.reported?"INVESTIGAÇÃO V-09":"NOVO CAPÍTULO"}</span>
+          <strong>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):interior==="ferrugem"?ferrugemObjective(ferrugem):trial.started&&!trial.completed
             ? currentTrialStep(trial)?.objective
             : mission.step<3 ? objective
             : !v09.reported ? objective
@@ -817,6 +953,22 @@ export default function ExplorationScreen({
         </div>
         {sewer.sampleRecovered&&<small>Prova opcional: implante adulterado recuperado.</small>}
         {sewerNotice&&<small role="status">{sewerNotice}</small>}
+      </section>
+      <section className="na-ferrugem-panel" aria-label="Capítulos adicionais">
+        <div className="na-ferrugem-heading">
+          <span>◈ CINCO NOVOS DISTRITOS · INVESTIGAÇÕES</span>
+          <strong>{DISTRICTS.filter(d=>cityChapters[d.id].completed).length}/5 CONCLUÍDOS</strong>
+        </div>
+        {isDistrictId(interior)&&<p>{districtObjective(interior,cityChapters[interior])}</p>}
+        <details>
+          <summary>Consultar campanhas e locais da cidade</summary>
+          {CHAPTERS.map(ch=><p key={ch.id}>
+            {cityChapters[ch.id].completed?"✓":cityChapters[ch.id].started?"▶":"○"}
+            {" "}{ch.title} · {getDistrict(ch.id).name} ·
+            {" "}{cityChapters[ch.id].step}/{ch.steps.length} objetivos
+          </p>)}
+        </details>
+        {cityNotice&&<small role="status">{cityNotice}</small>}
       </section>
       <section className="na-ferrugem-panel" aria-label="Capítulo Ferrugem">
         <div className="na-ferrugem-heading">
@@ -937,6 +1089,18 @@ export default function ExplorationScreen({
               </div>
             </div>
             <p>{currentDialogue.text}</p>
+            {cityDecision&&currentDialogue.speaker===getDistrict(cityDecision).guideName&&
+             districtCurrentStep(cityDecision,cityChapters[cityDecision])?.id==="escolha"&&
+             <div className="na-ferrugem-choices" role="group" aria-label="Destino do dossiê comunitário">
+              <button type="button" onClick={()=>{
+                const district=cityDecision;setCityDecision(null);
+                registerCityEvent(district,"district-"+district+"-guide","divulgar");
+              }}>Divulgar as provas agora</button>
+              <button type="button" onClick={()=>{
+                const district=cityDecision;setCityDecision(null);
+                registerCityEvent(district,"district-"+district+"-guide","resguardar");
+              }}>Resguardar as testemunhas</button>
+             </div>}
             {ferrugemDecisionPending&&currentDialogue.speaker==="Rosa"&&
              currentFerrugemStep(ferrugem)?.id==="decisao"&&
              <div className="na-ferrugem-choices" role="group" aria-label="Destino das provas de Ferrugem">
