@@ -216,3 +216,24 @@
  .na-transit-head h2{font-size:18px}
  .na-transit-grid button{min-height:58px;padding:7px;}
 }
+
+/* Hotfix do mapa em branco no Android: carregamento e recuperação explícitos.
+ * Os indicadores desaparecem quando o Phaser realmente desenha a Baixada.
+ */
+.na-world-host{isolation:isolate;}
+.na-world-startup{
+ position:absolute;inset:0;z-index:12;display:flex;flex-direction:column;
+ justify-content:center;align-items:center;gap:12px;padding:24px 16px;
+ text-align:center;pointer-events:none;
+ background:linear-gradient(155deg,rgba(12,29,36,.97),rgba(15,23,33,.94));
+ color:#f3e7d1;
+}
+.na-world-startup strong{font:700 clamp(16px,2.7vw,23px) "Chakra Petch",sans-serif;letter-spacing:.03em;}
+.na-world-startup span{font:500 clamp(11px,1.9vw,14px)/1.5 "IBM Plex Mono",monospace;color:#c7dad5;max-width:520px;}
+.na-world-startup button{
+ pointer-events:auto;min-height:48px;padding:10px 16px;border:1px solid #e8b982;
+ border-radius:8px;background:#38453d;color:#fff2d2;font:700 12px "Chakra Petch",sans-serif;
+}
+@media(orientation:landscape){
+ .na-mission-hub.collapsed .na-hub-toggle{box-shadow:0 4px 19px rgba(0,0,0,.48);}
+}

@@ -9,6 +9,7 @@ import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
 import type { TestAppearance } from "../game/test-arena/appearance";
 import { audioDirector } from "../audio/director";
+import {isAndroidDevice} from "../game/performance";
 import type {ClassId} from "../game/classes/registry";
 import type {EncounterId} from "../game/types";
 import {statRank,type StatId} from "../game/progression/tree";
@@ -152,7 +153,7 @@ export default function ExplorationScreen({
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
   const [missionOpen, setMissionOpen] = useState(true);
-  const [hubOpen, setHubOpen] = useState(true);
+  const [hubOpen, setHubOpen] = useState(()=>!isAndroidDevice());
   const [menuOpen, setMenuOpen] = useState(false);
   const [market,setMarket]=useState(()=>readMarket(character.id));
   const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));

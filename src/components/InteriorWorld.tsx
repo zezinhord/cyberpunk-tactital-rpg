@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import Phaser from "phaser";
-import {performanceGameConfig} from "../game/performance";
+import {performanceGameConfig,isAndroidDevice,isEconomyMode} from "../game/performance";
 import {attachPerformanceDiagnostics} from "../game/performance-diagnostics";
 import { InteriorScene, INTERIOR_VIEW_HEIGHT, INTERIOR_VIEW_WIDTH, type InteriorId } from "../game/baixada/InteriorScene";
 import {SewerScene} from "../game/baixada/SewerScene";
@@ -61,7 +61,7 @@ export default function InteriorWorld({
       : new InteriorScene(interior,(id)=>callbackRef.current(id),originId,appearance);
     sceneRef.current = scene;
     const game = new Phaser.Game({
-      type: Phaser.AUTO,
+      type: isAndroidDevice()&&isEconomyMode()?Phaser.CANVAS:Phaser.AUTO,
       parent: host,
       width: INTERIOR_VIEW_WIDTH,
       height: INTERIOR_VIEW_HEIGHT,
