@@ -8,6 +8,7 @@ import {createStartingInventory,saveInventory} from "../src/game/inventory.ts";
 import {HEALTH_KEY,loadHealth,saveHealth,healAtClinic} from "../src/game/combat/health.ts";
 import {TRIAL_KEY,TRIAL_STEPS,startTrial,FRESH_TRIAL,advanceTrial,readTrial,saveTrial} from "../src/game/story/field-test.ts";
 import {SEWER_KEY,readSewer,saveSewer,applySewerEvent,FRESH_SEWER} from "../src/game/story/sewer-v09.ts";
+import {FERRUGEM_SAVE_PREFIX,readFerrugem,saveFerrugem,startFerrugem,advanceFerrugem,FRESH_FERRUGEM} from "../src/game/ferrugem/story.ts";
 
 let db=new Map();
 globalThis.localStorage={
@@ -65,6 +66,8 @@ assert.equal(saveTrial(id,firstStep),true);
 const previouslyActive=loadCharacter()?.id;
 const trackedSewer=applySewerEvent(FRESH_SEWER,"sewer-track").state;
 assert.equal(saveSewer(a.id,trackedSewer),true);
+const ferrugemStage=advanceFerrugem(startFerrugem(FRESH_FERRUGEM),"ferrugem-foreman").progress;
+assert.equal(saveFerrugem(a.id,ferrugemStage),true);
 const exported=exportCharacterBackup(a.id);
 assert.equal(loadCharacter()?.id,previouslyActive,"Exportar slot inativo não deve trocar protagonista");
 const parsed=JSON.parse(exported);
@@ -72,6 +75,7 @@ assert.equal(parsed.version,1);
 assert.equal(parsed.character.id,a.id);
 assert.ok(parsed.data.inventory&&parsed.data.market&&parsed.data.health&&parsed.data.mission&&parsed.data.trial);
 assert.ok(parsed.data.sewer,"Backup inclui evidências do esgoto");
+assert.ok(parsed.data.ferrugem,"Backup inclui investigação industrial");
 const beforeCount=listCharacterSlots().length;
 assert.equal(importCharacterBackup(exported).ok,false,"Mesmo ID exige confirmação");
 assert.equal(listCharacterSlots().length,beforeCount);
@@ -93,6 +97,7 @@ assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.dat
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,constructor:"{}"}})).ok,false);
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,trial:JSON.stringify({started:true,completed:false,step:999,history:[]})}})).ok,false);
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,sewer:JSON.stringify({traceFound:"sim"})}})).ok,false,"Backup rejeita estado do esgoto malformado");
+assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,ferrugem:JSON.stringify({started:true,completed:true,step:999,history:[],ending:"publicar"})}})).ok,false,"Importação rejeita capítulo Ferrugem adulterado");
 assert.equal(importCharacterBackup(exported.padEnd(1_000_002," ")).ok,false);
 // Recriar armazenamento de outro aparelho e importar backup exportado.
 db=new Map();
@@ -101,6 +106,7 @@ assert.equal(loadCharacter()?.id,a.id);
 assert.equal(loadHealth(a.id,20),9);
 assert.equal(readTrial(a.id).step,1,"Progresso da campanha deve sobreviver a exportação e importação");
 assert.equal(readSewer(a.id).traceFound,true,"Pistas da Galeria sobrevivem a importação");
+assert.equal(readFerrugem(a.id).step,1,"Missão Ferrugem preservada no backup");
 assert.equal(db.get("cyberpunk-tactical-rpg.world-location.v068."+id),JSON.stringify({x:12,y:26}));
 assert.ok(listCharacterSlots().length===1);
 assert.equal(loadCharacterSlot(b.id),null,"Slots não existentes neste dispositivo não devem aparecer");
@@ -110,6 +116,7 @@ assert.equal(db.get("cyberpunk-tactical-rpg.inventory.v1."+a.id),undefined);
 assert.equal(db.get("cyberpunk-tactical-rpg.mission.v1."+a.id),undefined);
 assert.equal(db.get(TRIAL_KEY+a.id),undefined,"Exclusão remove progresso da campanha do slot");
 assert.equal(db.get(SEWER_KEY+a.id),undefined,"Exclusão remove somente as pistas do esgoto do slot");
+assert.equal(db.get(FERRUGEM_SAVE_PREFIX+a.id),undefined,"Exclusão remove capítulo industrial do slot");
 assert.equal(loadCharacter(),null);
 assert.equal(listCharacterSlots().length,0);
 // Migração a partir da chave única v1 sem índice.

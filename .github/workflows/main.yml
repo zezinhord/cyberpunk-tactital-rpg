@@ -78,6 +78,9 @@ jobs:
           node --experimental-strip-types scripts/test-field-test.mjs
           node --experimental-strip-types scripts/test-combat-waves.mjs
 
+      - name: Testar Ferrugem, novo distrito industrial e campanha ramificada
+        run: node --experimental-strip-types scripts/test-ferrugem.mjs
+
       - name: Testar os dois esgotos e checkpoints da investigação
         run: node --experimental-strip-types scripts/test-sewer-world.mjs
 
