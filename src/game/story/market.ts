@@ -117,6 +117,7 @@ export function readMarket(characterId:string):MarketState {
 }
 export function saveMarket(characterId:string,state:MarketState):boolean{
  if(!characterId)return false;
- try{globalThis.localStorage?.setItem(KEY+characterId,JSON.stringify(state));return true;}
+ try{const storage=globalThis.localStorage;if(!storage)return false;
+ storage.setItem(KEY+characterId,JSON.stringify(state));return true;}
  catch{return false;}
 }
