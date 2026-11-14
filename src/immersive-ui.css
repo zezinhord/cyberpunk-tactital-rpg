@@ -174,3 +174,17 @@
 @media (orientation:portrait) {
   .na-mission-hub { margin:7px 10px; }
 }
+
+
+/* Compatibilidade Android: seletor de desempenho no menu do personagem. */
+.na-performance-options{display:flex;flex-direction:column;gap:8px;padding:13px;
+  border:1px solid #59737a;border-radius:8px;background:#172b33;color:#e9efea;}
+.na-performance-options>strong{font:700 12px var(--mono);color:#f1c48f;}
+.na-performance-options p{font:500 12px/1.45 var(--body);margin:0;color:#d0dfdc;}
+.na-performance-options>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+.na-performance-options button{min-height:48px;padding:8px 10px;border:1px solid #6e8589;
+  border-radius:7px;background:#28404b;color:#d9e9eb;font:700 12px var(--display);}
+.na-performance-options button[aria-pressed="true"]{border:2px solid #f0bf81;
+  padding:7px 9px;background:#514437;color:#fff0d4;}
+.na-performance-options small{color:#f5d7a4;font-size:11px;}
+@media(max-width:380px){.na-performance-options>div{grid-template-columns:1fr;}}
