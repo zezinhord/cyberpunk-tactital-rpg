@@ -5,6 +5,9 @@ import {attachPerformanceDiagnostics} from "../game/performance-diagnostics";
 import { InteriorScene, INTERIOR_VIEW_HEIGHT, INTERIOR_VIEW_WIDTH, type InteriorId } from "../game/baixada/InteriorScene";
 import {SewerScene} from "../game/baixada/SewerScene";
 import {FerrugemScene} from "../game/ferrugem/FerrugemScene";
+import {DistrictScene} from "../game/districts/DistrictScene";
+import {isDistrictId,type NodeSlot} from "../game/districts/catalog";
+import {loadDistrictPosition,saveDistrictPosition} from "../game/districts/positions";
 import {isSewerId} from "../game/baixada/sewer-layout";
 import type {SewerProgress} from "../game/story/sewer-v09";
 import type { OriginId } from "../game/character";
@@ -18,6 +21,8 @@ export default function InteriorWorld({
   sewerProgress,
   returnFromDeep=false,
   ferrugemTargetId=null,
+  districtTarget=null,
+  characterId,
 }: {
   interior: InteriorId;
   originId: OriginId;
@@ -26,16 +31,29 @@ export default function InteriorWorld({
   sewerProgress: SewerProgress;
   returnFromDeep?: boolean;
   ferrugemTargetId?:string|null;
+  districtTarget?:NodeSlot|null;
+  characterId:string;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<InteriorScene | SewerScene | FerrugemScene | null>(null);
+  const sceneRef = useRef<InteriorScene | SewerScene | FerrugemScene | DistrictScene | null>(null);
   const callbackRef = useRef(onInteract);
   callbackRef.current = onInteract;
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const scene = interior==="ferrugem"
+    let lastCheckpoint=0;
+    const scene = isDistrictId(interior)
+      ? new DistrictScene(interior,(id)=>callbackRef.current(id),originId,
+          appearance,districtTarget,loadDistrictPosition(characterId,interior),
+          (tile,settled=false)=>{
+            const now=Date.now();
+            if(settled||now-lastCheckpoint>1200){
+              saveDistrictPosition(characterId,interior,tile);
+              lastCheckpoint=now;
+            }
+          })
+      : interior==="ferrugem"
        ? new FerrugemScene((id)=>callbackRef.current(id),originId,appearance,ferrugemTargetId)
       : isSewerId(interior)
       ? new SewerScene(interior,(id)=>callbackRef.current(id),originId,appearance,
@@ -54,14 +72,16 @@ export default function InteriorWorld({
     });
     const detachDiagnostics=attachPerformanceDiagnostics(game,interior);
     return () => { detachDiagnostics(); sceneRef.current = null; game.destroy(true); };
-  }, [interior, originId,returnFromDeep]);
+  }, [interior, originId,returnFromDeep,characterId]);
 
   useEffect(() => { sceneRef.current?.setAppearance(appearance); }, [appearance]);
   useEffect(()=>{if(sceneRef.current instanceof SewerScene)sceneRef.current.setProgress(sewerProgress);},[sewerProgress]);
   useEffect(()=>{if(sceneRef.current instanceof FerrugemScene)sceneRef.current.setObjective(ferrugemTargetId);},[ferrugemTargetId]);
+  useEffect(()=>{if(sceneRef.current instanceof DistrictScene)sceneRef.current.setObjective(districtTarget);},[districtTarget]);
 
   return <div className={`baixada-world interior-world ${interior}`} ref={hostRef} aria-label={interior === "clinic" ? "Interior isométrico da clínica comunitária" : interior === "workshop" ? "Interior isométrico da oficina do Nilo" : interior === "canal" ? "Interior isométrico da Galeria do Canal"
    : interior === "sewer-drain" ? "Galeria de Drenagem Sul subterrânea, isométrica e caminhável"
    : interior === "ferrugem" ? "Distrito Ferrugem industrial, isométrico e caminhável"
+   : isDistrictId(interior) ? "Distrito "+interior+" explorável, com missões e NPCs interativos"
    : "Câmara de Recalque 04 subterrânea, isométrica e caminhável"} />;
 }

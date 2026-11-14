@@ -644,6 +644,7 @@ export class BaixadaScene extends Phaser.Scene {
       { id: "enter-sewer-drain", name: "Descer ao esgoto sul", kind: "door", tile: ACTOR_TILES["enter-sewer-drain"], role: "GALERIA DE DRENAGEM · -01" },
       { id: "enter-sewer-deep", name: "Acesso à câmara 04", kind: "door", tile: ACTOR_TILES["enter-sewer-deep"], role: "SAÍDA DA CÂMARA · -02" },
       { id: "enter-ferrugem", name: "Transporte para Ferrugem", kind: "door", tile: ACTOR_TILES["enter-ferrugem"], role: "DISTRITO INDUSTRIAL · TRANSFERÊNCIA" },
+      { id: "enter-city-transit", name: "Terminal interdistrital", kind: "door", tile: ACTOR_TILES["enter-city-transit"], role: "SETE DISTRITOS · TRANSPORTE" },
       { id: "terminal-canal", name: "Terminal do Canal", kind: "terminal", tile: ACTOR_TILES["terminal-canal"], role: "SERVIÇOS DO DISTRITO" },
       { id: "patio-console", name: "Console V-09", kind: "terminal", tile: ACTOR_TILES["patio-console"], role: "PÁTIO DO REÚSO" },
       { id: "patio-sentinel", name: "Sentinela V-09", kind: "person", tile: ACTOR_TILES["patio-sentinel"], texture: NPC_TEXTURES.teo, role: "UNIDADE DE VIGILÂNCIA" },
@@ -681,6 +682,7 @@ export class BaixadaScene extends Phaser.Scene {
           actor.id==="enter-sewer-drain"?"ESGOTO SUL · DESCER":
           actor.id==="enter-sewer-deep"?"SAÍDA DO ESGOTO · -02":
           actor.id==="enter-ferrugem"?"FERRUGEM · TRANSPORTE":
+          actor.id==="enter-city-transit"?"CENTRAL · DISTRITOS":
           "OFICINA · ENTRAR";
         actor.label = this.add.text(point.x, point.y - 48, doorLabel, {
           fontFamily: "IBM Plex Mono, monospace", fontSize: "12px", color: "#ffe0a8", backgroundColor: "#151c1ddd", padding: { x: 4, y: 2 },
