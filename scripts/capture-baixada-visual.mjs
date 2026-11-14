@@ -226,6 +226,23 @@ try {
   if(!relocated)throw new Error("QA industrial: personagem salvo não encontrado.");
   await send("Page.navigate",{url:URL});
   await poll(()=>has(".na-title-option"),"menu para restaurar exploração");
+  // O replay não pode reiniciar a missão nem forçar uma nova criação.
+  await evaluate('document.querySelectorAll(".na-title-option")[3].click();true');
+  await poll(()=>evaluate('Boolean([...document.querySelectorAll(".na-title-modal button")].find(
+    b=>b.textContent?.includes("Rever apresentação")))'),"opção de rever a cutscene");
+  await evaluate('[...document.querySelectorAll(".na-title-modal button")].find(
+    b=>b.textContent?.includes("Rever apresentação")).click();true');
+  await poll(()=>has(".na-opening-screen"),"replay manual do prólogo");
+  await evaluate('document.querySelector(".na-opening-top button").click();true');
+  await poll(()=>has(".na-title-option"),"replay retorna ao menu");
+  const replaySave=await evaluate(`(()=>{
+    const c=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    return {openingSeen:c.openingSeen,introductionCompleted:c.introductionCompleted,
+      classId:c.classId,originId:c.originId};
+  })()`);
+  if(!replaySave.openingSeen||!replaySave.introductionCompleted||
+      replaySave.classId!=="corporativo"||replaySave.originId!=="baixada")
+    throw new Error("Rever apresentação alterou o personagem: "+JSON.stringify(replaySave));
   await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
   await poll(()=>has(".baixada-world canvas"),"mapa industrial restaurado");
   await sleep(2100);
