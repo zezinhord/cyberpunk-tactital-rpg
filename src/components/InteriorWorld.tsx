@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import Phaser from "phaser";
+import {performanceGameConfig} from "../game/performance";
 import { InteriorScene, INTERIOR_VIEW_HEIGHT, INTERIOR_VIEW_WIDTH, type InteriorId } from "../game/baixada/InteriorScene";
 import {SewerScene} from "../game/baixada/SewerScene";
 import {isSewerId} from "../game/baixada/sewer-layout";
@@ -42,7 +43,7 @@ export default function InteriorWorld({
       height: INTERIOR_VIEW_HEIGHT,
       backgroundColor: isSewerId(interior) ? "#07141a" : interior === "clinic" ? "#0e1c20" : interior === "canal" ? "#0b1a20" : "#1c1714",
       scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
-      render: { antialias: true, roundPixels: false },
+      ...performanceGameConfig(),
       scene: [scene],
     });
     return () => { sceneRef.current = null; game.destroy(true); };
