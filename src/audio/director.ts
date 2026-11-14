@@ -1,10 +1,27 @@
-/** Áudio 100% sintetizado durante execução; composição original Nova Arcádia.
- * Nenhum arquivo de terceiros e nenhum áudio remoto. Usuário controla 3 canais.
+/** Paisagem sonora original de Nova Arcádia. A edição integral do APK
+ * distribui 56 faixas Ogg/Opus locais, descarregadas ao trocar de estação.
+ * Fallback procedural leve evita silêncio em dev/Chrome sem codec disponível.
+ * Não há streaming remoto, anúncios ou telemetria.
  */
+import {getSong,isRadioDistrict,isRadioMood,RADIO_MOODS,type RadioDistrict,
+ type RadioMood} from "./soundscapes";
 export type SoundScene="menu"|"exploration"|"interior"|"battle"|"story";
 export type SoundChannel="music"|"effects"|"ambient";
 const KEY="cyberpunk-tactical-rpg.audio.v068.";
 const DEFAULT: Record<SoundChannel,number>={music:0.28,effects:0.48,ambient:0.26};
+const RADIO_KEY="cyberpunk-tactical-rpg.radio.v1.";
+export type RadioMode="auto"|"manual";
+function savedRadioValue(key:string):string|null{
+ try{return globalThis.localStorage?.getItem(RADIO_KEY+key)??null;}
+ catch{return null;}
+}
+function persistRadioValue(key:string,value:string):void{
+ try{globalThis.localStorage?.setItem(RADIO_KEY+key,value);}catch{}
+}
+export interface RadioStatus{
+ mode:RadioMode;district:RadioDistrict;mood:RadioMood;
+ playing:boolean;trackName:string;availableTracks:number;
+}
 export function readVolume(channel:SoundChannel):number {
   try { const raw=globalThis.localStorage?.getItem(KEY+channel);if(raw===null||raw===undefined)return DEFAULT[channel];const v=Number(raw);return Number.isFinite(v)&&v>=0&&v<=1?v:DEFAULT[channel]; }
   catch{return DEFAULT[channel];}
@@ -25,6 +42,16 @@ class SynthDirector {
   private beat=0;
   private previousStep=0;
   private lastEffect=0;
+  private soundtrack:HTMLAudioElement|null=null;
+  private soundtrackURL="";
+  private soundtrackBlocked=false;
+  private district:RadioDistrict="baixada";
+  private radioMode:RadioMode=savedRadioValue("mode")==="manual"?"manual":"auto";
+  private radioDistrict:RadioDistrict=isRadioDistrict(savedRadioValue("district"))
+    ?savedRadioValue("district") as RadioDistrict:"baixada";
+  private radioMood:RadioMood=isRadioMood(savedRadioValue("mood"))
+    ?savedRadioValue("mood") as RadioMood:"exploracao";
+  private rotation=0;
   private readonly volumes:{[K in SoundChannel]:number}={
     music:readVolume("music"),effects:readVolume("effects"),ambient:readVolume("ambient"),
   };
@@ -47,7 +74,25 @@ class SynthDirector {
         this.outputs[key].gain.value=this.volumes[key];
         this.outputs[key].connect(output);
       }
-      this.startScore();
+      try{
+        const audio=new Audio();
+        audio.preload="none";
+        audio.loop=false;
+        audio.volume=this.volumes.music*0.42;
+        audio.onended=()=>{
+          if(this.radioMode==="auto"){
+            this.rotation++;
+          }
+          this.soundtrackURL="";
+          this.switchTrack();
+        };
+        audio.onerror=()=>{
+          this.soundtrackBlocked=true;
+          this.startScore();
+        };
+        this.soundtrack=audio;
+      }catch{/* Fallback síntese procedural. */}
+      this.switchTrack();
     }catch{this.ctx=null;this.outputs=null;}
   }
   getVolume(channel:SoundChannel):number{return this.volumes[channel];}
@@ -57,12 +102,85 @@ class SynthDirector {
     try{globalThis.localStorage?.setItem(KEY+channel,String(v));}catch{}
     const ctx=this.ctx,g=this.outputs?.[channel];
     if(ctx&&g)g.gain.setTargetAtTime(v,ctx.currentTime,0.055);
+    if(channel==="music"&&this.soundtrack){
+      this.soundtrack.volume=v*.42;
+      if(v===0)this.soundtrack.pause();
+      else if(this.soundtrack.paused)this.switchTrack();
+    }
   }
   setScene(scene:SoundScene):void {
     if(scene===this.current)return;
     this.current=scene;
-    this.beat=0;
-    this.startScore();
+    this.beat=0;this.rotation=0;
+    this.switchTrack();
+  }
+  setDistrict(district:RadioDistrict):void{
+    if(this.district===district)return;
+    this.district=district;
+    if(this.radioMode==="auto"){
+      this.rotation=0;
+      this.switchTrack();
+    }
+  }
+  getRadioStatus():RadioStatus{
+    const district=this.radioMode==="manual"?this.radioDistrict:this.district;
+    const mood=this.radioMode==="manual"?this.radioMood:this.automaticMood();
+    return {mode:this.radioMode,district,mood,
+      playing:!!this.soundtrack&&!this.soundtrack.paused&&!this.soundtrackBlocked,
+      trackName:getSong(district,mood).name,availableTracks:56};
+  }
+  setRadioStation(district:RadioDistrict,mood:RadioMood):void{
+    if(!isRadioDistrict(district)||!isRadioMood(mood))return;
+    this.radioMode="manual";
+    this.radioDistrict=district;this.radioMood=mood;
+    persistRadioValue("mode","manual");
+    persistRadioValue("district",district);
+    persistRadioValue("mood",mood);
+    this.rotation=0;this.switchTrack();
+  }
+  setRadioAutomatic():void{
+    this.radioMode="auto";
+    persistRadioValue("mode","auto");
+    this.rotation=0;this.switchTrack();
+  }
+  private automaticMood():RadioMood{
+    const moods:readonly RadioMood[]=this.current==="menu"
+      ? ["abertura","memorias"]
+      : this.current==="battle" ? ["confronto","perseguicao"]
+      : this.current==="story" ? ["revelacao","memorias"]
+      : this.current==="interior" ? ["investigacao","contatos"]
+      : ["exploracao","contatos","investigacao","memorias"];
+    return moods[this.rotation%moods.length]??"exploracao";
+  }
+  private stopSynthScore():void{
+    if(this.timer!==null&&typeof window!=="undefined")window.clearInterval(this.timer);
+    this.timer=null;
+  }
+  private switchTrack():void{
+    if(!this.ctx||!this.soundtrack)return;
+    const district=this.radioMode==="manual"?this.radioDistrict:this.district;
+    const mood=this.radioMode==="manual"?this.radioMood:this.automaticMood();
+    const url=getSong(district,mood).url;
+    const audio=this.soundtrack;
+    if(this.soundtrackURL!==url){
+      audio.pause();
+      audio.src=url;
+      this.soundtrackURL=url;
+      this.soundtrackBlocked=false;
+    }
+    if(this.volumes.music===0){audio.pause();this.stopSynthScore();return;}
+    try{
+      const promise=audio.play();
+      if(promise)void promise.then(()=>{
+        if(this.soundtrack===audio&&!audio.paused)this.stopSynthScore();
+      }).catch(()=>{
+        this.soundtrackBlocked=true;
+        this.startScore();
+      });
+    }catch{
+      this.soundtrackBlocked=true;
+      this.startScore();
+    }
   }
   private tone(channel:SoundChannel,freq:number,duration:number,kind:OscillatorType,level:number):void {
     const ctx=this.ctx,output=this.outputs?.[channel];
@@ -77,7 +195,8 @@ class SynthDirector {
   }
   private startScore():void {
     if(typeof window==="undefined"||!this.ctx)return;
-    if(this.timer!==null)window.clearInterval(this.timer);
+    this.stopSynthScore();
+    if(this.soundtrack&&!this.soundtrack.paused)return;
     const score=SCORES[this.current];
     this.timer=window.setInterval(()=>{
       const cur=SCORES[this.current];
