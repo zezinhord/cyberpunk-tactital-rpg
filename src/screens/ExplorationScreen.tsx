@@ -652,7 +652,6 @@ export default function ExplorationScreen({
             appearance={appearance}
             onInteract={handleInteract}
             sewerProgress={sewer}
-          ferrugemProgress={ferrugem}
             returnFromDeep={returnFromDeep}
           />
         ) : (
@@ -871,6 +870,7 @@ export default function ExplorationScreen({
           missionStep={mission.step}
           missionObjective={objective}
           sewerProgress={sewer}
+          ferrugemProgress={ferrugem}
           clues={mission.clues.map((id) => ({ id, text: CLUE_LABELS[id] ?? "Pista registrada." }))}
           sceneTitle={sceneTitle}
           sceneSubtitle={sceneSubtitle}
