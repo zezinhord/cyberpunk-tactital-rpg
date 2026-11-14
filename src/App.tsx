@@ -31,6 +31,9 @@ import { markV09Defeated,grantV09Experience } from "./game/story/v09";
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity} from "./game/character/slots";
 import {exportCharacterBackup,importCharacterBackup} from "./game/character/backup";
 import {loadHealth,saveHealth,healAtClinic} from "./game/combat/health";
+import {combatProgression,gainExperience,purchaseAttribute,purchaseSkill,
+  type StatId} from "./game/progression/tree";
+import {advanceTrialBattle,isTrialEncounter,readTrial,saveTrial,reconcileTrial} from "./game/story/field-test";
 
 function getUnit(state: GameState, id: string): Unit | undefined {
   return state.units.find((unit) => unit.id === id);
@@ -215,12 +218,15 @@ export default function App() {
   const [saveMessage, setSaveMessage] = useState("Salvamento local ativo");
   const [healthValue,setHealthValue]=useState(()=>{
     const saved=loadCharacter();
-    return loadHealth(saved?.id??"",18+(saved?getOriginGameplay(saved.originId).maxHpBonus:0));
+    return loadHealth(saved?.id??"",18+(saved?getOriginGameplay(saved.originId).maxHpBonus:0)+combatProgression(saved).hp);
   });
 
   const originProfile = useMemo(() => character ? getOriginGameplay(character.originId) : undefined, [character?.originId]);
+  const progressionBonuses=combatProgression(character);
+  const maximumHp=18+(originProfile?.maxHpBonus??0)+progressionBonuses.hp;
   const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,
-    currentHp:loadHealth(character?.id??"",18+(originProfile?.maxHpBonus??0)),encounterId:battleMode }), [character?.id, battleReset, battleMode, originProfile, bonuses]);
+    currentHp:loadHealth(character?.id??"",maximumHp),
+    progressionBonuses:combatProgression(character),encounterId:battleMode }), [character?.id, battleReset, battleMode, originProfile, bonuses]);
   const [state, setState] = useState<GameState>(() => manager.getState());
   const player = getUnit(state, "runner");
   const enemy = getUnit(state, "drone");
@@ -246,8 +252,57 @@ export default function App() {
     setBattleReset((n)=>n+1);
     setScreen("battle");
   };
+  const grantTrialXp=(eventId:string,amount:number):boolean=>{
+    if(!character)return false;
+    if(character.questRewards.includes(eventId))return true;
+    const next=gainExperience(character,amount);
+    const updated={...next.character,questRewards:[...character.questRewards,eventId]};
+    if(!saveCharacter(updated)){setSaveMessage("Erro ao gravar XP. Verifique o espaço disponível.");return false;}
+    setCharacter(updated);
+    setSlots(listCharacterSlots());
+    setSaveMessage(next.levelsGained>0
+      ? "SUBIU DE NÍVEL! Nível "+updated.level+" · Abra a Árvore na Central do Personagem."
+      : "+"+amount+" XP pela Operação Circuito Fantasma.");
+    return true;
+  };
+  const buyAttribute=(id:StatId):string=>{
+    if(!character)return "Nenhum personagem ativo.";
+    const purchase=purchaseAttribute(character,id);
+    if(!purchase.ok)return purchase.message;
+    if(!saveCharacter(purchase.character))return "Falha ao salvar o atributo.";
+    setCharacter(purchase.character);
+    setSlots(listCharacterSlots());
+    const hp=18+getOriginGameplay(character.originId).maxHpBonus+combatProgression(purchase.character).hp;
+    setHealthValue(loadHealth(character.id,hp));
+    return purchase.message;
+  };
+  const buySkill=(id:string):string=>{
+    if(!character)return "Nenhum personagem ativo.";
+    const purchase=purchaseSkill(character,id);
+    if(!purchase.ok)return purchase.message;
+    if(!saveCharacter(purchase.character))return "Falha ao salvar a habilidade.";
+    setCharacter(purchase.character);
+    setSlots(listCharacterSlots());
+    return purchase.message;
+  };
+
   useEffect(()=>{
-    if(screen!=="battle" || !character || state.encounterId!=="v09" || !state.combatComplete)return;
+    if(screen!=="battle" || !character || !state.combatComplete)return;
+    const enemyDefeated=state.units.find(u=>u.id==="drone")?.hp===0;
+    if(enemyDefeated && isTrialEncounter(state.encounterId)){
+      const stored=readTrial(character.id);
+      const progress=reconcileTrial(stored,character.questRewards);
+      const next=advanceTrialBattle(progress,state.encounterId);
+      if(next.advanced&&next.completedStep){
+        const key="trial-"+next.completedStep.id;
+        if(grantTrialXp(key,next.completedStep.xp)){
+          saveTrial(character.id,next.progress);
+          audioDirector.effect("victory");
+        }
+      }
+      return;
+    }
+    if(state.encounterId!=="v09")return;
     const defeated=state.units.find(u=>u.id==="drone")?.hp===0;
     if(!defeated)return;
     const reward=grantV09Experience(character);
@@ -262,6 +317,9 @@ export default function App() {
     if(saveCharacter(reward.character)){
       markV09Defeated(character.id);
       setCharacter(reward.character);
+      setSlots(listCharacterSlots());
+      if(reward.character.level>character.level)
+        setSaveMessage("Nível "+reward.character.level+"! Pontos disponíveis na árvore de evolução.");
       audioDirector.effect("victory");
     }else{
       setSaveMessage("Falha ao salvar recompensa V-09. Libere espaço no aparelho.");
@@ -329,7 +387,7 @@ export default function App() {
     setCharacter(selected);
     setAppearance(loadTestAppearance(selected.id));
     setInventory(loadInventory(selected.id));
-    setHealthValue(loadHealth(selected.id,18+getOriginGameplay(selected.originId).maxHpBonus));
+    setHealthValue(loadHealth(selected.id,18+getOriginGameplay(selected.originId).maxHpBonus+combatProgression(selected).hp));
     setSlots(listCharacterSlots());
     setScreen(selected.introductionCompleted?"exploration":"introduction");
   };
@@ -374,13 +432,13 @@ export default function App() {
       setSlots(listCharacterSlots());
       setInventory(loadInventory(selected?.id??""));
       setAppearance(loadTestAppearance(selected?.id??""));
-      setHealthValue(loadHealth(selected?.id??"",18+(selected?getOriginGameplay(selected.originId).maxHpBonus:0)));
+      setHealthValue(loadHealth(selected?.id??"",18+(selected?getOriginGameplay(selected.originId).maxHpBonus+combatProgression(selected).hp:0)));
       return result.message;
     }catch(e){return "Erro ao importar backup: "+(e instanceof Error?e.message:"arquivo inválido");}
   };
   const treatAtClinic=():number=>{
     if(!character)return 0;
-    const max=18+getOriginGameplay(character.originId).maxHpBonus;
+    const max=18+getOriginGameplay(character.originId).maxHpBonus+combatProgression(character).hp;
     const current=loadHealth(character.id,max);
     if(!healAtClinic(character.id,max))return 0;
     setHealthValue(max);
@@ -420,10 +478,13 @@ export default function App() {
         appearance={appearance}
         onChangeAppearance={chooseAppearance}
         onChooseClass={assignExistingClass}
+        onPurchaseAttribute={buyAttribute}
+        onPurchaseSkill={buySkill}
+        onQuestXp={grantTrialXp}
         onOpenBattle={beginBattle}
         onTreatAtClinic={treatAtClinic}
         currentHp={healthValue}
-        maxHp={18+originProfile.maxHpBonus}
+        maxHp={maximumHp}
         onReturnToTitle={() => setScreen("title")}
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
@@ -437,8 +498,12 @@ export default function App() {
     <main className="app-shell game-shell arena-v030">
       <header className="topbar arena-head">
         <div className="mission">
-          <h1>{battleMode==="v09" ? "Pátio do Reúso · Encontro V-09" : "Limbo de Teste · Personagens e Habilidades"}</h1>
-          <p>{battleMode==="v09" ? "MISSÃO PRINCIPAL · O NOME QUE SUMIU" : "Operativo de Campo // módulo experimental 0.3.0"}</p>
+          <h1>{battleMode==="v09"?"Pátio do Reúso · Encontro V-09":
+            isTrialEncounter(battleMode)?"Operação Circuito Fantasma · Interceptação":
+            "Limbo de Teste · Personagens e Habilidades"}</h1>
+          <p>{battleMode==="v09"?"MISSÃO PRINCIPAL · O NOME QUE SUMIU":
+            isTrialEncounter(battleMode)?"CAMPANHA TÁTICA · "+state.wave+" / "+state.totalWaves+" ONDAS":
+            "Operativo de Campo // módulo experimental 0.3.0"}</p>
         </div>
         <div className="turn">
           <span className="turn-pill" data-side={state.activeSide}>
@@ -456,7 +521,8 @@ export default function App() {
           </div>
         </div>
         <section className="battle-panel" aria-label="Combate tático isométrico">
-          <div className="map-label"><span>{battleMode==="v09" ? "UNIDADE HOSTIL · V-09" : "SIMULAÇÃO 01 · 8 × 8"}</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
+          <div className="map-label"><span>{battleMode==="v09"?"UNIDADE HOSTIL · V-09":
+             isTrialEncounter(battleMode)?"ONDA "+state.wave+" DE "+state.totalWaves+" · 8 × 8":"SIMULAÇÃO 01 · 8 × 8"}</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
           <Battlefield manager={manager} appearance={appearance} originId={character.originId} />
           <p className="board-hint">{getHint(state, canAttack)}</p>
         </section>
@@ -493,7 +559,9 @@ export default function App() {
               </button>;
             }) : <span className="arena-quick-empty">Sem poder de classe desbloqueado · selecione uma classe na Central</span>}
           </div>
-          {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? (battleMode==="v09" ? "V-09 neutralizada · registros recuperados" : "Sentinela neutralizada") : "Operativo incapacitado"}</div>}
+          {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? (battleMode==="v09" ? "V-09 neutralizada · registros recuperados"
+              : isTrialEncounter(battleMode)?"Interceptação vencida · campanha continua"
+              :"Sentinela neutralizada") : "Operativo incapacitado"}</div>}
           <div className="economy">
             <div className="eco move">Mover<span className="pips" aria-hidden="true">{Array.from({ length: state.movementPerTurn }, (_, index) => <i key={index} className={index < state.movementRemaining ? "on" : undefined} />)}</span><b>{state.movementRemaining}/{state.movementPerTurn}</b></div>
             <ActionChip label="Principal" ready={state.mainActionAvailable} />
