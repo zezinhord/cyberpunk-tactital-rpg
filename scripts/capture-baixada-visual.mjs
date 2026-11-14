@@ -184,6 +184,25 @@ try {
     throw new Error("Viewport Phaser inválido: " + JSON.stringify(metrics));
   }
 
+  // Teclas rápidas simulam novo comando enquanto o tween do primeiro
+  // movimento ainda está em andamento. Anteriormente o segundo era ignorado.
+  await evaluate('document.querySelector(".baixada-world canvas")?.focus();true');
+  const moveKey=async()=>{
+    await send("Input.dispatchKeyEvent",{
+      type:"keyDown",key:"d",code:"KeyD",windowsVirtualKeyCode:68,nativeVirtualKeyCode:68});
+    await send("Input.dispatchKeyEvent",{
+      type:"keyUp",key:"d",code:"KeyD",windowsVirtualKeyCode:68,nativeVirtualKeyCode:68});
+  };
+  await moveKey();
+  await sleep(35);
+  await moveKey();
+  await poll(()=>evaluate(`(()=>{
+    const save=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    const point=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.world-location.v068."+save.id)??"null");
+    return point?.x===8&&point?.y===9;
+  })()`),"dois passos com redirecionamento durante a caminhada",50);
+  console.log("QA movimentação: segundo comando aceito durante tween e posição final persistida.");
+
   const shot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   const bytes = Buffer.from(shot.data, "base64");
   if (bytes.length < 15000) throw new Error("Captura PNG pequena ou vazia: " + bytes.length + " bytes.");
