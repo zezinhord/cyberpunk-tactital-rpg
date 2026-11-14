@@ -15,8 +15,39 @@ export interface Unit extends Position {
   attackBonus: number;
 }
 
+import type { SpecialId } from "./abilities/catalog";
+
+export type CombatVisual = "basic" | "hit" | "miss" | "move" | "emp" | "shield" | "repair" | "terminal";
+export interface CombatCue { sequence: number; visual: CombatVisual; target: "player" | "enemy" | "terminal"; amount?: number }
+
+export type EncounterId="test"|"v09"|"trial-1"|"trial-2"|"trial-3";
 export interface GameState {
   units: Unit[];
+  archetypeId: string;
+  characterLevel: number;
+  originId: string;
+  classId: string | null;
+  characterAbilities: readonly string[];
+  classCooldowns: Record<string,number>;
+  classGuardBonus: number;
+  classGuardTurns: number;
+  classExtraMovement: number;
+  classNextDamageBonus: number;
+  classNextAccuracyBonus: number;
+  classEnemyArmorReduction: number;
+  classEnemyArmorTurns: number;
+  classEnemyAttackReduction: number;
+  classEnemyAttackTurns: number;
+  encounterId: EncounterId;
+  wave:number;
+  totalWaves:number;
+  energy: number;
+  maxEnergy: number;
+  cooldowns: Record<SpecialId, number>;
+  barrierTurns: number;
+  enemyJamTurns: number;
+  terminalUsed: boolean;
+  cue: CombatCue | null;
   activeSide: Side;
   round: number;
   movementRemaining: number;

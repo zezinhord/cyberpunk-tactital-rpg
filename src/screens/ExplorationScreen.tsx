@@ -1,18 +1,44 @@
 import { useEffect, useState } from "react";
 import BaixadaWorld from "../components/BaixadaWorld";
 import InteriorWorld from "../components/InteriorWorld";
-import { getOriginById } from "../game/character";
+import { getOriginById, getOriginGameplay } from "../game/character";
+import CharacterMenu from "../components/CharacterMenu";
+import type { InventoryState, ItemId } from "../game/inventory";
 import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
+import type { TestAppearance } from "../game/test-arena/appearance";
+import { audioDirector } from "../audio/director";
+import type {ClassId} from "../game/classes/registry";
+import type {EncounterId} from "../game/types";
+import {statRank,type StatId} from "../game/progression/tree";
+import {ESTIMATED_MINUTES,TRIAL_STEPS,readTrial,saveTrial,startTrial,
+ currentTrialStep,trialCombatForActor,advanceTrial,reconcileTrial} from "../game/story/field-test";
+import { isPatioCitizen, getPatioConversation, type ConversationOption } from "../game/dialogues/patio";
+import { readV09,markV09Reported } from "../game/story/v09";
+import { MARKET_CLUE_TEXT,applyMarketAction,getMarketConversation,isMarketActor,readMarket,saveMarket } from "../game/story/market";
+import { getSectorById,sectorAt,type SectorId } from "../game/baixada/layout";
+import { loadWorldLocation } from "../game/baixada/location";
 
 type MissionStep = 0 | 1 | 2 | 3;
 interface MissionProgress { step: MissionStep; clues: string[] }
-interface DialoguePage { speaker: string; role: string; portrait: string; text: string }
+interface DialoguePage { speaker: string; role: string; portrait: string; text: string; choices?: readonly ConversationOption[] }
 interface DialogueState { pages: DialoguePage[]; index: number }
 interface Props {
   character: PlayerCharacter;
-  onOpenBattle: () => void;
-  onOpenMenu: () => void;
+  appearance: TestAppearance;
+  onChangeAppearance: (appearance: TestAppearance) => void;
+  onChooseClass: (classId: ClassId) => void;
+  onPurchaseAttribute:(id:StatId)=>string;
+  onPurchaseSkill:(id:string)=>string;
+  onQuestXp:(eventId:string,amount:number)=>boolean;
+  onOpenBattle: (mode?: EncounterId) => void;
+  onTreatAtClinic: () => number;
+  currentHp: number;
+  maxHp: number;
+  onReturnToTitle: () => void;
+  inventory: InventoryState;
+  onToggleEquipment: (id: ItemId) => void;
+  onGrantQuestItem: (id: ItemId) => void;
 }
 
 const MISSION_KEY = "cyberpunk-tactical-rpg.mission.v1.";
@@ -29,6 +55,12 @@ const CLUE_LABELS: Record<string, string> = {
   canal: "O terminal público registra uma sequência de manutenção fora do horário normal.",
   teo: "Téo viu uma equipe entrar na galeria técnica durante uma janela de manutenção não anunciada.",
   gallery: "O registro da galeria confirma que a ocorrência V-09 foi encaminhada por uma rota de serviço.",
+  lia: "Lia confirmou o manifesto V-09 adulterado na rede de bombas.",
+  ramon: "Ramon identificou credenciais indevidas nos equipamentos de manutenção.",
+  duda: "Duda registrou testemunho do transporte de uma pessoa doente.",
+  patio: "O console do Pátio identificou a unidade de vigilância que interceptou a transferência V-09.",
+  report: "Lia recebeu o relatório da sentinela neutralizada e reabriu os registros da cooperativa.",
+  ...MARKET_CLUE_TEXT,
 };
 
 function readMission(characterId: string): MissionProgress {
@@ -61,20 +93,53 @@ function saveMission(characterId: string, progress: MissionProgress): void {
 
 export default function ExplorationScreen({
   character,
+  appearance,
+  onChangeAppearance,
+  onChooseClass,
+  onPurchaseAttribute,
+  onPurchaseSkill,
+  onQuestXp,
   onOpenBattle,
-  onOpenMenu,
+  onTreatAtClinic,
+  currentHp,
+  maxHp,
+  onReturnToTitle,
+  inventory,
+  onToggleEquipment,
+  onGrantQuestItem,
 }: Props) {
   const origin = getOriginById(character.originId);
   const [mission, setMission] = useState<MissionProgress>(() => readMission(character.id));
   const [interior, setInterior] = useState<InteriorId | null>(null);
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
+  const [missionOpen, setMissionOpen] = useState(true);
+  const [hubOpen, setHubOpen] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [market,setMarket]=useState(()=>readMarket(character.id));
+  const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));
+  const [trialNotice,setTrialNotice]=useState("");
+  const [sectorId,setSectorId]=useState<SectorId>(()=>sectorAt(loadWorldLocation(character.id)));
+  useEffect(()=>{audioDirector.setScene(interior?"interior":"exploration");},[interior]);
 
   useEffect(() => {
     saveMission(character.id, mission);
   }, [character.id, mission]);
+  useEffect(()=>{saveMarket(character.id,market);},[character.id,market]);
 
   const say = (pages: DialoguePage[]) => setDialogue({ pages, index: 0 });
+  const v09=readV09(character.id);
+  const objective = mission.step<3 ? ((OBJECTIVES as readonly string[])[mission.step] ?? OBJECTIVES[0])
+    : v09.reported ? (market.decisions.includes("mercado-publicar")
+        ? "O dossiê comunitário foi publicado. Proteja as testemunhas da feira enquanto a Helix contesta a autoria."
+        : market.decisions.includes("mercado-proteger")
+        ? "As provas estão preservadas fora da rede. Investigue a autoria da triagem antes de expor os moradores."
+        : market.clues.length>=2
+        ? "As provas revelam uma triagem contestada. Retorne ao mural e decida se vai publicá-las ou protegê-las."
+        : "Investigue o Mercado dos Cabos: fale com moradores, consulte o mural e siga as informações sobre o Projeto Éden.")
+    : v09.defeated ? "Retorne a Lia para entregar os registros recuperados da unidade V-09."
+    : mission.clues.includes("patio") ? "Confronte a unidade de vigilância V-09 junto ao console do Pátio."
+    : "Explore o Pátio do Reúso, converse com seus moradores e consulte o console V-09.";
   const addClue = (id: string) => {
     setMission((current) =>
       current.clues.includes(id)
@@ -84,6 +149,25 @@ export default function ExplorationScreen({
   };
 
   const handleInteract = (id: string) => {
+    const campaignBattle=trialCombatForActor(trial,id);
+    if(campaignBattle){
+      setTrialNotice("Interceptação iniciada · a recompensa é concedida apenas após vencer todas as ondas.");
+      onOpenBattle(campaignBattle);
+      return;
+    }
+    const progress=advanceTrial(trial,id);
+    if(progress.advanced&&progress.completedStep){
+      const stage=progress.completedStep;
+      if(onQuestXp("trial-"+stage.id,stage.xp)&&saveTrial(character.id,progress.progress)){
+        setTrial(progress.progress);
+        setTrialNotice("Objetivo concluído: "+stage.title+" · +"+stage.xp+" XP. "
+          +(progress.progress.completed?"OPERAÇÃO CONCLUÍDA!":"Próxima tarefa liberada."));
+        audioDirector.effect("victory");
+      }else{
+        setTrialNotice("Não foi possível salvar a etapa. Confira o armazenamento do dispositivo.");
+      }
+    }
+    audioDirector.effect(id.startsWith("enter-")||id==="exit-interior"?"door":id.startsWith("terminal")||id.includes("console")?"terminal":"interact");
     if (id === "enter-clinic") {
       setInterior("clinic");
       return;
@@ -98,6 +182,46 @@ export default function ExplorationScreen({
     }
     if (id === "exit-interior") {
       setInterior(null);
+      return;
+    }
+
+    if(isMarketActor(id)){
+      const node=getMarketConversation(id,character.classId,market,v09.reported,character.originId);
+      say([{speaker:node.speaker,role:node.role,portrait:node.portrait,
+        text:node.text,choices:node.choices}]);
+      return;
+    }
+    if(isPatioCitizen(id)){
+      if(v09.defeated && id==="lia" && markV09Reported(character.id)){
+        addClue("report");
+        say([{speaker:"Lia",role:"OPERADORA DAS BOMBAS",portrait:"L",
+          text:"Os registros estavam com a unidade. Agora podemos provar que a autorização não veio da cooperativa. O pessoal do Pátio vai manter uma cópia fora da rede oficial. Você nos deu tempo para agir."}]);
+        return;
+      }
+      const node=getPatioConversation(id,character.originId,v09.defeated);
+      say([{speaker:node.speaker,role:node.role,portrait:node.portrait,text:node.text,choices:node.choices}]);
+      return;
+    }
+    if(id==="patio-console"){
+      if(mission.step<3){
+        say([{speaker:"CONSOLE DE TRIAGEM",role:"REDE DO PÁTIO",portrait:"▤",
+          text:"Registro protegido. Consulte a clínica e recupere a referência V-09 antes de abrir o histórico do Pátio."}]);
+      }else{
+        addClue("patio");
+        say([{speaker:"CONSOLE DE TRIAGEM",role:"REDE DO PÁTIO",portrait:"▤",
+          text:v09.defeated ? "Registros recuperados. A cooperativa reabriu a conexão de manutenção com a Galeria do Canal."
+            :"LOG V-09: transferência interceptada por unidade de vigilância não cadastrada na cooperativa. O sistema aponta uma credencial experimental, mas sua origem é inconclusiva. A unidade ainda bloqueia o acesso."}]);
+      }
+      return;
+    }
+    if(id==="patio-sentinel"){
+      if(v09.defeated){
+        say([{speaker:"UNIDADE V-09",role:"SISTEMA DESATIVADO",portrait:"✕",text:"A unidade não responde. O registro do encontro permanece associado a este protagonista."}]);return;
+      }
+      if(mission.step<3 || !mission.clues.includes("patio")){
+        say([{speaker:"UNIDADE V-09",role:"VIGILÂNCIA NÃO AUTORIZADA",portrait:"!",text:"IDENTIFICAÇÃO PENDENTE. Recupere os registros da clínica e consulte o console do Pátio."}]);return;
+      }
+      onOpenBattle("v09");
       return;
     }
 
@@ -197,12 +321,13 @@ export default function ExplorationScreen({
 
     if (id === "vendedor") {
       addClue("nilo");
+      onGrantQuestItem("conector_reuso");
       say([
         {
           speaker: "Nilo",
           role: "MECÂNICO / VENDEDOR",
           portrait: "N",
-          text: "Se está procurando peças, tenho algumas recuperadas. Mas essa marca no conector... já vi em equipamento de manutenção do canal. Não é coisa de oficina comum.",
+          text: "Encontrei um conector com marcação de manutenção do canal. Pode ficar com a peça; talvez ajude a entender o que aconteceu. Não é equipamento de oficina comum.",
         },
       ]);
       return;
@@ -283,6 +408,21 @@ export default function ExplorationScreen({
     ]);
   };
 
+  const selectAnswer=(choice:ConversationOption)=>{
+    if(choice.marketAction){
+      const result=applyMarketAction(market,choice.marketAction,character.classId,v09.reported,
+        statRank(character,"influencia"));
+      if(result.applied){
+        setMarket(result.state);
+        if(result.clue)addClue(result.clue);
+      }
+    }
+    if(choice.clue)addClue(choice.clue);
+    const current=dialogue?.pages[dialogue.index];
+    if(!current)return;
+    audioDirector.effect("interact");
+    say([{speaker:current.speaker,role:current.role,portrait:current.portrait,text:choice.reply}]);
+  };
   const currentDialogue = dialogue?.pages[dialogue.index] ?? null;
   const sceneTitle = interior === "clinic"
     ? "Clínica comunitária"
@@ -290,14 +430,14 @@ export default function ExplorationScreen({
       ? "Oficina do Nilo"
       : interior === "canal"
         ? "Galeria do Canal"
-        : "Baixada";
+        : getSectorById(sectorId).name;
   const sceneSubtitle = interior === "clinic"
     ? "RECEPÇÃO / TRIAGEM"
     : interior === "workshop"
       ? "REPAROS / COMÉRCIO INFORMAL"
       : interior === "canal"
         ? "ACESSO TÉCNICO / CANAL SUL"
-        : "CANAL SUL // MERCADO DA PONTE";
+        : getSectorById(sectorId).description.toUpperCase();
 
   return (
     <main className="exploration-shell">
@@ -307,10 +447,20 @@ export default function ExplorationScreen({
           <h1>{sceneTitle}</h1>
           <span>{sceneSubtitle}</span>
         </div>
-        <div className="district-status">
-          <span className="signal-dot" />
-          <strong>REDE LOCAL</strong>
-          <span>SETOR 04 · BAIXADA</span>
+        <div className="explore-header-actions">
+          <span className="na-explore-health" aria-label={"Vida: "+currentHp+" de "+maxHp}>
+            VIDA <strong>{currentHp}/{maxHp}</strong>
+          </span>
+          <div className="district-status">
+            <span className="signal-dot" />
+            <strong>REDE LOCAL</strong>
+            <span>{getSectorById(sectorId).type.toUpperCase()} · {market.heat>2?"ATENÇÃO ELEVADA":"REDE LOCAL"}</span>
+          </div>
+          <button type="button" className="menu-trigger" onClick={() => setMenuOpen(true)} aria-label="Abrir menu do protagonista">
+            <span className="menu-trigger-mark" aria-hidden="true">≡</span>
+            <span className="menu-trigger-copy"><small>ARQUIVO</small><strong>PERSONAGEM</strong></span>
+            <span className="menu-trigger-arrow" aria-hidden="true">›</span>
+          </button>
         </div>
       </header>
 
@@ -321,7 +471,7 @@ export default function ExplorationScreen({
         <div className="explorer-character-data">
           <span className="eyebrow">PROTAGONISTA · NÍVEL {character.level}</span>
           <strong>{character.name}</strong>
-          <small>{origin.name}</small>
+          <small>{origin.name} · {getSectorById(sectorId).name}</small>
         </div>
         <div className="district-clock">
           <span>18:40</span>
@@ -338,10 +488,12 @@ export default function ExplorationScreen({
           <InteriorWorld
             interior={interior}
             originId={character.originId}
+            appearance={appearance}
             onInteract={handleInteract}
           />
         ) : (
-          <BaixadaWorld originId={character.originId} onInteract={handleInteract} />
+          <BaixadaWorld originId={character.originId} appearance={appearance} characterId={character.id}
+            onSectorChange={setSectorId} onInteract={handleInteract} />
         )}
         <div className="world-instructions">
           <span className="instruction-glyph">⌖</span>
@@ -358,27 +510,45 @@ export default function ExplorationScreen({
         )}
       </section>
 
-      <section className="mission-card" aria-label="Missão atual">
+      <aside className={"na-mission-hub"+(hubOpen?"":" collapsed")} aria-label="Próximas missões e objetivos">
+        <button className="na-hub-toggle" type="button" onClick={()=>setHubOpen(open=>!open)}
+          aria-expanded={hubOpen} aria-controls="na-mission-details">
+          {hubOpen?"Ocultar objetivos ×":"Ver missões e objetivos +"}
+        </button>
+        <div id="na-mission-details" className="na-mission-details">
+        <div className="na-next-step" role="status">
+          <span>PRÓXIMO PASSO · {trial.started&&!trial.completed?"OPERAÇÃO CIRCUITO FANTASMA":mission.step<3?"O NOME QUE SUMIU":!v09.reported?"INVESTIGAÇÃO V-09":"NOVO CAPÍTULO"}</span>
+          <strong>{trial.started&&!trial.completed
+            ? currentTrialStep(trial)?.objective
+            : mission.step<3 ? objective
+            : !v09.reported ? objective
+            : trial.completed ? "Operação concluída. Continue explorando Nova Arcádia."
+            : "Inicie a Operação Circuito Fantasma no painel abaixo."}</strong>
+          {trial.started&&!trial.completed&&<small>Etapa {trial.step+1} de {TRIAL_STEPS.length} · {currentTrialStep(trial)?.sector}</small>}
+        </div>
+      <button type="button" className="na-objective-toggle" onClick={() => setMissionOpen((value) => !value)} aria-expanded={missionOpen}>
+        <span>◈ {mission.step===3?"CONSULTAR INVESTIGAÇÃO":"INVESTIGAÇÃO INICIAL"}</span><span aria-hidden="true">{missionOpen ? "−" : "+"}</span>
+      </button>
+      {missionOpen && <section className="mission-card" aria-label="Missão atual">
         <div className="mission-card-top">
           <div>
             <span className="eyebrow">MISSÃO PRINCIPAL · BAIXADA</span>
             <h2>O nome que sumiu</h2>
           </div>
           <span className={mission.step === 3 ? "mission-status complete" : "mission-status"}>
-            {mission.step === 3 ? "CONCLUÍDA" : "EM ANDAMENTO"}
+            {v09.reported ? "CAPÍTULO 02" : mission.step===3 ? "ETAPA 1 CONCLUÍDA" : "EM ANDAMENTO"}
           </span>
         </div>
+        <p className="market-state-strip">COMUNIDADE {market.trust}/5 · ALERTA DA REDE {market.heat}/5 · PISTAS DO MERCADO {market.clues.length}</p>
         <p className="mission-summary">
           Uma pessoa desapareceu depois de procurar atendimento por causa de um implante defeituoso. O registro oficial foi apagado, mas a clínica preservou uma cópia local.
         </p>
         <div className="objective-row">
           <span className="objective-index">
-            {mission.step === 3 ? "✓" : String(mission.step + 1).padStart(2, "0")}
+            {mission.step === 3 ? "04" : String(mission.step + 1).padStart(2, "0")}
           </span>
           <strong>
-            {mission.step === 3
-              ? "Missão concluída. A Galeria de Manutenção pode revelar o próximo trecho da rota."
-              : OBJECTIVES[mission.step]}
+            {objective}
           </strong>
         </div>
         <div className="quest-progress" aria-label={mission.step + " de 3 etapas concluídas"}>
@@ -405,16 +575,83 @@ export default function ExplorationScreen({
                 ))}
           </div>
         )}
-      </section>
+      </section>}
 
-      <div className="exploration-footer-actions">
-        <button type="button" className="explore-secondary" onClick={onOpenBattle}>
+      <section className="na-trial-panel" aria-label="Operação Circuito Fantasma">
+        <div className="na-trial-heading">
+          <div><span className="eyebrow">PRÓXIMA OPERAÇÃO · PROJETO ÉDEN</span>
+            <h2>Operação Circuito Fantasma</h2></div>
+          <strong>{trial.completed?"CONCLUÍDA":trial.started?"ETAPA "+Math.min(trial.step+1,TRIAL_STEPS.length)+"/"+TRIAL_STEPS.length:"NOVA · "+ESTIMATED_MINUTES+" MIN EST."}</strong>
+        </div>
+        {!trial.started ? <>
+          <p>Uma sequência com {TRIAL_STEPS.length} objetivos e três confrontos de múltiplas ondas,
+            conectando clínica, Canal, Pátio e Mercado. Investigue a manipulação dos serviços e teste combate,
+            exploração, itens, diálogos e sua árvore de evolução. Duração estimada de {ESTIMATED_MINUTES} minutos,
+            variável conforme sua exploração e a dificuldade.</p>
+          <button type="button" onClick={()=>{
+            const started=startTrial(trial);
+            if(saveTrial(character.id,started)){
+              setTrial(started);setTrialNotice("Missão iniciada. Dirija-se à clínica comunitária.");
+            }else setTrialNotice("Não foi possível salvar o início da campanha.");
+          }}>Iniciar operação de testes</button>
+        </> : trial.completed ? <p>Relatório entregue. A comunidade preservou as provas da triagem;
+            seu progresso, XP e novas técnicas permanecem no salvamento. A investigação sobre a autoria do sistema continua.</p>
+        : <div className="na-trial-objective">
+            <p><b>CAPÍTULO {currentTrialStep(trial)?.chapter} · {currentTrialStep(trial)?.title}</b>
+             {" — "}{currentTrialStep(trial)?.sector}</p>
+            <strong>{currentTrialStep(trial)?.objective}</strong>
+            <small>{currentTrialStep(trial)?.detail}</small>
+            <span>{trial.step} de {TRIAL_STEPS.length} etapas concluídas.
+              {" "}Recompensa da próxima: {currentTrialStep(trial)?.xp} XP.</span>
+          </div>}
+        {trialNotice&&<p className="na-trial-feedback" role="status">{trialNotice}</p>}
+        {trial.started&&<details className="na-trial-history"><summary>Consultar etapas da operação</summary>
+          {TRIAL_STEPS.map((stage,index)=><p key={stage.id}>
+            {index<trial.step?"✓":index===trial.step?"▶":"○"} {index+1}. {stage.title} · {stage.sector}
+          </p>)}
+        </details>}
+      </section>
+      {interior==="clinic" && <div className="na-clinic-treatment">
+        <span>CLÍNICA COMUNITÁRIA · ESTABILIZAÇÃO DE FERIMENTOS</span>
+        <button type="button" disabled={currentHp>=maxHp}
+          onClick={()=>{
+            const recovered=onTreatAtClinic();
+            say([{speaker:"Dra. Amara Solis",role:"ATENDIMENTO COMUNITÁRIO",portrait:"A",
+              text:recovered>0 ? "Seus ferimentos foram tratados. Vida restaurada em "+recovered+" pontos. O atendimento não altera as pistas da investigação."
+                : "Seu estado já está estabilizado. Nenhum tratamento adicional foi necessário."}]);
+          }}>Receber tratamento ({Math.max(0,maxHp-currentHp)} PV)</button>
+      </div>}
+        </div>
+      </aside>
+      <div className="exploration-footer-actions single-action">
+        <button type="button" className="explore-secondary" onClick={() => onOpenBattle("test")}>
           Arena tática de teste
         </button>
-        <button type="button" className="explore-primary" onClick={onOpenMenu}>
-          Personagem / menu <span>→</span>
-        </button>
       </div>
+
+      {menuOpen && (
+        <CharacterMenu
+          character={character}
+          appearance={appearance}
+          onChangeAppearance={onChangeAppearance}
+          onChooseClass={onChooseClass}
+          onPurchaseAttribute={onPurchaseAttribute}
+          onPurchaseSkill={onPurchaseSkill}
+          originName={origin.name}
+          originDescription={origin.description}
+          originProfile={getOriginGameplay(character.originId)}
+          missionStep={mission.step}
+          missionObjective={objective}
+          clues={mission.clues.map((id) => ({ id, text: CLUE_LABELS[id] ?? "Pista registrada." }))}
+          sceneTitle={sceneTitle}
+          sceneSubtitle={sceneSubtitle}
+          onClose={() => setMenuOpen(false)}
+          onReturnToTitle={onReturnToTitle}
+          onOpenTestArena={() => onOpenBattle("test")}
+          inventory={inventory}
+          onToggleEquipment={onToggleEquipment}
+        />
+      )}
 
       {currentDialogue && (
         <div
@@ -440,6 +677,10 @@ export default function ExplorationScreen({
               </div>
             </div>
             <p>{currentDialogue.text}</p>
+            {currentDialogue.choices && <div className="dialogue-choice-list" role="group" aria-label="Respostas do protagonista">
+              {currentDialogue.choices.map(choice=><button type="button" key={choice.id}
+                onClick={()=>selectAnswer(choice)}>{choice.label}</button>)}
+            </div>}
             <button
               type="button"
               className="dialogue-continue"

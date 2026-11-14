@@ -1,68 +1,76 @@
-# Cyberpunk Tactical RPG — Nova Arcádia
+# Nova Arcádia — Projeto Éden
 
-**Versão atual: 0.6.5 beta**
+**Candidata à primeira prévia pública: 0.6.9-rc.2 (Android, em validação).**
 
-RPG 2D isométrico mobile-first, ambientado na cidade de Nova Arcádia. Construído com React, TypeScript, Phaser 4, Vite e Capacitor 8. A proposta combina exploração em tempo real e combate tático por turnos.
+RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambientado em uma cidade cyberpunk tropical. Projeto independente com React, TypeScript, Phaser 4, Vite e Capacitor 8.
 
-## O que já funciona na 0.6.5 beta
+> **Aviso:** esta versão é uma **release candidate**, não uma versão estável aprovada em aparelhos reais. A publicação deve ocorrer somente depois do checklist em [docs/PRIMEIRA-VERSAO-PUBLICA.md](docs/PRIMEIRA-VERSAO-PUBLICA.md). A branch `main` segue preservada.
 
-- Criação do protagonista e seleção entre seis origens, cada uma com introdução narrativa própria.
-- Vantagens passivas e habilidade ativa de origem preservadas no sistema demonstrativo de combate.
-- Salvamento local do protagonista e progresso da missão inicial por personagem.
-- **Baixada expandida:** ruas, prédios, clínica, oficina, Mercado da Ponte, Moradias do Canal, Ponto de Apoio e Praça da Caixa d'Água.
-- Câmera que acompanha o protagonista e navegação por toque ou teclado.
-- **Onze spritesheets originais:** seis visuais de protagonista (um por origem) e cinco NPCs.
-- Animações de repouso e caminhada em quatro orientações isométricas.
-- NPCs com identidade visual: Dra. Amara Solis, Nilo, Joana, Saira e Téo.
-- **Três interiores jogáveis:** clínica comunitária, oficina do Nilo e Galeria de Manutenção do Canal, com portas de entrada e saída.
-- Missão inicial **O nome que sumiu**: conversar com Amara, investigar o terminal e retornar à médica.
-- Terminal público do Canal e diálogos secundários de Saira e Téo. Téo agora pode ser encontrado na Galeria do Canal.
-- **Limbo de Teste** continua como arena separada para validar o combate por turnos.
-- GitHub Actions para compilar o APK Android debug.
+## Conteúdo jogável desta candidata
 
-## Controles
+- **11 classes oficiais**: Solo, Netrunner, Técnico, Medtech, Rockerboy, Mídia, Corporativo, Policial, Nômade, Marginal da Rua e Fixador.
+- **6 origens** com prólogos, diferenças narrativas e vantagem ativa/passiva de origem. Origem e classe são escolhas independentes.
+- **Baixada semiaberta**, incluindo Canal Sul, Pátio do Reúso, Mercado dos Cabos, NPCs, interiores e investigação ligada ao Projeto Éden.
+- **Operação Circuito Fantasma**: 19 objetivos em quatro capítulos, três confrontos em ondas (2 + 2 + 3) e recompensas em XP. Duração **projetada** entre 35 e 50 minutos, a conferir no Android; não há temporizador artificial.
+- Combate isométrico em turnos com habilidade básica, habilidades comuns, habilidades específicas da classe, posicionamento, energia, recarga e curativo.
+- Progressão até o nível 10, cinco atributos, duas técnicas avançadas por classe (22 no total) e três passivas gerais.
+- **Até 8 slots locais de personagens**, inventário simples, equipamentos, Vida persistente, progressão e posição na exploração.
+- Exportação/importação de backups JSON contendo personagem, inventário, aparência, posição, missões, história, Vida e progresso de Circuito Fantasma.
+- Interface horizontal e controles adaptados a celular.
 
-- Toque no chão para caminhar até o ponto selecionado.
-- Toque em NPCs, terminais e portas para se aproximar e interagir.
-- No computador, WASD ou setas também movimentam o protagonista.
-- Dentro dos interiores, use a porta marcada **SAÍDA** ou o botão de retorno para voltar à rua.
+## Instalar em Android para testes
 
-## Executar localmente
+1. Abra o workflow **Build Cyberpunk Tactical RPG APK** na aba [Actions](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/workflows/main.yml).
+2. Escolha uma execução **bem-sucedida de `push`** na branch `feature/landscape-mobile-v1`. Execuções de `pull_request` verificam código, mas **não produzem o APK**.
+3. Em **Artifacts**, baixe `Cyberpunk-Tactical-RPG-APK`, extraia o ZIP e abra o arquivo `.apk`.
+4. Autorize a instalação desse APK no Android apenas se confiar na origem. Não é necessário Android Studio para testar.
 
-Requisitos: Node.js 22.12 ou superior e npm.
+**Distribuição pública:** para disponibilizar permanentemente ao público, anexe o APK final a uma [GitHub Release](https://github.com/zezinhord/cyberpunk-tactital-rpg/releases). Os artefatos de Actions têm retenção limitada. Este pipeline produz **APK debug assinado para instalação direta**, e **não** um Android App Bundle de produção pronto para Google Play. Não compartilhe como versão estável sem executar os testes físicos.
+
+## Salvamentos e atualizações
+
+Os dados são salvos **localmente no dispositivo**. Não há sincronização entre celulares. Cada protagonista possui seu próprio slot; excluir um personagem apaga também seus dados de campanha.
+
+**Antes de atualizar, reinstalar, limpar os dados do aplicativo ou trocar de celular:** abra **Carregar jogo → Exportar** em cada slot e guarde o arquivo JSON fora do aplicativo. Na nova instalação, use **Importar**. Nunca presuma que o Android preservará o armazenamento ao mudar o pacote ou o certificado da assinatura.
+
+A restauração exige confirmação ao substituir um slot existente. Em caso de falha de escrita, o código tenta reverter as alterações para preservar os registros anteriores; isso não elimina a necessidade do backup externo.
+
+## Correções de usabilidade na RC2
+
+- **Missões sempre encontráveis:** o HUD da Baixada mostra o próximo passo, permite recolher o painel e dá acesso à **Operação Circuito Fantasma**; quem já concluiu "O nome que sumiu" recebe orientação para investigar o Pátio do Reúso.
+- **Habilidades durante a luta:** toque em **HABILIDADES → ESCOLHER**, selecione uma técnica de classe, comum ou de origem e confirme em **Usar habilidade**. O painel informa custo, alcance e o motivo quando a habilidade não está pronta. Técnicas ofensivas são aplicadas automaticamente ao inimigo se estiver ao alcance; é necessário aproximar-se antes de lançar uma técnica distante demais.
+- **Compatibilidade:** não foram alteradas as chaves de armazenamento dos saves nem reiniciada a campanha. Exporte o backup antes de atualizar.
+
+## Comandos
+
+- Toque no cenário para caminhar; toque em NPCs, terminais e portas para se aproximar e interagir.
+- Na arena, toque em células alcançáveis, use as habilidades da classe, ataque e encerre o turno.
+- A **Central do Personagem** permite visualizar classe, inventário e árvore de evolução.
+- O **Limbo de Teste** é separado da campanha.
+
+## Desenvolvimento e validação
+
+Requisitos: Node.js **22.12+**, npm, Python 3 e Pillow (o comando de build regenera os sprites durante o pré-build).
 
 ```bash
-npm install
-npm run dev
-```
-
-Para validar TypeScript e compilar a versão web:
-
-```bash
+python -m pip install -r tools/requirements-characters.txt
+npm ci
 npm run build
 ```
 
-## Gerar o APK
+Para iniciar a versão web: `npm run dev`.
 
-O workflow `.github/workflows/main.yml` inicia em cada push na branch `main` e pode ser executado manualmente pela aba **Actions**.
+Os testes automatizados estão em `scripts/test-*.mjs` e são executados no [GitHub Actions](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions). A captura em Chromium verifica telas, classe, aparência, movimentos visuais e alguns efeitos reais; **não substitui o teste físico de ponta a ponta**.
 
-Ele instala Node.js 22 e Java 21, instala dependências, executa `npm run build`, sincroniza o Capacitor e compila `assembleDebug`. O artefato publicado chama-se `Cyberpunk-Tactical-RPG-APK`.
+## Limitações conhecidas da prévia
 
-Consulte `docs/UPLOAD-GITHUB-MOBILE.md` para as instruções de atualização a partir do celular. O gerador-fonte dos sprites provisórios está em `tools/generate_character_sprites.py` (Pillow é necessário apenas para regenerar as imagens).
+- Um distrito semiaberto jogável; os outros distritos, os veículos e a campanha maior ainda não estão completos.
+- O combate usa uma arena própria, com confrontos simplificados. Não equivale ainda ao combate integrado ao cenário de exploração.
+- IA, arte, animações, inventário, lojas e economia continuam em evolução.
+- A campanha de 35–50 minutos ainda não foi cronometrada com usuários reais.
+- Alguns NPCs reutilizam sprites provisórios.
+- Não há salvamento em nuvem nem garantia de compatibilidade com todos os aparelhos Android.
 
-## Salvamento
+**Controle de qualidade e critérios de publicação:** [docs/PRIMEIRA-VERSAO-PUBLICA.md](docs/PRIMEIRA-VERSAO-PUBLICA.md).
 
-O protagonista é salvo localmente em `localStorage` com a chave `cyberpunk-tactical-rpg.character.v1`. O progresso da missão da Baixada usa uma chave separada por personagem. Ainda não existe sincronização em nuvem nem salvamento completo de posição, inventário ou estado do mundo.
-
-## Escopo e limitações da beta
-
-A 0.6.5 beta entrega uma primeira área maior e três interiores, mas não é a campanha completa. As animações de ataque ainda não estão integradas, e o combate continua no Limbo de Teste. Inventário/equipamentos completos, economia, lojas funcionais, veículos, sistema geral de missões, oclusão avançada, tilesets artísticos modulares, outros distritos e campanha principal permanecem em desenvolvimento.
-
-O tamanho do APK dependerá dos próximos recursos artísticos e de áudio. Não existe preenchimento artificial de armazenamento para atingir uma meta de megabytes.
-
-## Documentos desta versão
-
-- `docs/CHANGELOG-0.6.5-BETA.md` — mudanças implementadas.
-- `docs/VALIDACAO-0.6.5-BETA.md` — verificações e testes pendentes.
-- `docs/PLANO-VERTICAL-SLICE-BAIXADA.md` — evolução da primeira área jogável.
-- `docs/DIRECAO-DE-ARTE.md` — princípios visuais e escopo aprovado.
+Arquivos históricos da versão 0.6.5 beta permanecem em `docs/` para consulta, mas não descrevem toda a funcionalidade atual.

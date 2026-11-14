@@ -1,27 +1,35 @@
 import Phaser from "phaser";
+import {
+  ACTOR_TILES, BUILDINGS, GRID_HEIGHT, GRID_WIDTH, PLAYER_START, PROPS, ROAMING_NPCS, isIndustrialSector, isCommercialSector,
+  isInside, isStreet, isWalkable, type BuildingSpec,
+} from "./layout";
 import type { Position } from "../types";
+import { route as safeRoute, approachRoute, canTraverse, canStand } from "./navigation";
+import { CitizenRoutine } from "./npc-routines";
+import { audioDirector } from "../../audio/director";
 import type { OriginId } from "../character/origins";
+import type { TestAppearance } from "../test-arena/appearance";
 import {
   createCharacterAnimations,
   NPC_TEXTURES,
-  PLAYER_TEXTURES,
+  ActorAnimationController,
+  getPlayerTexture,
+  frameForDirection,
   playIdle,
   playWalk,
   preloadCharacterSprites,
   type IsoDirection,
 } from "./sprites";
 
-export const BAIXADA_WIDTH = 1120;
-export const BAIXADA_HEIGHT = 720;
-export const BAIXADA_VIEW_WIDTH = 560;
-export const BAIXADA_VIEW_HEIGHT = 420;
+export const BAIXADA_WIDTH = 1840;
+export const BAIXADA_HEIGHT = 1120;
+export const BAIXADA_VIEW_WIDTH = 960;
+export const BAIXADA_VIEW_HEIGHT = 540;
 
-const GRID_WIDTH = 20;
-const GRID_HEIGHT = 16;
 const TILE_WIDTH = 48;
 const TILE_HEIGHT = 24;
-const ORIGIN_X = 580;
-const ORIGIN_Y = 140;
+const ORIGIN_X = 770;
+const ORIGIN_Y = 135;
 
 type Point = { x: number; y: number };
 type ActorKind = "person" | "terminal" | "door";
@@ -36,42 +44,9 @@ interface WorldActor {
   role?: string;
   visual?: Phaser.GameObjects.Sprite;
   label?: Phaser.GameObjects.Text;
+  routine?: CitizenRoutine;
+  busy?: boolean;
 }
-
-interface BuildingSpec {
-  x: number;
-  y: number;
-  width: number;
-  depth: number;
-  height: number;
-  wall: number;
-  roof: number;
-  accent: number;
-  label: string;
-  sign?: string;
-}
-
-const BUILDINGS: BuildingSpec[] = [
-  { x: 1, y: 0, width: 3, depth: 2, height: 74, wall: 0x27384a, roof: 0x354f5b, accent: 0xe5a95f, label: "MORADIA 03" },
-  { x: 8, y: 0, width: 3, depth: 3, height: 112, wall: 0x243b43, roof: 0x315c5b, accent: 0x00d7d0, label: "CLÍNICA COMUNITÁRIA", sign: "CLÍNICA 24H" },
-  { x: 12, y: 1, width: 2, depth: 2, height: 66, wall: 0x3b3041, roof: 0x594253, accent: 0xff8a62, label: "PENSÃO" },
-  { x: 0, y: 8, width: 3, depth: 2, height: 78, wall: 0x3d3030, roof: 0x5b4437, accent: 0xffa65c, label: "OFICINA DO NILO", sign: "NILO / REPAROS" },
-  { x: 10, y: 8, width: 3, depth: 2, height: 94, wall: 0x263747, roof: 0x344c5f, accent: 0xb78bff, label: "BLOCO RESIDENCIAL" },
-  { x: 16, y: 0, width: 3, depth: 3, height: 84, wall: 0x3c3941, roof: 0x61505b, accent: 0xd89e71, label: "MERCADO DA PONTE", sign: "PONTE / TROCAS" },
-  { x: 16, y: 9, width: 3, depth: 3, height: 102, wall: 0x293b3b, roof: 0x3f5b51, accent: 0x9bc08a, label: "MORADIAS DO CANAL" },
-  { x: 2, y: 13, width: 3, depth: 2, height: 60, wall: 0x303b42, roof: 0x485860, accent: 0x78c7c6, label: "PONTO DE APOIO" },
-  { x: 8, y: 13, width: 3, depth: 2, height: 72, wall: 0x343d3a, roof: 0x4d5d4e, accent: 0xc4a56e, label: "CAIXA D'ÁGUA" },
-];
-
-const BUILDING_CELLS = new Set<string>();
-for (const building of BUILDINGS) {
-  for (let x = building.x; x < building.x + building.width; x += 1) {
-    for (let y = building.y; y < building.y + building.depth; y += 1) BUILDING_CELLS.add(`${x},${y}`);
-  }
-}
-
-// NPCs e objetos de interação ocupam sua célula; o protagonista contorna os pontos de interesse.
-const STREET_ACTOR_CELLS = new Set(["4,6", "12,6", "16,6", "9,3", "3,8", "14,13", "10,12"]);
 
 const DIRECTIONS: Position[] = [
   { x: 0, y: -1 },
@@ -87,79 +62,85 @@ function tileCenter({ x, y }: Position): Point {
   };
 }
 
-function inside({ x, y }: Position): boolean {
-  return x >= 0 && y >= 0 && x < GRID_WIDTH && y < GRID_HEIGHT;
-}
-
-function keyOf({ x, y }: Position): string {
-  return `${x},${y}`;
-}
-
-function walkable(position: Position): boolean {
-  return inside(position) && !BUILDING_CELLS.has(keyOf(position)) && !STREET_ACTOR_CELLS.has(keyOf(position));
-}
-
-function findPath(start: Position, end: Position): Position[] | null {
-  if (!walkable(end)) return null;
-  const queue: Position[] = [start];
-  const previous = new Map<string, string | null>([[keyOf(start), null]]);
-
-  while (queue.length) {
-    const current = queue.shift();
-    if (!current) break;
-    if (current.x === end.x && current.y === end.y) break;
-
-    for (const direction of DIRECTIONS) {
-      const next = { x: current.x + direction.x, y: current.y + direction.y };
-      const key = keyOf(next);
-      if (!walkable(next) || previous.has(key)) continue;
-      previous.set(key, keyOf(current));
-      queue.push(next);
-    }
-  }
-
-  const endKey = keyOf(end);
-  if (!previous.has(endKey)) return null;
-  const path: Position[] = [];
-  let cursor: string | null = endKey;
-  while (cursor) {
-    const [x = 0, y = 0] = cursor.split(",").map(Number);
-    path.unshift({ x, y });
-    cursor = previous.get(cursor) ?? null;
-  }
-  return path;
-}
-
-function nearestApproach(start: Position, target: Position): Position[] | null {
-  const candidates = DIRECTIONS
-    .map((direction) => ({ x: target.x + direction.x, y: target.y + direction.y }))
-    .filter(walkable)
-    .map((tile) => findPath(start, tile))
-    .filter((path): path is Position[] => Boolean(path));
-  candidates.sort((a, b) => a.length - b.length);
-  return candidates[0] ?? null;
-}
+function inside(tile: Position): boolean { return isInside(tile); }
+function walkable(tile: Position): boolean { return isWalkable(tile); }
 
 export class BaixadaScene extends Phaser.Scene {
   private readonly onInteract: (id: string) => void;
+  private readonly onPositionChange?: (tile: Position) => void;
   private readonly originId: OriginId;
+  private appearance: TestAppearance;
+  private playerAnimator?: ActorAnimationController;
   private ground!: Phaser.GameObjects.Graphics;
   private details!: Phaser.GameObjects.Graphics;
   private markers!: Phaser.GameObjects.Graphics;
   private player!: Phaser.GameObjects.Sprite;
+  private playerShadow!: Phaser.GameObjects.Ellipse;
   private playerDirection: IsoDirection = 2;
-  private playerTile: Position = { x: 6, y: 9 };
+  private playerTile: Position = { ...PLAYER_START };
   private actors: WorldActor[] = [];
   private moving = false;
   private pendingInteraction: string | null = null;
 
-  constructor(onInteract: (id: string) => void, originId: OriginId) {
+  private dynamicOccupancy(except?: string, includePlayer = false): Set<string> {
+    const occupied = new Set<string>();
+    for (const actor of this.actors) {
+      if (actor.routine && actor.id !== except) occupied.add(actor.tile.x + "," + actor.tile.y);
+    }
+    if (includePlayer) occupied.add(this.playerTile.x + "," + this.playerTile.y);
+    return occupied;
+  }
+  private findWorldPath(start: Position, target: Position): Position[] | null {
+    return safeRoute(start, target, { occupied: this.dynamicOccupancy() });
+  }
+  private findApproachPath(start: Position, target: Position): Position[] | null {
+    return approachRoute(start, target, { occupied: this.dynamicOccupancy() });
+  }
+  private tickCitizens(): void {
+    for(const actor of this.actors) {
+      // Não deixar o interlocutor fugir enquanto o protagonista se aproxima.
+      if(!actor.routine || !actor.visual || actor.busy || this.pendingInteraction===actor.id) continue;
+      const occupied=this.dynamicOccupancy(actor.id,true);
+      const previous={...actor.tile};
+      const next=actor.routine.tick(previous,occupied);
+      if(!next.moved || !canTraverse(previous,next.tile,{occupied})) continue;
+      const direction: IsoDirection = next.tile.y < previous.y ? 0
+        : next.tile.x > previous.x ? 1 : next.tile.y > previous.y ? 2 : 3;
+      actor.tile={...next.tile};
+      actor.busy=true;
+      playWalk(actor.visual,actor.texture!,direction);
+      const dest=tileCenter(next.tile);
+      this.tweens.add({targets:actor.visual,x:dest.x,y:dest.y,duration:440,ease:"Sine.easeInOut",
+        onUpdate:()=>{
+          actor.visual!.setDepth(actor.visual!.y+0.2);
+          actor.label?.setPosition(actor.visual!.x,actor.visual!.y-73);
+          actor.label?.setDepth(actor.visual!.y+0.42);
+        },
+        onComplete:()=>{actor.busy=false;playIdle(actor.visual!,actor.texture!,direction);this.drawPlayerMarker();this.updateActorLabels();}
+      });
+    }
+  }
+
+
+  constructor(onInteract: (id: string) => void, originId: OriginId, appearance: TestAppearance,
+    startTile?: Position, onPositionChange?: (tile: Position) => void) {
     super({ key: "BaixadaScene" });
     this.onInteract = onInteract;
     this.originId = originId;
+    this.appearance = appearance;
+    if(startTile && canStand(startTile))this.playerTile={...startTile};
+    this.onPositionChange=onPositionChange;
+  }
+
+  setAppearance(appearance: TestAppearance): void {
+    if (this.appearance === appearance) return;
+    this.appearance = appearance;
+    this.playerAnimator?.setTexture(getPlayerTexture(this.originId, appearance));
   }
 
   preload(): void {
+    this.load.svg("baixada-market-stall", "/assets/baixada/market-stall.svg");
+    this.load.svg("baixada-palm-tree", "/assets/baixada/palm-tree.svg");
     preloadCharacterSprites(this);
   }
 
@@ -174,10 +155,12 @@ export class BaixadaScene extends Phaser.Scene {
     this.bakeStaticLayers();
     this.markers.setDepth(20);
     this.createPlayer();
-    this.createStreetLabels();
+    this.updateActorLabels();
+    this.time.addEvent({delay:1450,loop:true,callback:()=>this.tickCitizens()});
     const camera = this.cameras.main;
     camera.setBounds(0, 0, BAIXADA_WIDTH, BAIXADA_HEIGHT);
-    camera.setZoom(1.0);
+    this.updateCameraForViewport();
+    this.scale.on("resize", this.updateCameraForViewport, this);
     const start = tileCenter(this.playerTile);
     camera.centerOn(start.x, start.y - 34);
     camera.startFollow(this.player, true, 0.12, 0.12);
@@ -187,7 +170,19 @@ export class BaixadaScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.input.off(Phaser.Input.Events.POINTER_DOWN, this.handleTap, this);
       this.input.keyboard?.off("keydown", this.handleKeyboard, this);
+      this.playerAnimator?.dispose();
+      this.scale.off("resize", this.updateCameraForViewport, this);
     });
+  }
+
+  private updateCameraForViewport(): void {
+    // A mesma composição 2:1 deve permanecer legível de 16:9 a telas ultrawide.
+    // Zoom uniforme: nunca distorcer a geometria isométrica ou esticar sprites.
+    const zoom = Phaser.Math.Clamp(
+      Math.min(this.scale.width / BAIXADA_VIEW_WIDTH, this.scale.height / 500),
+      0.9, 1.5,
+    );
+    this.cameras.main.setZoom(zoom);
   }
 
   private polygon(
@@ -245,58 +240,86 @@ export class BaixadaScene extends Phaser.Scene {
     // Fundo atmosférico em camadas: névoa quente de oficinas e luz fria de anúncios.
     graphics.fillStyle(0x174448, 0.18);
     graphics.fillEllipse(390, 250, 530, 300);
+    // Horizonte industrial distante: pano de fundo, jamais collider.
+    graphics.fillStyle(0x26363a, 0.46);
+    for(let n=0;n<14;n+=1) {
+      const x=730+n*65;
+      const height=40+(n*17%53);
+      graphics.fillRect(x, 104-height, 37+(n%3)*7, height);
+    }
+    graphics.lineStyle(2,0x6e6654,0.3);
+    graphics.beginPath();graphics.moveTo(780,68);graphics.lineTo(1640,68);graphics.strokePath();
     graphics.fillStyle(0x8a4e42, 0.12);
     graphics.fillEllipse(590, 360, 430, 210);
+
+    // Continuidade urbana visual, além do limite físico jogável.
+    // Não amplia o espaço navegável nem cria falsos acessos.
+    for(let y=-11;y<GRID_HEIGHT+13;y+=1){
+      for(let x=-11;x<GRID_WIDTH+13;x+=1){
+        if(isInside({x,y}))continue;
+        const point=tileCenter({x,y});
+        if(point.x < -38||point.x>BAIXADA_WIDTH+38||
+           point.y < -38||point.y>BAIXADA_HEIGHT+38)continue;
+        const industrial=isIndustrialSector({x,y});
+        const commercial=isCommercialSector({x,y});
+        const tone=(x*11+y*17)%5;
+        const palette=commercial ? [0x413e39,0x49453c,0x433d39,0x453e36,0x403f37]
+          : industrial
+          ? [0x303b3c,0x34413f,0x35413f,0x303c3b,0x333e3e]
+          : [0x34443e,0x314039,0x38453d,0x35413a,0x37473e];
+        this.polygon(graphics,this.diamond(point.x,point.y),
+          palette[(tone+5)%5] ?? 0x303b3c,1,0x73867b,0.08,0.8);
+        if((x*3+y*7)%17===0){
+          graphics.lineStyle(1,0xc09f73,0.16);graphics.beginPath();
+          graphics.moveTo(point.x-9,point.y+1);graphics.lineTo(point.x+7,point.y+1);graphics.strokePath();
+        }
+      }
+    }
 
     for (let depth = 0; depth <= GRID_WIDTH + GRID_HEIGHT - 2; depth += 1) {
       for (let y = 0; y < GRID_HEIGHT; y += 1) {
         for (let x = 0; x < GRID_WIDTH; x += 1) {
           if (x + y !== depth) continue;
           const center = tileCenter({ x, y });
-          const isStreet = y === 6
-            || (x === 7 && y >= 3 && y <= 11)
-            || (y === 7 && x >= 3 && x <= 10)
-            || (y === 12 && x >= 5 && x <= 19)
-            || (x === 14 && y >= 4 && y <= 14);
+          const street = isStreet({ x, y });
           const variation = (x * 7 + y * 11) % 5;
-          const color = isStreet
-            ? [0x38444a, 0x3a464a, 0x323f45, 0x3d494c, 0x354147][variation] ?? 0x38444a
-            : [0x34413e, 0x3a4740, 0x303c3a, 0x39443e, 0x35423d][variation] ?? 0x34413e;
+          const industrial = isIndustrialSector({x,y});
+          const commercial = isCommercialSector({x,y});
+          const color = commercial
+            ? street ? [0x534c44,0x554a41,0x594f44,0x53463d,0x514941][variation] ?? 0x544c44
+              : [0x6b6152,0x6d6253,0x665d4e,0x716253,0x686052][variation] ?? 0x685e50
+            : industrial
+            ? street ? [0x393e40,0x394044,0x3f4242,0x363e41,0x414849][variation] ?? 0x393e40
+              : [0x514d44,0x555247,0x4c4d48,0x54504a,0x524e46][variation] ?? 0x514d44
+            : street ? [0x424846, 0x3d4747, 0x404b48, 0x424846, 0x3e4747][variation] ?? 0x424846
+              : [0x475046, 0x424c45, 0x4a4e43, 0x485046, 0x435048][variation] ?? 0x475046;
           this.polygon(graphics, this.diamond(center.x, center.y), color, 1, 0x52615a, 0.28, 0.8);
 
-          if (isStreet && (x + y) % 4 === 0) {
+          if (street && (x + y) % 6 === 0) {
             graphics.lineStyle(1, 0xe3c17e, 0.27);
             graphics.beginPath();
             graphics.moveTo(center.x - 8, center.y + 1);
             graphics.lineTo(center.x + 8, center.y + 1);
             graphics.strokePath();
           }
-          if (!isStreet && variation === 2) this.drawGroundDetail(center.x, center.y, x, y);
+          if (!street && walkable({ x, y }) && variation === 2) this.drawGroundDetail(center.x, center.y, x, y);
         }
       }
     }
 
     this.drawRoadDrainage();
+    // Edificações são objetos de mundo separados: ordenação por pé/profundidade real.
     this.drawBuildings();
-    this.drawMarketStall(4, 5);
-    this.drawPalm(2, 5);
-    this.drawPalm(12, 6);
-    this.drawPalm(6, 2);
-    this.drawPalm(15, 5);
-    this.drawPalm(13, 13);
-    this.drawPalm(5, 13);
-    this.drawLamp(6, 6);
-    this.drawLamp(10, 7);
-    this.drawLamp(14, 11);
-    this.drawLamp(18, 12);
-    this.drawCableRun();
+    for (const point of PROPS.marketStalls) this.drawMarketStall(point.x, point.y);
+    for (const point of PROPS.palms) this.drawPalm(point.x, point.y);
+    for (const point of PROPS.lamps) this.drawLamp(point.x, point.y);
     this.drawStreetProps();
   }
 
   private bakeStaticLayers(): void {
     const layers = [
-      { graphics: this.ground, texture: "baixada-ground-v065", depth: 0 },
-      { graphics: this.details, texture: "baixada-details-v065", depth: 10 },
+      { graphics: this.ground, texture: "baixada-ground-v067a", depth: -20 },
+      { graphics: this.details, texture: "baixada-details-v067a", depth: -10 },
     ];
     for (const layer of layers) {
       if (this.textures.exists(layer.texture)) this.textures.remove(layer.texture);
@@ -324,12 +347,18 @@ export class BaixadaScene extends Phaser.Scene {
   private drawRoadDrainage(): void {
     const graphics = this.details;
     graphics.lineStyle(2, 0x17262c, 0.9);
-    for (let x = 2; x < 19; x += 1) {
+    for (let x = 2; x < GRID_WIDTH - 1; x += 1) {
       const point = tileCenter({ x, y: 6 });
       graphics.beginPath();
       graphics.moveTo(point.x - 11, point.y + 4);
       graphics.lineTo(point.x + 10, point.y + 4);
       graphics.strokePath();
+    }
+    // Rede de águas pluviais do Pátio: continuidade com o ramal antigo.
+    for(let x=20;x<GRID_WIDTH;x+=1){
+      const p=tileCenter({x,y:12});
+      graphics.lineStyle(2,0x857153,0.45);graphics.beginPath();
+      graphics.moveTo(p.x-11,p.y+4);graphics.lineTo(p.x+11,p.y+4);graphics.strokePath();
     }
     graphics.fillStyle(0x66c9c1, 0.25);
     graphics.fillEllipse(490, 255, 35, 7);
@@ -337,12 +366,17 @@ export class BaixadaScene extends Phaser.Scene {
   }
 
   private drawBuildings(): void {
-    const ordered = [...BUILDINGS].sort((a, b) => a.x + a.y - (b.x + b.y));
-    for (const building of ordered) this.drawBuilding(building);
+    const ordered = [...BUILDINGS].sort((a, b) => (a.x + a.y) - (b.x + b.y));
+    for (const building of ordered) {
+      const graphics = this.add.graphics();
+      this.drawBuilding(graphics, building);
+      // O ponto frontal do edifício representa sua base para o algoritmo do pintor.
+      const front = tileCenter({ x: building.x + building.width, y: building.y + building.depth });
+      graphics.setDepth(front.y + 0.05);
+    }
   }
 
-  private drawBuilding(building: BuildingSpec): void {
-    const g = this.details;
+  private drawBuilding(g: Phaser.GameObjects.Graphics, building: BuildingSpec): void {
     const a = tileCenter({ x: building.x, y: building.y });
     const b = tileCenter({ x: building.x + building.width, y: building.y });
     const c = tileCenter({ x: building.x + building.width, y: building.y + building.depth });
@@ -377,14 +411,65 @@ export class BaixadaScene extends Phaser.Scene {
         const t = (col + 0.5) / building.width;
         const baseX = Phaser.Math.Linear(bt.x, ct.x, t);
         const baseY = Phaser.Math.Linear(bt.y, ct.y, t);
-        const windowY = baseY - 24 - row * 25;
+        // A baseY já é a linha do TELHADO (y-h). As janelas descem pela
+        // fachada até o chão, não sobem para fora do edifício.
+        const windowY = baseY + Math.min(h - 22, 20 + row * Math.max(22, (h - 36) / 2));
         g.fillStyle(0x101f29, 1);
-        g.fillRoundedRect(baseX - 7, windowY - 5, 14, 17, 2);
+        g.fillRoundedRect(baseX - 6, windowY - 5, 12, 14, 2);
         g.fillStyle(building.accent, 0.68);
-        g.fillRect(baseX - 5, windowY - 3, 10, 2);
+        g.fillRect(baseX - 4, windowY - 3, 8, 2);
         g.fillStyle(0x81ddd3, 0.22);
-        g.fillRect(baseX - 5, windowY + 1, 10, 8);
+        g.fillRect(baseX - 4, windowY + 1, 8, 6);
       }
+    }
+
+    // Acabamentos locais, sem adicionar objetos avulsos ao eixo de circulação.
+    if (building.style === "housing" || building.style === "canal" || building.style === "community") {
+      // Cobogós e reboco irregular: elementos integrados à fachada.
+      const cobogoY = Phaser.Math.Linear(bt.y, ct.y, 0.25) + 16;
+      const cobogoX = Phaser.Math.Linear(bt.x, ct.x, 0.25);
+      for (let row = 0; row < 2; row += 1) {
+        for (let col = 0; col < 3; col += 1) {
+          const px = cobogoX + col * 8;
+          const py = cobogoY + row * 9 + col * 4;
+          g.fillStyle(0x1a282b, 0.9);
+          g.fillRect(px, py, 5, 5);
+          g.lineStyle(1, 0xbba88d, 0.5);
+          g.strokeRect(px, py, 5, 5);
+        }
+      }
+    }
+    if (building.style === "clinic") {
+      // Faixa de azulejos/vidro: clínica mantida pela comunidade.
+      const left = Phaser.Math.Linear(bt.x, ct.x, 0.1);
+      const right = Phaser.Math.Linear(bt.x, ct.x, 0.9);
+      const yy = Phaser.Math.Linear(bt.y, ct.y, 0.5) + 20;
+      g.lineStyle(4, 0x9fb2a9, 0.65);
+      g.beginPath();
+      g.moveTo(left, yy);
+      g.lineTo(right, yy + 18);
+      g.strokePath();
+    }
+    if (building.style === "workshop") {
+      const shutterX = Phaser.Math.Linear(d.x, c.x, 0.74);
+      const shutterY = Phaser.Math.Linear(d.y, c.y, 0.74) - 24;
+      g.fillStyle(0x463e36, 0.88);
+      g.fillRoundedRect(shutterX - 14, shutterY - 4, 28, 23, 2);
+      for (let i = 0; i < 4; i += 1) {
+        g.lineStyle(2, 0xa68c69, 0.65);
+        g.beginPath();
+        g.moveTo(shutterX - 12, shutterY + i * 5);
+        g.lineTo(shutterX + 12, shutterY + i * 5);
+        g.strokePath();
+      }
+    }
+    if (building.style === "canal") {
+      g.lineStyle(3, 0x41565b, 0.9);
+      g.beginPath();
+      g.moveTo(d.x + 15, d.y - 9);
+      g.lineTo(d.x + 15, d.y - 54);
+      g.lineTo(d.x + 33, d.y - 54);
+      g.strokePath();
     }
 
     // Portas e painéis de serviço na fachada lateral.
@@ -400,20 +485,58 @@ export class BaixadaScene extends Phaser.Scene {
     g.lineTo(c.x - 7, c.y - 12);
     g.strokePath();
 
-    // Equipamento, caixas d'água, antenas e exaustores sobre o telhado.
+    // Tratamento material: menos ruído de tecnologia; volumes reconhecíveis.
+    if (building.style === "housing" || building.style === "canal") {
+      const upper = Phaser.Math.Linear(d.y, c.y, 0.32);
+      g.lineStyle(2, 0xc7ab83, 0.55);
+      g.beginPath();
+      g.moveTo(d.x + 7, upper - 35);
+      g.lineTo(c.x - 7, upper - 35);
+      g.strokePath();
+      for (let index = 0; index < 3; index += 1) {
+        const x = d.x + 12 + index * 13;
+        const y = upper - 33 + index * 2;
+        g.fillStyle(index === 1 ? 0x947665 : 0xb0aa89, 0.9);
+        g.fillRect(x, y, 11, 9);
+      }
+    }
+    if (building.style === "market" || building.style === "workshop" || building.style === "depot" || building.style === "community") {
+      const shade = building.style === "market" ? 0xa16e50 : 0xb28b58;
+      const awningX = Phaser.Math.Linear(d.x, c.x, 0.55);
+      const awningY = Phaser.Math.Linear(d.y, c.y, 0.55) - 31;
+      this.polygon(g, [
+        { x: awningX - 30, y: awningY }, { x: awningX + 30, y: awningY },
+        { x: awningX + 35, y: awningY + 14 }, { x: awningX - 36, y: awningY + 14 },
+      ], shade, 1, 0x252521, 0.8, 1.5);
+      g.lineStyle(2, 0xd9bb83, 0.7);
+      g.beginPath();
+      g.moveTo(awningX - 27, awningY + 2);
+      g.lineTo(awningX + 24, awningY + 2);
+      g.strokePath();
+    }
+
+    // Volume único por cobertura, e não antena e caixa repetidas em todos os telhados.
     const roofCenter = { x: (at.x + bt.x + ct.x + dt.x) / 4, y: (at.y + bt.y + ct.y + dt.y) / 4 };
-    g.fillStyle(0x192b31, 1);
-    g.fillRoundedRect(roofCenter.x - 18, roofCenter.y - 5, 36, 15, 3);
-    g.fillStyle(building.accent, 0.7);
-    g.fillRect(roofCenter.x - 13, roofCenter.y - 2, 26, 2);
-    g.lineStyle(2, 0x101820, 0.95);
-    g.beginPath();
-    g.moveTo(roofCenter.x + 25, roofCenter.y - 8);
-    g.lineTo(roofCenter.x + 25, roofCenter.y - 34);
-    g.lineTo(roofCenter.x + 35, roofCenter.y - 40);
-    g.strokePath();
-    g.fillStyle(building.accent, 0.95);
-    g.fillCircle(roofCenter.x + 35, roofCenter.y - 40, 3);
+    if (building.style === "factory") {
+      g.fillStyle(0x2e3438,1);
+      g.fillRect(roofCenter.x-21,roofCenter.y-20,11,26);
+      g.fillRect(roofCenter.x+13,roofCenter.y-33,10,39);
+      g.fillStyle(0xbc9270,0.65);
+      g.fillRect(roofCenter.x-22,roofCenter.y-19,13,3);
+    }
+    if (building.style === "utility" || building.style === "canal") {
+      g.fillStyle(0x334449, 1);
+      g.fillRoundedRect(roofCenter.x - 13, roofCenter.y - 15, 26, 21, 5);
+      g.fillStyle(0x9caba4, 0.55);
+      g.fillEllipse(roofCenter.x, roofCenter.y - 15, 26, 7);
+      g.lineStyle(2, 0x162830, 0.85);
+      g.strokeRoundedRect(roofCenter.x - 13, roofCenter.y - 15, 26, 21, 5);
+    } else if (building.style === "clinic") {
+      g.fillStyle(0x253944, 1);
+      g.fillRoundedRect(roofCenter.x - 18, roofCenter.y - 5, 36, 12, 2);
+      g.lineStyle(2, 0x7ca2a2, 0.6);
+      g.strokeRoundedRect(roofCenter.x - 18, roofCenter.y - 5, 36, 12, 2);
+    }
 
     if (building.sign) {
       const signX = (d.x + c.x) / 2;
@@ -424,101 +547,35 @@ export class BaixadaScene extends Phaser.Scene {
       g.strokeRoundedRect(signX - 39, signY - 7, 78, 17, 3);
       this.add.text(signX, signY + 1, building.sign, {
         fontFamily: "IBM Plex Mono, monospace",
-        fontSize: "15px",
+        fontSize: "12px",
         color: "#e6f4e8",
         fontStyle: "bold",
-      }).setOrigin(0.5).setDepth(signY + 10);
+      }).setOrigin(0.5).setDepth(tileCenter({ x: building.x + building.width, y: building.y + building.depth }).y + 0.1);
     }
 
-    this.add.text((at.x + bt.x + ct.x + dt.x) / 4, Math.min(at.y, bt.y, ct.y, dt.y) - 11, building.label, {
-      fontFamily: "IBM Plex Mono, monospace",
-      fontSize: "14px",
-      color: "#b7c8bd",
-      backgroundColor: "#101820cc",
-      padding: { x: 4, y: 2 },
-    }).setOrigin(0.5).setDepth(500);
+
   }
 
   private drawMarketStall(x: number, y: number): void {
-    const g = this.details;
-    const center = tileCenter({ x, y });
-    const top = { x: center.x, y: center.y - 44 };
-    const left = { x: center.x - 33, y: center.y - 27 };
-    const right = { x: center.x + 33, y: center.y - 27 };
-    const front = { x: center.x, y: center.y - 10 };
-    this.polygon(g, [left, top, right, front], 0x9b5147, 1, 0x271e22, 1, 2);
-    this.polygon(g, [left, top, front], 0xe2a65b, 1, 0x271e22, 0.8, 1);
-    this.polygon(g, [top, right, front], 0x286d68, 1, 0x271e22, 0.8, 1);
-    g.lineStyle(3, 0x25343a, 1);
-    g.beginPath();
-    g.moveTo(left.x, left.y);
-    g.lineTo(left.x, center.y + 8);
-    g.moveTo(right.x, right.y);
-    g.lineTo(right.x, center.y + 8);
-    g.strokePath();
-    g.fillStyle(0x6b4935, 1);
-    g.fillRect(center.x - 23, center.y - 10, 46, 15);
-    g.fillStyle(0xf0c37c, 0.85);
-    g.fillRect(center.x - 20, center.y - 7, 40, 3);
-    for (let index = 0; index < 4; index += 1) {
-      g.fillStyle([0xd87547, 0xd7ba67, 0x6fc6a7, 0x9c83c8][index] ?? 0xd87547, 1);
-      g.fillCircle(center.x - 15 + index * 10, center.y - 17, 3);
-    }
-    this.add.text(center.x, center.y - 55, "MERCADO DA PONTE", {
-      fontFamily: "IBM Plex Mono, monospace", fontSize: "14px", color: "#ffd7a2", backgroundColor: "#281d22cc", padding: { x: 4, y: 2 },
-    }).setOrigin(0.5).setDepth(480);
+    const point = tileCenter({ x, y });
+    this.add.image(point.x, point.y + 4, "baixada-market-stall")
+      .setOrigin(0.5, 0.95)
+      .setScale(0.40)
+      .setDepth(point.y + 0.12);
+
   }
 
   private drawPalm(x: number, y: number): void {
-    const g = this.details;
     const base = tileCenter({ x, y });
-    const crown = { x: base.x + 1, y: base.y - 66 };
-    g.fillStyle(0x162a28, 0.48);
-    g.fillEllipse(base.x + 4, base.y + 2, 36, 12);
-    g.lineStyle(7, 0x664a35, 1);
-    g.beginPath();
-    g.moveTo(base.x, base.y);
-    g.lineTo(crown.x - 2, crown.y + 24);
-    g.strokePath();
-    g.lineStyle(2, 0xb38a57, 0.9);
-    for (let ring = 0; ring < 4; ring += 1) {
-      const yLine = Phaser.Math.Linear(base.y - 11, crown.y + 24, ring / 4);
-      g.beginPath();
-      g.moveTo(base.x - 3, yLine);
-      g.lineTo(base.x + 4, yLine - 2);
-      g.strokePath();
-    }
-    const leafEnds = [
-      { x: crown.x - 39, y: crown.y - 8 }, { x: crown.x - 29, y: crown.y - 27 },
-      { x: crown.x - 8, y: crown.y - 34 }, { x: crown.x + 15, y: crown.y - 31 },
-      { x: crown.x + 38, y: crown.y - 14 }, { x: crown.x + 42, y: crown.y + 4 },
-      { x: crown.x + 12, y: crown.y + 7 }, { x: crown.x - 15, y: crown.y + 8 },
-    ];
-    for (const [index, end] of leafEnds.entries()) {
-      const color = index % 2 === 0 ? 0x4e9673 : 0x72a86e;
-      g.lineStyle(5, 0x285d4e, 1);
-      g.beginPath();
-      g.moveTo(crown.x, crown.y + 21);
-      g.lineTo(end.x, end.y);
-      g.strokePath();
-      g.lineStyle(1, color, 1);
-      for (let leaflet = 1; leaflet <= 4; leaflet += 1) {
-        const t = leaflet / 5;
-        const px = Phaser.Math.Linear(crown.x, end.x, t);
-        const py = Phaser.Math.Linear(crown.y + 21, end.y, t);
-        g.beginPath();
-        g.moveTo(px, py);
-        g.lineTo(px + (end.x < crown.x ? -9 : 9), py + 7);
-        g.strokePath();
-      }
-    }
-    g.fillStyle(0xd59b58, 1);
-    g.fillCircle(crown.x, crown.y + 19, 5);
+    this.add.image(base.x, base.y + 1, "baixada-palm-tree")
+      .setOrigin(0.5, 0.98)
+      .setScale(0.46)
+      .setDepth(base.y + 0.12);
   }
 
   private drawLamp(x: number, y: number): void {
-    const g = this.details;
     const base = tileCenter({ x, y });
+    const g = this.add.graphics().setDepth(base.y + 0.11);
     g.fillStyle(0x10181c, 0.55);
     g.fillEllipse(base.x, base.y + 2, 24, 7);
     g.lineStyle(4, 0x27373c, 1);
@@ -527,61 +584,37 @@ export class BaixadaScene extends Phaser.Scene {
     g.lineTo(base.x + 3, base.y - 69);
     g.lineTo(base.x + 18, base.y - 74);
     g.strokePath();
-    g.lineStyle(3, 0x00d6ce, 0.85);
+    g.lineStyle(3, 0xc99c72, 0.85);
     g.beginPath();
     g.moveTo(base.x + 8, base.y - 70);
     g.lineTo(base.x + 18, base.y - 74);
     g.strokePath();
-    g.fillStyle(0x00d6ce, 0.28);
+    g.fillStyle(0xd59c65, 0.24);
     g.fillCircle(base.x + 19, base.y - 74, 13);
-    g.fillStyle(0x7af7df, 1);
+    g.fillStyle(0xffdc9a, 1);
     g.fillRoundedRect(base.x + 13, base.y - 79, 11, 5, 2);
   }
 
-  private drawCableRun(): void {
-    const g = this.details;
-    g.lineStyle(2, 0x17272e, 0.96);
-    g.beginPath();
-    g.moveTo(115, 118);
-    g.lineTo(206, 84);
-    g.lineTo(325, 143);
-    g.lineTo(478, 111);
-    g.lineTo(623, 165);
-    g.strokePath();
-    g.lineStyle(1, 0x8e6650, 0.8);
-    g.beginPath();
-    g.moveTo(115, 121);
-    g.lineTo(206, 87);
-    g.lineTo(325, 146);
-    g.lineTo(478, 114);
-    g.lineTo(623, 168);
-    g.strokePath();
-    for (const point of [{ x: 206, y: 86 }, { x: 478, y: 113 }, { x: 623, y: 166 }]) {
-      g.fillStyle(0x111c21, 1);
-      g.fillCircle(point.x, point.y, 4);
-    }
-  }
-
   private drawStreetProps(): void {
-    const g = this.details;
-    const bins = [{ x: 5, y: 8 }, { x: 11, y: 5 }, { x: 15, y: 8 }, { x: 12, y: 13 }, { x: 18, y: 7 }];
-    for (const tile of bins) {
+    // Props são objetos independentes do piso: depth e colisão compartilham PROPS.
+    for (const tile of PROPS.bins) {
       const point = tileCenter(tile);
-      g.fillStyle(0x1a292e, 1);
-      g.fillRoundedRect(point.x - 10, point.y - 18, 18, 20, 3);
-      g.fillStyle(0x73a89b, 0.8);
-      g.fillRect(point.x - 8, point.y - 17, 14, 3);
-      g.lineStyle(1, 0x0d171b, 0.8);
-      g.strokeRoundedRect(point.x - 10, point.y - 18, 18, 20, 3);
+      const g = this.add.graphics().setDepth(point.y + 0.12);
+      g.fillStyle(0x19282b, 1);
+      g.fillRoundedRect(point.x - 8, point.y - 16, 16, 17, 3);
+      g.fillStyle(0x9a9880, 0.8);
+      g.fillRect(point.x - 7, point.y - 16, 14, 3);
+      g.lineStyle(1.2, 0x0d171b, 0.8);
+      g.strokeRoundedRect(point.x - 8, point.y - 16, 16, 17, 3);
     }
-    const crates = [{ x: 3, y: 8 }, { x: 9, y: 8 }, { x: 12, y: 5 }, { x: 17, y: 6 }, { x: 9, y: 11 }, { x: 12, y: 12 }, { x: 16, y: 13 }];
-    for (const tile of crates) {
+    for (const tile of PROPS.crates) {
       const point = tileCenter(tile);
-      g.fillStyle(0x8b6848, 1);
-      g.fillRoundedRect(point.x - 9, point.y - 12, 18, 13, 2);
+      const g = this.add.graphics().setDepth(point.y + 0.12);
+      g.fillStyle(0x96734c, 1);
+      g.fillRoundedRect(point.x - 9, point.y - 12, 18, 12, 2);
       g.lineStyle(1, 0x3b3125, 0.9);
       g.strokeRect(point.x - 7, point.y - 10, 14, 9);
-      g.lineStyle(2, 0xb88d5c, 0.6);
+      g.lineStyle(2, 0xc39c67, 0.6);
       g.beginPath();
       g.moveTo(point.x - 7, point.y - 10);
       g.lineTo(point.x + 7, point.y - 1);
@@ -591,43 +624,55 @@ export class BaixadaScene extends Phaser.Scene {
 
   private createActors(): void {
     this.actors = [
-      { id: "vendedor", name: "Nilo", kind: "person", tile: { x: 4, y: 6 }, texture: NPC_TEXTURES.nilo, role: "MECÂNICO / VENDEDOR" },
-      { id: "moradora", name: "Joana", kind: "person", tile: { x: 12, y: 6 }, texture: NPC_TEXTURES.joana, role: "MORADORA DA BAIXADA" },
-      { id: "saira", name: "Saira", kind: "person", tile: { x: 16, y: 6 }, texture: NPC_TEXTURES.saira, role: "VENDEDORA DO MERCADO" },
-      { id: "enter-clinic", name: "Entrar na clínica", kind: "door", tile: { x: 9, y: 3 }, role: "INTERIOR" },
-      { id: "enter-workshop", name: "Entrar na oficina", kind: "door", tile: { x: 3, y: 8 }, role: "INTERIOR" },
-      { id: "enter-canal-gallery", name: "Descer para a galeria", kind: "door", tile: { x: 14, y: 13 }, role: "ACESSO TÉCNICO" },
-      { id: "terminal-canal", name: "Terminal do Canal", kind: "terminal", tile: { x: 10, y: 12 }, role: "SERVIÇOS DO DISTRITO" },
+      { id: "vendedor", name: "Nilo", kind: "person", tile: ACTOR_TILES.vendedor, texture: NPC_TEXTURES.nilo, role: "MECÂNICO / VENDEDOR" },
+      { id: "moradora", name: "Joana", kind: "person", tile: ACTOR_TILES.moradora, texture: NPC_TEXTURES.joana, role: "MORADORA DA BAIXADA" },
+      { id: "saira", name: "Saira", kind: "person", tile: ACTOR_TILES.saira, texture: NPC_TEXTURES.saira, role: "VENDEDORA DO MERCADO" },
+      { id: "enter-clinic", name: "Entrar na clínica", kind: "door", tile: ACTOR_TILES["enter-clinic"], role: "INTERIOR" },
+      { id: "enter-workshop", name: "Entrar na oficina", kind: "door", tile: ACTOR_TILES["enter-workshop"], role: "INTERIOR" },
+      { id: "enter-canal-gallery", name: "Descer para a galeria", kind: "door", tile: ACTOR_TILES["enter-canal-gallery"], role: "ACESSO TÉCNICO" },
+      { id: "terminal-canal", name: "Terminal do Canal", kind: "terminal", tile: ACTOR_TILES["terminal-canal"], role: "SERVIÇOS DO DISTRITO" },
+      { id: "patio-console", name: "Console V-09", kind: "terminal", tile: ACTOR_TILES["patio-console"], role: "PÁTIO DO REÚSO" },
+      { id: "patio-sentinel", name: "Sentinela V-09", kind: "person", tile: ACTOR_TILES["patio-sentinel"], texture: NPC_TEXTURES.teo, role: "UNIDADE DE VIGILÂNCIA" },
+      { id: "feira-corretor", name: "Davi", kind:"person",tile:ACTOR_TILES["feira-corretor"],texture:NPC_TEXTURES.nilo,role:"INTERMEDIÁRIO DE ACESSOS" },
+      { id: "feira-ajuda", name: "Marta", kind:"person",tile:ACTOR_TILES["feira-ajuda"],texture:NPC_TEXTURES.joana,role:"ARTICULADORA COMUNITÁRIA" },
+      { id: "feira-archive", name:"Mural de Boletins",kind:"terminal",tile:ACTOR_TILES["feira-archive"],role:"REDE COMUNITÁRIA" },
+      ...ROAMING_NPCS.map((spec,index)=>({
+        id:spec.id,name:spec.name,kind:"person" as const,tile:{...spec.route[0]},
+        texture:[NPC_TEXTURES.joana,NPC_TEXTURES.teo,NPC_TEXTURES.saira][index%3],
+        role:spec.role,routine:new CitizenRoutine(spec),
+      })),
     ];
 
     for (const actor of this.actors) {
       const point = tileCenter(actor.tile);
       if (actor.kind === "person" && actor.texture) {
         actor.visual = this.add.sprite(point.x, point.y, actor.texture, 12)
-          .setOrigin(0.5, 0.95).setScale(0.86).setDepth(point.y + 100);
+          .setOrigin(0.5, 0.95).setScale(0.86).setDepth(point.y + 0.2);
         playIdle(actor.visual, actor.texture, 2);
-        this.tweens.add({ targets: actor.visual, y: point.y - 1.5, duration: 1500 + (actor.tile.x % 3) * 170, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
+        if(actor.id === "patio-sentinel") actor.visual.setTint(0xff648f);
+        if(!actor.routine) this.tweens.add({ targets: actor.visual, y: point.y - 1.5, duration: 1500 + (actor.tile.x % 3) * 170, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
         actor.label = this.add.text(point.x, point.y - 73, actor.name, {
           fontFamily: "IBM Plex Mono, monospace", fontSize: "13px", color: "#eef7ec", backgroundColor: "#111b20dd", padding: { x: 4, y: 2 },
-        }).setOrigin(0.5).setDepth(point.y + 150);
+        }).setOrigin(0.5).setDepth(point.y + 0.42);
       } else if (actor.kind === "terminal") {
         this.drawTerminal(point.x, point.y);
-        actor.label = this.add.text(point.x, point.y - 47, "TERMINAL", {
+        actor.label = this.add.text(point.x, point.y - 47, actor.id==="feira-archive" ? "MURAL · CONSULTAR" : "TERMINAL", {
           fontFamily: "IBM Plex Mono, monospace", fontSize: "12px", color: "#ffe3a0", backgroundColor: "#2b2417dd", padding: { x: 4, y: 2 },
-        }).setOrigin(0.5).setDepth(point.y + 90);
+        }).setOrigin(0.5).setDepth(point.y + 0.42);
       } else {
-        const accent = actor.id === "enter-clinic" ? 0x79d8c6 : actor.id === "enter-canal-gallery" ? 0x70c9cf : 0xe2ae6e;
+        const accent = 0xffb300; // Portas neutras e interativas sempre em âmbar.
         this.drawDoor(point.x, point.y, accent);
         const doorLabel = actor.id === "enter-clinic" ? "CLÍNICA · ENTRAR" : actor.id === "enter-canal-gallery" ? "GALERIA · DESCER" : "OFICINA · ENTRAR";
         actor.label = this.add.text(point.x, point.y - 48, doorLabel, {
           fontFamily: "IBM Plex Mono, monospace", fontSize: "12px", color: "#ffe0a8", backgroundColor: "#151c1ddd", padding: { x: 4, y: 2 },
-        }).setOrigin(0.5).setDepth(point.y + 90);
+        }).setOrigin(0.5).setDepth(point.y + 0.42);
       }
+      actor.label?.setVisible(false);
     }
   }
 
   private drawDoor(cx: number, cy: number, accent: number): void {
-    const g = this.details;
+    const g = this.add.graphics().setDepth(cy + 0.12);
     g.fillStyle(0x10191e, 1);
     g.fillRoundedRect(cx - 13, cy - 43, 26, 43, 3);
     g.lineStyle(2, accent, 0.95);
@@ -641,7 +686,7 @@ export class BaixadaScene extends Phaser.Scene {
   }
 
   private drawTerminal(cx: number, cy: number): void {
-    const g = this.details;
+    const g = this.add.graphics().setDepth(cy + 0.12);
     g.fillStyle(0x10181c, 0.6);
     g.fillEllipse(cx + 3, cy + 2, 31, 9);
     g.fillStyle(0x1b2a30, 1);
@@ -659,30 +704,20 @@ export class BaixadaScene extends Phaser.Scene {
 
   private createPlayer(): void {
     const point = tileCenter(this.playerTile);
-    const texture = PLAYER_TEXTURES[this.originId];
-    this.player = this.add.sprite(point.x, point.y, texture, 12)
-      .setOrigin(0.5, 0.95).setScale(0.94).setDepth(point.y + 120);
-    playIdle(this.player, texture, this.playerDirection);
+    this.playerShadow = this.add.ellipse(point.x, point.y + 2, 22, 7, 0x071015, 0.22)
+      .setDepth(point.y - 0.04);
+    const texture = getPlayerTexture(this.originId, this.appearance);
+    this.player = this.add.sprite(point.x, point.y, texture, frameForDirection(texture, this.playerDirection))
+      .setOrigin(0.5, 0.95).setScale(0.94).setDepth(point.y + 0.32);
+    this.playerAnimator = new ActorAnimationController(this.player, texture, this.playerDirection);
     this.drawPlayerMarker();
   }
 
-  private createStreetLabels(): void {
-    const workshops = tileCenter({ x: 5, y: 9 });
-    const bridge = tileCenter({ x: 15, y: 8 });
-    const canal = tileCenter({ x: 11, y: 14 });
-    this.add.text(workshops.x, workshops.y + 35, "RUA DAS OFICINAS", {
-      fontFamily: "IBM Plex Mono, monospace", fontSize: "13px", color: "#b8b8a0", backgroundColor: "#152328cc", padding: { x: 6, y: 3 },
-    }).setOrigin(0.5).setDepth(900);
-    this.add.text(bridge.x, bridge.y + 30, "MERCADO DA PONTE", {
-      fontFamily: "IBM Plex Mono, monospace", fontSize: "12px", color: "#ffd7a2", backgroundColor: "#281d22cc", padding: { x: 5, y: 2 },
-    }).setOrigin(0.5).setDepth(900);
-    this.add.text(canal.x, canal.y + 25, "PRAÇA DA CAIXA D'ÁGUA", {
-      fontFamily: "IBM Plex Mono, monospace", fontSize: "12px", color: "#a5bcb0", backgroundColor: "#152328cc", padding: { x: 5, y: 2 },
-    }).setOrigin(0.5).setDepth(900);
-    const gallery = tileCenter({ x: 14, y: 13 });
-    this.add.text(gallery.x + 18, gallery.y + 36, "GALERIA DO CANAL", {
-      fontFamily: "IBM Plex Mono, monospace", fontSize: "12px", color: "#a8ded9", backgroundColor: "#102126dd", padding: { x: 4, y: 2 },
-    }).setOrigin(0.5).setDepth(900);
+  private updateActorLabels(): void {
+    for (const actor of this.actors) {
+      const distance = Math.abs(actor.tile.x - this.playerTile.x) + Math.abs(actor.tile.y - this.playerTile.y);
+      actor.label?.setVisible(distance <= 2);
+    }
   }
 
   private drawPlayerMarker(): void {
@@ -690,14 +725,16 @@ export class BaixadaScene extends Phaser.Scene {
     const playerPoint = tileCenter(this.playerTile);
     this.polygon(this.markers, this.diamond(playerPoint.x, playerPoint.y + 1, 38, 19), 0x00e5ff, 0.1, 0x00e5ff, 0.55, 1.5);
     for (const actor of this.actors) {
+      const distance = Math.abs(actor.tile.x - this.playerTile.x) + Math.abs(actor.tile.y - this.playerTile.y);
+      if (distance > 3) continue;
       const point = tileCenter(actor.tile);
       this.polygon(
         this.markers,
         this.diamond(point.x, point.y + 1, actor.kind === "terminal" ? 34 : actor.kind === "door" ? 36 : 30, actor.kind === "terminal" ? 17 : actor.kind === "door" ? 18 : 15),
         0xffd166,
-        0.1,
+        0.05,
         0xffd166,
-        0.78,
+        0.6,
         1.2,
       );
     }
@@ -726,8 +763,8 @@ export class BaixadaScene extends Phaser.Scene {
     const center = tileCenter(target);
     const localX = Math.abs(worldPoint.x - center.x) / (TILE_WIDTH / 2);
     const localY = Math.abs(worldPoint.y - center.y) / (TILE_HEIGHT / 2);
-    if (!inside(target) || localX + localY > 1.1 || !walkable(target)) return;
-    const path = findPath(this.playerTile, target);
+    if (!inside(target) || localX + localY > 1.1 || !canStand(target,{occupied:this.dynamicOccupancy()})) return;
+    const path = this.findWorldPath(this.playerTile, target);
     if (path) this.walkPath(path);
   }
 
@@ -740,13 +777,14 @@ export class BaixadaScene extends Phaser.Scene {
           : key === "arrowleft" || key === "a" ? DIRECTIONS[3] : undefined;
     if (!direction) return;
     const next = { x: this.playerTile.x + direction.x, y: this.playerTile.y + direction.y };
-    const path = findPath(this.playerTile, next);
+    const path = this.findWorldPath(this.playerTile, next);
     if (path) this.walkPath(path);
   }
 
   private approachActor(actor: WorldActor): void {
     this.pendingInteraction = actor.id;
-    const path = nearestApproach(this.playerTile, actor.tile);
+    actor.routine?.interact();
+    const path = this.findApproachPath(this.playerTile, actor.tile);
     if (!path) {
       this.pendingInteraction = null;
       return;
@@ -762,31 +800,67 @@ export class BaixadaScene extends Phaser.Scene {
   private walkPath(path: Position[]): void {
     if (path.length <= 1 || this.moving) return;
     this.moving = true;
-    const texture = PLAYER_TEXTURES[this.originId];
     const steps = path.slice(1);
+    const destination=path[path.length-1]!;
+    let alternateAttempts=0;
     const nextStep = (): void => {
       const next = steps.shift();
       if (!next || !this.player) {
         this.moving = false;
-        playIdle(this.player, texture, this.playerDirection);
+        this.playerAnimator?.play("idle");
         this.finishPendingInteraction();
         return;
       }
       const previous = this.playerTile;
+      // Proteção física no momento da movimentação: nenhuma interpolação
+      // executa um passo que atravessaria um edifício, pessoa ou obstáculo.
+      if (!canTraverse(previous, next,{occupied:this.dynamicOccupancy()})) {
+        // A rota era válida quando começou, mas um morador pode ter ocupado
+        // o próximo passo. Recalcular a partir da célula real (sem atravessar
+        // o ator), em vez de abandonar silenciosamente a intenção do usuário.
+        if(alternateAttempts<2){
+          alternateAttempts+=1;
+          const alternate=this.findWorldPath(previous,destination);
+          if(alternate&&alternate.length>1){
+            steps.splice(0,steps.length,...alternate.slice(1));
+            nextStep();
+            return;
+          }
+        }
+        steps.length = 0;
+        this.pendingInteraction = null;
+        this.moving = false;
+        this.playerAnimator?.play("idle");
+        return;
+      }
       const direction: IsoDirection = next.y < previous.y ? 0 : next.x > previous.x ? 1 : next.y > previous.y ? 2 : 3;
       this.playerDirection = direction;
-      playWalk(this.player, texture, direction);
+      this.playerAnimator?.setDirection(direction);
+      this.playerAnimator?.play("walk");
       const point = tileCenter(next);
       this.playerTile = next;
-      this.drawPlayerMarker();
+      this.tweens.add({
+        targets: this.playerShadow,
+        x: point.x,
+        y: point.y + 2,
+        duration: 190,
+        ease: "Sine.easeInOut",
+        onUpdate: () => this.playerShadow.setDepth(this.playerShadow.y - 2.04),
+      });
       this.tweens.add({
         targets: this.player,
         x: point.x,
         y: point.y,
         duration: 190,
         ease: "Sine.easeInOut",
-        onUpdate: () => this.player.setDepth(this.player.y + 120),
-        onComplete: () => nextStep(),
+        onUpdate: () => this.player.setDepth(this.player.y + 0.32),
+        onComplete: () => {
+          this.drawPlayerMarker();
+          this.updateActorLabels();
+          audioDirector.effect("step");
+          this.onPositionChange?.({...this.playerTile});
+          nextStep();
+        },
       });
     };
     nextStep();
@@ -797,6 +871,8 @@ export class BaixadaScene extends Phaser.Scene {
     if (!this.pendingInteraction) return;
     const id = this.pendingInteraction;
     this.pendingInteraction = null;
+    const actor=this.actors.find((a)=>a.id===id);
+    if (actor && Math.abs(actor.tile.x-this.playerTile.x)+Math.abs(actor.tile.y-this.playerTile.y)>1) return;
     this.onInteract(id);
   }
 }

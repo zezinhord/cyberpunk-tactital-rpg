@@ -1,0 +1,169 @@
+/* Módulo 0.3.0 — Arena de personagens/habilidades (sem alterar o layout da cidade). */
+@media (orientation: landscape) {
+ .game-shell.arena-v030 {
+   display:grid!important;
+   grid-template-columns:minmax(0,1fr) clamp(264px,34vw,390px);
+   grid-template-rows:48px minmax(0,1fr);
+   gap:5px 8px;
+   width:100%; max-width:none; min-height:100dvh; height:100dvh!important;
+   padding:max(4px,env(safe-area-inset-top)) max(7px,env(safe-area-inset-right))
+     max(4px,env(safe-area-inset-bottom)) max(7px,env(safe-area-inset-left));
+   overflow:hidden!important;
+ }
+ .arena-v030 .arena-head { grid-column:1 / -1; grid-row:1; min-height:0; padding:0 7px; }
+ .arena-v030 .mission h1 { font-size:clamp(16px,2vw,20px); }
+ .arena-v030 .mission p { font-size:10px; }
+ .arena-v030 .arena-field { display:flex; flex-direction:column; min-width:0; min-height:0; grid-column:1; grid-row:2; gap:4px; }
+ .arena-v030 .arena-presentation { display:flex; align-items:center; justify-content:space-between; gap:8px; flex:none; min-height:43px; }
+ .arena-v030 .arena-presentation > strong { color:#d3e0d9; font:700 12px var(--display); }
+ .arena-v030 .arena-appearance-group { display:flex; align-items:center; gap:4px; }
+ .arena-v030 .arena-appearance-group button { min-height:48px; padding:4px 8px; border:1px solid #546764; border-radius:6px; background:#16252c; color:#b8c6c2; font:600 11px var(--display); }
+ .arena-v030 .arena-appearance-group button[aria-pressed="true"] { color:#08232b; border-color:#00e5ff; background:#7fdfe6; }
+ .arena-v030 .battle-panel { display:flex; flex:1 1 auto; flex-direction:column; min-height:0; overflow:hidden; border:1px solid #2c4852; border-radius:8px; background:#0d1220; }
+ .arena-v030 .map-label { flex:none; padding:4px 9px; font-size:9px; }
+ .arena-v030 .battlefield-canvas { flex:1 1 auto; width:100%; height:auto; min-height:0; max-height:none; aspect-ratio:auto; }
+ .arena-v030 .board-hint { flex:none; padding:4px; color:#b6cbc9; font-size:11px; }
+ .arena-v030 .arena-console { display:grid; grid-template-rows:minmax(0,1fr) auto; min-height:0; grid-column:2; grid-row:2; gap:5px; overflow:hidden; padding:0 2px 4px; }
+ .arena-v030 .arena-console-scroll { display:flex; flex-direction:column; min-height:0; gap:6px; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
+ .arena-v030 .arena-console .control-sheet { background:#101b27; border:1px solid rgba(104,149,157,.55); box-shadow:0 -4px 18px rgba(0,0,0,.24); }
+ .arena-v030 .units { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:0; }
+ .arena-v030 .unit-card { padding:6px 7px; }
+ .arena-v030 .unit-head strong { font-size:12px; }
+ .arena-v030 .unit-head span { font-size:10px; }
+ .arena-v030 .unit-stats { margin:2px 0 4px; font-size:10px; }
+ .arena-v030 .unit-stats b { font-size:16px; }
+ .arena-v030 .unit-card .hp-track { height:5px; }
+ .arena-v030 .combat-message { flex:none; margin:0; padding:6px 9px; font-size:12px; }
+ .arena-v030 .origin-power-panel { flex:none; padding:6px 9px; }
+ .arena-v030 .origin-power-panel .power-heading { display:none; }
+ .arena-v030 .origin-power-panel .power-action { gap:6px; }
+ .arena-v030 .origin-power-panel .power-action small { display:none; }
+ .arena-v030 .origin-power-panel .power-action strong { font-size:12px; }
+ .arena-v030 .origin-power-panel .eyebrow { font-size:9px; }
+ .arena-v030 .origin-power-panel .ability-button { min-height:48px; }
+ .arena-v030 .log-panel { flex:none; }
+ .arena-v030 .log-panel summary { min-height:48px; padding:6px 8px; }
+ .arena-v030 .control-sheet { flex:none; position:static; padding:5px; margin:0; gap:5px; border-radius:8px; }
+ .arena-v030 .sheet-handle { display:none; }
+ .arena-v030 .control-sheet .economy { gap:4px; }
+ .arena-v030 .control-sheet .eco { height:30px; padding:0 4px; font-size:11px; }
+ .arena-v030 .control-sheet .pips { gap:1px; }
+ .arena-v030 .control-sheet .pips i { width:4px; height:10px; }
+ .arena-v030 .actions { display:grid; grid-template-columns:1fr 1fr; gap:5px; }
+ .arena-v030 .actions button { min-width:0; min-height:48px; font-size:11px; border-radius:7px; }
+ .arena-v030 .attack-button { grid-column:1 / -1; }
+ .arena-v030 .secondary-actions { display:flex; gap:5px; }
+ .arena-v030 .secondary-actions button { flex:1; min-height:48px; font-size:11px; }
+}
+.arena-energy { display:flex; flex-direction:column; gap:2px; padding:7px 9px; border:1px solid #36505b; border-radius:8px; background:rgba(13,26,34,.95); }
+.arena-energy > div:first-child { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.arena-energy > div:first-child span { color:#93b9c5; font:500 9px var(--mono); letter-spacing:.06em; }
+.arena-energy strong { font:700 15px var(--display); color:#e7f7fc; }
+.arena-energy-track { height:7px; overflow:hidden; border-radius:7px; background:#304b55; }
+.arena-energy-track span { display:block; height:100%; background:#00e5ff; transition:width 180ms; }
+.arena-energy > small { color:#89a6af; font-size:9px; }
+.arena-specials { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+.arena-special { display:flex; flex-direction:column; justify-content:space-between; gap:6px; min-height:90px; min-width:0; padding:7px; border:1px solid #536b75; border-radius:7px; background:linear-gradient(135deg,#253944,#12212b); color:#deeaf0; text-align:left; }
+.arena-special.ready { border-color:#3aafc1; }
+.arena-special.unavailable { opacity:.69; }
+.arena-special-index { color:#89c9d3; font:500 10px var(--mono); }
+.arena-special strong { overflow-wrap:anywhere; font:700 11px/1.13 var(--display); }
+.arena-special-bottom { display:flex; flex-direction:column; gap:2px; }
+.arena-special-bottom small { color:#bdced1; font:500 9px var(--mono); }
+.arena-special.ready .arena-special-bottom small:last-child { color:#7cd9e8; }
+.arena-effects { display:flex; gap:5px; flex-wrap:wrap; }
+.arena-effects span { color:#e2c68e; font:500 10px var(--mono); }
+@media (orientation:landscape) and (max-height:420px) {
+ .arena-v030 .arena-head { grid-row:1; }
+ .arena-v030 .arena-presentation > strong { font-size:10px; }
+ .arena-v030 .arena-appearance-group button { padding:3px 5px; }
+ .arena-special { min-height:78px; padding:5px; }
+ .arena-v030 .arena-console-scroll { gap:4px; }
+}
+
+/* 0.6.8 — classe exclusiva visível antes das habilidades comuns, sem fixar a
+ * rolagem do topo nem modificar o painel inferior de comandos touch. */
+.arena-v030 .arena-class-group{display:flex;flex-direction:column;gap:5px}
+.arena-v030 .arena-class-kicker{font:700 10px var(--mono);letter-spacing:.09em;color:#dbbe88;padding:3px 4px}
+.arena-v030 .arena-class-group .arena-specials{margin:0;display:grid;grid-template-columns:minmax(0,1fr)}
+.arena-v030 .arena-special.class-exclusive{border-color:#d7a260;background:linear-gradient(125deg,#26353d,#302c29);min-height:102px;display:flex;flex-direction:column;gap:5px;align-items:flex-start}
+.arena-v030 .arena-special.class-exclusive.ready{box-shadow:inset 2px 0 #e6b773}
+.arena-v030 .arena-class-description{font-size:11px;line-height:1.3;color:#d5d2ca;text-align:left;white-space:normal}
+.arena-v030 .arena-special.class-exclusive .arena-special-bottom{width:100%}
+
+/* Identidade mantida no combate e ações de classe sempre visíveis acima dos comandos. */
+.arena-v030 .arena-powers-fixed{display:flex;flex:none;gap:5px;overflow-x:auto;min-height:44px;
+  scrollbar-width:thin;overscroll-behavior-inline:contain;touch-action:pan-x}
+.arena-v030 .arena-powers-fixed button{display:flex;flex:1 0 100px;min-width:0;
+  flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;
+  min-height:44px;padding:4px 8px;background:#243b42;border:1px solid #bc9769;
+  border-radius:7px;color:#e8e6da;text-align:left}
+.arena-v030 .arena-powers-fixed button strong{font-size:11px;line-height:1.08}
+.arena-v030 .arena-powers-fixed button small{font-size:9px;line-height:1.05}
+.arena-v030 .arena-powers-fixed button[aria-disabled="true"]{opacity:.72}
+.arena-v030 .arena-quick-empty{color:#c4cdd0;font:500 10px var(--mono);padding:8px}
+
+
+/* Hotfix de combate 0.6.9 RC2: comando de habilidades dedicado, sem depender
+   de rolar o console de status numa tela Android horizontal. */
+.arena-v030 .na-abilities-open { display:flex;align-items:center;justify-content:space-between;
+  flex:none;gap:8px;min-height:48px;width:100%;padding:6px 12px;
+  border:2px solid #e5b77a;border-radius:8px;color:#ffe0ad;
+  background:linear-gradient(100deg,#3a3431,#1a3034);text-align:left; }
+.arena-v030 .na-abilities-open>span { display:flex;flex-direction:column;gap:2px;min-width:0; }
+.arena-v030 .na-abilities-open strong { font:800 13px var(--display); }
+.arena-v030 .na-abilities-open small { color:#cbd7d0;font:500 10px var(--mono); }
+.arena-v030 .na-abilities-open b { flex:none;font:800 12px var(--display);color:#f6d4a5; }
+
+.na-ability-overlay { position:fixed;z-index:9999;inset:0;display:grid;place-items:center;
+  padding:max(7px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right))
+    max(7px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
+  background:rgba(3,9,16,.85);backdrop-filter:blur(4px); }
+.na-ability-picker { display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto;
+  gap:6px;width:min(920px,100%);height:min(96dvh,640px);min-height:0;
+  border:1px solid #cfa771;border-radius:11px;padding:10px;color:#f0e9d9;
+  background:#101f29;box-shadow:0 12px 38px rgba(0,0,0,.67); }
+.na-ability-picker-head { display:flex;align-items:center;justify-content:space-between;gap:12px; }
+.na-ability-picker-head span { color:#c9b58a;font:600 10px var(--mono); }
+.na-ability-picker-head h2 { margin:2px 0 0;font:700 20px var(--display);color:#f3dec1; }
+.na-ability-picker-head button { flex:none;min-width:48px;min-height:44px;
+  border:1px solid #657d83;border-radius:7px;background:#23343e;color:#f0e9d9; }
+.na-ability-picker-energy { margin:0;color:#aad1d8;font:600 11px var(--mono); }
+.na-ability-picker-content { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px;min-height:0;overflow-y:auto;overscroll-behavior:contain; }
+.na-ability-picker-group { display:flex;flex-direction:column;gap:6px;min-width:0; }
+.na-ability-picker-group h3 { margin:0;padding:4px 3px;color:#e5bd84;font:700 12px var(--display); }
+.na-ability-picker-group p { font-size:11px;color:#c9c9bc;margin:0; }
+.na-ability-picker-list { display:flex;flex-direction:column;gap:5px; }
+.na-ability-choice { display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;
+  gap:5px;min-height:57px;width:100%;padding:6px 8px;border:1px solid #566e79;
+  border-radius:7px;color:#e4eced;background:#1b303b;text-align:left; }
+.na-ability-choice.selected { border:2px solid #f2c98d;padding:5px 7px;background:#34413d; }
+.na-ability-choice span { display:flex;justify-content:space-between;flex-wrap:wrap;gap:3px; }
+.na-ability-choice strong { font:700 12px var(--display); }
+.na-ability-choice small { color:#b9c7cc;font:500 10px var(--mono); }
+.na-ability-choice em { font:500 10px/1.2 var(--mono);font-style:normal;color:#d0b58d; }
+.na-ability-choice em.ready { color:#84e5d7; }
+.na-ability-picker-selected { display:flex;flex-direction:column;gap:3px;min-height:58px;
+  padding:8px 11px;border:1px solid #516c6d;border-radius:7px;background:#182a31; }
+.na-ability-picker-selected strong { font:700 13px var(--display);color:#f3dec1; }
+.na-ability-picker-selected p { margin:0;color:#d1dcd6;font-size:11px;line-height:1.35; }
+.na-ability-picker-selected small { font-size:10px;color:#a9c7cd; }
+.na-ability-picker-selected span { color:#edc08d;font:700 11px var(--mono); }
+.na-ability-picker-selected span.ready { color:#92e4d5; }
+.na-ability-picker-actions { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+.na-ability-picker-actions button { min-height:48px;border:1px solid #607d83;
+  border-radius:7px;background:#253840;color:#f0ebe1;font:700 12px var(--display); }
+.na-ability-picker-actions button.primary { border-color:#f0c48f;background:#e8b979;color:#172229; }
+.na-ability-picker-actions button:disabled { opacity:.45; }
+@media (orientation:landscape) and (max-height:440px) {
+  .na-ability-picker { gap:4px;height:calc(100dvh - 8px);padding:6px 8px; }
+  .na-ability-picker-head h2 { font-size:16px; }
+  .na-ability-picker-head button { min-height:43px; }
+  .na-ability-choice { min-height:51px; }
+  .na-ability-picker-selected { min-height:46px;padding:5px 8px; }
+  .na-ability-picker-actions button { min-height:46px; }
+}
+@media (max-width:600px) {
+  .na-ability-picker-content { grid-template-columns:minmax(0,1fr); }
+}

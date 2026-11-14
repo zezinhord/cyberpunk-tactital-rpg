@@ -1,17 +1,20 @@
 import type { OriginId } from "./origins";
+import type { ClassId } from "../classes/registry";
 
 /** Dados persistentes do protagonista, independentes das unidades de combate. */
 export interface PlayerCharacter {
   id: string;
   name: string;
   originId: OriginId;
-  classId: string | null;
+  classId: ClassId | null;
   attributes: Readonly<Record<string, number>>;
   skills: readonly string[];
   abilities: readonly string[];
   equipment: readonly string[];
   level: number;
   experience: number;
+  /** Identificadores de recompensas já concedidas, para impedir XP duplicada. */
+  questRewards: readonly string[];
   createdAt: string;
   updatedAt: string;
   introductionCompleted: boolean;

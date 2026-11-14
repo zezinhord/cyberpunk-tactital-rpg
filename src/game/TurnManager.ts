@@ -1,6 +1,12 @@
 import { TypedEventBus } from "./EventBus";
+import { ALL_CLASS_SKILLS,getClassSkills } from "./classes/registry";
+import { checkClassSkill,executeClassSkill,advanceClassRound,advanceClassGuard,advanceClassEnemyDebuffs } from "./classes/engine";
+import { checkSpecial, useSpecial, advanceSpecialRound, isEnemyJammed, advanceBarrierAfterEnemyAction } from "./abilities/engine.ts";
+import type { SpecialId } from "./abilities/catalog";
+import type { AbilityCheck } from "./abilities/engine.ts";
+import type { CombatVisual } from "./types";
 import { findPath, getReachableCells, MOVEMENT_PER_TURN } from "./map";
-import type { GameEvents, GameState, Position, Unit } from "./types";
+import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types";
 import type { OriginGameplayProfile } from "./character/types";
 
 function rollDie(sides: number): number {
@@ -18,6 +24,14 @@ function livingUnit(units: Unit[], id: string): Unit | undefined {
 export interface TurnManagerOptions {
   playerName?: string;
   originProfile?: OriginGameplayProfile;
+  equipmentBonuses?: { attackBonus: number; armorBonus: number };
+  characterLevel?: number;
+  currentHp?: number;
+  progressionBonuses?:{hp:number;attack:number;armor:number;movement:number;energy:number};
+  originId?: string;
+  classId?: string | null;
+  characterAbilities?: readonly string[];
+  encounterId?: EncounterId;
 }
 
 export class TurnManager {
@@ -31,8 +45,13 @@ export class TurnManager {
 
   constructor(options: TurnManagerOptions = {}) {
     this.originProfile = options.originProfile;
-    const movementPerTurn = MOVEMENT_PER_TURN + (this.originProfile?.movementBonus ?? 0);
-    const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0);
+    const bonus=options.progressionBonuses;
+    const movementPerTurn = MOVEMENT_PER_TURN + (this.originProfile?.movementBonus ?? 0)+(bonus?.movement??0);
+    const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0);
+    const maxEnergy=10+(bonus?.energy??0);
+    const trial=options.encounterId?.startsWith("trial-")??false;
+    const trialWaveCount=options.encounterId==="trial-3"?3:trial?2:1;
+    const encounterHp=options.encounterId==="v09"?16:trial?14:12;
     this.state = {
       units: [
         {
@@ -41,24 +60,38 @@ export class TurnManager {
           side: "player",
           x: 1,
           y: 6,
-          hp: maxHp,
+          hp: Number.isFinite(options.currentHp)
+            ? Math.min(maxHp,Math.max(1,Math.floor(options.currentHp!)))
+            : maxHp,
           maxHp,
-          armorClass: 12 + (this.originProfile?.armorBonus ?? 0),
-          attackBonus: 5 + (this.originProfile?.attackBonus ?? 0),
+          armorClass: 12 + (this.originProfile?.armorBonus ?? 0) + (options.equipmentBonuses?.armorBonus ?? 0) + (bonus?.armor??0),
+          attackBonus: 5 + (this.originProfile?.attackBonus ?? 0) + (options.equipmentBonuses?.attackBonus ?? 0) + (bonus?.attack??0),
         },
         {
           id: "drone",
-          name: "Sentinela-07",
+          name: options.encounterId==="v09" ? "Unidade de Vigilância V-09"
+             : trial ? "Drone de Interceptação" : "Sentinela-07",
           side: "enemy",
           x: 6,
           y: 1,
-          hp: 12,
-          maxHp: 12,
+          hp: encounterHp,
+          maxHp: encounterHp,
           armorClass: 13,
           attackBonus: 4,
         },
       ],
       activeSide: "player",
+      encounterId: options.encounterId ?? "test",
+      wave:1,totalWaves:trialWaveCount,
+      archetypeId: "field-operative", characterLevel: options.characterLevel ?? 1,
+      originId: options.originId ?? "corporativo", classId: options.classId ?? null,
+      characterAbilities: options.characterAbilities ?? [], classCooldowns:{}, classGuardBonus:0, classGuardTurns:0,
+      classExtraMovement:0,classNextDamageBonus:0,classNextAccuracyBonus:0,
+      classEnemyArmorReduction:0,classEnemyArmorTurns:0,
+      classEnemyAttackReduction:0,classEnemyAttackTurns:0,
+      energy: maxEnergy, maxEnergy,
+      cooldowns: { "pulse-emp": 0, barrier: 0, regeneration: 0 },
+      barrierTurns: 0, enemyJamTurns: 0, terminalUsed: false, cue: null,
       round: 1,
       movementRemaining: movementPerTurn,
       movementPerTurn,
@@ -67,8 +100,10 @@ export class TurnManager {
       originAbilityAvailable: Boolean(this.originProfile),
       originAbilityName: this.originProfile?.abilityName ?? "Habilidade de origem",
       combatComplete: false,
-      message: "Área de teste ativa. Alcance a sentinela e neutralize-a.",
-      log: ["[SISTEMA] Campo de teste conectado.", "[MISSÃO] Neutralize a unidade sentinela."],
+      message: trial?"Operação Circuito Fantasma · onda 1 de "+trialWaveCount+". Proteja a comunidade."
+        : options.encounterId==="v09" ? "Encontro V-09: neutralize a unidade que interceptou os registros de manutenção."
+        : "Área de teste ativa. Alcance a sentinela e neutralize-a.",
+      log: options.encounterId==="v09" ? ["[MISSÃO] V-09: ameaça localizada no Pátio do Reúso.", "[COMBATE] Proteja os registros da cooperativa."] : ["[SISTEMA] Campo de teste conectado.", "[MISSÃO] Neutralize a unidade sentinela."],
     };
   }
 
@@ -77,11 +112,77 @@ export class TurnManager {
       ...this.state,
       units: this.state.units.map((unit) => ({ ...unit })),
       log: [...this.state.log],
+      cooldowns: { ...this.state.cooldowns },
+      classCooldowns:{...this.state.classCooldowns},
+      cue: this.state.cue ? { ...this.state.cue } : null,
     };
   }
 
   subscribe(listener: (state: GameState) => void): () => void {
     return this.events.on("game:state", listener);
+  }
+
+  getClassAbilities(){
+    return getClassSkills(this.state.classId).filter(skill=>
+      this.state.characterAbilities.includes(skill.id)
+      && this.state.characterLevel>=skill.minimumLevel);
+  }
+  getClassAvailability(id:string):AbilityCheck{
+    const skill=ALL_CLASS_SKILLS[id];
+    return skill?checkClassSkill(this.state,skill):{available:false,reason:"Habilidade desconhecida."};
+  }
+  activateClassAbility(id:string):void{
+    const skill=ALL_CLASS_SKILLS[id];
+    if(!skill){this.setMessage("Habilidade desconhecida.");return;}
+    const result=executeClassSkill(this.state,skill);
+    if(!result.ok){this.setMessage(result.message);return;}
+    this.addLog("[CLASSE] "+result.message);
+    this.setCue(skill.visual,skill.target==="enemy"?"enemy":"player",result.amount);
+    this.resolveEnemyDown();
+    this.publish();
+  }
+  getSpecialAvailability(id: SpecialId): AbilityCheck {
+    return checkSpecial(this.state, id);
+  }
+
+  activateSpecial(id: SpecialId): void {
+    const result = useSpecial(this.state, id);
+    if (!result.ok) {
+      this.setMessage(result.message);
+      return;
+    }
+    this.addLog("[ESPECIAL] " + result.message);
+    this.setCue(result.visual ?? "basic", result.target ?? "player", result.amount);
+    this.resolveEnemyDown();
+    this.publish();
+  }
+
+  interactWithTerminal(x: number, y: number): void {
+    const player = livingUnit(this.state.units, "runner");
+    if (!player || x !== 0 || y !== 6 || this.state.activeSide !== "player" || this.state.combatComplete) return;
+    if (distance(player, { x, y }) > 1) {
+      this.setMessage("Aproxime-se do terminal para ativá-lo.");
+      return;
+    }
+    if (this.state.terminalUsed) {
+      this.setMessage("Terminal auxiliar já utilizado neste teste.");
+      return;
+    }
+    if (this.state.energy === this.state.maxEnergy) {
+      this.setMessage("Energia já está no máximo. Use uma habilidade antes de acessar o terminal.");
+      return;
+    }
+    const recovered = Math.min(3, this.state.maxEnergy - this.state.energy);
+    this.state.energy += recovered;
+    this.state.terminalUsed = true;
+    this.state.message = "Terminal auxiliar: +" + recovered + " de energia. Acesso consumido.";
+    this.addLog("[OBJETO] Terminal recuperou +" + recovered + " energia.");
+    this.setCue("terminal", "terminal", recovered);
+    this.publish();
+  }
+
+  private setCue(visual: CombatVisual, target: "player" | "enemy" | "terminal", amount?: number): void {
+    this.state.cue = { sequence: (this.state.cue?.sequence ?? 0) + 1, visual, target, amount };
   }
 
   getReachableCells(): Position[] {
@@ -138,6 +239,22 @@ export class TurnManager {
     this.publish();
   }
 
+  useMedicalSupply(amount: number): boolean {
+    const player = livingUnit(this.state.units, "runner");
+    if (!player || !Number.isFinite(amount) || amount <= 0 || this.state.activeSide !== "player"
+        || !this.state.bonusActionAvailable || this.state.combatComplete || player.hp >= player.maxHp) {
+      return false;
+    }
+    const healed = Math.min(Math.floor(amount), player.maxHp - player.hp);
+    player.hp += healed;
+    this.setCue("repair", "player", healed);
+    this.state.bonusActionAvailable = false;
+    this.state.message = "Curativo de campo: " + healed + " pontos de Vida recuperados.";
+    this.addLog("[ITEM] Curativo utilizado: +" + healed + " Vida.");
+    this.publish();
+    return true;
+  }
+
   movePlayerTo(x: number, y: number): void {
     const player = livingUnit(this.state.units, "runner");
     if (!player || this.state.activeSide !== "player" || this.state.combatComplete) return;
@@ -150,6 +267,7 @@ export class TurnManager {
     }
     player.x = x;
     player.y = y;
+    this.setCue("move", "player");
     this.state.movementRemaining -= cost;
     this.state.message = `Movimento concluído: ${cost} célula(s) consumida(s).`;
     this.addLog(`[MOVIMENTO] ${player.name} avançou ${cost} célula(s).`);
@@ -169,27 +287,28 @@ export class TurnManager {
       return;
     }
     const roll = rollDie(20);
-    const attackBonus = player.attackBonus + this.nextAttackAccuracyBonus;
+    const attackBonus = player.attackBonus + this.nextAttackAccuracyBonus + this.state.classNextAccuracyBonus;
     const total = roll + attackBonus;
     this.state.mainActionAvailable = false;
     this.nextAttackAccuracyBonus = 0;
+    this.state.classNextAccuracyBonus = 0;
     if (roll === 20 || total >= enemy.armorClass) {
       const baseDamage = rollDie(6) + 2;
-      const damage = baseDamage + this.nextAttackDamageBonus;
+      const damage = baseDamage + this.nextAttackDamageBonus + this.state.classNextDamageBonus;
       this.nextAttackDamageBonus = 0;
+      this.state.classNextDamageBonus=0;
       enemy.hp = Math.max(0, enemy.hp - damage);
+      this.setCue("hit", "enemy", damage);
       this.state.message = `${player.name} acertou o ataque e causou ${damage} de dano.`;
       this.addLog(`[ATAQUE] d20 ${roll} + ${attackBonus} = ${total}. ${damage} de dano.`);
     } else {
       this.nextAttackDamageBonus = 0;
+      this.state.classNextDamageBonus=0;
+      this.setCue("miss", "enemy");
       this.state.message = `${player.name} errou o ataque.`;
       this.addLog(`[ATAQUE] d20 ${roll} + ${attackBonus} = ${total}. Ataque falhou.`);
     }
-    if (enemy.hp <= 0) {
-      this.state.combatComplete = true;
-      this.state.message = "Sentinela neutralizada. Área de teste temporariamente segura.";
-      this.addLog("[MISSÃO] Objetivo de teste concluído.");
-    }
+    this.resolveEnemyDown();
     this.publish();
   }
 
@@ -202,6 +321,11 @@ export class TurnManager {
     this.state.message = "Turno da sentinela. Mantenha cobertura e prepare o próximo movimento.";
     this.addLog("[TURNO] A sentinela está agindo.");
     this.publish();
+    const jammed = isEnemyJammed(this.state);
+    if (jammed) {
+      this.addLog("[CONTROLE] EMP bloqueou a ação da sentinela.");
+      this.setCue("emp", "enemy");
+    }
     const adjacentTargets: Position[] = [
       { x: player.x, y: player.y - 1 }, { x: player.x + 1, y: player.y },
       { x: player.x, y: player.y + 1 }, { x: player.x - 1, y: player.y },
@@ -211,7 +335,7 @@ export class TurnManager {
       .filter((path): path is Position[] => path !== null)
       .sort((a, b) => a.length - b.length);
     const path = possiblePaths[0];
-    if (distance(enemy, player) > 1 && path && path.length > 1) {
+    if (!jammed && distance(enemy, player) > 1 && path && path.length > 1) {
       const destination = path[Math.min(2, path.length - 1)];
       if (destination) {
         enemy.x = destination.x;
@@ -219,31 +343,38 @@ export class TurnManager {
         this.addLog("[IA TÁTICA] A sentinela reposicionou-se em direção ao alvo.");
       }
     }
-    if (distance(enemy, player) <= 1) {
+    if (!jammed && distance(enemy, player) <= 1) {
       const roll = rollDie(20);
       const total = roll + enemy.attackBonus;
       if (roll === 20 || total >= player.armorClass) {
         const damage = rollDie(4) + 1;
         player.hp = Math.max(0, player.hp - damage);
+        this.setCue("hit", "player", damage);
         this.addLog(`[INIMIGO] Ataque confirmado: ${damage} de dano recebido.`);
       } else {
         this.addLog("[INIMIGO] Ataque da sentinela não atingiu o alvo.");
       }
     }
+    advanceBarrierAfterEnemyAction(this.state);
+    advanceClassGuard(this.state);
+    advanceClassEnemyDebuffs(this.state);
     if (this.temporaryArmorBonus > 0) {
       player.armorClass -= this.temporaryArmorBonus;
       this.temporaryArmorBonus = 0;
     }
     if (player.hp <= 0) {
       this.state.combatComplete = true;
-      this.state.message = "Operativo incapacitado. Teste encerrado.";
-      this.addLog("[MISSÃO] Falha: o operativo foi incapacitado.");
+      this.state.message = this.state.encounterId==="v09"
+        ? "Operativo incapacitado. A unidade V-09 continua ativa."
+        : "Operativo incapacitado. Teste encerrado.";
+      this.addLog(this.state.encounterId==="v09"
+        ? "[MISSÃO] Confronto V-09 perdido; investigação ainda em andamento."
+        : "[MISSÃO] Falha: o operativo foi incapacitado.");
       this.publish();
       return;
     }
-    if (enemy.hp <= 0) {
-      this.state.combatComplete = true;
-      this.state.message = "Sentinela neutralizada. Área de teste temporariamente segura.";
+    if(enemy.hp<=0){
+      this.resolveEnemyDown();
       this.publish();
       return;
     }
@@ -253,12 +384,56 @@ export class TurnManager {
       this.state.movementPerTurn -= this.temporaryMovementBonus;
       this.temporaryMovementBonus = 0;
     }
+    advanceSpecialRound(this.state);
+    advanceClassRound(this.state);
+    if (this.state.classExtraMovement>0) {
+      this.state.movementPerTurn-=this.state.classExtraMovement;
+      this.state.classExtraMovement=0;
+    }
     this.state.movementRemaining = this.state.movementPerTurn;
     this.state.mainActionAvailable = true;
     this.state.bonusActionAvailable = true;
     this.state.message = "Seu turno. Reposicione-se ou ataque quando estiver ao alcance.";
     this.addLog(`[TURNO] Rodada ${this.state.round}. Seu turno começou.`);
     this.publish();
+  }
+
+  /** Resolve a próxima onda para qualquer fonte de dano (básico, classe ou comum).
+   * Não concede missão/XP antes de TODAS as ondas terminarem.
+   */
+  private resolveEnemyDown():void{
+    const enemy=this.state.units.find(unit=>unit.id==="drone");
+    if(!enemy||enemy.hp>0)return;
+    const trial=this.state.encounterId.startsWith("trial-");
+    if(trial&&this.state.wave<this.state.totalWaves){
+      this.state.wave+=1;
+      const hp=14+3*(this.state.wave-1);
+      enemy.hp=hp;enemy.maxHp=hp;enemy.armorClass=13+this.state.wave-1;
+      enemy.attackBonus=4+this.state.wave-1;
+      enemy.x=6;enemy.y=1;
+      enemy.name="Drone de Interceptação · "+this.state.wave;
+      this.state.combatComplete=false;
+      this.state.mainActionAvailable=true;
+      this.state.bonusActionAvailable=true;
+      this.state.activeSide="player";
+      this.state.energy=Math.min(this.state.maxEnergy,this.state.energy+3);
+      this.state.movementRemaining=this.state.movementPerTurn;
+      this.state.enemyJamTurns=0;
+      this.state.classEnemyArmorTurns=0;
+      this.state.classEnemyArmorReduction=0;
+      this.state.classEnemyAttackTurns=0;
+      this.state.classEnemyAttackReduction=0;
+      this.state.message="Nova ameaça! Onda "+this.state.wave+" de "+this.state.totalWaves+". Energia +3.";
+      this.addLog("[CAMPANHA] Segurança enviou um novo drone. Onda "+this.state.wave+".");
+      return;
+    }
+    this.state.combatComplete=true;
+    const mission=this.state.encounterId==="v09";
+    this.state.message=trial?"Todas as "+this.state.totalWaves+" ondas foram neutralizadas. Volte à exploração."
+      :mission?"V-09 neutralizada. Os registros da cooperativa foram recuperados."
+      :"Sentinela neutralizada. Área de teste temporariamente segura.";
+    this.addLog(trial?"[CAMPANHA] Interceptação superada. Recompensa ao retornar."
+      :mission?"[MISSÃO] Interceptação V-09 encerrada.":"[MISSÃO] Objetivo de teste concluído.");
   }
 
   private setMessage(message: string): void { this.state.message = message; this.publish(); }

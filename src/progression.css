@@ -1,0 +1,20 @@
+/* Árvore vertical responsiva, com ações de compra acessíveis em Android landscape. */
+.na-tree{display:flex;flex-direction:column;gap:12px;padding-bottom:22px}
+.na-tree-intro,.na-tree-section{background:rgba(14,33,40,.9);border:1px solid #496e75;
+  border-radius:9px;padding:13px;display:flex;flex-direction:column;gap:9px}
+.na-tree h4{margin:0;font-size:16px;color:#e9e7da}
+.na-tree p{font-size:12px;line-height:1.55;margin:3px 0;color:#c7d4d5}
+.na-tree-points{display:flex;gap:8px;flex-wrap:wrap}
+.na-tree-points strong{background:#294348;border:1px solid #669599;border-radius:6px;padding:7px;font:700 11px monospace}
+.na-tree-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:9px}
+.na-tree-node{display:flex;flex-direction:column;gap:7px;padding:10px;border:1px solid #55666d;
+  border-radius:8px;background:#18272f;min-width:0}
+.na-tree-node.unlocked{border-color:#79ad95;background:#203934}
+.na-tree-node>div{display:flex;align-items:flex-start;justify-content:space-between;gap:4px}
+.na-tree-node strong{font-size:13px;color:#f0f0e6}
+.na-tree-node span,.na-tree-node small{font:600 10px monospace;color:#b8cbd0}
+.na-tree-node button{margin-top:auto;border:1px solid #64aeb4;background:#21565d;border-radius:7px;
+ color:#f4faf5;min-height:44px;padding:7px;font-size:11px;touch-action:manipulation}
+.na-tree-node button:disabled{opacity:.56;cursor:default}
+.na-tree-feedback{background:#33483d;color:#d7f3d0;padding:8px;border-radius:5px}
+@media(max-width:700px){.na-tree-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

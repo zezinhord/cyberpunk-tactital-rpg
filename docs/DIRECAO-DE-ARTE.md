@@ -8,7 +8,7 @@
 - O mundo permanece 2D isométrico. Profundidade, oclusão, escala e leitura de circulação precisam ser construídas para telas Android.
 - A cor nunca é o único indicador funcional; forma e rótulo acompanham os marcadores.
 - **Ciano** identifica aliado/protagonista; **magenta**, hostil; **âmbar**, neutro ou elemento interativo; **verde**, exclusivamente sinais e intrusões do Éden. Verde não significa segurança ou confiança.
-- Interface com painéis de cantos chanfrados, bottom sheets e alvos de toque de no mínimo 48 dp. Botões principais de 56 dp.
+- HUD de exploração compacta, mantendo o cenário livre. O gerenciamento do protagonista abre em uma central própria de tela integral, com seções para personagem, inventário, equipamentos, habilidades, mapa, diário e configurações. Alvos de toque de no mínimo 48 dp; botões principais de 56 dp.
 - Textos funcionais nunca abaixo de 12 px. `prefers-reduced-motion` deve ser respeitado na interface DOM.
 
 ## 2. Situação da Baixada na v0.6.5 beta

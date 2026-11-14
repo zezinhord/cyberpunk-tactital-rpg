@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+      - feature/landscape-mobile-v1
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -29,25 +33,164 @@ jobs:
           distribution: temurin
           java-version: "21"
 
-      - name: Instalar dependencias
-        run: npm install
+      - name: Preparar gerador de personagens
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar recursos de geração gráfica
+        run: python -m pip install -r tools/requirements-characters.txt
+
+      - name: Instalar dependencias imutaveis
+        run: npm ci --no-audit --no-fund
+
+      - name: Testar sistema de habilidades
+        run: node --experimental-strip-types scripts/test-abilities.mjs
+
+      - name: Testar colisões físicas e portas da Baixada
+        run: node --experimental-strip-types scripts/test-baixada-collisions.mjs
+
+      - name: Testar NPCs, dialogos e persistencia da campanha
+        run: |
+          node --experimental-strip-types scripts/test-npc-routines.mjs
+          node --experimental-strip-types scripts/test-patio-dialogues.mjs
+          node --experimental-strip-types scripts/test-story-v09.mjs
+          node --experimental-strip-types scripts/test-world-location.mjs
+          node --experimental-strip-types scripts/test-market-story.mjs
+          node --experimental-strip-types scripts/test-semiopen-world.mjs
+
+      - name: Verificar audio e regras de classes
+        run: |
+          node --experimental-strip-types scripts/test-audio.mjs
+          node --experimental-strip-types scripts/test-class-abilities.mjs
+          node --experimental-strip-types scripts/test-class-saves.mjs
+          node --experimental-strip-types scripts/test-save-slots.mjs
+
+      - name: Testar progressao, campanha e ondas de combate
+        run: |
+          node --experimental-strip-types scripts/test-progression.mjs
+          node --experimental-strip-types scripts/test-field-test.mjs
+          node --experimental-strip-types scripts/test-combat-waves.mjs
+
+      - name: Validar planta, colisões e rotas da Baixada
+        run: node --experimental-strip-types scripts/test-baixada-layout.mjs
 
       - name: Compilar aplicacao
         run: npm run build
 
+      - name: Verificar os 12 spritesheets direcionais
+        run: node scripts/test-character-sheets.mjs
+
+      - name: Capturar screenshot real da Baixada em Chromium
+        if: github.event_name == 'push'
+        # Falhas de UX ou erros em JS devem impedir uma entrega marcada
+        # como validada. O bloco abaixo já repete falhas transitórias do CDP.
+        run: |
+          # O Chromium do runner pode encerrar antes de abrir a porta CDP.
+          # Repetir o processo inteiro preserva a validação funcional e coleta
+          # exceções reais caso a falha seja de aplicativo, não de startup.
+          for attempt in 1 2 3; do
+            echo "QA visual: tentativa $attempt/3"
+            if node scripts/capture-baixada-visual.mjs; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "QA visual indisponível após três tentativas"
+          exit 1
+
+      - name: Publicar captura visual da Baixada
+        if: always() && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Baixada-Visual-QA-1600x720
+          path: qa/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Criar projeto Android
+        if: github.event_name != 'pull_request'
         run: npx cap add android
 
       - name: Sincronizar Capacitor
+        if: github.event_name != 'pull_request'
         run: npx cap sync android
 
+      - name: Aplicar orientacao horizontal
+        if: github.event_name != 'pull_request'
+        run: node scripts/lock-android-landscape.mjs
+
+      - name: Ativar tela imersiva Android
+        if: github.event_name != 'pull_request'
+        run: node scripts/enable-android-immersive.mjs
+
+      - name: Restaurar chave de assinatura Android da branch
+        if: github.event_name != 'pull_request'
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: nova-arcadia-android-debug-key-v2
+
+      - name: Criar chave Android de teste se nao estiver em cache
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          if [ ! -s "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -noprompt \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Nova Arcadia Debug,O=Nova Arcadia,C=BR"
+          fi
+          test -s "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -alias androiddebugkey
+
+      - name: Vincular certificado persistente ao Gradle
+        if: github.event_name != 'pull_request'
+        run: node scripts/force-android-signing.mjs
+
       - name: Gerar APK
+        if: github.event_name != 'pull_request'
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
 
+      - name: Validar assinatura real da APK
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          mkdir -p qa
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          APKSIGNER="$(find "$SDK/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs \
+            android/app/build/outputs/apk/debug/app-debug.apk \
+            | tee qa/assinatura-debug.txt
+          grep -q 'certificate SHA-256 digest' qa/assinatura-debug.txt
+          grep -q 'CN=Nova Arcadia Debug' qa/assinatura-debug.txt
+          if [ "$GITHUB_REF" = "refs/heads/feature/landscape-mobile-v1" ]; then
+            EXPECTED="$(cat config/android-debug-cert.sha256)"
+            ACTUAL="$(sed -n 's/^V2 Signer: certificate SHA-256 digest: //p' qa/assinatura-debug.txt | head -n 1)"
+            if [ "$ACTUAL" != "$EXPECTED" ]; then
+              echo "ERRO: assinatura mudou. Não distribua APK incompatível. Esperado: $EXPECTED; atual: $ACTUAL" >&2
+              exit 1
+            fi
+            echo "Certificado Android estável confirmado: $ACTUAL"
+          fi
+
+      - name: Publicar identidade da assinatura
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Assinatura-Android-QA
+          path: qa/assinatura-debug.txt
+          retention-days: 30
+
       - name: Disponibilizar APK
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: Cyberpunk-Tactical-RPG-APK

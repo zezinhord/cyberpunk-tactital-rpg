@@ -1,13 +1,16 @@
 {
   "name": "cyberpunk-tactical-rpg",
   "private": true,
-  "version": "0.6.5-beta",
+  "version": "0.6.9-rc.2",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
+    "generate:characters": "python tools/generate_character_sprites.py",
+    "prebuild": "npm run generate:characters",
+    "predev": "npm run generate:characters",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "cap:sync": "cap sync android",

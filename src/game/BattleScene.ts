@@ -2,11 +2,15 @@ import Phaser from "phaser";
 import { BOARD_HEIGHT, BOARD_WIDTH, isBlocked } from "./map";
 import { TurnManager } from "./TurnManager";
 import type { GameState, Position, Unit } from "./types";
+import type { TestAppearance } from "./test-arena/appearance";
+import type { OriginId } from "./character/origins";
+import {preloadCharacterSprites,createCharacterAnimations,getPlayerTexture,
+  frameForDirection,playIdle,playWalk,type IsoDirection} from "./baixada/sprites";
 
 const TILE_WIDTH = 56;
 const TILE_HEIGHT = 28;
 const ORIGIN_X = 240;
-const ORIGIN_Y = 54;
+const ORIGIN_Y = 70;
 export const CANVAS_WIDTH = 480;
 export const CANVAS_HEIGHT = 320;
 
@@ -34,24 +38,51 @@ function tileCenter({ x, y }: Position): { x: number; y: number } {
 
 export class BattleScene extends Phaser.Scene {
   private readonly manager: TurnManager;
+  private readonly appearance: TestAppearance;
+  private readonly originId:OriginId;
   private graphics!: Phaser.GameObjects.Graphics;
+  private bars!: Phaser.GameObjects.Graphics;
+  private playerImage?: Phaser.GameObjects.Sprite;
+  private enemyImage?: Phaser.GameObjects.Image;
+  private lastCue = 0;
   private unsubscribe?: () => void;
 
-  constructor(manager: TurnManager) {
+  constructor(manager: TurnManager, appearance: TestAppearance,originId:OriginId) {
     super({ key: "BattleScene" });
     this.manager = manager;
+    this.appearance = appearance;
+    this.originId=originId;
+  }
+
+  preload(): void {
+    preloadCharacterSprites(this);
+    this.load.svg("arena-sentinel", "/assets/arena/sentinel.svg", { width: 128, height: 192 });
   }
 
   create(): void {
     this.cameras.main.setBackgroundColor("#0d1220");
+    createCharacterAnimations(this);
     this.graphics = this.add.graphics();
+    this.graphics.setDepth(0);
+    this.bars = this.add.graphics().setDepth(9);
+    const texture=getPlayerTexture(this.originId,this.appearance);
+    this.game.canvas?.setAttribute("data-player-texture",texture);
+    this.playerImage = this.add.sprite(0, 0, texture,frameForDirection(texture,0))
+      .setOrigin(0.5, 0.91).setDisplaySize(50, 66).setDepth(6);
+    playIdle(this.playerImage,texture,0);
+    this.enemyImage = this.add.image(0, 0, "arena-sentinel")
+      .setOrigin(0.5, 0.91).setDisplaySize(46, 68).setDepth(6);
+    for (const avatar of [this.enemyImage]) {
+      this.tweens.add({ targets: avatar, scaleY: avatar.scaleY * 0.98, duration: 940, yoyo: true, repeat: -1 });
+    }
+    this.lastCue = this.manager.getState().cue?.sequence ?? 0;
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handleBoardTap, this);
-    this.unsubscribe = this.manager.subscribe((state) => this.drawBoard(state));
+    this.unsubscribe = this.manager.subscribe((state) => this.renderState(state));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.unsubscribe?.();
       this.input.off(Phaser.Input.Events.POINTER_DOWN, this.handleBoardTap, this);
     });
-    this.drawBoard(this.manager.getState());
+    this.renderState(this.manager.getState());
   }
 
   private handleBoardTap(pointer: Phaser.Input.Pointer): void {
@@ -64,6 +95,10 @@ export class BattleScene extends Phaser.Scene {
     const localX = Math.abs(pointer.x - center.x) / (TILE_WIDTH / 2);
     const localY = Math.abs(pointer.y - center.y) / (TILE_HEIGHT / 2);
     if (localX + localY > 1.08) return;
+    if (x === 0 && y === 6) {
+      this.manager.interactWithTerminal(x, y);
+      return;
+    }
     this.manager.movePlayerTo(x, y);
   }
 
@@ -77,9 +112,90 @@ export class BattleScene extends Phaser.Scene {
     graphics.closePath();
   }
 
+  private renderState(state: GameState): void {
+    const player = state.units.find((unit) => unit.id === "runner");
+    const enemy = state.units.find((unit) => unit.id === "drone");
+    const moveCue = state.cue?.visual === "move" && state.cue.sequence !== this.lastCue;
+    const beforeX = this.playerImage?.x ?? 0;
+    const beforeY = this.playerImage?.y ?? 0;
+    this.drawBoard(state);
+    if (player && this.playerImage) {
+      const dest = tileCenter(player);
+      if (moveCue && beforeX > 0) {
+        const dx=dest.x-beforeX,dy=dest.y-beforeY;
+        const direction:IsoDirection=Math.abs(dx)>Math.abs(dy)?
+          (dx>0?1:3):(dy>0?2:0);
+        playWalk(this.playerImage,getPlayerTexture(this.originId,this.appearance),direction);
+        this.tweens.killTweensOf(this.playerImage);
+        this.playerImage.setPosition(beforeX, beforeY);
+        this.tweens.add({
+          targets: this.playerImage, x: dest.x, y: dest.y,
+          duration: 220, ease: "Sine.Out",
+          onComplete: () => {
+            if (this.playerImage){
+              playIdle(this.playerImage,getPlayerTexture(this.originId,this.appearance),direction);
+            }
+          },
+        });
+      } else {
+        this.playerImage.setPosition(dest.x, dest.y);
+      }
+      this.playerImage.setVisible(player.hp > 0);
+    }
+    if (enemy && this.enemyImage) {
+      const dest = tileCenter(enemy);
+      this.enemyImage.setPosition(dest.x, dest.y);
+      this.enemyImage.setVisible(enemy.hp > 0);
+    }
+    if (state.cue && state.cue.sequence !== this.lastCue) {
+      this.lastCue = state.cue.sequence;
+      this.showEffect(state.cue);
+    }
+  }
+
+  private showEffect(cue: NonNullable<GameState["cue"]>): void {
+    const entity = cue.target === "enemy" ? this.enemyImage : this.playerImage;
+    const base = cue.target === "terminal" ? { x: 0, y: 6 }
+      : cue.target === "enemy" ? this.manager.getState().units.find((u) => u.id === "drone")
+      : this.manager.getState().units.find((u) => u.id === "runner");
+    const position = base ? tileCenter(base) : { x: ORIGIN_X, y: ORIGIN_Y };
+    const color = cue.visual === "hit" && cue.target === "enemy" ? COLOR.magenta
+      : cue.visual === "terminal" || cue.visual === "shield" ? COLOR.amber : COLOR.cyan;
+    // O protagonista executa uma ação física; o alvo exibe impacto ou bloqueio.
+    const casting = cue.visual === "emp" || cue.visual === "shield" || cue.visual === "repair";
+    const melee = (cue.visual === "hit" || cue.visual === "miss") && cue.target === "enemy";
+    if ((casting || melee) && this.playerImage) {
+      this.tweens.add({ targets: this.playerImage, angle: melee ? -9 : 7,
+        duration: melee ? 105 : 180, yoyo: true, ease: "Sine.InOut" });
+    }
+    if (cue.visual === "hit" && cue.target === "player" && this.enemyImage) {
+      this.tweens.add({ targets: this.enemyImage, angle: -8, duration: 115, yoyo: true });
+    }
+    if (cue.visual !== "move") {
+      const pulse = this.add.circle(position.x, position.y - 29, 18, color, 0.14)
+        .setStrokeStyle(2, color, 0.95).setDepth(12);
+      this.tweens.add({ targets: pulse, scaleX: 2.1, scaleY: 1.8, alpha: 0,
+        duration: cue.visual === "emp" ? 540 : 380,
+        onComplete: () => pulse.destroy() });
+      if (entity && (cue.visual === "hit" || cue.visual === "emp" || cue.visual === "basic")) {
+        this.tweens.add({ targets: entity, alpha: 0.3, duration: 90, yoyo: true, repeat: 1 });
+      }
+      if (cue.amount && cue.amount > 0) {
+        const sign = cue.visual === "repair" || cue.visual === "terminal" ? "+" : "−";
+        const floating = this.add.text(position.x, position.y - 66, sign + String(cue.amount), {
+          fontFamily: "Arial", fontSize: "20px", fontStyle: "bold", color: "#f7e8d6",
+          stroke: "#09121a", strokeThickness: 4,
+        }).setOrigin(0.5).setDepth(14);
+        this.tweens.add({ targets: floating, y: floating.y - 22, alpha: 0, duration: 720,
+          onComplete: () => floating.destroy() });
+      }
+    }
+  }
+
   private drawBoard(state: GameState): void {
     const graphics = this.graphics;
     graphics.clear();
+    this.bars.clear();
     graphics.fillStyle(COLOR.bg, 1);
     graphics.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -107,6 +223,15 @@ export class BattleScene extends Phaser.Scene {
         }
       }
     }
+
+    const terminal = tileCenter({ x: 0, y: 6 });
+    graphics.fillStyle(COLOR.amber, state.terminalUsed ? 0.3 : 0.85);
+    this.traceDiamond(terminal.x, terminal.y - 8, 30, 16);
+    graphics.fillPath();
+    graphics.fillStyle(COLOR.ink, 1);
+    graphics.fillRect(terminal.x - 7, terminal.y - 21, 14, 12);
+    graphics.lineStyle(2, COLOR.amber, 0.9);
+    graphics.strokeRect(terminal.x - 7, terminal.y - 21, 14, 12);
 
     const targetable = this.manager.canAttack();
     state.units
@@ -164,18 +289,15 @@ export class BattleScene extends Phaser.Scene {
       graphics.strokePath();
     }
 
-    // Silhueta provisória: um corpo 2D simples sobre uma base isométrica.
-    graphics.fillStyle(color, 1);
-    graphics.fillRoundedRect(center.x - 8, center.y - 25, 16, 20, 4);
-    graphics.fillStyle(COLOR.ink, 1);
-    graphics.fillCircle(center.x, center.y - 30, 6);
-    graphics.fillStyle(color, 1);
-    graphics.fillRect(center.x - 3, center.y - 32, 6, 3);
+    // Os personagens agora são imagens vetoriais rasterizadas uma vez pelo loader Phaser.
+    // As bases, seleção e barras de Vida continuam desenhadas no Graphics isométrico.
 
-    graphics.fillStyle(COLOR.track, 1);
-    graphics.fillRoundedRect(center.x - 14, center.y - 39, 28, 4, 2);
-    graphics.fillStyle(color, 1);
-    graphics.fillRoundedRect(center.x - 14, center.y - 39, Math.max(0, Math.round(28 * unit.hp / unit.maxHp)), 4, 2);
+    // Interface de Vida acima do sprite e do cenário, preservada em profundidade.
+    const bars = this.bars;
+    bars.fillStyle(COLOR.track, 1);
+    bars.fillRoundedRect(center.x - 14, center.y - 73, 28, 5, 2);
+    bars.fillStyle(color, 1);
+    bars.fillRoundedRect(center.x - 14, center.y - 73, Math.max(0, Math.round(28 * unit.hp / unit.maxHp)), 5, 2);
 
     if (!isPlayer && targetable) {
       graphics.lineStyle(2.5, COLOR.amber, 1);

@@ -1,0 +1,17 @@
+/* Operação Circuito Fantasma no fluxo principal de exploração. */
+.na-trial-panel{display:flex;flex-direction:column;gap:8px;margin:8px 0;padding:10px 12px;
+ background:linear-gradient(130deg,rgba(22,44,49,.96),rgba(40,33,38,.96));
+ border:1px solid #a48769;border-radius:9px;color:#e6edeb}
+.na-trial-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.na-trial-heading h2{font-size:15px;margin:3px 0;color:#f0dec6}
+.na-trial-heading strong{font:700 10px monospace;color:#efc88f;text-align:right}
+.na-trial-panel p{font-size:11px;line-height:1.4;margin:2px 0}
+.na-trial-panel button{min-height:44px;border:1px solid #e8b470;
+  background:#614a31;border-radius:6px;color:white;padding:7px 12px}
+.na-trial-objective{display:flex;flex-direction:column;gap:5px}
+.na-trial-objective>strong{font-size:13px}
+.na-trial-objective small,.na-trial-objective span{font:500 10px/1.4 monospace;color:#cbd4d4}
+.na-trial-feedback{padding:7px 10px;border-left:3px solid #e5b76f;background:rgba(90,65,34,.45)}
+.na-trial-history{max-height:190px;overflow:auto}
+.na-trial-history summary{cursor:pointer;min-height:36px;color:#ead1aa;font-size:11px;padding:7px}
+.na-trial-history p{padding-left:9px;font-size:11px}
