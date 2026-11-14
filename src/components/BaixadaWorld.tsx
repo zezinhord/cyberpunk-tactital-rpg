@@ -38,9 +38,16 @@ export default function BaixadaWorld({ onInteract, originId, appearance, charact
     const host = hostRef.current;
     if (!host) return;
 
+    let lastCheckpoint=0;
     const scene = new BaixadaScene((id) => callbackRef.current(id), originId, appearance,
-      loadWorldLocation(characterId), (tile) => {
-        saveWorldLocation(characterId,tile);
+      loadWorldLocation(characterId), (tile,settled=false) => {
+        // Synchronous localStorage writes a cada 140 ms causavam microtravadas.
+        // Salvar durante longas rotas a cada 1,2 s e SEMPRE ao interromper.
+        const now=Date.now();
+        if(settled||now-lastCheckpoint>=1200){
+          saveWorldLocation(characterId,tile);
+          lastCheckpoint=now;
+        }
         reportNearby(tile);
         const sector=sectorAt(tile);
         if(sector!==lastSectorRef.current){
