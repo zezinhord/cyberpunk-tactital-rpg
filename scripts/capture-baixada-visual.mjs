@@ -261,7 +261,7 @@ try {
   })()`);
   if(arenaTexture!=="player-baixada-feminine" || !skillLauncher.label?.includes("HABILIDADES") ||
      !skillLauncher.label?.includes("1 da classe") || skillLauncher.height<44 ||
-     skillLauncher.bottom>innerHeight) {
+     skillLauncher.bottom>arenaLayout.windowHeight) {
     throw new Error("Arena não preservou sprite/seletor: "+JSON.stringify({arenaTexture,skillLauncher}));
   }
   await writeFile("qa/arena-identidade-e-poderes.json",JSON.stringify({arenaTexture,skillLauncher},null,2));
@@ -382,13 +382,13 @@ try {
   const missionLayout=await evaluate(`(()=>{
     const hub=document.querySelector(".na-mission-hub"),next=hub?.querySelector(".na-next-step"),
       r=hub?.getBoundingClientRect(),n=next?.getBoundingClientRect();
-    return {top:r?.top,right:r?.right,bottom:r?.bottom,width:r?.width,
+    return {top:r?.top,right:r?.right,bottom:r?.bottom,width:r?.width,viewportWidth:innerWidth,viewportHeight:innerHeight,
       nextTop:n?.top,nextBottom:n?.bottom,visible:getComputedStyle(next).display!=="none",
       title:next?.textContent};
   })()`);
-  if(!missionLayout.visible||missionLayout.top<0||missionLayout.bottom>innerHeight+2||
-     missionLayout.right>innerWidth+2||missionLayout.nextTop<0||
-     !missionLayout.title.includes("O nome que sumiu"))
+  if(!missionLayout.visible||missionLayout.top<0||missionLayout.bottom>missionLayout.viewportHeight+2||
+     missionLayout.right>missionLayout.viewportWidth+2||missionLayout.nextTop<0||
+     !missionLayout.title.toLowerCase().includes("o nome que sumiu"))
     throw new Error("Orientação de missão fora de tela: "+JSON.stringify(missionLayout));
   await poll(()=>has(".na-trial-panel"),"Campanha de teste no mapa");
   const trialButton=await evaluate('document.querySelector(".na-trial-panel button")?.textContent');
