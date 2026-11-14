@@ -49,6 +49,8 @@ export class SewerScene extends Phaser.Scene{
  private direction:IsoDirection=2;
  private moving=false;
  private pending:string|null=null;
+ private queuedTarget:SewerTile|null=null;
+ private queuedActor:string|null=null;
  private gateLabel?:Phaser.GameObjects.Text;
 
  constructor(area:SewerId,onInteract:(id:string)=>void,originId:OriginId,
@@ -84,7 +86,7 @@ export class SewerScene extends Phaser.Scene{
   this.updateCamera();
   this.scale.on("resize",this.updateCamera,this);
   camera.centerOn(this.player.x,this.player.y-25);
-  camera.startFollow(this.player,true,.13,.13);
+  camera.startFollow(this.player,true,.24,.24);
   this.input.on(Phaser.Input.Events.POINTER_DOWN,this.handleTap,this);
   this.input.keyboard?.on("keydown",this.handleKeyboard,this);
   this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
@@ -224,7 +226,6 @@ export class SewerScene extends Phaser.Scene{
   this.walkPath(path);
  }
  private handleTap(pointer:Phaser.Input.Pointer):void{
-  if(this.moving)return;
   const p=pointer.positionToCamera(this.cameras.main) as XY;
   const near=SEWER_MAPS[this.area].actors.map(actor=>{
    const c=center(actor.tile);
@@ -232,22 +233,29 @@ export class SewerScene extends Phaser.Scene{
    return {actor,score:Math.abs(dx)/31+Math.abs(dy)/60,
      hit:Math.abs(dx)<=37&&p.y>=c.y-91&&p.y<=c.y+17};
   }).filter(item=>item.hit).sort((a,b)=>a.score-b.score)[0];
-  if(near){this.approach(near.actor);return;}
+  if(near){
+   if(this.moving){this.queuedActor=near.actor.id;this.queuedTarget=null;}
+   else this.approach(near.actor);
+   return;
+  }
   const rx=(p.x-ORIGIN_X)/(TILE_W/2),ry=(p.y-ORIGIN_Y)/(TILE_H/2);
   const tile={x:Math.round((rx+ry)/2),y:Math.round((ry-rx)/2)};
   const c=center(tile);
   if(Math.abs(p.x-c.x)/(TILE_W/2)+Math.abs(p.y-c.y)/(TILE_H/2)>1.1)return;
+  if(this.moving){this.queuedTarget=tile;this.queuedActor=null;return;}
+  this.pending=null;
   const path=sewerRoute(this.area,this.playerTile,tile);
   if(path)this.walkPath(path);
  }
  private handleKeyboard(event:KeyboardEvent):void{
-  if(this.moving)return;
   const k=event.key.toLowerCase();
   const d:IsoDirection|undefined=k==="w"||k==="arrowup"?0:k==="d"||k==="arrowright"?1:
    k==="s"||k==="arrowdown"?2:k==="a"||k==="arrowleft"?3:undefined;
   if(d===undefined)return;
   const delta=ISO_DIRECTIONS[d]!;
   const dest={x:this.playerTile.x+delta.x,y:this.playerTile.y+delta.y};
+  if(this.moving){this.queuedTarget=dest;this.queuedActor=null;return;}
+  this.pending=null;
   const path=sewerRoute(this.area,this.playerTile,dest);
   if(path)this.walkPath(path);
  }
@@ -256,6 +264,19 @@ export class SewerScene extends Phaser.Scene{
   this.moving=true;
   const steps=path.slice(1);
   const nextStep=():void=>{
+   if(this.queuedActor){
+    const actor=SEWER_MAPS[this.area].actors.find(item=>item.id===this.queuedActor);
+    this.queuedActor=null;this.queuedTarget=null;this.pending=null;this.moving=false;
+    if(actor)this.approach(actor);
+    else this.animator?.play("idle");
+    return;
+   }
+   if(this.queuedTarget){
+    const target=this.queuedTarget;
+    this.queuedTarget=null;this.pending=null;
+    const newRoute=sewerRoute(this.area,this.playerTile,target);
+    steps.splice(0,steps.length,...(newRoute?.slice(1)??[]));
+   }
    const next=steps.shift();
    if(!next){
     this.moving=false;
@@ -264,13 +285,15 @@ export class SewerScene extends Phaser.Scene{
     if(interaction){audioDirector.effect("interact");this.onInteract(interaction);}
     return;
    }
-   const facingNext=facing(this.playerTile,next);
+   const previous=this.playerTile;
+   const facingNext=facing(previous,next);
    this.direction=facingNext;
    this.animator?.setDirection(facingNext);
    this.animator?.play("walk");
    const p=center(next);
    this.playerTile={...next};
-   this.tweens.add({targets:this.player,x:p.x,y:p.y,duration:166,ease:"Sine.easeInOut",
+   this.tweens.add({targets:this.player,x:p.x,y:p.y,
+     duration:next.x!==previous.x&&next.y!==previous.y?200:145,ease:"Linear",
      onUpdate:()=>this.player.setDepth(this.player.y+100),
      onComplete:nextStep});
   };
