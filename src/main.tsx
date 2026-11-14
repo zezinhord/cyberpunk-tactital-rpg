@@ -11,6 +11,7 @@ import "./class-selection.css";
 import "./save-slots.css";
 import "./progression.css";
 import "./trial.css";
+import "./opening-cutscene.css";
 
 const rootElement = document.getElementById("root");
 
