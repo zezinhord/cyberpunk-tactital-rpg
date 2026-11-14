@@ -67,12 +67,25 @@ export function frameForDirection(texture: string, direction: IsoDirection): num
   return (SPRITES[texture]?.columns ?? NPC_COLUMNS) * rowForDirection(direction);
 }
 
-export function preloadCharacterSprites(scene: Phaser.Scene): void {
-  for (const [key, spec] of Object.entries(SPRITES)) {
-    scene.load.spritesheet(key, spec.url, {
-      frameWidth: SPRITE_FRAME_WIDTH, frameHeight: SPRITE_FRAME_HEIGHT,
-    });
-  }
+/** Em aparelhos Android, evita decodificar todas as 12 skins de protagonistas
+ * quando a cena só precisa da origem atual. Mantém ambas as apresentações da
+ * origem para permitir troca ao vivo, com NPCs limitados aos usados no mapa.
+ * Chamadas sem origem preservam o comportamento do Limbo de Teste.
+ */
+export function preloadCharacterSprites(scene:Phaser.Scene,
+ originId?:OriginId,npcs?:readonly string[]):void{
+ const neededPlayers=originId?
+  new Set(Object.keys(PLAYER_SPRITES[originId]).map(appearance=>
+    getPlayerTexture(originId,appearance as TestAppearance))):null;
+ const neededNpcs=npcs?new Set(npcs):null;
+ for(const [key,spec] of Object.entries(SPRITES)){
+  if(neededPlayers&&!key.startsWith("npc-")&&!neededPlayers.has(key))continue;
+  if(neededNpcs&&key.startsWith("npc-")&&!neededNpcs.has(key))continue;
+  if(scene.textures.exists(key))continue;
+  scene.load.spritesheet(key,spec.url,{
+   frameWidth:SPRITE_FRAME_WIDTH,frameHeight:SPRITE_FRAME_HEIGHT,
+  });
+ }
 }
 
 type AnimationSpec = { start: number; end: number; fps: number; loop: boolean };
@@ -86,6 +99,7 @@ const CHARACTER_ANIMATIONS: Record<Exclude<SpriteState,"idle">, AnimationSpec> =
 
 export function createCharacterAnimations(scene: Phaser.Scene): void {
   for (const [key, spec] of Object.entries(SPRITES)) {
+    if(!scene.textures.exists(key))continue;
     const columns = spec.columns;
     for (let row = 0; row < 4; row += 1) {
       const offset = row * columns;
