@@ -29,7 +29,9 @@ export function markV09Defeated(characterId:string):boolean {
   const previous=readV09(characterId);
   if(previous.defeated)return false;
   try {
-    globalThis.localStorage?.setItem(KEY+characterId,JSON.stringify({...previous,defeated:true}));
+    const storage=globalThis.localStorage;
+    if(!storage)return false;
+    storage.setItem(KEY+characterId,JSON.stringify({...previous,defeated:true}));
     return true;
   }catch{return false;}
 }
@@ -37,6 +39,7 @@ export function markV09Reported(characterId:string):boolean {
   if(!characterId)return false;
   const state=readV09(characterId);
   if(!state.defeated||state.reported)return false;
-  try{globalThis.localStorage?.setItem(KEY+characterId,JSON.stringify({...state,reported:true}));return true;}
+  try{const storage=globalThis.localStorage;if(!storage)return false;
+ storage.setItem(KEY+characterId,JSON.stringify({...state,reported:true}));return true;}
   catch{return false;}
 }
