@@ -50,7 +50,12 @@ export function readTrial(id:string):TrialProgress{
 }
 export function saveTrial(id:string,value:TrialProgress):boolean{
  if(!id)return false;
- try{globalThis.localStorage?.setItem(TRIAL_KEY+id,JSON.stringify(value));return true;}
+ try{
+   const storage=globalThis.localStorage;
+   if(!storage)return false;
+   storage.setItem(TRIAL_KEY+id,JSON.stringify(value));
+   return true;
+ }
  catch{return false;}
 }
 export function startTrial(old:TrialProgress):TrialProgress{
