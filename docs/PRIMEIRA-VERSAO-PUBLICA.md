@@ -1,4 +1,4 @@
-# Nova Arcádia 0.6.9-rc.2 — Preparação da primeira prévia pública
+# Nova Arcádia 0.6.9-rc.3 — Preparação da primeira prévia pública
 
 **Estado:** candidata em validação; **não publicada**.  
 **Branch de homologação:** `feature/landscape-mobile-v1`.  
@@ -29,6 +29,20 @@ Se algum item falhar, **bloquear publicação**, documentar passos de reproduç�
 - [ ] Na arena, botão **HABILIDADES** está visível e abre o seletor sem cortes no Android horizontal.
 - [ ] Selecionar uma técnica, ver custo e alcance, executar efeito real; observar energia, recarga e motivo da indisponibilidade.
 - [ ] Após comprar uma habilidade na árvore, ela aparece no seletor do próximo combate, mantendo classe e aparência.
+
+## Prólogo cinematográfico da RC3
+
+- [ ] Criar um personagem novo e conferir abertura em seis quadros, com texto progressivo e identidade correta.
+- [ ] Testar os botões Revelar texto, Próxima cena e Pular apresentação em 914×411.
+- [ ] Fechar o aplicativo durante o prólogo e continuar: cutscene reaparece sem perder o slot.
+- [ ] Completar ou pular a cutscene e entrar no prólogo individual da origem.
+- [ ] Em Configurações, rever a apresentação com personagem existente sem reiniciar missão, experiência ou inventário.
+- [ ] Com a opção Reduzir movimento habilitada, o texto deve aparecer imediatamente.
+- [ ] Reinstalar somente depois de exportar um backup. Confirmar que o save legado não reinicia o prólogo.
+
+**Fronteira de escopo:** o novo prólogo está implementado; **os dois mapas subterrâneos, a expansão do esgoto e a revisão geral dos sprites ainda estão pendentes**. Não afirmar aos avaliadores que esses conteúdos já estão jogáveis.
+
+[Questionário da prévia fechada — 8 perguntas (0–5)](AVALIACAO-TESTADORES.md)
 
 ## Roteiro de homologação — 30 a 60 minutos
 

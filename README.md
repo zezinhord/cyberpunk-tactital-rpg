@@ -1,6 +1,6 @@
 # Nova Arcádia — Projeto Éden
 
-**Candidata à primeira prévia pública: 0.6.9-rc.2 (Android, em validação).**
+**Candidata à primeira prévia pública: 0.6.9-rc.3 (Android, em validação).**
 
 RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambientado em uma cidade cyberpunk tropical. Projeto independente com React, TypeScript, Phaser 4, Vite e Capacitor 8.
 
@@ -40,6 +40,16 @@ A restauração exige confirmação ao substituir um slot existente. Em caso de 
 - **Missões sempre encontráveis:** o HUD da Baixada mostra o próximo passo, permite recolher o painel e dá acesso à **Operação Circuito Fantasma**; quem já concluiu "O nome que sumiu" recebe orientação para investigar o Pátio do Reúso.
 - **Habilidades durante a luta:** toque em **HABILIDADES → ESCOLHER**, selecione uma técnica de classe, comum ou de origem e confirme em **Usar habilidade**. O painel informa custo, alcance e o motivo quando a habilidade não está pronta. Técnicas ofensivas são aplicadas automaticamente ao inimigo se estiver ao alcance; é necessário aproximar-se antes de lançar uma técnica distante demais.
 - **Compatibilidade:** não foram alteradas as chaves de armazenamento dos saves nem reiniciada a campanha. Exporte o backup antes de atualizar.
+
+## Abertura cinematográfica · RC3
+
+Após criar o primeiro personagem, o jogador assiste a uma **cutscene estática em seis quadros**, com textos surgindo progressivamente. O prólogo apresenta a cidade, o Projeto Éden, a desigualdade entre distritos, os registros apagados e o gancho V-09. A quinta cena inclui nome e história de origem do protagonista.
+
+**Controles:** Revelar texto, Próxima cena e Pular apresentação. Em **Menu inicial → Configurações → Rever apresentação** é possível assistir novamente sem reiniciar o personagem. O modo de movimento reduzido elimina a digitação animada. Os cenários usam apenas CSS e não exigem downloads ou outro motor gráfico.
+
+**Salvamentos anteriores:** saves anteriores à RC3 continuam acessíveis e não são obrigados a repetir o prólogo. Personagens novos recebem o marcador opcional `openingSeen`; concluir ou pular a apresentação preserva atributos, inventário e missões. Mesmo que o app feche durante a cutscene, a apresentação retorna ao continuar.
+
+**Teste fechado:** use a [ficha de avaliação de 8 perguntas, notas de 0 a 5](docs/AVALIACAO-TESTADORES.md). Recomenda-se testar em diferentes aparelhos e registrar vídeos curtos de bugs. Ainda faltam os dois mapas subterrâneos e a ampliação da missão pelo esgoto; **esses mapas não estão incluídos nesta compilação**.
 
 ## Comandos
 
