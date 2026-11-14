@@ -597,7 +597,7 @@ try {
   await evaluate('document.querySelector(".area-return").click();true');
   await poll(()=>has(".interior-world.sewer-drain canvas"),"retorno profundo → galeria");
   await evaluate('document.querySelector(".area-return").click();true');
-  await poll(()=>has(".baixada-world canvas:not(.missing)"),"retorno galeria → superfície");
+  await poll(()=>has(".baixada-world:not(.interior-world) canvas"),"retorno galeria → superfície");
   const backTitle=await evaluate('document.querySelector(".district-brand h1")?.textContent');
   if(backTitle?.includes("Galeria de Drenagem")||backTitle?.includes("Câmara de Recalque"))
     throw new Error("Retorno subterrâneo prendeu o personagem: "+backTitle);
