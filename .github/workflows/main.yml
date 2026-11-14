@@ -66,6 +66,9 @@ jobs:
           node --experimental-strip-types scripts/test-class-saves.mjs
           node --experimental-strip-types scripts/test-save-slots.mjs
 
+      - name: Testar prólogo cinematográfico e migração de salvamentos
+        run: node --experimental-strip-types scripts/test-opening.mjs
+
       - name: Testar progressao, campanha e ondas de combate
         run: |
           node --experimental-strip-types scripts/test-progression.mjs
