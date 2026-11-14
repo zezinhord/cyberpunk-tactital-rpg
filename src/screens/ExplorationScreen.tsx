@@ -114,6 +114,7 @@ export default function ExplorationScreen({
   const [mission, setMission] = useState<MissionProgress>(() => readMission(character.id));
   const [interior, setInterior] = useState<InteriorId | null>(null);
   const [returnFromDeep,setReturnFromDeep] = useState(false);
+  const [nearSewerAccess,setNearSewerAccess] = useState<string|null>(null);
   const [sewer,setSewer] = useState(()=>readSewer(character.id));
   const [sewerNotice,setSewerNotice] = useState("");
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
@@ -580,7 +581,7 @@ export default function ExplorationScreen({
           />
         ) : (
           <BaixadaWorld originId={character.originId} appearance={appearance} characterId={character.id}
-            onSectorChange={setSectorId} onInteract={handleInteract} />
+            onSectorChange={setSectorId} onNearbyAccess={setNearSewerAccess} onInteract={handleInteract} />
         )}
         <div className="world-instructions">
           <span className="instruction-glyph">⌖</span>
@@ -603,6 +604,15 @@ export default function ExplorationScreen({
           </button>
         )}
       </section>
+      {!interior&&nearSewerAccess&&<button type="button"
+        className="na-sewer-quick-access"
+        aria-label={nearSewerAccess==="enter-sewer-drain"?
+          "Entrar na Galeria de Drenagem Sul":"Entrar na Câmara de Recalque 04"}
+        onClick={()=>handleInteract(nearSewerAccess)}>
+        <strong>{nearSewerAccess==="enter-sewer-drain"?
+          "↓ ENTRAR NA GALERIA DE DRENAGEM":"↓ ACESSO À CÂMARA 04"}</strong>
+        <small>Escada próxima · toque para descer</small>
+      </button>}
 
       <aside className={"na-mission-hub"+(hubOpen?"":" collapsed")} aria-label="Próximas missões e objetivos">
         <button className="na-hub-toggle" type="button" onClick={()=>setHubOpen(open=>!open)}
