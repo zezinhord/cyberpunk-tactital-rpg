@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import {createRequire} from "node:module";
 import {readFileSync} from "node:fs";
 const require=createRequire(import.meta.url);
-const ts=require("typescript");
+const tsPackage=require("typescript");
+const ts=tsPackage.default??tsPackage;
 // Testa o mesmo TurnManager de produção. Um loader de desenvolvimento CJS
 // usa apenas TypeScript já fixado no package-lock, sem dependências extras.
 require.extensions[".ts"]=(mod,filename)=>{
   const source=readFileSync(filename,"utf8");
   const output=ts.transpileModule(source,{fileName:filename,compilerOptions:{
-    module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
+    module:1,target:9,
     esModuleInterop:true,
   }}).outputText;
   mod._compile(output,filename);
