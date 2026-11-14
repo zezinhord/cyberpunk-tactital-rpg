@@ -66,6 +66,7 @@ export class BattleScene extends Phaser.Scene {
     this.graphics.setDepth(0);
     this.bars = this.add.graphics().setDepth(9);
     const texture=getPlayerTexture(this.originId,this.appearance);
+    this.game.canvas?.setAttribute("data-player-texture",texture);
     this.playerImage = this.add.sprite(0, 0, texture,frameForDirection(texture,0))
       .setOrigin(0.5, 0.91).setDisplaySize(50, 66).setDepth(6);
     playIdle(this.playerImage,texture,0);
