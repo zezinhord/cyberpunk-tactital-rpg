@@ -26,6 +26,7 @@ import {
   toggleEquipment, consumeItem, getEquipmentBonuses, grantItem, ITEM_CATALOG,
 } from "./game/inventory";
 import type { ItemId, InventoryState } from "./game/inventory";
+import {craftRecipe,type RecipeId} from "./game/crafting";
 import { getPlayerSpriteUrl } from "./game/baixada/sprites";
 import ClassSelection from "./components/ClassSelection";
 import {getClassById,type ClassId} from "./game/classes/registry";
@@ -272,6 +273,15 @@ export default function App() {
       : "+"+amount+" XP pela Operação Circuito Fantasma.");
     return true;
   };
+  const craftAtWorkshop=(id:RecipeId):string=>{
+    if(!character||inventory.ownerId!==character.id)return "Nenhum personagem ativo para fabricar.";
+    const result=craftRecipe(inventory,id);
+    if(!result.ok)return result.message;
+    if(!saveInventory(result.state))return "Não foi possível salvar a fabricação. Nenhum componente foi consumido.";
+    setInventory(result.state);
+    return result.message;
+  };
+
   const buyAttribute=(id:StatId):string=>{
     if(!character)return "Nenhum personagem ativo.";
     const purchase=purchaseAttribute(character,id);
@@ -528,6 +538,8 @@ export default function App() {
         onReturnToTitle={() => setScreen("title")}
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
+        onCraft={craftAtWorkshop}
+        onGrantIndustrialItem={(id:ItemId)=>setInventory(current=>grantItem(current,id))}
         onGrantQuestItem={(id: ItemId) => setInventory((current) => current.quantities[id] > 0 ? current : grantItem(current, id))}
       />
     );

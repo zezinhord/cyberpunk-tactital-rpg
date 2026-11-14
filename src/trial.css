@@ -91,3 +91,17 @@
  .na-ferrugem-panel{padding:8px;gap:5px;}
  .na-ferrugem-choices button{min-height:44px;font-size:11px;}
 }
+
+/* Ferrugem: receitas pequenas e tocáveis, sem carregar novas texturas. */
+.na-crafting-panel{display:flex;flex-direction:column;gap:9px;padding:12px;
+ border:1px solid #b18c68;border-radius:8px;background:#1f3036;color:#f0eee4;}
+.na-crafting-panel>p{margin:0;font-size:12px;line-height:1.5;color:#ced8d2;}
+.na-crafting-recipe{display:flex;align-items:center;justify-content:space-between;gap:12px;
+ padding:9px 11px;background:#273b41;border:1px solid #4c6267;border-radius:7px;}
+.na-crafting-recipe>div{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.na-crafting-recipe strong{font:700 12px var(--display);color:#f2d8af;}
+.na-crafting-recipe small{font:500 10px/1.45 var(--mono);color:#d6e3db;}
+.na-crafting-recipe button{min-width:90px;min-height:46px;padding:6px 10px;
+ border:1px solid #e9bc80;border-radius:6px;background:#594633;color:#fff0d7;font:700 12px var(--display);}
+.na-crafting-recipe button:disabled{opacity:.5;cursor:not-allowed;}
+@media(max-width:560px){.na-crafting-recipe{flex-wrap:wrap}.na-crafting-recipe button{width:100%;}}

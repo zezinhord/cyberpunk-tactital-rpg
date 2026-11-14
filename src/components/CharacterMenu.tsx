@@ -4,6 +4,7 @@ import {readGraphicsMode,saveGraphicsMode,type GraphicsMode} from "../game/perfo
 import {readPerformanceReport} from "../game/performance-diagnostics";
 import type { OriginGameplayProfile, PlayerCharacter } from "../game/character";
 import { ITEM_CATALOG, ITEM_IDS } from "../game/inventory";
+import {CRAFTING_RECIPES,canCraft,craftingIngredientsLabel,type RecipeId} from "../game/crafting";
 import type { InventoryState, ItemId } from "../game/inventory";
 import type { TestAppearance } from "../game/test-arena/appearance";
 import { getPlayerSpriteUrl } from "../game/baixada/sprites";
@@ -44,6 +45,7 @@ interface Props {
   onOpenTestArena: () => void;
   inventory: InventoryState;
   onToggleEquipment: (id: ItemId) => void;
+  onCraft:(id:RecipeId)=>string;
 }
 
 const MENU_ITEMS: ReadonlyArray<{ id: MenuSection; code: string; label: string; description: string }> = [
@@ -101,9 +103,11 @@ export default function CharacterMenu({
   onOpenTestArena,
   inventory,
   onToggleEquipment,
+  onCraft,
 }: Props) {
   const [activeSection, setActiveSection] = useState<MenuSection>("character");
   const [pendingClass,setPendingClass]=useState<ClassId|null>(null);
+  const [craftNotice,setCraftNotice]=useState("");
   const [graphicsMode,setGraphicsMode]=useState<GraphicsMode>(readGraphicsMode);
   const [graphicsNotice,setGraphicsNotice]=useState("");
   const [performanceReport]=useState(readPerformanceReport);
@@ -271,7 +275,21 @@ export default function CharacterMenu({
                   })}
                   {ITEM_IDS.every((id) => inventory.quantities[id] === 0) && <p className="menu-empty-copy">Inventário vazio.</p>}
                 </section>
-                <p className="menu-footnote">O inventário é salvo neste aparelho. Curativos podem ser usados no Limbo de Teste, durante seu turno.</p>
+                <section className="na-crafting-panel" aria-label="Bancada de fabricação de Ferrugem">
+                  <span className="menu-panel-kicker">BANCADA INDUSTRIAL · FABRICAÇÃO</span>
+                  <p>Combine os componentes recuperados em Ferrugem e na oficina de Nilo.
+                    A fabricação consome recursos e produz equipamentos utilizáveis no combate.</p>
+                  {CRAFTING_RECIPES.map(recipe=>
+                    <article key={recipe.id} className="na-crafting-recipe">
+                      <div><strong>{recipe.title}</strong>
+                        <small>{recipe.description}</small>
+                        <small>Materiais: {craftingIngredientsLabel(recipe)}</small></div>
+                      <button type="button" disabled={!canCraft(inventory,recipe.id)}
+                        onClick={()=>setCraftNotice(onCraft(recipe.id))}>Fabricar</button>
+                    </article>)}
+                  {craftNotice&&<p role="status">{craftNotice}</p>}
+                </section>
+                <p className="menu-footnote">O inventário e os equipamentos fabricados são salvos neste aparelho. Curativos podem ser usados em combate.</p>
               </div>
             )}
 

@@ -4,6 +4,7 @@ import InteriorWorld from "../components/InteriorWorld";
 import { getOriginById, getOriginGameplay } from "../game/character";
 import CharacterMenu from "../components/CharacterMenu";
 import type { InventoryState, ItemId } from "../game/inventory";
+import type {RecipeId} from "../game/crafting";
 import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
 import type { TestAppearance } from "../game/test-arena/appearance";
@@ -44,6 +45,8 @@ interface Props {
   inventory: InventoryState;
   onToggleEquipment: (id: ItemId) => void;
   onGrantQuestItem: (id: ItemId) => void;
+  onGrantIndustrialItem:(id:ItemId)=>void;
+  onCraft:(id:RecipeId)=>string;
 }
 
 const MISSION_KEY = "cyberpunk-tactical-rpg.mission.v1.";
@@ -112,6 +115,8 @@ export default function ExplorationScreen({
   inventory,
   onToggleEquipment,
   onGrantQuestItem,
+  onGrantIndustrialItem,
+  onCraft,
 }: Props) {
   const origin = getOriginById(character.originId);
   const [mission, setMission] = useState<MissionProgress>(() => readMission(character.id));
@@ -177,6 +182,11 @@ export default function ExplorationScreen({
     }
     setFerrugem(result.progress);
     const rewarded=onQuestXp("ferrugem-"+result.stage.id,result.stage.xp);
+    const materials:Partial<Record<string,ItemId>>={
+      consumo:"celula_energia",componentes:"residuo_metalico",turno:"conector_reuso",
+    };
+    const collected=materials[result.stage.id];
+    if(collected)onGrantIndustrialItem(collected);
     setFerrugemNotice(result.stage.title+
       (rewarded?" · +"+result.stage.xp+" XP.":" · progresso preservado.")+
       (result.progress.completed?" CAPÍTULO CONCLUÍDO.":""));
@@ -879,6 +889,7 @@ export default function ExplorationScreen({
           onOpenTestArena={() => onOpenBattle("test")}
           inventory={inventory}
           onToggleEquipment={onToggleEquipment}
+          onCraft={onCraft}
         />
       )}
 
