@@ -16,7 +16,8 @@ export function loadHealth(id:string,maxHp:number):number {
 export function saveHealth(id:string,hp:number,maxHp:number):boolean{
  if(!id||!Number.isInteger(hp)||!Number.isInteger(maxHp)||maxHp<1)return false;
  const safe=Math.min(maxHp,Math.max(1,hp));
- try{globalThis.localStorage?.setItem(HEALTH_KEY+id,JSON.stringify({hp:safe,maxHp}));return true;}
+ try{const storage=globalThis.localStorage;if(!storage)return false;
+ storage.setItem(HEALTH_KEY+id,JSON.stringify({hp:safe,maxHp}));return true;}
  catch{return false;}
 }
 export function healAtClinic(id:string,maxHp:number):boolean{
