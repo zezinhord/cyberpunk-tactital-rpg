@@ -54,6 +54,15 @@ export const SEWER_MAPS:Readonly<Record<SewerId,SewerMap>>={
  },
 } as const;
 const offsets:readonly SewerTile[]=[{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+const walkOffsets:readonly SewerTile[]=[...offsets,
+ {x:1,y:1},{x:1,y:-1},{x:-1,y:1},{x:-1,y:-1}];
+export function canSewerTraverse(id:SewerId,from:SewerTile,to:SewerTile):boolean{
+ const dx=to.x-from.x,dy=to.y-from.y;
+ if(Math.abs(dx)>1||Math.abs(dy)>1||(!dx&&!dy)||!sewerWalkable(id,to))return false;
+ return !dx||!dy||
+  (sewerWalkable(id,{x:from.x+dx,y:from.y})&&
+   sewerWalkable(id,{x:from.x,y:from.y+dy}));
+}
 export function sewerKey(t:SewerTile):string{return t.x+","+t.y;}
 export function sewerInside(id:SewerId,t:SewerTile):boolean{
  const m=SEWER_MAPS[id];
@@ -77,9 +86,9 @@ export function sewerRoute(id:SewerId,start:SewerTile,target:SewerTile):SewerTil
  for(let i=0;i<queue.length;i++){
   const c=queue[i]!;
   if(c.x===target.x&&c.y===target.y)break;
-  for(const d of offsets){
+  for(const d of walkOffsets){
    const next={x:c.x+d.x,y:c.y+d.y},key=sewerKey(next);
-   if(previous.has(key)||!sewerWalkable(id,next))continue;
+   if(previous.has(key)||!canSewerTraverse(id,c,next))continue;
    previous.set(key,sewerKey(c));queue.push(next);
   }
  }
