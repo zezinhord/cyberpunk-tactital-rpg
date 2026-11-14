@@ -4,6 +4,7 @@ import {containsCharacterSlot,hasSlotCapacity,readCharacterSlot} from "./slots.t
 import {CHARACTER_SAVE_KEY,CHARACTER_SLOT_INDEX,CHARACTER_SLOT_PREFIX} from "./slot-core.ts";
 import {TRIAL_STEPS} from "../story/field-test.ts";
 import {FERRUGEM_STEPS} from "../ferrugem/story.ts";
+import {isSavedWorldArea} from "../baixada/world-area.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
  */
@@ -18,6 +19,7 @@ export const CHARACTER_BACKUP_KEYS={
  trial:"cyberpunk-tactical-rpg.trial.v1.",
  sewer:"cyberpunk-tactical-rpg.sewer-v09.v1.",
  ferrugem:"cyberpunk-tactical-rpg.ferrugem.v1.",
+ area:"cyberpunk-tactical-rpg.world-area.v1.",
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
 export interface CharacterBackup{
@@ -62,6 +64,8 @@ export function importCharacterBackup(text:string,overwrite=false):
      let decoded:unknown;
      try{decoded=JSON.parse(value);}
      catch{return {ok:false,message:"Conteúdo inválido: "+field};}
+     if(field==="area"&&!isSavedWorldArea(decoded))
+       return {ok:false,message:"Área ativa inválida no backup."};
      if(field==="sewer"){
        if(!decoded||typeof decoded!=="object"||Array.isArray(decoded))
          return {ok:false,message:"Investigação do esgoto inválida."};

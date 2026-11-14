@@ -19,6 +19,7 @@ import { readV09,markV09Reported } from "../game/story/v09";
 import { MARKET_CLUE_TEXT,applyMarketAction,getMarketConversation,isMarketActor,readMarket,saveMarket } from "../game/story/market";
 import { getSectorById,sectorAt,type SectorId } from "../game/baixada/layout";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
+import {loadWorldArea,saveWorldArea} from "../game/baixada/world-area";
 import {readSewer,saveSewer,sewerNextObjective,sewerStatus,applySewerEvent,
  hasSewerEvidence,type SewerEvent} from "../game/story/sewer-v09";
 import {FERRUGEM_ACTORS,isFerrugemActor} from "../game/ferrugem/layout";
@@ -120,7 +121,13 @@ export default function ExplorationScreen({
 }: Props) {
   const origin = getOriginById(character.originId);
   const [mission, setMission] = useState<MissionProgress>(() => readMission(character.id));
-  const [interior, setInterior] = useState<InteriorId | null>(null);
+  const [interior, setInteriorState] = useState<InteriorId | null>(()=>loadWorldArea(character.id));
+  const setInterior=(area:InteriorId|null):void=>{
+    setInteriorState(area);
+    // Não impede explorar se o disco ficar cheio; falha será visível no
+    // diagnóstico de salvamento, e o progresso da missão permanece separado.
+    saveWorldArea(character.id,area);
+  };
   const [returnFromDeep,setReturnFromDeep] = useState(false);
   const [nearSewerAccess,setNearSewerAccess] = useState<string|null>(null);
   const [sewer,setSewer] = useState(()=>readSewer(character.id));

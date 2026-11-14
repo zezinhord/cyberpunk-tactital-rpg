@@ -14,6 +14,7 @@ const OWNED_DATA_KEYS=[
  "cyberpunk-tactical-rpg.trial.v1.",
  "cyberpunk-tactical-rpg.sewer-v09.v1.",
  "cyberpunk-tactical-rpg.ferrugem.v1.",
+ "cyberpunk-tactical-rpg.world-area.v1.",
 ] as const;
 /** Descobre e preserva automaticamente o slot único de versões anteriores. */
 export function listCharacterSlots():PlayerCharacter[]{
