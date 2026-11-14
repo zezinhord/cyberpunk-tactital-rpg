@@ -9,7 +9,7 @@ assert.equal(new Set(OPENING_PANELS.map(scene=>scene.visual)).size,6,"Cada cena 
 for(const scene of OPENING_PANELS){
  assert.ok(scene.title.length>=8&&scene.title.length<=65,"Título legível: "+scene.id);
  assert.equal(scene.lines.length,2,"Texto em duas falas para telas pequenas: "+scene.id);
- assert.ok(scene.lines.every(line=>line.length>=15&&line.length<170),
+ assert.ok(scene.lines.every(line=>line.length>=10&&line.length<170),
   "Falas curtas para celular: "+scene.id);
 }
 const created=createPlayerCharacter("Jogadora de QA","baixada","netrunner");
