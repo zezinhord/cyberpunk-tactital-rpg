@@ -26,6 +26,7 @@ const DEEP_ACTORS:readonly SewerActor[]=[
  {id:"sewer-sample",label:"Contêiner lacrado",role:"EVIDÊNCIA OPCIONAL",kind:"evidence",tile:{x:12,y:10}},
  {id:"sewer-manifest",label:"Manifesto V-09",role:"ARQUIVO DE TRANSFERÊNCIA",kind:"terminal",tile:{x:16,y:3}},
  {id:"sewer-relay",label:"Repetidor clandestino",role:"EQUIPAMENTO ALTERADO",kind:"terminal",tile:{x:18,y:10}},
+ {id:"sewer-exit-surface-deep",label:"Escada da estação sul",role:"RETORNO AO PÁTIO",kind:"door",tile:{x:18,y:12}},
 ];
 export const SEWER_MAPS:Readonly<Record<SewerId,SewerMap>>={
  "sewer-drain":{
