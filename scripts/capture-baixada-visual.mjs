@@ -255,14 +255,17 @@ try {
   // Executa habilidade exclusiva e observa a alteração real de energia e
   // Defesa do personagem. Não aceita animação ou mensagem sem mutação de regras.
   const arenaTexture=await evaluate('document.querySelector(".battlefield-canvas canvas")?.getAttribute("data-player-texture")');
-  const fixedPowers=await evaluate('[...document.querySelectorAll(".arena-powers-fixed button")].map(b=>({name:b.textContent,height:Math.round(b.getBoundingClientRect().height)}))');
-  if(arenaTexture!=="player-baixada-feminine" ||
-     !fixedPowers.some(b=>b.name.includes("Protocolo de Contingência")) ||
-     fixedPowers.some(b=>b.height<42)) {
-    throw new Error("Arena não preservou sprite/poderes: "+JSON.stringify({arenaTexture,fixedPowers}));
+  const skillLauncher=await evaluate(`(()=>{
+    const b=document.querySelector(".na-abilities-open"),r=b?.getBoundingClientRect();
+    return {label:b?.textContent,height:r?.height,top:r?.top,bottom:r?.bottom};
+  })()`);
+  if(arenaTexture!=="player-baixada-feminine" || !skillLauncher.label?.includes("HABILIDADES") ||
+     !skillLauncher.label?.includes("1 da classe") || skillLauncher.height<44 ||
+     skillLauncher.bottom>innerHeight) {
+    throw new Error("Arena não preservou sprite/seletor: "+JSON.stringify({arenaTexture,skillLauncher}));
   }
-  await writeFile("qa/arena-identidade-e-poderes.json",JSON.stringify({arenaTexture,fixedPowers},null,2));
-  console.log("QA combate: sprite Baixada feminino e habilidade da classe fixada nos comandos.");
+  await writeFile("qa/arena-identidade-e-poderes.json",JSON.stringify({arenaTexture,skillLauncher},null,2));
+  console.log("QA combate: sprite Baixada feminino e seletor de habilidades sempre acessível.");
 
   const classButton=await evaluate(`(()=>{
     const button=document.querySelector(".arena-special.class-exclusive");
@@ -271,7 +274,26 @@ try {
   })()`);
   if(!classButton.found || !classButton.name.includes("Protocolo de Contingência") ||
       classButton.disabled!=="false")throw new Error("Habilidade da classe não carregada: "+JSON.stringify(classButton));
-  await evaluate('document.querySelector(".arena-special.class-exclusive").click();true');
+  await evaluate('document.querySelector(".na-abilities-open").click();true');
+  await poll(()=>has(".na-ability-picker"),"seletor de técnicas em primeiro plano");
+  const pickerLayout=await evaluate(`(()=>{
+    const dialog=document.querySelector(".na-ability-picker");
+    const r=dialog?.getBoundingClientRect();
+    return {width:r?.width,height:r?.height,top:r?.top,bottom:r?.bottom,
+      options:document.querySelectorAll(".na-ability-choice").length,
+      titles:[...document.querySelectorAll(".na-ability-picker-group h3")].map(el=>el.textContent)};
+  })()`);
+  if(pickerLayout.options!==5||pickerLayout.top<0||pickerLayout.bottom>innerHeight+1||
+     !pickerLayout.titles.includes("Técnicas da classe"))
+    throw new Error("Seletor inacessível: "+JSON.stringify(pickerLayout));
+  await evaluate('document.querySelector(".na-ability-choice").click();true');
+  await poll(()=>evaluate('document.querySelector(".na-ability-picker-selected strong")?.textContent.includes("Protocolo de Contingência")'),"técnica escolhida");
+  const selectedButton=await evaluate('document.querySelector(".na-ability-picker-actions button.primary")?.disabled');
+  if(selectedButton)throw new Error("Técnica inicial deveria estar pronta.");
+  await writeFile("qa/seletor-habilidades-1600x720.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".na-ability-picker-actions button.primary").click();true');
+  await poll(()=>evaluate('!document.querySelector(".na-ability-picker")'),"seletor fecha após usar poder");
   await poll(()=>evaluate('document.querySelector(".combat-message")?.textContent.includes("Protocolo de Contingência")'),"efeito real da habilidade Corpo");
   const classMutation=await evaluate(`(()=>{
     const energy=document.querySelector(".arena-energy strong")?.textContent;
@@ -356,6 +378,18 @@ try {
     format:"png",captureBeyondViewport:false})).data,"base64"));
   console.log("QA Vida: ferimentos entre cenas 6 HP → curativo 11 HP → exploração 11 HP.");
   // QA da nova campanha: início pelo jogador e persistência do primeiro objetivo.
+  await poll(()=>has(".na-mission-hub .na-next-step"),"orientação da missão acessível");
+  const missionLayout=await evaluate(`(()=>{
+    const hub=document.querySelector(".na-mission-hub"),next=hub?.querySelector(".na-next-step"),
+      r=hub?.getBoundingClientRect(),n=next?.getBoundingClientRect();
+    return {top:r?.top,right:r?.right,bottom:r?.bottom,width:r?.width,
+      nextTop:n?.top,nextBottom:n?.bottom,visible:getComputedStyle(next).display!=="none",
+      title:next?.textContent};
+  })()`);
+  if(!missionLayout.visible||missionLayout.top<0||missionLayout.bottom>innerHeight+2||
+     missionLayout.right>innerWidth+2||missionLayout.nextTop<0||
+     !missionLayout.title.includes("O nome que sumiu"))
+    throw new Error("Orientação de missão fora de tela: "+JSON.stringify(missionLayout));
   await poll(()=>has(".na-trial-panel"),"Campanha de teste no mapa");
   const trialButton=await evaluate('document.querySelector(".na-trial-panel button")?.textContent');
   if(!trialButton?.includes("Iniciar operação"))throw new Error("Campanha não pode ser iniciada: "+trialButton);
