@@ -752,10 +752,14 @@ try {
       colors.add(d[0]+","+d[1]+","+d[2]);
     }
     return {status:host?.dataset.sceneState,renderer:host?.dataset.renderer,colors:colors.size,
-      panelCollapsed:document.querySelector(".na-mission-hub")?.classList.contains("collapsed")};
+      panelCollapsed:document.querySelector(".na-mission-hub")?.classList.contains("collapsed"),
+      engine:host?.dataset.engine,bootOverlay:!!host?.querySelector(".na-world-startup"),
+      canvasBytes:canvas?.width*canvas?.height*4};
   })()`);
-  if(androidPixels.renderer!=="canvas"||androidPixels.status!=="ready"||
-    androidPixels.colors<4||androidPixels.panelCollapsed!==true)
+  if(androidPixels.renderer!=="canvas"||androidPixels.engine!=="native-2d"||
+    androidPixels.bootOverlay||androidPixels.status!=="ready"||
+    androidPixels.canvasBytes>4_500_000||androidPixels.colors<4||
+    androidPixels.panelCollapsed!==true)
     throw new Error("O Android mostra mapa em branco ou o HUD o bloqueia: "+JSON.stringify(androidPixels));
   const androidShot=Buffer.from((await send("Page.captureScreenshot",{
     format:"png",captureBeyondViewport:false})).data,"base64");
@@ -765,6 +769,25 @@ try {
     "qa/baixada-android-canvas-914x411.png"],{encoding:"utf8"});
   if(pixelCheck.status!==0)
     throw new Error("Screenshot em branco detectado no modo Android: "+pixelCheck.stdout+" "+pixelCheck.stderr);
+  // O novo motor Android deve aceitar deslocamento físico e preservar o
+  // mesmo save, sem Phaser.Game, WebGL, textura gigante ou loading infinito.
+  const beforeNativeMove=await evaluate(`(()=>{
+    const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
+    return JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.world-location.v068."+id));
+  })()`);
+  await send("Input.dispatchKeyEvent",{type:"keyDown",key:"w",code:"KeyW",
+    windowsVirtualKeyCode:87,nativeVirtualKeyCode:87});
+  await send("Input.dispatchKeyEvent",{type:"keyUp",key:"w",code:"KeyW",
+    windowsVirtualKeyCode:87,nativeVirtualKeyCode:87});
+  await poll(()=>evaluate(`(()=>{
+    const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
+    const at=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.world-location.v068."+id));
+    return at.x===${beforeNativeMove.x}&&at.y===${beforeNativeMove.y}-1;
+  })()`),"movimento Android nativo com salvamento",45);
+  if(await evaluate('!!document.querySelector(".baixada-world .na-world-startup")'))
+    throw new Error("O mapa leve voltou à tela de carregamento durante a caminhada.");
+  console.log("QA movimento Android: navegação do teclado e save funcional no motor nativo.");
+
   console.log("QA Android: Canvas real, "+androidPixels.colors+" amostras, HUD recolhido e pixels coloridos.");
 
   console.log("QA cidade: 5 novos mapas, central de transporte, capítulos e retomada após fechar.");
