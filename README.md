@@ -1,6 +1,6 @@
 # Nova Arcádia — Projeto Éden
 
-**Candidata à primeira prévia pública: 0.7.0-rc.2 (Android, em validação).**
+**Candidata à primeira prévia pública: 0.7.0-rc.3 (Android, em validação).**
 
 RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambientado em uma cidade cyberpunk tropical. Projeto independente com React, TypeScript, Phaser 4, Vite e Capacitor 8.
 
@@ -40,6 +40,41 @@ A restauração exige confirmação ao substituir um slot existente. Em caso de 
 - **Missões sempre encontráveis:** o HUD da Baixada mostra o próximo passo, permite recolher o painel e dá acesso à **Operação Circuito Fantasma**; quem já concluiu "O nome que sumiu" recebe orientação para investigar o Pátio do Reúso.
 - **Habilidades durante a luta:** toque em **HABILIDADES → ESCOLHER**, selecione uma técnica de classe, comum ou de origem e confirme em **Usar habilidade**. O painel informa custo, alcance e o motivo quando a habilidade não está pronta. Técnicas ofensivas são aplicadas automaticamente ao inimigo se estiver ao alcance; é necessário aproximar-se antes de lançar uma técnica distante demais.
 - **Compatibilidade:** não foram alteradas as chaves de armazenamento dos saves nem reiniciada a campanha. Exporte o backup antes de atualizar.
+
+## Hotfix 0.7.0 RC3 — Baixada nativa para Android com memória reduzida
+
+A RC2 ainda exibia **“Carregando a Baixada”** e depois encerrava o aplicativo
+em pelo menos um aparelho Android. A causa exata no hardware não foi comprovada
+sem logcat, mas a abertura Phaser ainda exigia geração de textura estática
+1960×1160, sprites e muitos gráficos antes da tela ser disponibilizada.
+
+Na RC3, **Android usa uma implementação própria Canvas 2D sem inicializar
+Phaser.Game na Baixada**. O motor antigo foi isolado em um módulo carregado
+sob demanda apenas no desktop. A versão leve apresenta:
+
+- Planta de 39×34 células, ruas, prédios, barracas, moradores e 16 pontos
+  de missão/interação; usa as **mesmas células e regras de colisão e
+  pathfinding** da implementação Phaser.
+- Toque para caminhar ou interagir, teclas direcionais e redirecionamento
+  durante movimento; movimento interpolado, ponto de destino visível;
+  carregamento de cada região sob demanda.
+- Salvamento regular de posição durante a caminhada e ao encerrar a cena,
+  entrada na clínica, nos esgotos e no transporte; mantendo os dados
+  dos personagens e das missões existentes.
+- **Uma superfície Canvas no máximo 1280×720 pixels**, sem WebGL,
+  spritesheets decodificadas na abertura nem a textura completa da cidade.
+  A imagem é desenhada sob demanda, sem processar quadros continuamente
+  quando o avatar está parado.
+- Em caso excepcional de falha, um aviso com opção de reiniciar o mapa
+  aparece; não há mais tela de carregamento por tempo indeterminado.
+- Teste de integração Android valida que o motor nativo abriu, que o
+  canvas não está preto e que a movimentação altera o save real.
+  O visual Canvas é simplificado para priorizar o carregamento em aparelhos
+  com memória restrita.
+
+**Importante:** resultado em Chromium com user-agent Android não substitui
+teste físico no Galaxy A07/Redmi Note 12S; não afirmar estabilidade comprovada
+antes do usuário testar o novo APK.
 
 ## Hotfix 0.7.0 RC2 — Cenário vazio no Android
 

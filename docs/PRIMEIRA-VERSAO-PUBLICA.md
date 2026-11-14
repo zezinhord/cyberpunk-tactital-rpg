@@ -1,4 +1,4 @@
-# Nova Arcádia 0.7.0-rc.2 — Marco de conteúdo 100 MB
+# Nova Arcádia 0.7.0-rc.3 — Marco de conteúdo 100 MB
 
 **Estado:** candidata em validação; **não publicada**.  
 **Branch de homologação:** `feature/landscape-mobile-v1`.  
@@ -43,6 +43,25 @@ Se algum item falhar, **bloquear publicação**, documentar passos de reproduç�
 **Fronteira de escopo:** prólogo e dois mapas subterrâneos estão implementados na RC4. A revisão integral dos sprites, o balanceamento final de inimigos e testes de desempenho em diferentes aparelhos permanecem pendentes.
 
 [Questionário da prévia fechada — 8 perguntas (0–5)](AVALIACAO-TESTADORES.md)
+
+## RC3 — teste físico obrigatório após fechamento no carregamento
+
+- [ ] Atualizar sem desinstalar a versão anterior; conferir o slot salvo.
+- [ ] Entrar na Baixada no celular: deve surgir mapa leve sem a tela
+      “Carregando a Baixada” permanente e sem encerramento abrupto.
+- [ ] Caminhar pelo mapa com toque, mudar de direção durante o percurso e
+      confirmar que o personagem não atravessa prédios.
+- [ ] Abrir a clínica, dialogar com Dra. Amara e retornar à superfície.
+- [ ] Usar o terminal de transporte quando a missão liberar e entrar
+      em Ferrugem, Áurea e Subsolo sem travar.
+- [ ] Fechar/reabrir o app, confirmar posição e fichas intactas.
+- [ ] Conferir se o perfil Economia no Galaxy A07 / Redmi Note 12S melhora
+      estabilidade e FPS sem carregar recursos de cenário desnecessários.
+- [ ] Registrar marca/modelo, sistema, tempo até eventual fechamento e
+      se houve mensagem de erro, sem capturar dados pessoais.
+
+A RC3 reduz o custo de inicialização; não certifica ausência de falhas
+no Android sem testes físicos e, se possível, logs do sistema.
 
 ## RC2 — recuperação do mapa em branco
 
