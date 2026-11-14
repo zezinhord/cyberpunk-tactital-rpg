@@ -11,6 +11,7 @@ import ClassSelection from "./ClassSelection";
 import ProgressionTree from "./ProgressionTree";
 import {SEWER_MAPS} from "../game/baixada/sewer-layout";
 import {sewerStatus,type SewerProgress} from "../game/story/sewer-v09";
+import {FERRUGEM_STEPS,ferrugemObjective,type FerrugemProgress} from "../game/ferrugem/story";
 import type {StatId} from "../game/progression/tree";
 import {getClassById,CLASS_SKILLS,getClassSkills,type ClassId} from "../game/classes/registry";
 
@@ -34,6 +35,7 @@ interface Props {
   missionStep: 0 | 1 | 2 | 3;
   missionObjective: string;
   sewerProgress:SewerProgress;
+  ferrugemProgress:FerrugemProgress;
   clues: JournalClue[];
   sceneTitle: string;
   sceneSubtitle: string;
@@ -60,7 +62,7 @@ const DISTRICTS = [
   { name: "Pátio do Reúso", status: "SETOR INDUSTRIAL JOGÁVEL", current: true },
   { name: "Mercado dos Cabos", status: "SETOR COMERCIAL JOGÁVEL", current: true },
   { name: "Áurea", status: "PLANEJADO", current: false },
-  { name: "Ferrugem", status: "PLANEJADO", current: false },
+  { name: "Ferrugem", status: "DISTRITO INDUSTRIAL JOGÁVEL", current: true },
   { name: "Subsolo", status: "PLANEJADO", current: false },
   { name: "Setor Zero", status: "PLANEJADO", current: false },
   { name: "Prisma", status: "PLANEJADO", current: false },
@@ -90,6 +92,7 @@ export default function CharacterMenu({
   missionStep,
   missionObjective,
   sewerProgress,
+  ferrugemProgress,
   clues,
   sceneTitle,
   sceneSubtitle,
@@ -346,7 +349,7 @@ export default function CharacterMenu({
                     <small>{area.subtitle} · JOGÁVEL</small>
                   </div>)}
                 </section>
-                <p className="menu-footnote">A Baixada ampliada e as duas zonas subterrâneas são exploráveis. Os outros distritos permanecem em desenvolvimento.</p>
+                <p className="menu-footnote">Baixada, Ferrugem e as duas áreas subterrâneas são jogáveis. Para Ferrugem, utilize o terminal de transporte no Pátio Sul.</p>
               </div>
             )}
 
@@ -368,6 +371,14 @@ export default function CharacterMenu({
                   <div className="menu-list-row"><span>{sewerProgress.pumpRestored?"✓":"○"}</span><strong>Bomba hidráulica</strong><small>GALERIA -01</small></div>
                   <div className="menu-list-row"><span>{sewerProgress.gateOpened?"✓":"○"}</span><strong>Comporta 04</strong><small>DESCIDA -02</small></div>
                   <div className="menu-list-row"><span>{sewerProgress.manifestRecovered?"✓":"○"}</span><strong>Manifesto V-09</strong><small>CÂMARA -02</small></div>
+                </section>
+                <section className="menu-list-panel">
+                  <span className="menu-panel-kicker">CAPÍTULO FERRUGEM // {ferrugemProgress.completed?"CONCLUÍDO":ferrugemProgress.started?(ferrugemProgress.step+"/"+FERRUGEM_STEPS.length):"NÃO INICIADO"}</span>
+                  <p>{ferrugemObjective(ferrugemProgress)}</p>
+                  {ferrugemProgress.started&&<div className="menu-list-row current">
+                    <span>◈</span><strong>{ferrugemProgress.completed?"Destino das provas":FERRUGEM_STEPS[ferrugemProgress.step]?.title}</strong>
+                    <small>{ferrugemProgress.ending==="publicar"?"PUBLICAÇÃO":ferrugemProgress.ending==="proteger"?"PROTEÇÃO COMUNITÁRIA":"EM INVESTIGAÇÃO"}</small>
+                  </div>}
                 </section>
                 <section className="menu-list-panel">
                   <span className="menu-panel-kicker">PISTAS E REGISTROS // {clues.length}</span>

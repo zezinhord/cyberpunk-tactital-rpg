@@ -652,6 +652,7 @@ export default function ExplorationScreen({
             appearance={appearance}
             onInteract={handleInteract}
             sewerProgress={sewer}
+          ferrugemProgress={ferrugem}
             returnFromDeep={returnFromDeep}
           />
         ) : (

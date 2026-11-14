@@ -71,3 +71,23 @@
   left:var(--na-safe-left);width:min(338px,40vw);pointer-events:auto;}
 }
 @media(orientation:portrait){.na-sewer-objective-hint{margin:7px 10px;}}
+
+/* Ferrugem: missão por etapas, com decisões da comunidade. */
+.na-ferrugem-panel{display:flex;flex-direction:column;gap:7px;margin:0;padding:10px 12px;
+ border:1px solid #b78b65;border-left:3px solid #e5a46e;border-radius:8px;
+ color:#e9e9df;background:linear-gradient(125deg,rgba(48,37,32,.97),rgba(21,34,39,.97));}
+.na-ferrugem-heading{display:flex;align-items:center;justify-content:space-between;gap:9px;}
+.na-ferrugem-heading>span{font:700 10px var(--mono);color:#f4c48d;}
+.na-ferrugem-heading>strong{font:600 10px var(--mono);color:#e6d7bc;}
+.na-ferrugem-panel p{font:500 12px/1.45 var(--body);margin:0;color:#edeee8;}
+.na-ferrugem-panel small{font:500 10px/1.4 var(--mono);color:#e1c6a3;}
+.na-ferrugem-panel details{max-height:150px;overflow:auto;font-size:11px;}
+.na-ferrugem-panel details summary{cursor:pointer;min-height:32px;color:#f2c898;}
+.na-ferrugem-panel details p{font-size:10px;margin:4px 0;}
+.na-ferrugem-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:8px 0;}
+.na-ferrugem-choices button{min-height:48px;padding:9px;border:1px solid #efbc82;
+ border-radius:6px;background:#47382f;color:#fff4e2;font:700 12px/1.35 var(--display);}
+@media(orientation:landscape) and (max-height:430px){
+ .na-ferrugem-panel{padding:8px;gap:5px;}
+ .na-ferrugem-choices button{min-height:44px;font-size:11px;}
+}

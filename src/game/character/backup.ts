@@ -3,6 +3,7 @@ import {isPlayerCharacter,parseCharacterSave,saveCharacter} from "./storage.ts";
 import {containsCharacterSlot,hasSlotCapacity,readCharacterSlot} from "./slots.ts";
 import {CHARACTER_SAVE_KEY,CHARACTER_SLOT_INDEX,CHARACTER_SLOT_PREFIX} from "./slot-core.ts";
 import {TRIAL_STEPS} from "../story/field-test.ts";
+import {FERRUGEM_STEPS} from "../ferrugem/story.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
  */
@@ -16,6 +17,7 @@ export const CHARACTER_BACKUP_KEYS={
  health:"cyberpunk-tactical-rpg.health.v1.",
  trial:"cyberpunk-tactical-rpg.trial.v1.",
  sewer:"cyberpunk-tactical-rpg.sewer-v09.v1.",
+ ferrugem:"cyberpunk-tactical-rpg.ferrugem.v1.",
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
 export interface CharacterBackup{
@@ -68,6 +70,20 @@ export function importCharacterBackup(text:string,overwrite=false):
        if(Object.keys(value).some(key=>!fields.includes(key))||
           fields.some(key=>typeof value[key]!=="boolean"))
          return {ok:false,message:"Investigação do esgoto inválida."};
+     }
+     if(field==="ferrugem"){
+       if(!decoded||typeof decoded!=="object"||Array.isArray(decoded))
+         return {ok:false,message:"Capítulo Ferrugem inválido."};
+       const chapter=decoded as Record<string,unknown>;
+       if(typeof chapter.started!=="boolean"||typeof chapter.completed!=="boolean"||
+          !Number.isSafeInteger(chapter.step)||Number(chapter.step)<0||
+          Number(chapter.step)>FERRUGEM_STEPS.length||
+          !Array.isArray(chapter.history)||
+          chapter.history.length>FERRUGEM_STEPS.length||
+          !chapter.history.every(id=>typeof id==="string"&&FERRUGEM_STEPS.some(s=>s.id===id))||
+          (chapter.ending!==null&&chapter.ending!=="publicar"&&chapter.ending!=="proteger")||
+          (chapter.completed===true&&(chapter.step!==FERRUGEM_STEPS.length||chapter.ending===null)))
+         return {ok:false,message:"Progresso de Ferrugem inválido."};
      }
      if(field==="trial"){
        if(!decoded||typeof decoded!=="object"||Array.isArray(decoded))
