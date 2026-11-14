@@ -1,6 +1,6 @@
 # Nova Arcádia — Projeto Éden
 
-**Candidata à primeira prévia pública: 0.6.9-rc.5 (Android, em validação).**
+**Candidata à primeira prévia pública: 0.6.9-rc.6 (Android, em validação).**
 
 RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambientado em uma cidade cyberpunk tropical. Projeto independente com React, TypeScript, Phaser 4, Vite e Capacitor 8.
 
@@ -40,6 +40,18 @@ A restauração exige confirmação ao substituir um slot existente. Em caso de 
 - **Missões sempre encontráveis:** o HUD da Baixada mostra o próximo passo, permite recolher o painel e dá acesso à **Operação Circuito Fantasma**; quem já concluiu "O nome que sumiu" recebe orientação para investigar o Pátio do Reúso.
 - **Habilidades durante a luta:** toque em **HABILIDADES → ESCOLHER**, selecione uma técnica de classe, comum ou de origem e confirme em **Usar habilidade**. O painel informa custo, alcance e o motivo quando a habilidade não está pronta. Técnicas ofensivas são aplicadas automaticamente ao inimigo se estiver ao alcance; é necessário aproximar-se antes de lançar uma técnica distante demais.
 - **Compatibilidade:** não foram alteradas as chaves de armazenamento dos saves nem reiniciada a campanha. Exporte o backup antes de atualizar.
+
+## RC6 — Ferrugem, fabricação e continuidade
+
+A RC6 acrescenta um segundo distrito explorável (**Ferrugem**, 26×19 células, seis complexos industriais e nove pontos interativos) ligado à Baixada pelo terminal do Pátio Sul. O transporte é liberado após a recuperação do manifesto V-09 no esgoto (ou após uma missão V-09 concluída em salvamentos compatíveis).
+
+- **Ecos de Ferrugem:** capítulo com **9 objetivos ordenados** e duas decisões finais — publicação do dossiê ou proteção das testemunhas. A escolha influencia os indicadores existentes de confiança comunitária ou alerta da rede.
+- **Navegação e objetivos:** Ferrugem usa o mesmo toque para caminhar, diagonais seguras, câmera responsiva, marcador do próximo objetivo e botão de retorno à Baixada.
+- **Fabricação funcional:** foram adicionados liga reaproveitada, célula de indução, colete ferroviário reforçado (+2 de proteção) e pistola de indução (+2 de ataque). Materiais recuperados em Ferrugem, combinados com conectores, podem ser transformados pelo inventário em equipamentos com efeitos reais no combate.
+- **Continuidade após interrupção:** sair do jogo dentro da clínica, esgoto ou Ferrugem registra a região para retomar na mesma área. Saves anteriores sem essa chave continuam iniciando na superfície. O backup JSON agora inclui os marcos de Ferrugem e a última área ativa.
+- **Regressão automatizada:** testes de navegação e bloqueio físico da nova planta, progresso do capítulo, escolhas finais, saves por personagem, fabricação, compatibilidade com saves antigos e teste visual com abertura/saída da nova cena em Android horizontal.
+
+**Tamanho real do APK de desenvolvimento anterior ao bump RC6:** 6.244.395 bytes (cerca de 6,24 MB), medido no workflow #552, não estimado pelo ZIP. O novo build mede novamente o APK. **A meta solicitada de 100 MB ainda não foi alcançada** e não serão usados arquivos de preenchimento que agravem o consumo de memória no Galaxy A07 ou Redmi Note 12S. Planejamento: [marco de conteúdo até 100 MB](docs/MARCO-DE-CONTEUDO-100MB.md). O motor e o combate ainda serão ampliados em iterações futuras.
 
 ## Estabilização Android e caminhada · RC5
 

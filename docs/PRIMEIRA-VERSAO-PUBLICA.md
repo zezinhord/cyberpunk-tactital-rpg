@@ -1,4 +1,4 @@
-# Nova Arcádia 0.6.9-rc.5 — Preparação da primeira prévia pública
+# Nova Arcádia 0.6.9-rc.6 — Preparação da primeira prévia pública
 
 **Estado:** candidata em validação; **não publicada**.  
 **Branch de homologação:** `feature/landscape-mobile-v1`.  
@@ -43,6 +43,21 @@ Se algum item falhar, **bloquear publicação**, documentar passos de reproduç�
 **Fronteira de escopo:** prólogo e dois mapas subterrâneos estão implementados na RC4. A revisão integral dos sprites, o balanceamento final de inimigos e testes de desempenho em diferentes aparelhos permanecem pendentes.
 
 [Questionário da prévia fechada — 8 perguntas (0–5)](AVALIACAO-TESTADORES.md)
+
+## Homologação da RC6 — Ferrugem e fabricação
+
+- [ ] Recuperar o manifesto V-09 no esgoto ou usar personagem compatível que já concluiu a investigação e atravessar o terminal no Pátio Sul.
+- [ ] Confirmar o carregamento da planta Ferrugem, a câmera, os edifícios, o marcador do objetivo e os terminais de interação em tela horizontal.
+- [ ] Concluir os nove objetivos de Ferrugem sem precisar repetir etapas ou receber o mesmo XP duas vezes.
+- [ ] Escolher publicar o dossiê com um save e proteger testemunhas com outro; verificar consequências diferentes na confiança ou no alerta do Mercado.
+- [ ] Recuperar liga metálica e célula, fabricar um colete e uma pistola na Central → Inventário e equipar ambos; conferir +2 de proteção e +2 de ataque no combate.
+- [ ] Fechar o app enquanto estiver em Ferrugem e retomar na mesma área sem perder missão nem personagem.
+- [ ] Entrar e sair das duas áreas subterrâneas e da clínica após forçar o fechamento do aplicativo.
+- [ ] Exportar o slot e importar noutro aparelho; verificar se o capítulo Ferrugem, o inventário fabricado e a última área foram preservados.
+- [ ] Testar no Galaxy A07 e Redmi Note 12S com perfil Economia (30 FPS), medindo variação de FPS, memória e fechamento inesperado.
+- [ ] Conferir a medida efetiva do APK nos logs do workflow. **Não anunciar 100 MB sem medir 100.000.000 bytes reais.**
+
+Critério: os novos mapas, decisões e equipamentos precisam passar no Android real antes de liberar o grupo de testes para mais pessoas. O cumprimento da meta de tamanho **não** substitui fluidez e estabilidade.
 
 ## Regressão de caminhada e desempenho — RC5
 
