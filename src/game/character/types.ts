@@ -18,6 +18,8 @@ export interface PlayerCharacter {
   createdAt: string;
   updatedAt: string;
   introductionCompleted: boolean;
+  /** false: mostrar prólogo visual novo; true: já visto; ausente: save legado sem cutscene. */
+  openingSeen?: boolean;
 }
 
 export interface OriginIntroduction {
