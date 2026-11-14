@@ -50,8 +50,10 @@ export class TurnManager {
     const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0);
     const maxEnergy=10+(bonus?.energy??0);
     const trial=options.encounterId?.startsWith("trial-")??false;
-    const trialWaveCount=options.encounterId==="trial-3"?3:trial?2:1;
-    const encounterHp=options.encounterId==="v09"?16:trial?14:12;
+    const district=options.encounterId?.startsWith("district-")??false;
+    const trialWaveCount=options.encounterId==="trial-3"||
+      options.encounterId==="district-setor-zero"?3:trial||district?2:1;
+    const encounterHp=options.encounterId==="v09"?16:district?17:trial?14:12;
     this.state = {
       units: [
         {
@@ -70,7 +72,7 @@ export class TurnManager {
         {
           id: "drone",
           name: options.encounterId==="v09" ? "Unidade de Vigilância V-09"
-             : trial ? "Drone de Interceptação" : "Sentinela-07",
+             : district ? "Agente de Segurança Helix" : trial ? "Drone de Interceptação" : "Sentinela-07",
           side: "enemy",
           x: 6,
           y: 1,
@@ -100,7 +102,7 @@ export class TurnManager {
       originAbilityAvailable: Boolean(this.originProfile),
       originAbilityName: this.originProfile?.abilityName ?? "Habilidade de origem",
       combatComplete: false,
-      message: trial?"Operação Circuito Fantasma · onda 1 de "+trialWaveCount+". Proteja a comunidade."
+      message: district?"Intervenção hostil no distrito · onda 1 de "+trialWaveCount+". Proteja as provas.":trial?"Operação Circuito Fantasma · onda 1 de "+trialWaveCount+". Proteja a comunidade."
         : options.encounterId==="v09" ? "Encontro V-09: neutralize a unidade que interceptou os registros de manutenção."
         : "Área de teste ativa. Alcance a sentinela e neutralize-a.",
       log: options.encounterId==="v09" ? ["[MISSÃO] V-09: ameaça localizada no Pátio do Reúso.", "[COMBATE] Proteja os registros da cooperativa."] : ["[SISTEMA] Campo de teste conectado.", "[MISSÃO] Neutralize a unidade sentinela."],
@@ -405,13 +407,15 @@ export class TurnManager {
     const enemy=this.state.units.find(unit=>unit.id==="drone");
     if(!enemy||enemy.hp>0)return;
     const trial=this.state.encounterId.startsWith("trial-");
-    if(trial&&this.state.wave<this.state.totalWaves){
+    const district=this.state.encounterId.startsWith("district-");
+    const waves=trial||district;
+    if(waves&&this.state.wave<this.state.totalWaves){
       this.state.wave+=1;
-      const hp=14+3*(this.state.wave-1);
+      const hp=(district?17:14)+3*(this.state.wave-1);
       enemy.hp=hp;enemy.maxHp=hp;enemy.armorClass=13+this.state.wave-1;
       enemy.attackBonus=4+this.state.wave-1;
       enemy.x=6;enemy.y=1;
-      enemy.name="Drone de Interceptação · "+this.state.wave;
+      enemy.name=(district?"Agente Helix":"Drone de Interceptação")+" · "+this.state.wave;
       this.state.combatComplete=false;
       this.state.mainActionAvailable=true;
       this.state.bonusActionAvailable=true;
@@ -429,10 +433,10 @@ export class TurnManager {
     }
     this.state.combatComplete=true;
     const mission=this.state.encounterId==="v09";
-    this.state.message=trial?"Todas as "+this.state.totalWaves+" ondas foram neutralizadas. Volte à exploração."
+    this.state.message=waves?"Todas as "+this.state.totalWaves+" ondas foram neutralizadas. Volte à exploração."
       :mission?"V-09 neutralizada. Os registros da cooperativa foram recuperados."
       :"Sentinela neutralizada. Área de teste temporariamente segura.";
-    this.addLog(trial?"[CAMPANHA] Interceptação superada. Recompensa ao retornar."
+    this.addLog(waves?"[CAMPANHA] Interceptação superada. Recompensa ao retornar."
       :mission?"[MISSÃO] Interceptação V-09 encerrada.":"[MISSÃO] Objetivo de teste concluído.");
   }
 

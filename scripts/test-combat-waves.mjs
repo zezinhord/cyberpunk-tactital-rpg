@@ -12,14 +12,15 @@ registerHooks({
  }
 });
 const {TurnManager}=await import("../src/game/TurnManager.ts");
- for(const encounter of ["trial-1","trial-2","trial-3"]){
+ for(const encounter of ["trial-1","trial-2","trial-3","district-aurea",
+  "district-subsolo","district-setor-zero","district-prisma","district-periferia"]){
   const m=new TurnManager({
    playerName:"Protagonista",originId:"baixada",classId:"solo",
    characterLevel:3,characterAbilities:["solo-ruptura","solo-marca","solo-furia"],
    encounterId:encounter,
    progressionBonuses:{hp:3,attack:1,armor:1,movement:1,energy:2},
   });
-  const total=encounter==="trial-3"?3:2;
+  const total=encounter==="trial-3"||encounter==="district-setor-zero"?3:2;
   let state=m.getState();
   assert.equal(state.wave,1);
   assert.equal(state.totalWaves,total);
@@ -54,4 +55,4 @@ const {TurnManager}=await import("../src/game/TurnManager.ts");
    }
   }
  }
-console.log("Combat: 2+2+3 ondas reais, três fontes de dano, energia e classe preservadas.");
+console.log("Combat: 3 confrontos da campanha + 5 interceptações distritais, ondas e técnicas preservadas.");

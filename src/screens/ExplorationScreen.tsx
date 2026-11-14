@@ -316,6 +316,11 @@ export default function ExplorationScreen({
           role:"DECISÃO COLETIVA · "+getDistrict(district).name,portrait:"◆",
           text:stage.message}]);return;
       }
+      if(stage?.id==="rede"&&stage.slot===slot){
+        setCityNotice("Agentes Helix protegem o repetidor. Vença as ondas de segurança para liberar as provas.");
+        onOpenBattle(("district-"+district) as EncounterId);
+        return;
+      }
       registerCityEvent(district,id);
       return;
     }

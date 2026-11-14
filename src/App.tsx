@@ -38,6 +38,9 @@ import {loadHealth,saveHealth,healAtClinic} from "./game/combat/health";
 import {combatProgression,gainExperience,purchaseAttribute,purchaseSkill,
   type StatId} from "./game/progression/tree";
 import {advanceTrialBattle,isTrialEncounter,readTrial,saveTrial,reconcileTrial} from "./game/story/field-test";
+import {isDistrictId} from "./game/districts/catalog";
+import {readDistrictProgress,saveDistrictProgress,advanceDistrict,
+ districtCurrentStep} from "./game/districts/progress";
 
 function getUnit(state: GameState, id: string): Unit | undefined {
   return state.units.find((unit) => unit.id === id);
@@ -319,6 +322,23 @@ export default function App() {
       }
       return;
     }
+    if(enemyDefeated&&state.encounterId.startsWith("district-")){
+      const id=state.encounterId.slice("district-".length);
+      if(isDistrictId(id)){
+        const stored=readDistrictProgress(character.id,id);
+        const step=districtCurrentStep(id,stored);
+        if(step?.id==="rede"&&step.slot==="relay"){
+          const next=advanceDistrict(id,stored,"district-"+id+"-relay");
+          if(next.advanced&&next.step&&grantTrialXp(
+            "district-"+id+"-"+next.step.id,next.step.xp)){
+            if(saveDistrictProgress(character.id,id,next.state)){
+              audioDirector.effect("victory");
+            }else setSaveMessage("XP salvo, mas não foi possível registrar o confronto do distrito.");
+          }
+        }
+      }
+      return;
+    }
     if(state.encounterId!=="v09")return;
     const defeated=state.units.find(u=>u.id==="drone")?.hp===0;
     if(!defeated)return;
@@ -550,10 +570,10 @@ export default function App() {
     <main className="app-shell game-shell arena-v030">
       <header className="topbar arena-head">
         <div className="mission">
-          <h1>{battleMode==="v09"?"Pátio do Reúso · Encontro V-09":
+          <h1>{battleMode.startsWith("district-")?"Defesa do Distrito · Interceptação Helix":battleMode==="v09"?"Pátio do Reúso · Encontro V-09":
             isTrialEncounter(battleMode)?"Operação Circuito Fantasma · Interceptação":
             "Limbo de Teste · Personagens e Habilidades"}</h1>
-          <p>{battleMode==="v09"?"MISSÃO PRINCIPAL · O NOME QUE SUMIU":
+          <p>{battleMode.startsWith("district-")?"OPERAÇÃO INTERDISTRITAL · "+state.wave+" / "+state.totalWaves+" ONDAS":battleMode==="v09"?"MISSÃO PRINCIPAL · O NOME QUE SUMIU":
             isTrialEncounter(battleMode)?"CAMPANHA TÁTICA · "+state.wave+" / "+state.totalWaves+" ONDAS":
             "Operativo de Campo // módulo experimental 0.3.0"}</p>
         </div>
@@ -573,7 +593,7 @@ export default function App() {
           </div>
         </div>
         <section className="battle-panel" aria-label="Combate tático isométrico">
-          <div className="map-label"><span>{battleMode==="v09"?"UNIDADE HOSTIL · V-09":
+          <div className="map-label"><span>{battleMode.startsWith("district-")?"AGENTES HELIX · ONDA "+state.wave+" / "+state.totalWaves: battleMode==="v09"?"UNIDADE HOSTIL · V-09":
              isTrialEncounter(battleMode)?"ONDA "+state.wave+" DE "+state.totalWaves+" · 8 × 8":"SIMULAÇÃO 01 · 8 × 8"}</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
           <Battlefield manager={manager} appearance={appearance} originId={character.originId} />
           <p className="board-hint">{getHint(state, canAttack)}</p>
@@ -606,6 +626,7 @@ export default function App() {
             <b>ESCOLHER ›</b>
           </button>
           {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? (battleMode==="v09" ? "V-09 neutralizada · registros recuperados"
+              : battleMode.startsWith("district-")?"Segurança Helix neutralizada · provas protegidas"
               : isTrialEncounter(battleMode)?"Interceptação vencida · campanha continua"
               :"Sentinela neutralizada") : "Operativo incapacitado"}</div>}
           <div className="economy">

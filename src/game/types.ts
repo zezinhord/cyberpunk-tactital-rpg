@@ -20,7 +20,9 @@ import type { SpecialId } from "./abilities/catalog";
 export type CombatVisual = "basic" | "hit" | "miss" | "move" | "emp" | "shield" | "repair" | "terminal";
 export interface CombatCue { sequence: number; visual: CombatVisual; target: "player" | "enemy" | "terminal"; amount?: number }
 
-export type EncounterId="test"|"v09"|"trial-1"|"trial-2"|"trial-3";
+export type EncounterId="test"|"v09"|"trial-1"|"trial-2"|"trial-3"|
+ "district-aurea"|"district-subsolo"|"district-setor-zero"|
+ "district-prisma"|"district-periferia";
 export interface GameState {
   units: Unit[];
   archetypeId: string;
