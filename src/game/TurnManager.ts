@@ -121,7 +121,7 @@ export class TurnManager {
       && this.state.characterLevel>=skill.minimumLevel);
   }
   getClassAvailability(id:string):AbilityCheck{
-    const skill=ALL_ALL_CLASS_SKILLS[id];
+    const skill=ALL_CLASS_SKILLS[id];
     return skill?checkClassSkill(this.state,skill):{available:false,reason:"Habilidade desconhecida."};
   }
   activateClassAbility(id:string):void{
