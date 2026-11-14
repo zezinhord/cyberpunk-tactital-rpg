@@ -1,13 +1,22 @@
 import { GRID_WIDTH, GRID_HEIGHT, BUILDING_CELLS, PROP_CELLS, ACTOR_CELLS, cellKey, isInside } from "./layout.ts";
 import type { Tile } from "./layout.ts";
 
-/** Camada de física lógica, independente de Phaser, da imagem e de depth.
- * Não existe movimento diagonal nessa versão: isso evita corte de cantos.
- * Todos os deslocamentos são revalidados a cada passo, inclusive os automáticos.
+/** Navegação isométrica independente de Phaser.
+ * Oito direções diminuem o zigue-zague. As diagonais exigem as duas células
+ * laterais livres (sem cortar cantos de edifícios, NPCs ou portas).
+ * Cada passo continua sendo revalidado durante a animação.
  */
 export const ORTHOGONAL_STEPS: readonly Tile[] = [
   {x:0,y:-1},{x:1,y:0},{x:0,y:1},{x:-1,y:0},
 ];
+export const DIAGONAL_STEPS:readonly Tile[]=[
+  {x:1,y:-1},{x:1,y:1},{x:-1,y:1},{x:-1,y:-1},
+];
+export const WALK_STEPS:readonly Tile[]=[...ORTHOGONAL_STEPS,...DIAGONAL_STEPS];
+export function isAdjacent(a:Tile,b:Tile):boolean{
+  const dx=Math.abs(a.x-b.x),dy=Math.abs(a.y-b.y);
+  return dx<=1&&dy<=1&&(dx+dy)>0;
+}
 export type BlockReason = "outside" | "building" | "prop" | "actor" | "dynamic" | null;
 export interface WalkOptions {
   occupied?: ReadonlySet<string>;
@@ -26,9 +35,12 @@ export function canStand(tile: Tile, options: WalkOptions = {}): boolean {
   return collisionAt(tile, options) === null;
 }
 export function canTraverse(a: Tile, b: Tile, options: WalkOptions = {}): boolean {
-  // Não aceita diagonais e não pula células. O sprite só interpola segmentos válidos.
-  return Math.abs(a.x-b.x) + Math.abs(a.y-b.y) === 1
-    && canStand(b, options);
+  if(!isAdjacent(a,b)||!canStand(b,options))return false;
+  // O percurso diagonal só é permitido quando não atravessa a esquina de
+  // um obstáculo; evita cortes que pareçam atravessar paredes.
+  const dx=b.x-a.x,dy=b.y-a.y;
+  return dx===0||dy===0||
+    (canStand({x:a.x+dx,y:a.y},options)&&canStand({x:a.x,y:a.y+dy},options));
 }
 export function route(start: Tile, target: Tile, options: WalkOptions = {}): Tile[] | null {
   if (!isInside(start) || !canStand(target, options)) return null;
@@ -37,7 +49,7 @@ export function route(start: Tile, target: Tile, options: WalkOptions = {}): Til
   for (let i=0;i<queue.length;i+=1) {
     const current = queue[i]!;
     if (current.x === target.x && current.y === target.y) break;
-    for (const d of ORTHOGONAL_STEPS) {
+    for (const d of WALK_STEPS) {
       const next={x:current.x+d.x,y:current.y+d.y};
       const key=cellKey(next);
       if (parent.has(key) || !canTraverse(current,next,options)) continue;
