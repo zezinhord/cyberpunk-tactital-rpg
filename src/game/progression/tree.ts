@@ -21,7 +21,7 @@ export const MAX_LEVEL=LEVEL_XP.length;
 export function levelAtXp(xp:number):number{
  if(!Number.isFinite(xp)||xp<0)return 1;
  let level=1;
- for(let i=1;i<LEVEL_XP.length;i++)if(xp>=LEVEL_XP[i])level=i+1;
+ for(let i=1;i<LEVEL_XP.length;i++)if(xp>=LEVEL_XP[i]!)level=i+1;
  return level;
 }
 export function gainExperience(character:PlayerCharacter,amount:number):{character:PlayerCharacter;levelsGained:number}{
@@ -32,7 +32,7 @@ export function gainExperience(character:PlayerCharacter,amount:number):{charact
 }
 export function statRank(char:PlayerCharacter,id:StatId):number{
  const rank=char.attributes[id];
- return Number.isInteger(rank)&&rank>=0&&rank<=5?rank:0;
+ return typeof rank==="number"&&Number.isInteger(rank)&&rank>=0&&rank<=5?rank:0;
 }
 export function availableAttributePoints(char:PlayerCharacter):number{
  const spent=STAT_IDS.reduce((sum,id)=>sum+statRank(char,id),0);
@@ -54,7 +54,7 @@ export function purchaseAttribute(char:PlayerCharacter,id:StatId):
  return {ok:true,character:{...char,attributes:{...char.attributes,[id]:statRank(char,id)+1},
   updatedAt:new Date().toISOString()},message:"Ponto aplicado em "+STATS[id].name+"."};
 }
-export function skillPrerequisite(char:PlayerCharacter,id:string):string|null{
+export function skillPrerequisite(id:string):string|null{
  const skill=ADVANCED_CLASS_SKILLS[id];
  if(!skill)return null;
  if(skill.minimumLevel<=2)return null;
@@ -75,7 +75,7 @@ export function purchaseSkill(char:PlayerCharacter,id:string):
  if(!skill||skill.classId!==char.classId)return {ok:false,character:char,message:"Técnica exclusiva de outra classe."};
  if(char.level<skill.minimumLevel)return {ok:false,character:char,message:"Exige nível "+skill.minimumLevel+"."};
  if(char.abilities.includes(id))return {ok:false,character:char,message:"Técnica já adquirida."};
- const prior=skillPrerequisite(char,id);
+ const prior=skillPrerequisite(id);
  if(prior&&!char.abilities.includes(prior))return {ok:false,character:char,message:"Compre primeiro a técnica anterior da sua classe."};
  return {ok:true,character:{...char,abilities:[...char.abilities,id],updatedAt:new Date().toISOString()},
    message:"Técnica desbloqueada: "+skill.name+"."};
