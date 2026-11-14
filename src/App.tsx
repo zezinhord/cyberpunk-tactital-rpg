@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Battlefield from "./components/Battlefield";
 import AbilityBar from "./components/AbilityBar";
+import OpeningCutscene from "./components/OpeningCutscene";
+import {nextStoryScreen,markOpeningSeen} from "./game/story/opening";
 import CombatAbilityPicker from "./components/CombatAbilityPicker";
 import { loadTestAppearance, saveTestAppearance } from "./game/test-arena/appearance";
 import type { TestAppearance } from "./game/test-arena/appearance";
@@ -202,7 +204,9 @@ export default function App() {
   useEffect(()=>{audioDirector.install();},[]);
   const [character, setCharacter] = useState<PlayerCharacter | null>(() => loadCharacter());
   const [slots,setSlots]=useState<PlayerCharacter[]>(()=>listCharacterSlots());
-  const [screen, setScreen] = useState<"title" | "creation" | "resume" | "introduction" | "exploration" | "battle">("title");
+  const [screen, setScreen] = useState<"title" | "creation" | "resume" | "opening" | "introduction" | "exploration" | "battle">("title");
+  const [openingReplay,setOpeningReplay] = useState(false);
+  const [openingError,setOpeningError] = useState("");
   const [battleReset, setBattleReset] = useState(0);
   const [battleMode, setBattleMode] = useState<EncounterId>("test");
   const [abilityPickerOpen,setAbilityPickerOpen] = useState(false);
@@ -354,6 +358,27 @@ export default function App() {
     setInventory(createStartingInventory(nextCharacter.id));
     setHealthValue(18+getOriginGameplay(nextCharacter.originId).maxHpBonus);
     setSaveMessage("Personagem salvo em slot próprio neste dispositivo");
+    setOpeningReplay(false);
+    setOpeningError("");
+    setScreen("opening");
+  };
+
+  const completeOpening = () => {
+    if(!character){setScreen("title");return;}
+    if(openingReplay){
+      setOpeningReplay(false);
+      setOpeningError("");
+      setScreen("title");
+      return;
+    }
+    const updated=markOpeningSeen(character);
+    if(!saveCharacter(updated)){
+      setOpeningError("Não foi possível salvar a apresentação. Verifique o armazenamento antes de continuar.");
+      return;
+    }
+    setCharacter(updated);
+    setSlots(listCharacterSlots());
+    setOpeningError("");
     setScreen("introduction");
   };
 
@@ -392,7 +417,9 @@ export default function App() {
     setInventory(loadInventory(selected.id));
     setHealthValue(loadHealth(selected.id,18+getOriginGameplay(selected.originId).maxHpBonus+combatProgression(selected).hp));
     setSlots(listCharacterSlots());
-    setScreen(selected.introductionCompleted?"exploration":"introduction");
+    setOpeningReplay(false);
+    setOpeningError("");
+    setScreen(nextStoryScreen(selected));
   };
   const handleDeleteSlot=(id:string)=>{
     if(!window.confirm("Excluir permanentemente este protagonista deste dispositivo? Faça um backup primeiro."))return;
@@ -459,13 +486,23 @@ export default function App() {
     return <TitleScreen character={character} slots={slots} onLoadSlot={handleLoadSlot}
       onDeleteSlot={handleDeleteSlot} onExport={handleExport} onImport={handleImport}
       saveNotice={saveMessage}
-      onContinue={() => setScreen(character?.introductionCompleted ? "exploration" : "introduction")} onNew={startNewCharacter} />;
+      onReplayOpening={()=>{
+        if(!character)return;
+        setOpeningReplay(true);
+        setOpeningError("");
+        setScreen("opening");
+      }}
+      onContinue={() => setScreen(character?nextStoryScreen(character):"title")} onNew={startNewCharacter} />;
   }
   if (screen === "creation") {
     return <CreationScreen initialName="" initialOrigin="corporativo" onCreate={handleCreate} onBackToSaved={cancelNewCharacter} />;
   }
   if (screen === "resume" && character) {
-    return <ResumeScreen character={character} onContinue={() => setScreen(character.introductionCompleted ? "exploration" : "introduction")} onNew={startNewCharacter} />;
+    return <ResumeScreen character={character} onContinue={() => setScreen(nextStoryScreen(character))} onNew={startNewCharacter} />;
+  }
+  if (screen === "opening" && character) {
+    return <OpeningCutscene key={character.id} character={character}
+      onFinish={completeOpening} error={openingError}/>;
   }
   if (screen === "introduction" && character) {
     return <IntroductionScreen character={character} onContinue={finishIntroduction} />;
