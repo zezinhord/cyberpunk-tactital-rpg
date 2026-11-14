@@ -604,6 +604,12 @@ export default function ExplorationScreen({
           </button>
         )}
       </section>
+      {(interior==="sewer-drain"||interior==="sewer-deep")&&<button type="button"
+        className="na-sewer-objective-hint" onClick={()=>setHubOpen(true)}
+        aria-label="Abrir objetivos da investigação subterrânea">
+        <span>◈ OBJETIVO SUBTERRÂNEO · TOQUE PARA DETALHES</span>
+        <strong>{sewerNextObjective(sewer)}</strong>
+      </button>}
       {!interior&&nearSewerAccess&&<button type="button"
         className="na-sewer-quick-access"
         aria-label={nearSewerAccess==="enter-sewer-drain"?
