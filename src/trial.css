@@ -40,3 +40,19 @@
  .na-sewer-heading span,.na-sewer-heading strong{font-size:9px;}
  .na-sewer-checkpoints span{padding:3px 5px;min-height:24px;}
 }
+
+
+/* Atalho contextual apenas junto às escadas, preservando o acesso físico do mapa. */
+.na-sewer-quick-access{display:flex;flex-direction:column;gap:3px;align-items:flex-start;
+ min-height:50px;padding:8px 13px;border:2px solid #e5ad6a;border-radius:8px;
+ background:linear-gradient(120deg,#314447,#162c35);color:#fff1cd;
+ box-shadow:0 6px 22px rgba(0,0,0,.49);text-align:left;}
+.na-sewer-quick-access strong{font:800 11px var(--display);letter-spacing:.02em;}
+.na-sewer-quick-access small{font:500 10px var(--mono);color:#c8d9d8;}
+@media(orientation:landscape){
+ .na-sewer-quick-access{position:absolute;z-index:6;left:var(--na-safe-left);
+  bottom:var(--na-safe-bottom);width:min(260px,46vw);pointer-events:auto;}
+}
+@media(orientation:portrait){
+ .na-sewer-quick-access{margin:5px 12px;}
+}
