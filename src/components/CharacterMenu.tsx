@@ -1,6 +1,7 @@
 import { useState } from "react";
 import AudioControls from "./AudioControls";
 import {readGraphicsMode,saveGraphicsMode,type GraphicsMode} from "../game/performance";
+import {readPerformanceReport} from "../game/performance-diagnostics";
 import type { OriginGameplayProfile, PlayerCharacter } from "../game/character";
 import { ITEM_CATALOG, ITEM_IDS } from "../game/inventory";
 import type { InventoryState, ItemId } from "../game/inventory";
@@ -102,6 +103,7 @@ export default function CharacterMenu({
   const [pendingClass,setPendingClass]=useState<ClassId|null>(null);
   const [graphicsMode,setGraphicsMode]=useState<GraphicsMode>(readGraphicsMode);
   const [graphicsNotice,setGraphicsNotice]=useState("");
+  const [performanceReport]=useState(readPerformanceReport);
   const activeItem = MENU_ITEMS.find((item) => item.id === activeSection)!;
   const attributeEntries = Object.entries(character.attributes);
   const progress = Math.max(0, Math.min(3, missionStep));
@@ -407,6 +409,15 @@ export default function CharacterMenu({
                       </button>)}
                   </div>
                   {graphicsNotice&&<small role="status">{graphicsNotice}</small>}
+                </section>
+                <section className="na-performance-options" aria-label="Resumo de FPS do último mapa">
+                  <strong>DIAGNÓSTICO LOCAL · ÚLTIMA AMOSTRA</strong>
+                  {performanceReport
+                    ? <p>{performanceReport.scene}: {performanceReport.fps} FPS registrados,
+                       mínimo {performanceReport.minimumFps} FPS · {performanceReport.mode==="economy"?"Economia":"Balanceado"}.
+                       {performanceReport.contextLost?" Atenção: perda de contexto gráfico registrada.":""}</p>
+                    : <p>Sem amostra ainda. Explore um mapa por mais de dez segundos e reabra este menu.</p>}
+                  <small>Esses números são estimativas do jogo e não substituem o relatório de fechamento do Android.</small>
                 </section>
                 <AudioControls />
                 <p className="menu-footnote">Em caso de fechamento inesperado, anote o aparelho,
