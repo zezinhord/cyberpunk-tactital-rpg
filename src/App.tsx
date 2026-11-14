@@ -4,7 +4,7 @@ import AbilityBar from "./components/AbilityBar";
 import { loadTestAppearance, saveTestAppearance } from "./game/test-arena/appearance";
 import type { TestAppearance } from "./game/test-arena/appearance";
 import { TurnManager } from "./game/TurnManager";
-import type { GameState, Unit } from "./game/types";
+import type { GameState, Unit,EncounterId } from "./game/types";
 import {
   createPlayerCharacter,
   assignCharacterClass,
@@ -200,7 +200,7 @@ export default function App() {
   const [slots,setSlots]=useState<PlayerCharacter[]>(()=>listCharacterSlots());
   const [screen, setScreen] = useState<"title" | "creation" | "resume" | "introduction" | "exploration" | "battle">("title");
   const [battleReset, setBattleReset] = useState(0);
-  const [battleMode, setBattleMode] = useState<"test" | "v09">("test");
+  const [battleMode, setBattleMode] = useState<EncounterId>("test");
   useEffect(()=>{audioDirector.setScene(screen==="battle"?"battle":screen==="exploration"?"exploration":screen==="title"?"menu":"story");},[screen]);
   const [appearance, setAppearance] = useState<TestAppearance>(() => loadTestAppearance(loadCharacter()?.id ?? ""));
   const chooseAppearance = (choice: TestAppearance) => {
@@ -241,7 +241,7 @@ export default function App() {
     });
   }, [manager,screen,character?.id]);
 
-  const beginBattle = (mode: "test" | "v09" = "test") => {
+  const beginBattle = (mode: EncounterId = "test") => {
     setBattleMode(mode);
     setBattleReset((n)=>n+1);
     setScreen("battle");

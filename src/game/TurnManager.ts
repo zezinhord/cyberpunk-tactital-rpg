@@ -6,7 +6,7 @@ import type { SpecialId } from "./abilities/catalog";
 import type { AbilityCheck } from "./abilities/engine.ts";
 import type { CombatVisual } from "./types";
 import { findPath, getReachableCells, MOVEMENT_PER_TURN } from "./map";
-import type { GameEvents, GameState, Position, Unit } from "./types";
+import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types";
 import type { OriginGameplayProfile } from "./character/types";
 
 function rollDie(sides: number): number {
@@ -31,7 +31,7 @@ export interface TurnManagerOptions {
   originId?: string;
   classId?: string | null;
   characterAbilities?: readonly string[];
-  encounterId?: "test" | "v09";
+  encounterId?: EncounterId;
 }
 
 export class TurnManager {
@@ -49,6 +49,9 @@ export class TurnManager {
     const movementPerTurn = MOVEMENT_PER_TURN + (this.originProfile?.movementBonus ?? 0)+(bonus?.movement??0);
     const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0);
     const maxEnergy=10+(bonus?.energy??0);
+    const trial=options.encounterId?.startsWith("trial-")??false;
+    const trialWaveCount=options.encounterId==="trial-3"?3:trial?2:1;
+    const encounterHp=options.encounterId==="v09"?16:trial?14:12;
     this.state = {
       units: [
         {
@@ -66,18 +69,20 @@ export class TurnManager {
         },
         {
           id: "drone",
-          name: options.encounterId==="v09" ? "Unidade de Vigilância V-09" : "Sentinela-07",
+          name: options.encounterId==="v09" ? "Unidade de Vigilância V-09"
+             : trial ? "Drone de Interceptação" : "Sentinela-07",
           side: "enemy",
           x: 6,
           y: 1,
-          hp: options.encounterId==="v09" ? 16 : 12,
-          maxHp: options.encounterId==="v09" ? 16 : 12,
+          hp: encounterHp,
+          maxHp: encounterHp,
           armorClass: 13,
           attackBonus: 4,
         },
       ],
       activeSide: "player",
       encounterId: options.encounterId ?? "test",
+      wave:1,totalWaves:trialWaveCount,
       archetypeId: "field-operative", characterLevel: options.characterLevel ?? 1,
       originId: options.originId ?? "corporativo", classId: options.classId ?? null,
       characterAbilities: options.characterAbilities ?? [], classCooldowns:{}, classGuardBonus:0, classGuardTurns:0,
@@ -95,7 +100,9 @@ export class TurnManager {
       originAbilityAvailable: Boolean(this.originProfile),
       originAbilityName: this.originProfile?.abilityName ?? "Habilidade de origem",
       combatComplete: false,
-      message: options.encounterId==="v09" ? "Encontro V-09: neutralize a unidade que interceptou os registros de manutenção." : "Área de teste ativa. Alcance a sentinela e neutralize-a.",
+      message: trial?"Operação Circuito Fantasma · onda 1 de "+trialWaveCount+". Proteja a comunidade."
+        : options.encounterId==="v09" ? "Encontro V-09: neutralize a unidade que interceptou os registros de manutenção."
+        : "Área de teste ativa. Alcance a sentinela e neutralize-a.",
       log: options.encounterId==="v09" ? ["[MISSÃO] V-09: ameaça localizada no Pátio do Reúso.", "[COMBATE] Proteja os registros da cooperativa."] : ["[SISTEMA] Campo de teste conectado.", "[MISSÃO] Neutralize a unidade sentinela."],
     };
   }
@@ -131,6 +138,7 @@ export class TurnManager {
     if(!result.ok){this.setMessage(result.message);return;}
     this.addLog("[CLASSE] "+result.message);
     this.setCue(skill.visual,skill.target==="enemy"?"enemy":"player",result.amount);
+    this.resolveEnemyDown();
     this.publish();
   }
   getSpecialAvailability(id: SpecialId): AbilityCheck {
@@ -145,6 +153,7 @@ export class TurnManager {
     }
     this.addLog("[ESPECIAL] " + result.message);
     this.setCue(result.visual ?? "basic", result.target ?? "player", result.amount);
+    this.resolveEnemyDown();
     this.publish();
   }
 
@@ -299,14 +308,7 @@ export class TurnManager {
       this.state.message = `${player.name} errou o ataque.`;
       this.addLog(`[ATAQUE] d20 ${roll} + ${attackBonus} = ${total}. Ataque falhou.`);
     }
-    if (enemy.hp <= 0) {
-      this.state.combatComplete = true;
-      const mission=this.state.encounterId==="v09";
-      this.state.message = mission
-        ? "V-09 neutralizada. Os registros da cooperativa foram recuperados."
-        : "Sentinela neutralizada. Área de teste temporariamente segura.";
-      this.addLog(mission?"[MISSÃO] Interceptação V-09 encerrada.":"[MISSÃO] Objetivo de teste concluído.");
-    }
+    this.resolveEnemyDown();
     this.publish();
   }
 
@@ -371,11 +373,8 @@ export class TurnManager {
       this.publish();
       return;
     }
-    if (enemy.hp <= 0) {
-      this.state.combatComplete = true;
-      this.state.message = this.state.encounterId==="v09"
-        ? "V-09 neutralizada. Os registros da cooperativa foram recuperados."
-        : "Sentinela neutralizada. Área de teste temporariamente segura.";
+    if(enemy.hp<=0){
+      this.resolveEnemyDown();
       this.publish();
       return;
     }
@@ -397,6 +396,44 @@ export class TurnManager {
     this.state.message = "Seu turno. Reposicione-se ou ataque quando estiver ao alcance.";
     this.addLog(`[TURNO] Rodada ${this.state.round}. Seu turno começou.`);
     this.publish();
+  }
+
+  /** Resolve a próxima onda para qualquer fonte de dano (básico, classe ou comum).
+   * Não concede missão/XP antes de TODAS as ondas terminarem.
+   */
+  private resolveEnemyDown():void{
+    const enemy=this.state.units.find(unit=>unit.id==="drone");
+    if(!enemy||enemy.hp>0)return;
+    const trial=this.state.encounterId.startsWith("trial-");
+    if(trial&&this.state.wave<this.state.totalWaves){
+      this.state.wave+=1;
+      const hp=14+3*(this.state.wave-1);
+      enemy.hp=hp;enemy.maxHp=hp;enemy.armorClass=13+this.state.wave-1;
+      enemy.attackBonus=4+this.state.wave-1;
+      enemy.x=6;enemy.y=1;
+      enemy.name="Drone de Interceptação · "+this.state.wave;
+      this.state.combatComplete=false;
+      this.state.mainActionAvailable=true;
+      this.state.bonusActionAvailable=true;
+      this.state.activeSide="player";
+      this.state.energy=Math.min(this.state.maxEnergy,this.state.energy+3);
+      this.state.movementRemaining=this.state.movementPerTurn;
+      this.state.enemyJamTurns=0;
+      this.state.classEnemyArmorTurns=0;
+      this.state.classEnemyArmorReduction=0;
+      this.state.classEnemyAttackTurns=0;
+      this.state.classEnemyAttackReduction=0;
+      this.state.message="Nova ameaça! Onda "+this.state.wave+" de "+this.state.totalWaves+". Energia +3.";
+      this.addLog("[CAMPANHA] Segurança enviou um novo drone. Onda "+this.state.wave+".");
+      return;
+    }
+    this.state.combatComplete=true;
+    const mission=this.state.encounterId==="v09";
+    this.state.message=trial?"Todas as "+this.state.totalWaves+" ondas foram neutralizadas. Volte à exploração."
+      :mission?"V-09 neutralizada. Os registros da cooperativa foram recuperados."
+      :"Sentinela neutralizada. Área de teste temporariamente segura.";
+    this.addLog(trial?"[CAMPANHA] Interceptação superada. Recompensa ao retornar."
+      :mission?"[MISSÃO] Interceptação V-09 encerrada.":"[MISSÃO] Objetivo de teste concluído.");
   }
 
   private setMessage(message: string): void { this.state.message = message; this.publish(); }

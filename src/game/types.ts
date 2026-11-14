@@ -20,6 +20,7 @@ import type { SpecialId } from "./abilities/catalog";
 export type CombatVisual = "basic" | "hit" | "miss" | "move" | "emp" | "shield" | "repair" | "terminal";
 export interface CombatCue { sequence: number; visual: CombatVisual; target: "player" | "enemy" | "terminal"; amount?: number }
 
+export type EncounterId="test"|"v09"|"trial-1"|"trial-2"|"trial-3";
 export interface GameState {
   units: Unit[];
   archetypeId: string;
@@ -37,7 +38,9 @@ export interface GameState {
   classEnemyArmorTurns: number;
   classEnemyAttackReduction: number;
   classEnemyAttackTurns: number;
-  encounterId: "test" | "v09";
+  encounterId: EncounterId;
+  wave:number;
+  totalWaves:number;
   energy: number;
   maxEnergy: number;
   cooldowns: Record<SpecialId, number>;
