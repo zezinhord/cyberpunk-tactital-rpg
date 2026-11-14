@@ -74,7 +74,7 @@ export class SewerScene extends Phaser.Scene{
   this.progress=progress;
   this.gateLabel?.setText(progress.gateOpened?"COMPORTA 04 · ABERTA":"COMPORTA 04 · FECHADA");
  }
- preload():void{preloadCharacterSprites(this);}
+ preload():void{preloadCharacterSprites(this,this.originId,[]);}
  create():void{
   createCharacterAnimations(this);
   this.drawLevel();
