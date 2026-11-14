@@ -10,6 +10,7 @@ import "./audio-controls.css";
 import "./class-selection.css";
 import "./save-slots.css";
 import "./progression.css";
+import "./trial.css";
 
 const rootElement = document.getElementById("root");
 

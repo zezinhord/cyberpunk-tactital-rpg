@@ -9,6 +9,10 @@ import type { InteriorId } from "../game/baixada/InteriorScene";
 import type { TestAppearance } from "../game/test-arena/appearance";
 import { audioDirector } from "../audio/director";
 import type {ClassId} from "../game/classes/registry";
+import type {EncounterId} from "../game/types";
+import type {StatId} from "../game/progression/tree";
+import {ESTIMATED_MINUTES,TRIAL_STEPS,readTrial,saveTrial,startTrial,
+ currentTrialStep,trialCombatForActor,advanceTrial,reconcileTrial} from "../game/story/field-test";
 import { isPatioCitizen, getPatioConversation, type ConversationOption } from "../game/dialogues/patio";
 import { readV09,markV09Reported } from "../game/story/v09";
 import { MARKET_CLUE_TEXT,applyMarketAction,getMarketConversation,isMarketActor,readMarket,saveMarket } from "../game/story/market";
@@ -24,7 +28,10 @@ interface Props {
   appearance: TestAppearance;
   onChangeAppearance: (appearance: TestAppearance) => void;
   onChooseClass: (classId: ClassId) => void;
-  onOpenBattle: (mode?: "test" | "v09") => void;
+  onPurchaseAttribute:(id:StatId)=>string;
+  onPurchaseSkill:(id:string)=>string;
+  onQuestXp:(eventId:string,amount:number)=>boolean;
+  onOpenBattle: (mode?: EncounterId) => void;
   onTreatAtClinic: () => number;
   currentHp: number;
   maxHp: number;
@@ -89,6 +96,9 @@ export default function ExplorationScreen({
   appearance,
   onChangeAppearance,
   onChooseClass,
+  onPurchaseAttribute,
+  onPurchaseSkill,
+  onQuestXp,
   onOpenBattle,
   onTreatAtClinic,
   currentHp,
@@ -106,6 +116,8 @@ export default function ExplorationScreen({
   const [missionOpen, setMissionOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [market,setMarket]=useState(()=>readMarket(character.id));
+  const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));
+  const [trialNotice,setTrialNotice]=useState("");
   const [sectorId,setSectorId]=useState<SectorId>(()=>sectorAt(loadWorldLocation(character.id)));
   useEffect(()=>{audioDirector.setScene(interior?"interior":"exploration");},[interior]);
 
@@ -136,6 +148,24 @@ export default function ExplorationScreen({
   };
 
   const handleInteract = (id: string) => {
+    const campaignBattle=trialCombatForActor(trial,id);
+    if(campaignBattle){
+      setTrialNotice("Interceptação iniciada · a recompensa é concedida apenas após vencer todas as ondas.");
+      onOpenBattle(campaignBattle);
+      return;
+    }
+    const progress=advanceTrial(trial,id);
+    if(progress.advanced&&progress.completedStep){
+      const stage=progress.completedStep;
+      if(onQuestXp("trial-"+stage.id,stage.xp)&&saveTrial(character.id,progress.progress)){
+        setTrial(progress.progress);
+        setTrialNotice("Objetivo concluído: "+stage.title+" · +"+stage.xp+" XP. "
+          +(progress.progress.completed?"OPERAÇÃO CONCLUÍDA!":"Próxima tarefa liberada."));
+        audioDirector.effect("victory");
+      }else{
+        setTrialNotice("Não foi possível salvar a etapa. Confira o armazenamento do dispositivo.");
+      }
+    }
     audioDirector.effect(id.startsWith("enter-")||id==="exit-interior"?"door":id.startsWith("terminal")||id.includes("console")?"terminal":"interact");
     if (id === "enter-clinic") {
       setInterior("clinic");
@@ -529,6 +559,40 @@ export default function ExplorationScreen({
         )}
       </section>}
 
+      <section className="na-trial-panel" aria-label="Operação Circuito Fantasma">
+        <div className="na-trial-heading">
+          <div><span className="eyebrow">CAMPANHA DE TESTES · PROJETO ÉDEN</span>
+            <h2>Operação Circuito Fantasma</h2></div>
+          <strong>{trial.completed?"CONCLUÍDA":trial.started?"ETAPA "+Math.min(trial.step+1,TRIAL_STEPS.length)+"/"+TRIAL_STEPS.length:"NOVA · "+ESTIMATED_MINUTES+" MIN EST."}</strong>
+        </div>
+        {!trial.started ? <>
+          <p>Uma sequência com {TRIAL_STEPS.length} objetivos e três confrontos de múltiplas ondas,
+            conectando clínica, Canal, Pátio e Mercado. Investigue a manipulação dos serviços e teste combate,
+            exploração, itens, diálogos e sua árvore de evolução. Duração estimada de {ESTIMATED_MINUTES} minutos,
+            variável conforme sua exploração e a dificuldade.</p>
+          <button type="button" onClick={()=>{
+            const started=startTrial(trial);
+            if(saveTrial(character.id,started)){
+              setTrial(started);setTrialNotice("Missão iniciada. Dirija-se à clínica comunitária.");
+            }else setTrialNotice("Não foi possível salvar o início da campanha.");
+          }}>Iniciar operação de testes</button>
+        </> : trial.completed ? <p>Relatório entregue. A comunidade preservou as provas da triagem;
+            seu progresso, XP e novas técnicas permanecem no salvamento. A investigação sobre a autoria do sistema continua.</p>
+        : <div className="na-trial-objective">
+            <p><b>CAPÍTULO {currentTrialStep(trial)?.chapter} · {currentTrialStep(trial)?.title}</b>
+             {" — "}{currentTrialStep(trial)?.sector}</p>
+            <strong>{currentTrialStep(trial)?.objective}</strong>
+            <small>{currentTrialStep(trial)?.detail}</small>
+            <span>{trial.step} de {TRIAL_STEPS.length} etapas concluídas.
+              {" "}Recompensa da próxima: {currentTrialStep(trial)?.xp} XP.</span>
+          </div>}
+        {trialNotice&&<p className="na-trial-feedback" role="status">{trialNotice}</p>}
+        {trial.started&&<details className="na-trial-history"><summary>Consultar etapas da operação</summary>
+          {TRIAL_STEPS.map((stage,index)=><p key={stage.id}>
+            {index<trial.step?"✓":index===trial.step?"▶":"○"} {index+1}. {stage.title} · {stage.sector}
+          </p>)}
+        </details>}
+      </section>
       {interior==="clinic" && <div className="na-clinic-treatment">
         <span>CLÍNICA COMUNITÁRIA · ESTABILIZAÇÃO DE FERIMENTOS</span>
         <button type="button" disabled={currentHp>=maxHp}
@@ -551,6 +615,8 @@ export default function ExplorationScreen({
           appearance={appearance}
           onChangeAppearance={onChangeAppearance}
           onChooseClass={onChooseClass}
+          onPurchaseAttribute={onPurchaseAttribute}
+          onPurchaseSkill={onPurchaseSkill}
           originName={origin.name}
           originDescription={origin.description}
           originProfile={getOriginGameplay(character.originId)}
