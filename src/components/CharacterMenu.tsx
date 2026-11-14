@@ -6,9 +6,11 @@ import type { InventoryState, ItemId } from "../game/inventory";
 import type { TestAppearance } from "../game/test-arena/appearance";
 import { getPlayerSpriteUrl } from "../game/baixada/sprites";
 import ClassSelection from "./ClassSelection";
+import ProgressionTree from "./ProgressionTree";
+import type {StatId} from "../game/progression/tree";
 import {getClassById,CLASS_SKILLS,getClassSkills,type ClassId} from "../game/classes/registry";
 
-type MenuSection = "character" | "inventory" | "equipment" | "abilities" | "map" | "journal" | "settings";
+type MenuSection = "character" | "progression" | "inventory" | "equipment" | "abilities" | "map" | "journal" | "settings";
 
 interface JournalClue {
   id: string;
@@ -20,6 +22,8 @@ interface Props {
   appearance: TestAppearance;
   onChangeAppearance: (appearance: TestAppearance) => void;
   onChooseClass: (classId: ClassId) => void;
+  onPurchaseAttribute:(id:StatId)=>string;
+  onPurchaseSkill:(id:string)=>string;
   originName: string;
   originDescription: string;
   originProfile: OriginGameplayProfile;
@@ -37,6 +41,7 @@ interface Props {
 
 const MENU_ITEMS: ReadonlyArray<{ id: MenuSection; code: string; label: string; description: string }> = [
   { id: "character", code: "ID", label: "Personagem", description: "Identidade e progressão" },
+  { id: "progression", code: "XP", label: "Árvore de evolução", description: "Comprar atributos e habilidades" },
   { id: "inventory", code: "INV", label: "Inventário", description: "Itens e recursos" },
   { id: "equipment", code: "EQP", label: "Equipamentos", description: "Armas, trajes e implantes" },
   { id: "abilities", code: "HAB", label: "Habilidades", description: "Vantagens e técnicas" },
@@ -72,6 +77,8 @@ export default function CharacterMenu({
   appearance,
   onChangeAppearance,
   onChooseClass,
+  onPurchaseAttribute,
+  onPurchaseSkill,
   originName,
   originDescription,
   originProfile,
@@ -226,6 +233,10 @@ export default function CharacterMenu({
               </div>
             )}
 
+            {activeSection === "progression" && (
+              <ProgressionTree character={character}
+                onAttribute={onPurchaseAttribute} onSkill={onPurchaseSkill}/>
+            )}
             {activeSection === "inventory" && (
               <div className="menu-section-stack">
                 <section className="menu-list-panel">
@@ -287,9 +298,9 @@ export default function CharacterMenu({
                 {character.classId&&<section className="menu-info-panel menu-ability-card">
                   <span className="menu-panel-kicker">HABILIDADE EXCLUSIVA · {getClassById(character.classId).name.toUpperCase()}</span>
                   {getClassSkills(character.classId).map(skill=><div className="class-ability-readout" key={skill.id}>
-                    <h4>{skill.name}</h4><p>{skill.description}</p>
+                    <h4>{skill.name} {character.abilities.includes(skill.id)?"· COMPRADA":"· BLOQUEADA"}</h4><p>{skill.description}</p>
                     <small>Custo: {skill.cost} energia · Recarga: {skill.cooldown} turnos · Alcance: {skill.range} células · Nível {skill.minimumLevel}</small>
-                    <p><small>Seu poder só pode ser usado por personagens desta classe.</small></p>
+                    <p><small>{character.abilities.includes(skill.id)?"Usável no combate.":"Abra a Árvore de evolução e compre esta técnica no nível exigido."}</small></p>
                   </div>)}
                 </section>}
                 {character.abilities.length > 0 && (

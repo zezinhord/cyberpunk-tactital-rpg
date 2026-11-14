@@ -9,6 +9,7 @@ import "./character-presentation.css";
 import "./audio-controls.css";
 import "./class-selection.css";
 import "./save-slots.css";
+import "./progression.css";
 
 const rootElement = document.getElementById("root");
 
