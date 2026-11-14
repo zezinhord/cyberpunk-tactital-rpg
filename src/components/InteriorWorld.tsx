@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import Phaser from "phaser";
 import {performanceGameConfig} from "../game/performance";
+import {attachPerformanceDiagnostics} from "../game/performance-diagnostics";
 import { InteriorScene, INTERIOR_VIEW_HEIGHT, INTERIOR_VIEW_WIDTH, type InteriorId } from "../game/baixada/InteriorScene";
 import {SewerScene} from "../game/baixada/SewerScene";
 import {isSewerId} from "../game/baixada/sewer-layout";
@@ -46,7 +47,8 @@ export default function InteriorWorld({
       ...performanceGameConfig(),
       scene: [scene],
     });
-    return () => { sceneRef.current = null; game.destroy(true); };
+    const detachDiagnostics=attachPerformanceDiagnostics(game,interior);
+    return () => { detachDiagnostics(); sceneRef.current = null; game.destroy(true); };
   }, [interior, originId,returnFromDeep]);
 
   useEffect(() => { sceneRef.current?.setAppearance(appearance); }, [appearance]);
