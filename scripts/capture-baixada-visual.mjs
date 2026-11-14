@@ -360,6 +360,31 @@ try {
   await poll(()=>has(".unit-card.cyan"),"personagem ferido no combate");
   const arenaHp=await evaluate('document.querySelector(".unit-card.cyan .unit-stats b")?.textContent.trim()');
   if(!arenaHp.startsWith("6/"))throw new Error("Arena reinicializou a Vida: "+arenaHp);
+  // O seletor deve funcionar no viewport horizontal real do Android (914x411),
+  // não apenas no screenshot desktop 1600x720.
+  const mobileLauncher=await evaluate(`(()=>{
+    const r=document.querySelector(".na-abilities-open")?.getBoundingClientRect();
+    return {top:r?.top,bottom:r?.bottom,height:r?.height,screenHeight:innerHeight};
+  })()`);
+  if(!mobileLauncher.height||mobileLauncher.height<44||
+     mobileLauncher.top<0||mobileLauncher.bottom>mobileLauncher.screenHeight)
+    throw new Error("Botão de habilidades não tocável no Android: "+JSON.stringify(mobileLauncher));
+  await evaluate('document.querySelector(".na-abilities-open").click();true');
+  await poll(()=>has(".na-ability-picker"),"seletor de habilidades Android 914x411");
+  const mobileModal=await evaluate(`(()=>{
+    const r=document.querySelector(".na-ability-picker")?.getBoundingClientRect();
+    const confirm=document.querySelector(".na-ability-picker-actions .primary")?.getBoundingClientRect();
+    return {top:r?.top,bottom:r?.bottom,screenHeight:innerHeight,
+      confirmTop:confirm?.top,confirmBottom:confirm?.bottom,
+      count:document.querySelectorAll(".na-ability-choice").length};
+  })()`);
+  if(mobileModal.top<0||mobileModal.bottom>mobileModal.screenHeight+2||
+     mobileModal.confirmBottom>mobileModal.screenHeight+2||mobileModal.count!==5)
+    throw new Error("Seletor cortado no Android 914x411: "+JSON.stringify(mobileModal));
+  await writeFile("qa/seletor-habilidades-914x411.png",
+    Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".na-ability-picker-head button").click();true');
+  await poll(()=>evaluate('!document.querySelector(".na-ability-picker")'),"fechamento seletor Android");
   await evaluate('document.querySelector(".actions .end-turn-button").click();true');
   await poll(()=>evaluate('document.querySelector(".combat-message")?.textContent.includes("Curativo de campo")'),
     "uso real de curativo");
@@ -407,6 +432,12 @@ try {
   const legacyNext=await evaluate('document.querySelector(".na-next-step")?.textContent');
   if(!legacyNext?.includes("Pátio"))
     throw new Error("Missão anterior concluída não encaminha ao Pátio: "+legacyNext);
+  await evaluate('document.querySelector(".na-hub-toggle").click();true');
+  const collapsed=await evaluate('getComputedStyle(document.querySelector(".na-mission-details")).display==="none"');
+  if(!collapsed)throw new Error("HUD de missões não recolheu.");
+  await evaluate('document.querySelector(".na-hub-toggle").click();true');
+  const reopened=await evaluate('getComputedStyle(document.querySelector(".na-mission-details")).display!=="none"');
+  if(!reopened)throw new Error("HUD de missões não reabriu.");
   await writeFile("qa/proxima-missao-914x411.png",
     Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   const trialButton=await evaluate('document.querySelector(".na-trial-panel button")?.textContent');
