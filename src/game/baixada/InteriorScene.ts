@@ -26,6 +26,8 @@ const ORIGIN_X = 300;
 const ORIGIN_Y = 90;
 const PLAYER_START: Position = { x: 3, y: 6 };
 const DIRECTIONS: Position[] = [{ x: 0, y: -1 }, { x: 1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0 }];
+const WALK_DIRECTIONS:readonly Position[]=[...DIRECTIONS,
+ {x:1,y:1},{x:1,y:-1},{x:-1,y:1},{x:-1,y:-1}];
 
 type Point = { x: number; y: number };
 type Actor = { id: string; name: string; role: string; tile: Position; texture?: string; kind: "person" | "terminal" | "exit"; visual?: Phaser.GameObjects.Sprite };
@@ -53,6 +55,8 @@ export class InteriorScene extends Phaser.Scene {
   private actors: Actor[] = [];
   private moving = false;
   private pending: string | null = null;
+  private queuedTarget: Position | null = null;
+  private queuedActor: string | null = null;
   private direction: IsoDirection = 2;
   private readonly blocked = new Set<string>();
 
@@ -81,7 +85,7 @@ export class InteriorScene extends Phaser.Scene {
     camera.setBounds(0, 0, 620, 430);
     camera.setZoom(1.0);
     camera.centerOn(this.player.x, this.player.y - 40);
-    camera.startFollow(this.player, true, 0.12, 0.12);
+    camera.startFollow(this.player, true, 0.22, 0.22);
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handleTap, this);
     this.input.keyboard?.on("keydown", this.handleKeyboard, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -260,9 +264,12 @@ export class InteriorScene extends Phaser.Scene {
     while (queue.length) {
       const current = queue.shift(); if (!current) break;
       if (current.x === end.x && current.y === end.y) break;
-      for (const dir of DIRECTIONS) {
+      for (const dir of WALK_DIRECTIONS) {
         const next = { x: current.x + dir.x, y: current.y + dir.y };
         if (!this.walkable(next) || previous.has(key(next))) continue;
+        if(dir.x!==0&&dir.y!==0&&
+          (!this.walkable({x:current.x+dir.x,y:current.y})||
+           !this.walkable({x:current.x,y:current.y+dir.y})))continue;
         previous.set(key(next), key(current)); queue.push(next);
       }
     }
@@ -283,27 +290,33 @@ export class InteriorScene extends Phaser.Scene {
   }
 
   private handleTap(pointer: Phaser.Input.Pointer): void {
-    if (this.moving) return;
     const p = pointer.positionToCamera(this.cameras.main) as { x: number; y: number };
     const actor = this.actors.find((item) => {
       const c = center(item.tile); const top = c.y - (item.kind === "person" ? 70 : 43);
       return Math.abs(p.x - c.x) <= 27 && p.y >= top && p.y <= c.y + 14;
     });
-    if (actor) { this.approach(actor); return; }
+    if(actor){
+      if(this.moving){this.queuedActor=actor.id;this.queuedTarget=null;}
+      else this.approach(actor);
+      return;
+    }
     const rx = (p.x - ORIGIN_X) / (TILE_W / 2); const ry = (p.y - ORIGIN_Y) / (TILE_H / 2);
     const tile = { x: Math.round((rx + ry) / 2), y: Math.round((ry - rx) / 2) };
     const c = center(tile);
     if (!inside(tile) || Math.abs(p.x - c.x) / (TILE_W / 2) + Math.abs(p.y - c.y) / (TILE_H / 2) > 1.1) return;
+    if(this.moving){this.queuedTarget=tile;this.queuedActor=null;return;}
+    this.pending=null;
     const path = this.findPath(this.playerTile, tile); if (path) this.walkPath(path);
   }
 
   private handleKeyboard(event: KeyboardEvent): void {
-    if (this.moving) return;
     const k = event.key.toLowerCase();
     const dir: IsoDirection | undefined = k === "arrowup" || k === "w" ? 0 : k === "arrowright" || k === "d" ? 1 : k === "arrowdown" || k === "s" ? 2 : k === "arrowleft" || k === "a" ? 3 : undefined;
     if (dir === undefined) return;
     const vector = DIRECTIONS[dir]; if (!vector) return;
     const next = { x: this.playerTile.x + vector.x, y: this.playerTile.y + vector.y };
+    if(this.moving){this.queuedTarget=next;this.queuedActor=null;return;}
+    this.pending=null;
     const path = this.findPath(this.playerTile, next); if (path) this.walkPath(path);
   }
 
@@ -312,6 +325,19 @@ export class InteriorScene extends Phaser.Scene {
     this.moving = true;
     const steps = path.slice(1);
     const nextStep = (): void => {
+      if(this.queuedActor){
+        const actor=this.actors.find(item=>item.id===this.queuedActor);
+        this.queuedActor=null;this.queuedTarget=null;this.pending=null;this.moving=false;
+        if(actor)this.approach(actor);
+        else this.playerAnimator?.play("idle");
+        return;
+      }
+      if(this.queuedTarget){
+        const target=this.queuedTarget;
+        this.queuedTarget=null;this.pending=null;
+        const pathToTarget=this.findPath(this.playerTile,target);
+        steps.splice(0,steps.length,...(pathToTarget?.slice(1)??[]));
+      }
       const next = steps.shift();
       if (!next) {
         this.moving = false;
@@ -320,12 +346,15 @@ export class InteriorScene extends Phaser.Scene {
         if (interaction) this.onInteract(interaction);
         return;
       }
-      const direction = directionBetween(this.playerTile, next);
+      const previous=this.playerTile;
+      const direction = directionBetween(previous, next);
       this.direction = direction;
       this.playerAnimator?.setDirection(direction);
       this.playerAnimator?.play("walk");
       const p = center(next); this.playerTile = next;
-      this.tweens.add({ targets: this.player, x: p.x, y: p.y, duration: 190, ease: "Sine.easeInOut", onUpdate: () => this.player.setDepth(this.player.y + 120), onComplete: nextStep });
+      this.tweens.add({ targets: this.player, x: p.x, y: p.y,
+        duration:next.x!==previous.x&&next.y!==previous.y?190:135,ease:"Linear",
+        onUpdate: () => this.player.setDepth(this.player.y + 120), onComplete: nextStep });
     };
     nextStep();
   }
