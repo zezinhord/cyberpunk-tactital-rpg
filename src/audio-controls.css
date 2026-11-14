@@ -1,1 +1,17 @@
 .na-audio-settings{border:1px solid #55747b;border-radius:8px;padding:8px;margin:8px 0;background:#14242d;color:#dbe7e8}.na-audio-settings legend{font:700 11px var(--mono);padding:0 5px}.na-audio-row{display:grid;grid-template-columns:minmax(95px,1fr) minmax(80px,1.1fr) 40px;align-items:center;gap:8px;padding:5px 0}.na-audio-row span{display:flex;flex-direction:column;gap:2px}.na-audio-row strong{font-size:12px}.na-audio-row small{font-size:10px}.na-audio-row input{width:100%;min-height:30px;accent-color:#53c5d4}.na-audio-row output{text-align:right;font:600 11px var(--mono)}
+/* Radio cyberpunk original: controles acessíveis em telas horizontais pequenas. */
+.na-radio-settings{display:flex;flex-direction:column;gap:8px;padding-top:12px;
+ margin-top:11px;border-top:1px solid #47616b;color:#e5e8e0;}
+.na-radio-settings>div:first-child{display:flex;flex-direction:column;gap:3px;}
+.na-radio-settings strong{font-size:12px;color:#f4cc96;letter-spacing:.05em;}
+.na-radio-settings small{font-size:10px;line-height:1.45;color:#c8dedb;}
+.na-radio-settings p{margin:0;font-size:11px;line-height:1.45;color:#edf4ed;}
+.na-radio-selector{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.na-radio-selector label{display:flex;flex-direction:column;gap:4px;font-size:10px;color:#b8e4e0;}
+.na-radio-selector select{width:100%;min-height:45px;max-width:100%;padding:8px 9px;
+ border:1px solid #668e91;border-radius:6px;background:#203841;color:#f0f3eb;
+ font:600 12px "IBM Plex Mono",monospace;}
+.na-radio-auto{min-height:44px;border:1px solid #bd9771;border-radius:7px;
+ background:#3a4545;color:#fff0d5;font:700 11px "IBM Plex Mono",monospace;padding:8px;}
+.na-radio-auto:disabled{opacity:.5;}
+@media(max-width:400px){.na-radio-selector{grid-template-columns:1fr;}}
