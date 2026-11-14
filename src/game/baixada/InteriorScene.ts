@@ -74,7 +74,11 @@ export class InteriorScene extends Phaser.Scene {
     this.playerAnimator?.setTexture(getPlayerTexture(this.originId, appearance));
   }
 
-  preload(): void { preloadCharacterSprites(this); }
+  preload():void{
+    const npc=this.interior==="clinic"?[NPC_TEXTURES.amara]:
+      this.interior==="workshop"?[NPC_TEXTURES.nilo]:[NPC_TEXTURES.teo];
+    preloadCharacterSprites(this,this.originId,npc);
+  }
 
   create(): void {
     createCharacterAnimations(this);
