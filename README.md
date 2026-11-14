@@ -44,9 +44,10 @@ A restauração exige confirmação ao substituir um slot existente. Em caso de 
 
 ## Desenvolvimento e validação
 
-Requisitos: Node.js **22.12+**, npm e, para regenerar personagens, Python e Pillow.
+Requisitos: Node.js **22.12+**, npm, Python 3 e Pillow (o comando de build regenera os sprites durante o pré-build).
 
 ```bash
+python -m pip install -r tools/requirements-characters.txt
 npm ci
 npm run build
 ```
