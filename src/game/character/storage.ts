@@ -89,6 +89,7 @@ export function createPlayerCharacter(name:string,originId:PlayerCharacter["orig
     createdAt: now,
     updatedAt: now,
     introductionCompleted: false,
+    openingSeen: false,
   };
 }
 
