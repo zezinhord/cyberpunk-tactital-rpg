@@ -10,6 +10,8 @@ import {TRIAL_KEY,TRIAL_STEPS,startTrial,FRESH_TRIAL,advanceTrial,readTrial,save
 import {SEWER_KEY,readSewer,saveSewer,applySewerEvent,FRESH_SEWER} from "../src/game/story/sewer-v09.ts";
 import {FERRUGEM_SAVE_PREFIX,readFerrugem,saveFerrugem,startFerrugem,advanceFerrugem,FRESH_FERRUGEM} from "../src/game/ferrugem/story.ts";
 import {WORLD_AREA_KEY,loadWorldArea,saveWorldArea} from "../src/game/baixada/world-area.ts";
+import {readDistrictProgress,saveDistrictProgress,DISTRICT_SAVE_KEY,beginDistrict,FRESH_CHAPTER} from "../src/game/districts/progress.ts";
+import {DISTRICT_POSITIONS_KEY,saveDistrictPosition,loadDistrictPosition} from "../src/game/districts/positions.ts";
 
 let db=new Map();
 globalThis.localStorage={
@@ -70,6 +72,9 @@ assert.equal(saveSewer(a.id,trackedSewer),true);
 const ferrugemStage=advanceFerrugem(startFerrugem(FRESH_FERRUGEM),"ferrugem-foreman").progress;
 assert.equal(saveFerrugem(a.id,ferrugemStage),true);
 assert.equal(saveWorldArea(a.id,"ferrugem"),true);
+const newChapter=beginDistrict(FRESH_CHAPTER);
+assert.equal(saveDistrictProgress(a.id,"aurea",newChapter),true);
+assert.equal(saveDistrictPosition(a.id,"aurea",{x:5,y:10}),true);
 const exported=exportCharacterBackup(a.id);
 assert.equal(loadCharacter()?.id,previouslyActive,"Exportar slot inativo não deve trocar protagonista");
 const parsed=JSON.parse(exported);
@@ -79,6 +84,8 @@ assert.ok(parsed.data.inventory&&parsed.data.market&&parsed.data.health&&parsed.
 assert.ok(parsed.data.sewer,"Backup inclui evidências do esgoto");
 assert.ok(parsed.data.ferrugem,"Backup inclui investigação industrial");
 assert.ok(parsed.data.area,"Backup inclui área ativa de Ferrugem");
+assert.ok(parsed.data.city,"Backup inclui campanhas de novos distritos");
+assert.ok(parsed.data.districtPositions,"Backup inclui posição em cada distrito");
 const beforeCount=listCharacterSlots().length;
 assert.equal(importCharacterBackup(exported).ok,false,"Mesmo ID exige confirmação");
 assert.equal(listCharacterSlots().length,beforeCount);
@@ -112,6 +119,8 @@ assert.equal(readTrial(a.id).step,1,"Progresso da campanha deve sobreviver a exp
 assert.equal(readSewer(a.id).traceFound,true,"Pistas da Galeria sobrevivem a importação");
 assert.equal(readFerrugem(a.id).step,1,"Missão Ferrugem preservada no backup");
 assert.equal(loadWorldArea(a.id),"ferrugem","Backup retoma distrito correto");
+assert.equal(readDistrictProgress(a.id,"aurea").started,true,"Áurea permanece iniciada após restauração");
+assert.deepEqual(loadDistrictPosition(a.id,"aurea"),{x:5,y:10},"Posição isométrica preservada");
 assert.equal(db.get("cyberpunk-tactical-rpg.world-location.v068."+id),JSON.stringify({x:12,y:26}));
 assert.ok(listCharacterSlots().length===1);
 assert.equal(loadCharacterSlot(b.id),null,"Slots não existentes neste dispositivo não devem aparecer");
@@ -123,6 +132,8 @@ assert.equal(db.get(TRIAL_KEY+a.id),undefined,"Exclusão remove progresso da cam
 assert.equal(db.get(SEWER_KEY+a.id),undefined,"Exclusão remove somente as pistas do esgoto do slot");
 assert.equal(db.get(FERRUGEM_SAVE_PREFIX+a.id),undefined,"Exclusão remove capítulo industrial do slot");
 assert.equal(db.get(WORLD_AREA_KEY+a.id),undefined,"Exclusão remove o mapa ativo do slot");
+assert.equal(db.get(DISTRICT_SAVE_KEY+a.id),undefined,"Remoção limpa as cinco campanhas");
+assert.equal(db.get(DISTRICT_POSITIONS_KEY+a.id),undefined,"Remoção limpa posições dos distritos");
 assert.equal(loadCharacter(),null);
 assert.equal(listCharacterSlots().length,0);
 // Migração a partir da chave única v1 sem índice.

@@ -685,6 +685,53 @@ try {
     throw new Error("Volta de Ferrugem perdeu ponto seguro da Baixada: "+JSON.stringify(ferrugemSaved));
   console.log("QA Ferrugem: distrito Phaser, capítulo inicializado, retorno e save preservados.");
 
+  // Os cinco novos distritos devem ser navegáveis no mesmo ambiente Android
+  // horizontal; a viagem usa os botões reais e o save do protagonista.
+  await evaluate(`(()=>{
+    const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+id,
+      JSON.stringify({x:37,y:25}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"menu após atualizar posição para terminal de transporte");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-sewer-quick-access"),"acesso rápido a central interdistrital");
+  const transitLabel=await evaluate('document.querySelector(".na-sewer-quick-access")?.textContent');
+  if(!transitLabel?.includes("INTERDISTRITAL"))throw new Error("Central interdistrital inacessível: "+transitLabel);
+  const newDistricts=["aurea","subsolo","setor-zero","prisma","periferia"];
+  for(let i=0;i<newDistricts.length;i++){
+    const id=newDistricts[i];
+    await evaluate('document.querySelector(".na-sewer-quick-access").click();true');
+    await poll(()=>has(".na-transit-panel"),"central de transporte para "+id);
+    await evaluate(`document.querySelectorAll(".na-transit-grid button")[${i+1}].click();true`);
+    await poll(()=>has(".interior-world."+id+" canvas"),"mapa isométrico "+id);
+    await sleep(450);
+    const check=await evaluate(`(()=>{
+      const canvas=document.querySelector(".interior-world.${id} canvas");
+      const rect=canvas?.getBoundingClientRect();
+      const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+      const stored=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.city-chapters.v1."+hero.id)??"{}");
+      return {width:rect?.width,height:rect?.height,
+        title:document.querySelector(".district-brand h1")?.textContent,
+        active:stored["${id}"]?.started===true};
+    })()`);
+    if(check.width<400||check.height<260||!check.active)
+      throw new Error("Novo distrito não inicializado: "+id+" "+JSON.stringify(check));
+    await writeFile("qa/distrito-"+id+"-914x411.png",Buffer.from(
+      (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+    if(i===0){
+      await send("Page.navigate",{url:URL});
+      await poll(()=>has(".na-title-option"),"título após fechar no distrito Áurea");
+      await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+      await poll(()=>has(".interior-world.aurea canvas"),"retomada exata do distrito Áurea");
+    }
+    await evaluate('document.querySelector(".area-return").click();true');
+    await poll(()=>has(".baixada-world:not(.interior-world) canvas"),"retorno "+id+" à Baixada");
+    await poll(()=>has(".na-sewer-quick-access"),"central de transporte após "+id);
+  }
+  console.log("QA cidade: 5 novos mapas, central de transporte, capítulos e retomada após fechar.");
+
   console.log("QA visual: capturas masculina/feminina; canvas preservado após alternância.");
   console.log("Viewport: " + JSON.stringify(metrics) + ", PNG: " + bytes.length + " bytes");
   if (session.exceptions.length) {

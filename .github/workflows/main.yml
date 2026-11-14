@@ -84,6 +84,9 @@ jobs:
       - name: Testar Ferrugem, novo distrito industrial e campanha ramificada
         run: node --experimental-strip-types scripts/test-ferrugem.mjs
 
+      - name: Testar cinco distritos, 35 missões e dez desfechos
+        run: node --experimental-strip-types scripts/test-districts.mjs
+
       - name: Testar os dois esgotos e checkpoints da investigação
         run: node --experimental-strip-types scripts/test-sewer-world.mjs
 
