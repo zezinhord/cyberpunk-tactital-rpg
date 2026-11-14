@@ -279,8 +279,16 @@ export default function BaixadaLiteWorld({onInteract,appearance,characterId,
     // 1280×720px máximo: nenhum atlas full-world 1960×1160 ou WebGL.
     const ratio=Math.min(1.25,1280/width,720/height,
       Math.max(1,window.devicePixelRatio||1));
-    canvas.width=Math.max(320,Math.floor(width*ratio));
-    canvas.height=Math.max(250,Math.floor(height*ratio));
+    const nextWidth=Math.max(320,Math.floor(width*ratio));
+    const nextHeight=Math.max(250,Math.floor(height*ratio));
+    // Alterar canvas.width/height APAGA todo o framebuffer, mesmo quando o
+    // tamanho é idêntico. ResizeObserver costuma disparar mais de uma vez
+    // por frame no WebView e deixava a cena uniformemente preta.
+    if(canvas.width!==nextWidth||canvas.height!==nextHeight){
+      canvas.width=nextWidth;canvas.height=nextHeight;
+      // Desenhar imediatamente após reset evita frame em branco.
+      paint();
+    }else if(!painted)paint();
     schedule();
   };
   const pointer=(event:PointerEvent)=>{
@@ -320,7 +328,7 @@ export default function BaixadaLiteWorld({onInteract,appearance,characterId,
     setError("A tela não conseguiu desenhar o primeiro quadro. Use Tentar abrir novamente.");
   },6000);
   try{
-    context=canvas.getContext("2d",{alpha:false});
+    context=canvas.getContext("2d",{alpha:false,willReadFrequently:true});
     if(!context)throw new Error("Canvas 2D indisponível neste Android");
     notify(motion.position,true);
     canvas.addEventListener("pointerdown",pointer,{passive:false});
