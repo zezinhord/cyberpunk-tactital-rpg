@@ -625,6 +625,50 @@ try {
 
 
 
+  // Ferrugem: novo distrito deve abrir pelo terminal de transporte do
+  // Pátio Sul usando o save real; não depende de rotas de teste privadas.
+  await evaluate(`(()=>{
+    const character=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+character.id,
+      JSON.stringify({x:36,y:22}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título antes da viagem industrial");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-sewer-quick-access"),"terminal de transporte de Ferrugem");
+  const gateLabel=await evaluate('document.querySelector(".na-sewer-quick-access")?.textContent');
+  if(!gateLabel?.includes("FERRUGEM"))throw new Error("Não há acesso ao distrito Ferrugem: "+gateLabel);
+  await evaluate('document.querySelector(".na-sewer-quick-access").click();true');
+  await poll(()=>has(".interior-world.ferrugem canvas"),"canvas industrial de Ferrugem");
+  await sleep(1300);
+  const ferrugemMetrics=await evaluate(`(()=>{
+    const canvas=document.querySelector(".interior-world.ferrugem canvas");
+    const r=canvas?.getBoundingClientRect();
+    const title=document.querySelector(".district-brand h1")?.textContent;
+    const character=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    const raw=localStorage.getItem("cyberpunk-tactical-rpg.ferrugem.v1."+character.id);
+    const quest=raw?JSON.parse(raw):null;
+    return {width:r?.width,height:r?.height,title,
+      questStarted:quest?.started,questStep:quest?.step,scene:!!canvas};
+  })()`);
+  if(!ferrugemMetrics.scene||ferrugemMetrics.width<400||ferrugemMetrics.height<260||
+     !ferrugemMetrics.title?.includes("Ferrugem")||
+     ferrugemMetrics.questStarted!==true||ferrugemMetrics.questStep!==0)
+    throw new Error("Novo distrito ou missão Ferrugem não foi inicializado: "+JSON.stringify(ferrugemMetrics));
+  await writeFile("qa/ferrugem-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".area-return").click();true');
+  await poll(()=>has(".baixada-world:not(.interior-world) canvas"),"volta de Ferrugem à Baixada");
+  const ferrugemSaved=await evaluate(`(()=>{
+    const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
+    const loc=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.world-location.v068."+id));
+    return {x:loc.x,y:loc.y};
+  })()`);
+  if(ferrugemSaved.x!==36||ferrugemSaved.y!==22)
+    throw new Error("Volta de Ferrugem perdeu ponto seguro da Baixada: "+JSON.stringify(ferrugemSaved));
+  console.log("QA Ferrugem: distrito Phaser, capítulo inicializado, retorno e save preservados.");
+
   console.log("QA visual: capturas masculina/feminina; canvas preservado após alternância.");
   console.log("Viewport: " + JSON.stringify(metrics) + ", PNG: " + bytes.length + " bytes");
   if (session.exceptions.length) {
