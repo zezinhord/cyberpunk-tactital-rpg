@@ -4,6 +4,7 @@ import {performanceGameConfig} from "../game/performance";
 import {attachPerformanceDiagnostics} from "../game/performance-diagnostics";
 import { InteriorScene, INTERIOR_VIEW_HEIGHT, INTERIOR_VIEW_WIDTH, type InteriorId } from "../game/baixada/InteriorScene";
 import {SewerScene} from "../game/baixada/SewerScene";
+import {FerrugemScene} from "../game/ferrugem/FerrugemScene";
 import {isSewerId} from "../game/baixada/sewer-layout";
 import type {SewerProgress} from "../game/story/sewer-v09";
 import type { OriginId } from "../game/character";
@@ -25,14 +26,16 @@ export default function InteriorWorld({
   returnFromDeep?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<InteriorScene | SewerScene | null>(null);
+  const sceneRef = useRef<InteriorScene | SewerScene | FerrugemScene | null>(null);
   const callbackRef = useRef(onInteract);
   callbackRef.current = onInteract;
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
-    const scene = isSewerId(interior)
+    const scene = interior==="ferrugem"
+      ? new FerrugemScene((id)=>callbackRef.current(id),originId,appearance)
+      : isSewerId(interior)
       ? new SewerScene(interior,(id)=>callbackRef.current(id),originId,appearance,
           sewerProgress,returnFromDeep)
       : new InteriorScene(interior,(id)=>callbackRef.current(id),originId,appearance);
@@ -42,7 +45,7 @@ export default function InteriorWorld({
       parent: host,
       width: INTERIOR_VIEW_WIDTH,
       height: INTERIOR_VIEW_HEIGHT,
-      backgroundColor: isSewerId(interior) ? "#07141a" : interior === "clinic" ? "#0e1c20" : interior === "canal" ? "#0b1a20" : "#1c1714",
+      backgroundColor: interior==="ferrugem" ? "#141e24" : isSewerId(interior) ? "#07141a" : interior === "clinic" ? "#0e1c20" : interior === "canal" ? "#0b1a20" : "#1c1714",
       scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
       ...performanceGameConfig(),
       scene: [scene],
@@ -56,5 +59,6 @@ export default function InteriorWorld({
 
   return <div className={`baixada-world interior-world ${interior}`} ref={hostRef} aria-label={interior === "clinic" ? "Interior isométrico da clínica comunitária" : interior === "workshop" ? "Interior isométrico da oficina do Nilo" : interior === "canal" ? "Interior isométrico da Galeria do Canal"
    : interior === "sewer-drain" ? "Galeria de Drenagem Sul subterrânea, isométrica e caminhável"
+   : interior === "ferrugem" ? "Distrito Ferrugem industrial, isométrico e caminhável"
    : "Câmara de Recalque 04 subterrânea, isométrica e caminhável"} />;
 }

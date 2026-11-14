@@ -38,6 +38,7 @@ export const ACTOR_TILES = {
   "feira-archive": { x: 17, y: 29 },
   "enter-sewer-drain": { x: 34, y: 20 },
   "enter-sewer-deep": { x: 35, y: 29 },
+  "enter-ferrugem": { x: 37, y: 22 },
 } as const satisfies Record<string, Tile>;
 
 /** Sete volumes distintos; sem prédios de preenchimento sobre as vias principais. */

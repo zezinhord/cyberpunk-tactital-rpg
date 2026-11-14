@@ -14,7 +14,7 @@ import {
   type IsoDirection,
 } from "./sprites";
 
-export type InteriorId = "clinic" | "workshop" | "canal" | SewerId;
+export type InteriorId = "clinic" | "workshop" | "canal" | "ferrugem" | SewerId;
 export const INTERIOR_VIEW_WIDTH = 960;
 export const INTERIOR_VIEW_HEIGHT = 540;
 

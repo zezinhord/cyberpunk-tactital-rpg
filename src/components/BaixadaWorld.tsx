@@ -28,7 +28,7 @@ export default function BaixadaWorld({ onInteract, originId, appearance, charact
   sectorCallbackRef.current=onSectorChange;
   const lastSectorRef=useRef<SectorId|null>(null);
   const reportNearby=(tile:Tile)=>{
-    const entries=["enter-sewer-drain","enter-sewer-deep"] as const;
+    const entries=["enter-sewer-drain","enter-sewer-deep","enter-ferrugem"] as const;
     const target=entries.find(id=>{
       const other=ACTOR_TILES[id];
       return Math.abs(other.x-tile.x)+Math.abs(other.y-tile.y)<=2;
