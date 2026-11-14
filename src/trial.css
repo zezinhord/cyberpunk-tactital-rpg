@@ -56,3 +56,18 @@
 @media(orientation:portrait){
  .na-sewer-quick-access{margin:5px 12px;}
 }
+
+
+/* Orientação de missão sempre acessível quando o painel principal está recolhido. */
+.na-sewer-objective-hint{display:flex;flex-direction:column;align-items:flex-start;gap:4px;
+ min-height:48px;padding:8px 11px;border:1px solid #d9b781;border-left:3px solid #e9bf85;
+ border-radius:7px;color:#e8e9df;background:rgba(12,28,35,.92);
+ box-shadow:0 5px 17px rgba(0,0,0,.3);text-align:left;}
+.na-sewer-objective-hint span{color:#eec891;font:700 9px var(--mono);}
+.na-sewer-objective-hint strong{display:-webkit-box;overflow:hidden;-webkit-box-orient:vertical;
+ -webkit-line-clamp:2;font:700 11px/1.25 var(--display);}
+@media(orientation:landscape){
+ .na-sewer-objective-hint{position:absolute;z-index:4;top:calc(var(--na-safe-top) + 103px);
+  left:var(--na-safe-left);width:min(338px,40vw);pointer-events:auto;}
+}
+@media(orientation:portrait){.na-sewer-objective-hint{margin:7px 10px;}}
