@@ -345,7 +345,7 @@ export default function ExplorationScreen({
             speaker: "Dra. Amara Solis",
             role: "MÉDICA COMUNITÁRIA",
             portrait: "A",
-            text: "Não reconheço essa autorização e ela não deveria ter sido emitida pela clínica. A Galeria de Manutenção pode guardar o restante do trajeto. Obrigada por não deixar esse registro desaparecer.",
+            text: "Não reconheço essa autorização e ela não deveria ter sido emitida pela clínica. A entrada de esgoto junto à Subestação Sul, no extremo leste do Pátio do Reúso, leva à Galeria de Drenagem. Siga até a Câmara de Recalque 04: ela pode guardar o restante do trajeto. Obrigada por não deixar esse registro desaparecer.",
           },
         ]);
       } else {
@@ -354,7 +354,7 @@ export default function ExplorationScreen({
             speaker: "Dra. Amara Solis",
             role: "MÉDICA COMUNITÁRIA",
             portrait: "A",
-            text: "Guarde a referência V-09. A Galeria de Manutenção pode revelar o próximo trecho da rota.",
+            text: "Guarde a referência V-09. A escada de esgoto próxima à Subestação Sul leva à Galeria de Drenagem; os manifestos antigos ficam na Câmara de Recalque 04.",
           },
         ]);
       }
@@ -447,7 +447,7 @@ export default function ExplorationScreen({
           speaker: "TERMINAL PÚBLICO DO CANAL",
           role: "SERVIÇOS DO DISTRITO",
           portrait: "▤",
-          text: "AVISO DE MANUTENÇÃO: sequência de serviço não catalogada detectada no Canal Sul. O acesso completo exige autenticação de equipe técnica.",
+          text: "AVISO DE MANUTENÇÃO: sequência não catalogada detectada no Canal Sul. O acesso ao nível -01 está no Pátio Sul, ao lado da Subestação. Os registros restantes exigem vistoria na Galeria de Drenagem.",
         },
       ]);
       return;
@@ -460,7 +460,7 @@ export default function ExplorationScreen({
           speaker: "Téo",
           role: "ENTREGADOR DO CANAL",
           portrait: "T",
-          text: "Eu faço entregas por essas galerias. Vi uma equipe passar por aqui numa janela de manutenção que não apareceu nos avisos. Eles entraram por uma porta de serviço e saíram sem conversar com ninguém.",
+          text: "Vi uma equipe atravessar o canal num horário que não aparecia nos avisos. O caminhão parou na Subestação Sul, do outro lado do Pátio. Há uma escada de manutenção ali; se ainda procura a rota V-09, comece por ela.",
         },
       ]);
       return;
@@ -473,7 +473,7 @@ export default function ExplorationScreen({
           speaker: "QUADRO DE MANUTENÇÃO",
           role: "REDE HIDRÁULICA · CANAL SUL",
           portrait: "▤",
-          text: "REGISTRO DE ROTA: transferência V-09 encaminhada por corredor técnico secundário. A credencial responsável não pertence à equipe local. Uma parte do destino foi removida do arquivo.",
+          text: "REGISTRO DE ROTA: transferência V-09 encaminhada por corredor técnico secundário. A credencial responsável não pertence à equipe local. Último sinal antes da perda de conexão: entrada da Galeria de Drenagem Sul no Pátio do Reúso.",
         },
       ]);
       return;
