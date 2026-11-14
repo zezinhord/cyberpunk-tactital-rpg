@@ -157,7 +157,9 @@ export class BaixadaScene extends Phaser.Scene {
     createCharacterAnimations(this);
     this.cameras.main.setBackgroundColor("#101820");
     this.ground = this.add.graphics();
-    this.details = this.add.graphics();
+    // Piso e drenagem são estáticos: um único atlas elimina uma textura
+    // 1960x1160 de ~9 MB na CPU e GPU de aparelhos com pouca memória.
+    this.details = this.ground;
     this.markers = this.add.graphics();
     this.drawDistrict();
     this.createActors();
@@ -328,8 +330,7 @@ export class BaixadaScene extends Phaser.Scene {
 
   private bakeStaticLayers(): void {
     const layers = [
-      { graphics: this.ground, texture: "baixada-ground-v067a", depth: -20 },
-      { graphics: this.details, texture: "baixada-details-v067a", depth: -10 },
+      { graphics: this.ground, texture: "baixada-surface-v069-optimized", depth: -20 },
     ];
     for (const layer of layers) {
       if (this.textures.exists(layer.texture)) this.textures.remove(layer.texture);
