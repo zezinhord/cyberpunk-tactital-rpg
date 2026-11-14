@@ -229,8 +229,7 @@ try {
   // O replay não pode reiniciar a missão nem forçar uma nova criação.
   await evaluate('document.querySelectorAll(".na-title-option")[3].click();true');
   await poll(()=>evaluate('Boolean([...document.querySelectorAll(".na-title-modal button")].find(b=>b.textContent?.includes("Rever apresentação")))'),"opção de rever a cutscene");
-  await evaluate('[...document.querySelectorAll(".na-title-modal button")].find(
-    b=>b.textContent?.includes("Rever apresentação")).click();true');
+  await evaluate('[...document.querySelectorAll(".na-title-modal button")].find(b=>b.textContent?.includes("Rever apresentação")).click();true');
   await poll(()=>has(".na-opening-screen"),"replay manual do prólogo");
   await evaluate('document.querySelector(".na-opening-top button").click();true');
   await poll(()=>has(".na-title-option"),"replay retorna ao menu");
