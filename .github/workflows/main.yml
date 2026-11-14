@@ -78,6 +78,9 @@ jobs:
           node --experimental-strip-types scripts/test-field-test.mjs
           node --experimental-strip-types scripts/test-combat-waves.mjs
 
+      - name: Testar fabricação, materiais e equipamentos industriais
+        run: node --experimental-strip-types scripts/test-crafting.mjs
+
       - name: Testar Ferrugem, novo distrito industrial e campanha ramificada
         run: node --experimental-strip-types scripts/test-ferrugem.mjs
 
@@ -169,6 +172,24 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
+
+      - name: Medir tamanho real da APK e progresso da meta de 100 MB
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          BYTES="$(stat -c %s "$APK")"
+          echo "APK_BYTES=$BYTES"
+          echo "META_BYTES=100000000"
+          echo "PERCENTUAL=$((BYTES * 100 / 100000000))%"
+          {
+            echo "## Orçamento de conteúdo do APK"
+            echo "APK real: **$BYTES bytes**"
+            echo "Meta de conteúdo: **100.000.000 bytes (100 MB decimais)**"
+            echo "Progresso: **$((BYTES * 100 / 100000000))%**"
+            echo "Arquivos de preenchimento não são permitidos. Arte e áudio devem ser otimizados e carregados conforme a área."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validar assinatura real da APK
         if: github.event_name != 'pull_request'
