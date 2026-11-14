@@ -149,7 +149,7 @@ export class BaixadaScene extends Phaser.Scene {
   preload(): void {
     this.load.svg("baixada-market-stall", "/assets/baixada/market-stall.svg");
     this.load.svg("baixada-palm-tree", "/assets/baixada/palm-tree.svg");
-    preloadCharacterSprites(this);
+    preloadCharacterSprites(this,this.originId);
   }
 
   create(): void {
