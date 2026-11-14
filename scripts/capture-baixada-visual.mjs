@@ -658,6 +658,12 @@ try {
     throw new Error("Novo distrito ou missão Ferrugem não foi inicializado: "+JSON.stringify(ferrugemMetrics));
   await writeFile("qa/ferrugem-914x411.png",Buffer.from(
     (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  // Reiniciar o documento no meio da Ferrugem simula fechamento do processo
+  // Android: o distrito e os marcos devem reaparecer ao continuar o save.
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"reabertura após fechamento em Ferrugem");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".interior-world.ferrugem canvas"),"retorno persistente à Ferrugem");
   await evaluate('document.querySelector(".menu-trigger").click();true');
   await poll(()=>has(".character-menu-shell"),"menu de Ferrugem");
   await evaluate('[...document.querySelectorAll(".character-menu-nav button")].find(b=>b.textContent?.includes("Inventário")).click();true');
