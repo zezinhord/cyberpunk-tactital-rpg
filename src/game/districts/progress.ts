@@ -1,7 +1,7 @@
 /** Campanha semia aberta para cinco novos distritos.
  * Dados independentes por personagem, com validação e compatibilidade de backup.
  */
-import {DISTRICTS,getDistrict,isDistrictId,actorFromId,
+import {getDistrict,isDistrictId,actorFromId,
  type DistrictId,type NodeSlot} from "./catalog.ts";
 export const DISTRICT_SAVE_KEY="cyberpunk-tactical-rpg.city-chapters.v1.";
 export type DistrictEnding="divulgar"|"resguardar";

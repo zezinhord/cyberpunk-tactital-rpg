@@ -26,7 +26,7 @@ export function saveDistrictPosition(characterId:string,id:DistrictId,tile:Tile)
   const store=globalThis.localStorage;if(!store)return false;
   const raw=store.getItem(DISTRICT_POSITIONS_KEY+characterId);
   const value:unknown=raw?JSON.parse(raw):{};
-  const prev=validateDistrictPositions(value)?value:{};
+  const prev:Record<string,Tile>=validateDistrictPositions(value)?value as Record<string,Tile>:{};
   store.setItem(DISTRICT_POSITIONS_KEY+characterId,JSON.stringify({
    ...prev,[id]:{x:tile.x,y:tile.y},
   }));
