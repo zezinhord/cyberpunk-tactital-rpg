@@ -1,4 +1,4 @@
-# Nova Arcádia 0.6.9-rc.4 — Preparação da primeira prévia pública
+# Nova Arcádia 0.6.9-rc.5 — Preparação da primeira prévia pública
 
 **Estado:** candidata em validação; **não publicada**.  
 **Branch de homologação:** `feature/landscape-mobile-v1`.  
@@ -43,6 +43,23 @@ Se algum item falhar, **bloquear publicação**, documentar passos de reproduç�
 **Fronteira de escopo:** prólogo e dois mapas subterrâneos estão implementados na RC4. A revisão integral dos sprites, o balanceamento final de inimigos e testes de desempenho em diferentes aparelhos permanecem pendentes.
 
 [Questionário da prévia fechada — 8 perguntas (0–5)](AVALIACAO-TESTADORES.md)
+
+## Regressão de caminhada e desempenho — RC5
+
+**Aparelhos relatados:** Galaxy A07 (encerramento inesperado) e Redmi Note 12S (queda de FPS). A variante de RAM, a versão do Android e a etapa do fechamento precisam ser registradas antes de atribuir uma causa.
+
+- [ ] No Galaxy A07, iniciar em Economia, entrar na Baixada, caminhar por 5 minutos e alternar clínica/esgoto/superfície pelo menos 10 vezes.
+- [ ] No Redmi Note 12S, usar Economia durante 15 minutos; registrar FPS mostrado no menu no começo e após 10 minutos.
+- [ ] Redirecionar um caminho longo com outro toque durante o movimento; confirmar que o personagem não ignora o novo destino.
+- [ ] Testar diagonais junto a paredes e NPCs: não atravessar cantos, água nem itens sólidos.
+- [ ] Confirmar que não há interrupção brusca do movimento a cada célula, e o marcador aparece no destino tocado.
+- [ ] Jogar uma missão com combate e retornar à exploração, validando skin, classe e habilidades.
+- [ ] Reabrir o APK depois de um fechamento ou interrupção; confirmar que o último save continua válido.
+- [ ] Registrar último FPS/mínimo em Personagem → Configurações e a configuração Economia/Balanceado usada.
+- [ ] Testar Balanceado apenas depois de o modo Economia estar estável; registrar se houve melhora ou piora.
+- [ ] Se o APK fechar sozinho, pedir o relatório de erro do Android ou um logcat; sem isso o motivo não está confirmado.
+
+**Critérios para ampliar o teste:** nenhum encerramento inesperado durante 20 minutos em cada aparelho, movimentação responsiva e FPS consistente com a configuração usada. São metas de homologação, não resultados já alcançados.
 
 ## Homologação de esgoto e expansão da RC4
 

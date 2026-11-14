@@ -1,6 +1,6 @@
 # Nova Arcádia — Projeto Éden
 
-**Candidata à primeira prévia pública: 0.6.9-rc.4 (Android, em validação).**
+**Candidata à primeira prévia pública: 0.6.9-rc.5 (Android, em validação).**
 
 RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambientado em uma cidade cyberpunk tropical. Projeto independente com React, TypeScript, Phaser 4, Vite e Capacitor 8.
 
@@ -40,6 +40,18 @@ A restauração exige confirmação ao substituir um slot existente. Em caso de 
 - **Missões sempre encontráveis:** o HUD da Baixada mostra o próximo passo, permite recolher o painel e dá acesso à **Operação Circuito Fantasma**; quem já concluiu "O nome que sumiu" recebe orientação para investigar o Pátio do Reúso.
 - **Habilidades durante a luta:** toque em **HABILIDADES → ESCOLHER**, selecione uma técnica de classe, comum ou de origem e confirme em **Usar habilidade**. O painel informa custo, alcance e o motivo quando a habilidade não está pronta. Técnicas ofensivas são aplicadas automaticamente ao inimigo se estiver ao alcance; é necessário aproximar-se antes de lançar uma técnica distante demais.
 - **Compatibilidade:** não foram alteradas as chaves de armazenamento dos saves nem reiniciada a campanha. Exporte o backup antes de atualizar.
+
+## Estabilização Android e caminhada · RC5
+
+**Feedback do teste fechado anterior:** caminhada desconfortável em geral; relato de fechamentos no Galaxy A07 e queda de FPS no Redmi Note 12S. Causa do encerramento nativo ainda não confirmada sem logs do Android.
+
+- **Movimentação:** rotas em oito direções com verificação de obstáculos nas diagonais, deslocamento contínuo e linear, câmera mais responsiva e novos toques que redirecionam a rota ao terminar a célula atual. O destino é marcado no chão; passos sonoros menos frequentes.
+- **Economia de memória:** somente as duas apresentações da origem atual são carregadas; os NPCs são limitados aos que a cena utiliza. Piso e drenagem da Baixada agora são gravados em um único atlas, evitando manter uma segunda textura grande.
+- **Estabilidade e FPS:** o Android inicia em perfil Economia com limite de 30 FPS e antialiasing de WebGL desligado. Em Personagem → Configurações, o jogador pode selecionar Economia ou Balanceado (até 60 FPS) e reabrir o app para aplicar. O perfil não altera atributos, salvos nem dificuldade.
+- **Diagnóstico local:** registra periodicamente último FPS e FPS mínimo por cena. Em Personagem → Configurações o último registro é exibido; não há envio automático de telemetria.
+- **Salvamentos:** todas as chaves e slots existentes são mantidos. O patch atualiza apenas renderização e navegação.
+
+**Validação pendente:** testar por pelo menos 15–20 minutos nos aparelhos reais, verificando exploração, troca de cenas, combate e retorno após bloquear a tela. Ainda não é possível afirmar que o fechamento no Galaxy A07 foi eliminado.
 
 ## Expansão jogável do Pátio Sul · RC4
 
