@@ -112,7 +112,11 @@ export class TurnManager {
     return this.events.on("game:state", listener);
   }
 
-  getClassAbilities(){return getClassSkills(this.state.classId);}
+  getClassAbilities(){
+    return getClassSkills(this.state.classId).filter(skill=>
+      this.state.characterAbilities.includes(skill.id)
+      && this.state.characterLevel>=skill.minimumLevel);
+  }
   getClassAvailability(id:string):AbilityCheck{
     const skill=CLASS_SKILLS[id];
     return skill?checkClassSkill(this.state,skill):{available:false,reason:"Habilidade desconhecida."};

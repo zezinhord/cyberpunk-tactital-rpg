@@ -3,6 +3,9 @@ import { BOARD_HEIGHT, BOARD_WIDTH, isBlocked } from "./map";
 import { TurnManager } from "./TurnManager";
 import type { GameState, Position, Unit } from "./types";
 import type { TestAppearance } from "./test-arena/appearance";
+import type { OriginId } from "./character/origins";
+import {preloadCharacterSprites,createCharacterAnimations,getPlayerTexture,
+  frameForDirection,playIdle,playWalk,type IsoDirection} from "./baixada/sprites";
 
 const TILE_WIDTH = 56;
 const TILE_HEIGHT = 28;
@@ -36,35 +39,39 @@ function tileCenter({ x, y }: Position): { x: number; y: number } {
 export class BattleScene extends Phaser.Scene {
   private readonly manager: TurnManager;
   private readonly appearance: TestAppearance;
+  private readonly originId:OriginId;
   private graphics!: Phaser.GameObjects.Graphics;
   private bars!: Phaser.GameObjects.Graphics;
-  private playerImage?: Phaser.GameObjects.Image;
+  private playerImage?: Phaser.GameObjects.Sprite;
   private enemyImage?: Phaser.GameObjects.Image;
   private lastCue = 0;
   private unsubscribe?: () => void;
 
-  constructor(manager: TurnManager, appearance: TestAppearance) {
+  constructor(manager: TurnManager, appearance: TestAppearance,originId:OriginId) {
     super({ key: "BattleScene" });
     this.manager = manager;
     this.appearance = appearance;
+    this.originId=originId;
   }
 
   preload(): void {
-    this.load.svg("arena-operative-m", "/assets/arena/operative-m.svg", { width: 128, height: 192 });
-    this.load.svg("arena-operative-f", "/assets/arena/operative-f.svg", { width: 128, height: 192 });
+    preloadCharacterSprites(this);
     this.load.svg("arena-sentinel", "/assets/arena/sentinel.svg", { width: 128, height: 192 });
   }
 
   create(): void {
     this.cameras.main.setBackgroundColor("#0d1220");
+    createCharacterAnimations(this);
     this.graphics = this.add.graphics();
     this.graphics.setDepth(0);
     this.bars = this.add.graphics().setDepth(9);
-    this.playerImage = this.add.image(0, 0, this.appearance === "feminine" ? "arena-operative-f" : "arena-operative-m")
-      .setOrigin(0.5, 0.91).setDisplaySize(44, 66).setDepth(6);
+    const texture=getPlayerTexture(this.originId,this.appearance);
+    this.playerImage = this.add.sprite(0, 0, texture,frameForDirection(texture,0))
+      .setOrigin(0.5, 0.91).setDisplaySize(50, 66).setDepth(6);
+    playIdle(this.playerImage,texture,0);
     this.enemyImage = this.add.image(0, 0, "arena-sentinel")
       .setOrigin(0.5, 0.91).setDisplaySize(46, 68).setDepth(6);
-    for (const avatar of [this.playerImage, this.enemyImage]) {
+    for (const avatar of [this.enemyImage]) {
       this.tweens.add({ targets: avatar, scaleY: avatar.scaleY * 0.98, duration: 940, yoyo: true, repeat: -1 });
     }
     this.lastCue = this.manager.getState().cue?.sequence ?? 0;
@@ -114,16 +121,19 @@ export class BattleScene extends Phaser.Scene {
     if (player && this.playerImage) {
       const dest = tileCenter(player);
       if (moveCue && beforeX > 0) {
+        const dx=dest.x-beforeX,dy=dest.y-beforeY;
+        const direction:IsoDirection=Math.abs(dx)>Math.abs(dy)?
+          (dx>0?1:3):(dy>0?2:0);
+        playWalk(this.playerImage,getPlayerTexture(this.originId,this.appearance),direction);
         this.tweens.killTweensOf(this.playerImage);
         this.playerImage.setPosition(beforeX, beforeY);
         this.tweens.add({
           targets: this.playerImage, x: dest.x, y: dest.y,
           duration: 220, ease: "Sine.Out",
           onComplete: () => {
-            if (this.playerImage) this.tweens.add({
-              targets: this.playerImage, scaleY: (66 / 192) * 0.98,
-              duration: 940, yoyo: true, repeat: -1
-            });
+            if (this.playerImage){
+              playIdle(this.playerImage,getPlayerTexture(this.originId,this.appearance),direction);
+            }
           },
         });
       } else {

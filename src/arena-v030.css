@@ -90,3 +90,15 @@
 .arena-v030 .arena-special.class-exclusive.ready{box-shadow:inset 2px 0 #e6b773}
 .arena-v030 .arena-class-description{font-size:11px;line-height:1.3;color:#d5d2ca;text-align:left;white-space:normal}
 .arena-v030 .arena-special.class-exclusive .arena-special-bottom{width:100%}
+
+/* Identidade mantida no combate e ações de classe sempre visíveis acima dos comandos. */
+.arena-v030 .arena-powers-fixed{display:flex;flex:none;gap:5px;overflow-x:auto;min-height:44px;
+  scrollbar-width:thin;overscroll-behavior-inline:contain;touch-action:pan-x}
+.arena-v030 .arena-powers-fixed button{display:flex;flex:1 0 100px;min-width:0;
+  flex-direction:column;align-items:flex-start;justify-content:center;gap:3px;
+  min-height:44px;padding:4px 8px;background:#243b42;border:1px solid #bc9769;
+  border-radius:7px;color:#e8e6da;text-align:left}
+.arena-v030 .arena-powers-fixed button strong{font-size:11px;line-height:1.08}
+.arena-v030 .arena-powers-fixed button small{font-size:9px;line-height:1.05}
+.arena-v030 .arena-powers-fixed button[aria-disabled="true"]{opacity:.72}
+.arena-v030 .arena-quick-empty{color:#c4cdd0;font:500 10px var(--mono);padding:8px}

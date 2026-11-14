@@ -457,7 +457,7 @@ export default function App() {
         </div>
         <section className="battle-panel" aria-label="Combate tático isométrico">
           <div className="map-label"><span>{battleMode==="v09" ? "UNIDADE HOSTIL · V-09" : "SIMULAÇÃO 01 · 8 × 8"}</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
-          <Battlefield manager={manager} appearance={appearance} />
+          <Battlefield manager={manager} appearance={appearance} originId={character.originId} />
           <p className="board-hint">{getHint(state, canAttack)}</p>
         </section>
       </section>
@@ -481,6 +481,18 @@ export default function App() {
         </details>
         </div>
         <section className="control-sheet" aria-label="Comandos do turno">
+          <div className="arena-powers-fixed" aria-label="Habilidades permanentes da classe">
+            {manager.getClassAbilities().length ? manager.getClassAbilities().map(skill=>{
+              const check=manager.getClassAvailability(skill.id);
+              return <button type="button" key={skill.id} aria-disabled={!check.available}
+                aria-label={skill.name+": "+(check.available?"pronta":check.reason)}
+                title={skill.description}
+                onClick={()=>manager.activateClassAbility(skill.id)}>
+                <strong>{skill.name}</strong>
+                <small>{check.available?skill.cost+" EN · PRONTA":check.reason}</small>
+              </button>;
+            }) : <span className="arena-quick-empty">Sem poder de classe desbloqueado · selecione uma classe na Central</span>}
+          </div>
           {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? (battleMode==="v09" ? "V-09 neutralizada · registros recuperados" : "Sentinela neutralizada") : "Operativo incapacitado"}</div>}
           <div className="economy">
             <div className="eco move">Mover<span className="pips" aria-hidden="true">{Array.from({ length: state.movementPerTurn }, (_, index) => <i key={index} className={index < state.movementRemaining ? "on" : undefined} />)}</span><b>{state.movementRemaining}/{state.movementPerTurn}</b></div>
