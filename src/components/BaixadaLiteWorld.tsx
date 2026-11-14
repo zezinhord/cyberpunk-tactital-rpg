@@ -94,7 +94,7 @@ export default function BaixadaLiteWorld({onInteract,appearance,characterId,
   const host=hostRef.current,canvas=canvasRef.current;
   if(!host||!canvas)return;
   let disposed=false,context:CanvasRenderingContext2D|null=null;
-  let frameId=0,painted=false,lastSave=0,lastTick=0;
+  let frameId=0,painted=false,lastSave=0;
   let width=0,height=0;
   let motion:Motion={
    position:loadWorldLocation(characterId),steps:[],step:null,pendingActor:null,
@@ -314,6 +314,11 @@ export default function BaixadaLiteWorld({onInteract,appearance,characterId,
     if(canStand(target))go(target);
   };
   let observer:ResizeObserver|null=null;
+  const watchdog=setTimeout(()=>{
+    if(disposed||painted)return;
+    setStatus("failed");
+    setError("A tela não conseguiu desenhar o primeiro quadro. Use Tentar abrir novamente.");
+  },6000);
   try{
     context=canvas.getContext("2d",{alpha:false});
     if(!context)throw new Error("Canvas 2D indisponível neste Android");
@@ -332,6 +337,7 @@ export default function BaixadaLiteWorld({onInteract,appearance,characterId,
   return ()=>{
     disposed=true;
     if(frameId)cancelAnimationFrame(frameId);
+    clearTimeout(watchdog);
     observer?.disconnect();
     window.removeEventListener("resize",sizing);
     canvas.removeEventListener("pointerdown",pointer);
@@ -344,10 +350,14 @@ export default function BaixadaLiteWorld({onInteract,appearance,characterId,
  useEffect(()=>{scene.current?.frame();},[appearance]);
  const restart=()=>{setStatus("loading");setError("");setReboot(n=>n+1);};
  return <div className="baixada-world na-world-host" ref={hostRef}
-   data-renderer="canvas" data-scene-state={status}
+   data-renderer="canvas" data-engine="native-2d" data-scene-state={status}
    aria-label="Mapa leve e interativo da Baixada em Android">
    <canvas ref={canvasRef} tabIndex={0} style={{width:"100%",height:"100%",
      display:"block",touchAction:"none"}} aria-label="Toque no chão para caminhar; toque nos habitantes e terminais para interagir"/>
+   {status==="loading"&&<div className="na-world-startup" role="status">
+      <strong>Preparando mapa leve da Baixada</strong>
+      <span>Desenho local sem Phaser ou WebGL. Seus dados estão preservados.</span>
+   </div>}
    {status==="failed"&&<div className="na-world-startup" role="alert">
      <strong>Falha no mapa leve da Baixada</strong><span>{error}</span>
      <button type="button" onClick={restart}>Tentar abrir novamente</button>
