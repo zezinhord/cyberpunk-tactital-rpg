@@ -43,7 +43,6 @@ export class SewerScene extends Phaser.Scene{
  private readonly onInteract:(id:string)=>void;
  private appearance:TestAppearance;
  private progress:SewerProgress;
- private readonly returnFromDeep:boolean;
  private player!:Phaser.GameObjects.Sprite;
  private animator?:ActorAnimationController;
  private playerTile:SewerTile;
@@ -60,7 +59,6 @@ export class SewerScene extends Phaser.Scene{
    this.originId=originId;
    this.appearance=appearance;
    this.progress=progress;
-   this.returnFromDeep=returnFromDeep;
    const m=SEWER_MAPS[area];
    this.playerTile=area==="sewer-drain"&&returnFromDeep&&m.fromDeep?
      {...m.fromDeep}:{...m.entry};
