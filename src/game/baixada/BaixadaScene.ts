@@ -88,7 +88,7 @@ export class BaixadaScene extends Phaser.Scene {
   private footsteps = 0;
   private markDestination(tile:Position):void{
     const p=tileCenter(tile);
-    this.destinationMarker?.setPosition(p.x,p.y+2).setVisible(true);
+    this.destinationMarker?.setPosition(p.x,p.y+2).setDepth(p.y+0.02).setVisible(true);
   }
 
   private dynamicOccupancy(except?: string, includePlayer = false): Set<string> {
@@ -797,7 +797,8 @@ export class BaixadaScene extends Phaser.Scene {
     }
     this.pendingInteraction=null;
     const path = this.findWorldPath(this.playerTile, target);
-    if (path) this.walkPath(path);
+    if(path&&path.length>1)this.walkPath(path);
+    else this.destinationMarker?.setVisible(false);
   }
 
   private handleKeyboard(event: KeyboardEvent): void {
@@ -818,7 +819,8 @@ export class BaixadaScene extends Phaser.Scene {
     this.markDestination(next);
     this.pendingInteraction=null;
     const path = this.findWorldPath(this.playerTile, next);
-    if (path) this.walkPath(path);
+    if(path&&path.length>1)this.walkPath(path);
+    else this.destinationMarker?.setVisible(false);
   }
 
   private approachActor(actor: WorldActor): void {
@@ -827,10 +829,12 @@ export class BaixadaScene extends Phaser.Scene {
     const path = this.findApproachPath(this.playerTile, actor.tile);
     if (!path) {
       this.pendingInteraction = null;
+      this.destinationMarker?.setVisible(false);
       return;
     }
     if (path.length === 1) {
       this.pendingInteraction = null;
+      this.destinationMarker?.setVisible(false);
       this.onInteract(actor.id);
       return;
     }
