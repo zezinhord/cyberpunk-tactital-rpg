@@ -21,14 +21,14 @@ import {
   type IsoDirection,
 } from "./sprites";
 
-export const BAIXADA_WIDTH = 1840;
-export const BAIXADA_HEIGHT = 1120;
+export const BAIXADA_WIDTH = 1960;
+export const BAIXADA_HEIGHT = 1160;
 export const BAIXADA_VIEW_WIDTH = 960;
 export const BAIXADA_VIEW_HEIGHT = 540;
 
 const TILE_WIDTH = 48;
 const TILE_HEIGHT = 24;
-const ORIGIN_X = 770;
+const ORIGIN_X = 850;
 const ORIGIN_Y = 135;
 
 type Point = { x: number; y: number };
@@ -630,6 +630,8 @@ export class BaixadaScene extends Phaser.Scene {
       { id: "enter-clinic", name: "Entrar na clínica", kind: "door", tile: ACTOR_TILES["enter-clinic"], role: "INTERIOR" },
       { id: "enter-workshop", name: "Entrar na oficina", kind: "door", tile: ACTOR_TILES["enter-workshop"], role: "INTERIOR" },
       { id: "enter-canal-gallery", name: "Descer para a galeria", kind: "door", tile: ACTOR_TILES["enter-canal-gallery"], role: "ACESSO TÉCNICO" },
+      { id: "enter-sewer-drain", name: "Descer ao esgoto sul", kind: "door", tile: ACTOR_TILES["enter-sewer-drain"], role: "GALERIA DE DRENAGEM · -01" },
+      { id: "enter-sewer-deep", name: "Acesso à câmara 04", kind: "door", tile: ACTOR_TILES["enter-sewer-deep"], role: "SAÍDA DA CÂMARA · -02" },
       { id: "terminal-canal", name: "Terminal do Canal", kind: "terminal", tile: ACTOR_TILES["terminal-canal"], role: "SERVIÇOS DO DISTRITO" },
       { id: "patio-console", name: "Console V-09", kind: "terminal", tile: ACTOR_TILES["patio-console"], role: "PÁTIO DO REÚSO" },
       { id: "patio-sentinel", name: "Sentinela V-09", kind: "person", tile: ACTOR_TILES["patio-sentinel"], texture: NPC_TEXTURES.teo, role: "UNIDADE DE VIGILÂNCIA" },
@@ -662,7 +664,11 @@ export class BaixadaScene extends Phaser.Scene {
       } else {
         const accent = 0xffb300; // Portas neutras e interativas sempre em âmbar.
         this.drawDoor(point.x, point.y, accent);
-        const doorLabel = actor.id === "enter-clinic" ? "CLÍNICA · ENTRAR" : actor.id === "enter-canal-gallery" ? "GALERIA · DESCER" : "OFICINA · ENTRAR";
+        const doorLabel=actor.id==="enter-clinic"?"CLÍNICA · ENTRAR":
+          actor.id==="enter-canal-gallery"?"GALERIA · DESCER":
+          actor.id==="enter-sewer-drain"?"ESGOTO SUL · DESCER":
+          actor.id==="enter-sewer-deep"?"SAÍDA DO ESGOTO · -02":
+          "OFICINA · ENTRAR";
         actor.label = this.add.text(point.x, point.y - 48, doorLabel, {
           fontFamily: "IBM Plex Mono, monospace", fontSize: "12px", color: "#ffe0a8", backgroundColor: "#151c1ddd", padding: { x: 4, y: 2 },
         }).setOrigin(0.5).setDepth(point.y + 0.42);
