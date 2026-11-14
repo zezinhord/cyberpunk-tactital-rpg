@@ -17,7 +17,9 @@ import { isPatioCitizen, getPatioConversation, type ConversationOption } from ".
 import { readV09,markV09Reported } from "../game/story/v09";
 import { MARKET_CLUE_TEXT,applyMarketAction,getMarketConversation,isMarketActor,readMarket,saveMarket } from "../game/story/market";
 import { getSectorById,sectorAt,type SectorId } from "../game/baixada/layout";
-import { loadWorldLocation } from "../game/baixada/location";
+import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
+import {readSewer,saveSewer,sewerNextObjective,sewerStatus,applySewerEvent,
+ hasSewerEvidence,type SewerEvent} from "../game/story/sewer-v09";
 
 type MissionStep = 0 | 1 | 2 | 3;
 interface MissionProgress { step: MissionStep; clues: string[] }
@@ -111,6 +113,9 @@ export default function ExplorationScreen({
   const origin = getOriginById(character.originId);
   const [mission, setMission] = useState<MissionProgress>(() => readMission(character.id));
   const [interior, setInterior] = useState<InteriorId | null>(null);
+  const [returnFromDeep,setReturnFromDeep] = useState(false);
+  const [sewer,setSewer] = useState(()=>readSewer(character.id));
+  const [sewerNotice,setSewerNotice] = useState("");
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
   const [missionOpen, setMissionOpen] = useState(true);
@@ -138,6 +143,7 @@ export default function ExplorationScreen({
         ? "As provas revelam uma triagem contestada. Retorne ao mural e decida se vai publicá-las ou protegê-las."
         : "Investigue o Mercado dos Cabos: fale com moradores, consulte o mural e siga as informações sobre o Projeto Éden.")
     : v09.defeated ? "Retorne a Lia para entregar os registros recuperados da unidade V-09."
+    : !hasSewerEvidence(sewer) ? sewerNextObjective(sewer)
     : mission.clues.includes("patio") ? "Confronte a unidade de vigilância V-09 junto ao console do Pátio."
     : "Explore o Pátio do Reúso, converse com seus moradores e consulte o console V-09.";
   const addClue = (id: string) => {
@@ -180,6 +186,75 @@ export default function ExplorationScreen({
       setInterior("canal");
       return;
     }
+    if(id==="enter-sewer-drain"){
+      setReturnFromDeep(false);
+      setInterior("sewer-drain");
+      return;
+    }
+    if(id==="enter-sewer-deep"){
+      if(!hasSewerEvidence(sewer)){
+        say([{speaker:"ESCADA DA ESTAÇÃO SUL",role:"SAÍDA DE EMERGÊNCIA",portrait:"▤",
+          text:"A escada de manutenção está bloqueada pelo sistema subterrâneo. Entre pela Galeria de Drenagem Sul, próxima à subestação, e recupere o manifesto V-09."}]);
+        return;
+      }
+      setReturnFromDeep(false);
+      setInterior("sewer-deep");
+      return;
+    }
+    if(id==="sewer-exit-surface"){
+      saveWorldLocation(character.id,{x:33,y:20});
+      setReturnFromDeep(false);
+      setInterior(null);
+      return;
+    }
+    if(id==="sewer-exit-deep"){
+      setReturnFromDeep(true);
+      setInterior("sewer-drain");
+      return;
+    }
+    if(id==="sewer-exit-surface-deep"){
+      if(!hasSewerEvidence(sewer)){
+        say([{speaker:"ESCADA DE EMERGÊNCIA",role:"CÂMARA DE RECALQUE 04",portrait:"▤",
+          text:"O elevador de manutenção não responde sem o manifesto V-09. Recupere os dados no terminal da câmara, ou retorne à galeria superior."}]);
+        return;
+      }
+      saveWorldLocation(character.id,{x:34,y:29});
+      setReturnFromDeep(false);
+      setInterior(null);
+      return;
+    }
+    if(id==="sewer-relay"){
+      say([{speaker:"REPETIDOR CLANDESTINO",role:"REDE DE COMUNICAÇÕES",portrait:"▤",
+        text:"SINAL FRAGMENTADO: transmissões da cooperativa foram replicadas por uma estação não registrada. A assinatura técnica parece ter sido disfarçada para se passar por um equipamento do canal."}]);
+      return;
+    }
+    const sewerEvents:readonly SewerEvent[]=["sewer-track","sewer-pump",
+      "sewer-gate","sewer-manifest","sewer-sample"];
+    if(sewerEvents.some(event=>event===id)){
+      const event=id as SewerEvent;
+      const result=applySewerEvent(sewer,event);
+      if(result.changed&&!saveSewer(character.id,result.state)){
+        setSewerNotice("Não foi possível salvar o progresso do esgoto. Verifique o armazenamento do Android.");
+        say([{speaker:"REGISTRO LOCAL",role:"FALHA DE SALVAMENTO",portrait:"!",
+          text:"A operação não pôde ser registrada. Libere espaço e repita o acesso antes de abandonar a área."}]);
+        return;
+      }
+      if(result.changed){
+        setSewer(result.state);
+        setSewerNotice("Evidência registrada. "+sewerStatus(result.state));
+        audioDirector.effect("terminal");
+      }
+      say([{speaker:event==="sewer-gate"?"COMPORTA 04":event==="sewer-sample"?"CONTÊINER V-09":
+        event==="sewer-track"?"REGISTRO DE ROTA":event==="sewer-pump"?"ESTAÇÃO HIDRÁULICA":
+        "ARQUIVO DA CÂMARA 04",
+        role:result.allowed?"INVESTIGAÇÃO SUBTERRÂNEA":"ACESSO BLOQUEADO",
+        portrait:"▤",text:result.message}]);
+      if(event==="sewer-gate"&&result.allowed){
+        setReturnFromDeep(false);
+        setInterior("sewer-deep");
+      }
+      return;
+    }
     if (id === "exit-interior") {
       setInterior(null);
       return;
@@ -206,6 +281,9 @@ export default function ExplorationScreen({
       if(mission.step<3){
         say([{speaker:"CONSOLE DE TRIAGEM",role:"REDE DO PÁTIO",portrait:"▤",
           text:"Registro protegido. Consulte a clínica e recupere a referência V-09 antes de abrir o histórico do Pátio."}]);
+      }else if(!hasSewerEvidence(sewer)&&!v09.defeated){
+        say([{speaker:"CONSOLE DE TRIAGEM",role:"REDE DO PÁTIO",portrait:"▤",
+          text:"A cooperativa precisa de uma prova física da rota V-09. Desça à Galeria de Drenagem Sul, religue a bomba, abra a comporta e recupere o manifesto na Câmara de Recalque 04."}]);
       }else{
         addClue("patio");
         say([{speaker:"CONSOLE DE TRIAGEM",role:"REDE DO PÁTIO",portrait:"▤",
@@ -218,8 +296,8 @@ export default function ExplorationScreen({
       if(v09.defeated){
         say([{speaker:"UNIDADE V-09",role:"SISTEMA DESATIVADO",portrait:"✕",text:"A unidade não responde. O registro do encontro permanece associado a este protagonista."}]);return;
       }
-      if(mission.step<3 || !mission.clues.includes("patio")){
-        say([{speaker:"UNIDADE V-09",role:"VIGILÂNCIA NÃO AUTORIZADA",portrait:"!",text:"IDENTIFICAÇÃO PENDENTE. Recupere os registros da clínica e consulte o console do Pátio."}]);return;
+      if(mission.step<3 || !hasSewerEvidence(sewer) || !mission.clues.includes("patio")){
+        say([{speaker:"UNIDADE V-09",role:"VIGILÂNCIA NÃO AUTORIZADA",portrait:"!",text:"IDENTIFICAÇÃO PENDENTE. Recupere o manifesto V-09 no esgoto profundo, depois consulte o console do Pátio."}]);return;
       }
       onOpenBattle("v09");
       return;
@@ -424,14 +502,18 @@ export default function ExplorationScreen({
     say([{speaker:current.speaker,role:current.role,portrait:current.portrait,text:choice.reply}]);
   };
   const currentDialogue = dialogue?.pages[dialogue.index] ?? null;
-  const sceneTitle = interior === "clinic"
+  const sceneTitle = interior === "sewer-drain" ? "Galeria de Drenagem Sul"
+    : interior === "sewer-deep" ? "Câmara de Recalque 04"
+    : interior === "clinic"
     ? "Clínica comunitária"
     : interior === "workshop"
       ? "Oficina do Nilo"
       : interior === "canal"
         ? "Galeria do Canal"
         : getSectorById(sectorId).name;
-  const sceneSubtitle = interior === "clinic"
+  const sceneSubtitle = interior === "sewer-drain" ? "NÍVEL -01 · GALERIA HIDRÁULICA"
+    : interior === "sewer-deep" ? "NÍVEL -02 · ESGOTO PROFUNDO"
+    : interior === "clinic"
     ? "RECEPÇÃO / TRIAGEM"
     : interior === "workshop"
       ? "REPAROS / COMÉRCIO INFORMAL"
@@ -490,6 +572,8 @@ export default function ExplorationScreen({
             originId={character.originId}
             appearance={appearance}
             onInteract={handleInteract}
+            sewerProgress={sewer}
+            returnFromDeep={returnFromDeep}
           />
         ) : (
           <BaixadaWorld originId={character.originId} appearance={appearance} characterId={character.id}
@@ -504,8 +588,15 @@ export default function ExplorationScreen({
           </span>
         </div>
         {interior && (
-          <button type="button" className="area-return" onClick={() => setInterior(null)}>
-            ← RETORNAR À BAIXADA
+          <button type="button" className="area-return" onClick={()=>{
+            if(interior==="sewer-deep"){
+              setReturnFromDeep(true);setInterior("sewer-drain");
+            }else{
+              if(interior==="sewer-drain")saveWorldLocation(character.id,{x:33,y:20});
+              setReturnFromDeep(false);setInterior(null);
+            }
+          }}>
+            {interior==="sewer-deep"?"← RETORNAR À GALERIA":"← RETORNAR À BAIXADA"}
           </button>
         )}
       </section>
@@ -536,7 +627,9 @@ export default function ExplorationScreen({
             <h2>O nome que sumiu</h2>
           </div>
           <span className={mission.step === 3 ? "mission-status complete" : "mission-status"}>
-            {v09.reported ? "CAPÍTULO 02" : mission.step===3 ? "ETAPA 1 CONCLUÍDA" : "EM ANDAMENTO"}
+            {v09.reported ? "CAPÍTULO 02" : mission.step===3
+              ? hasSewerEvidence(sewer)?"ESGOTO INVESTIGADO":"ROTA SUBTERRÂNEA"
+              : "EM ANDAMENTO"}
           </span>
         </div>
         <p className="market-state-strip">COMUNIDADE {market.trust}/5 · ALERTA DA REDE {market.heat}/5 · PISTAS DO MERCADO {market.clues.length}</p>
@@ -577,6 +670,26 @@ export default function ExplorationScreen({
         )}
       </section>}
 
+      <section className="na-sewer-panel" aria-label="Investigação dos esgotos">
+        <div className="na-sewer-heading">
+          <span>◈ ROTA V-09 · EXPANSÃO SUBTERRÂNEA</span>
+          <strong>{sewerStatus(sewer)}</strong>
+        </div>
+        <p>{mission.step<3?"Conclua a investigação na clínica para rastrear a transferência V-09.":
+          v09.defeated?"O manifesto foi associado ao dossiê do Pátio.":
+          sewerNextObjective(sewer)}</p>
+        <div className="na-sewer-checkpoints" role="list" aria-label="Evidências da rota">
+          {([
+            ["Rastros",sewer.traceFound],
+            ["Bombas",sewer.pumpRestored],
+            ["Comporta",sewer.gateOpened],
+            ["Manifesto",sewer.manifestRecovered],
+          ] as const).map(([label,done])=>
+            <span key={label} role="listitem" className={done?"complete":""}>{done?"✓":"○"} {label}</span>)}
+        </div>
+        {sewer.sampleRecovered&&<small>Prova opcional: implante adulterado recuperado.</small>}
+        {sewerNotice&&<small role="status">{sewerNotice}</small>}
+      </section>
       <section className="na-trial-panel" aria-label="Operação Circuito Fantasma">
         <div className="na-trial-heading">
           <div><span className="eyebrow">PRÓXIMA OPERAÇÃO · PROJETO ÉDEN</span>
