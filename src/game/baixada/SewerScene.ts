@@ -7,7 +7,7 @@ import {
  frameForDirection,preloadCharacterSprites,type IsoDirection,
 } from "./sprites";
 import {
- SEWER_MAPS,sewerApproach,sewerRoute,sewerWalkable,sewerWater,sewerKey,
+ SEWER_MAPS,sewerApproach,sewerRoute,sewerWalkable,sewerWater,
  type SewerId,type SewerTile,type SewerActor,
 } from "./sewer-layout";
 import type {SewerProgress} from "../story/sewer-v09";
