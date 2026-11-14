@@ -125,7 +125,56 @@ try {
   })()`);
   if(identity.origin!=="baixada"||identity.classId!=="corporativo"||
     !identity.abilities.includes("corporativo-protocolo"))throw new Error("Classe/Origem não persistidas de forma independente: "+JSON.stringify(identity));
-  await poll(() => has(".intro-shell .primary-button"), "prólogo");
+  // A primeira abertura é narrativa; texto progride sem vídeo ou fontes remotas.
+  await poll(() => has(".na-opening-screen"), "cutscene após criar protagonista");
+  const progressBefore=await evaluate('document.querySelector(".na-opening-typed")?.textContent.length');
+  await sleep(275);
+  const progressAfter=await evaluate('document.querySelector(".na-opening-typed")?.textContent.length');
+  if(progressAfter<=progressBefore)throw new Error("A cutscene não revelou texto dinamicamente.");
+  const firstVisual=await evaluate('document.querySelector(".na-opening-art")?.className');
+  if(!firstVisual.includes("visual-skyline"))throw new Error("A arte da primeira cena não foi carregada.");
+  await writeFile("qa/prologo-cinematografico-1600x720.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  // Em celular horizontal a cutscene deve caber no viewport sem esconder Avançar.
+  await send("Emulation.setDeviceMetricsOverride",{
+    width:914,height:411,deviceScaleFactor:1.75,mobile:true,
+    screenOrientation:{type:"landscapePrimary",angle:90},
+  });
+  const openingMobile=await evaluate(`(()=>{
+    const button=document.querySelector(".na-opening-next");
+    const screen=document.querySelector(".na-opening-screen");
+    const scene=document.querySelector(".na-opening-art");
+    const b=button?.getBoundingClientRect(),s=screen?.getBoundingClientRect();
+    return {buttonTop:b?.top,buttonBottom:b?.bottom,buttonHeight:b?.height,
+      screenHeight:s?.height,artWidth:scene?.getBoundingClientRect().width,
+      viewportHeight:innerHeight,viewportWidth:innerWidth};
+  })()`);
+  if(openingMobile.buttonHeight<44||openingMobile.buttonTop<0||
+     openingMobile.buttonBottom>openingMobile.viewportHeight+2||
+     openingMobile.screenHeight>openingMobile.viewportHeight+2||
+     openingMobile.artWidth<180)
+    throw new Error("Prólogo cortado em Android 914x411: "+JSON.stringify(openingMobile));
+  await writeFile("qa/prologo-cinematografico-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await send("Emulation.setDeviceMetricsOverride",{
+    width:1600,height:720,deviceScaleFactor:1,mobile:true,
+    screenOrientation:{type:"landscapePrimary",angle:90},
+  });
+  // Reabrir o jogo antes de terminar o prólogo NÃO deve perder a cutscene.
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título após interromper cutscene");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-opening-screen"),"retomada de cutscene interrompida");
+  await evaluate('document.querySelector(".na-opening-top button").click();true');
+  await poll(()=>has(".intro-shell .primary-button"),"prólogo individual da origem");
+  const cinematicSave=await evaluate(`(()=>{
+    const save=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    return {viewed:save.openingSeen,completed:save.introductionCompleted,
+      origin:save.originId,classId:save.classId};
+  })()`);
+  if(cinematicSave.viewed!==true||cinematicSave.completed!==false||
+     cinematicSave.origin!=="baixada"||cinematicSave.classId!=="corporativo")
+    throw new Error("Abertura corrompeu identidade ou não salvou estado: "+JSON.stringify(cinematicSave));
   await evaluate('document.querySelector(".intro-shell .primary-button").click();true');
   await poll(() => has(".baixada-world canvas"), "canvas Phaser");
   await sleep(2600);
