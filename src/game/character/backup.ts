@@ -15,6 +15,7 @@ export const CHARACTER_BACKUP_KEYS={
  market:"cyberpunk-tactical-rpg.market.v1.",
  health:"cyberpunk-tactical-rpg.health.v1.",
  trial:"cyberpunk-tactical-rpg.trial.v1.",
+ sewer:"cyberpunk-tactical-rpg.sewer-v09.v1.",
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
 export interface CharacterBackup{
@@ -59,6 +60,15 @@ export function importCharacterBackup(text:string,overwrite=false):
      let decoded:unknown;
      try{decoded=JSON.parse(value);}
      catch{return {ok:false,message:"Conteúdo inválido: "+field};}
+     if(field==="sewer"){
+       if(!decoded||typeof decoded!=="object"||Array.isArray(decoded))
+         return {ok:false,message:"Investigação do esgoto inválida."};
+       const fields=["traceFound","pumpRestored","gateOpened","manifestRecovered","sampleRecovered"];
+       const value=decoded as Record<string,unknown>;
+       if(Object.keys(value).some(key=>!fields.includes(key))||
+          fields.some(key=>typeof value[key]!=="boolean"))
+         return {ok:false,message:"Investigação do esgoto inválida."};
+     }
      if(field==="trial"){
        if(!decoded||typeof decoded!=="object"||Array.isArray(decoded))
          return {ok:false,message:"Progresso da campanha inválido."};
