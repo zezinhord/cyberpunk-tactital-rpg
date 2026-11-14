@@ -2,7 +2,7 @@
  * Uma amostra a cada 10 s minimiza overhead e continua visível após sair.
  */
 import type Phaser from "phaser";
-import {readGraphicsMode} from "./performance";
+import {readGraphicsMode} from "./performance.ts";
 export const PERFORMANCE_LOG_KEY="cyberpunk-tactical-rpg.performance-last.v1";
 export type PerformanceReport={
  scene:string;fps:number;minimumFps:number;samples:number;
