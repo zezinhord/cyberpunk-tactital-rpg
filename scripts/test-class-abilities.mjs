@@ -33,7 +33,7 @@ for (const id of CLASS_IDS){
  assert.ok(classSpec.explorationFocus.length>8);
  assert.ok(classSpec.specialties.length>=2);
  assert.ok(classSpec.plannedPassive&&classSpec.plannedUltimate&&classSpec.plannedProgression);
- const skills=getClassSkills(id);
+ const skills=getClassSkills(id).filter(s=>s.minimumLevel===1);
  assert.ok(skills.length>=1,id+" sem habilidade exclusiva");
  assert.deepEqual(skills.map(s=>s.id),getStartingClassAbilities(id));
  for (const skill of skills) {

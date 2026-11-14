@@ -1,5 +1,6 @@
 /** Episódio do Pátio: persistência isolada para não migrar saves da missão 0.6.7a. */
 import type {PlayerCharacter} from "../character/types.ts";
+import {gainExperience} from "../progression/tree.ts";
 
 /** Gera um único prêmio, cuja gravação ocorre junto ao personagem e seus XP.
  * Persistir somente o marcador V-09 sem XP (ou o inverso) causava
@@ -8,8 +9,9 @@ import type {PlayerCharacter} from "../character/types.ts";
 export function grantV09Experience(character:PlayerCharacter):
   {character:PlayerCharacter;awarded:boolean}{
   if(character.questRewards.includes("v09"))return {character,awarded:false};
-  return {awarded:true,character:{...character,experience:character.experience+15,
-    questRewards:[...character.questRewards,"v09"],updatedAt:new Date().toISOString()}};
+  const rewarded=gainExperience(character,15).character;
+  return {awarded:true,character:{...rewarded,
+    questRewards:[...character.questRewards,"v09"]}};
 }
 
 const KEY="cyberpunk-tactical-rpg.story-v09.v068.";

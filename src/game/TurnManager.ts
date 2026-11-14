@@ -1,5 +1,5 @@
 import { TypedEventBus } from "./EventBus";
-import { CLASS_SKILLS,getClassSkills } from "./classes/registry";
+import { ALL_CLASS_SKILLS,getClassSkills } from "./classes/registry";
 import { checkClassSkill,executeClassSkill,advanceClassRound,advanceClassGuard,advanceClassEnemyDebuffs } from "./classes/engine";
 import { checkSpecial, useSpecial, advanceSpecialRound, isEnemyJammed, advanceBarrierAfterEnemyAction } from "./abilities/engine.ts";
 import type { SpecialId } from "./abilities/catalog";
@@ -27,6 +27,7 @@ export interface TurnManagerOptions {
   equipmentBonuses?: { attackBonus: number; armorBonus: number };
   characterLevel?: number;
   currentHp?: number;
+  progressionBonuses?:{hp:number;attack:number;armor:number;movement:number;energy:number};
   originId?: string;
   classId?: string | null;
   characterAbilities?: readonly string[];
@@ -44,8 +45,10 @@ export class TurnManager {
 
   constructor(options: TurnManagerOptions = {}) {
     this.originProfile = options.originProfile;
-    const movementPerTurn = MOVEMENT_PER_TURN + (this.originProfile?.movementBonus ?? 0);
-    const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0);
+    const bonus=options.progressionBonuses;
+    const movementPerTurn = MOVEMENT_PER_TURN + (this.originProfile?.movementBonus ?? 0)+(bonus?.movement??0);
+    const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0);
+    const maxEnergy=10+(bonus?.energy??0);
     this.state = {
       units: [
         {
@@ -58,8 +61,8 @@ export class TurnManager {
             ? Math.min(maxHp,Math.max(1,Math.floor(options.currentHp!)))
             : maxHp,
           maxHp,
-          armorClass: 12 + (this.originProfile?.armorBonus ?? 0) + (options.equipmentBonuses?.armorBonus ?? 0),
-          attackBonus: 5 + (this.originProfile?.attackBonus ?? 0) + (options.equipmentBonuses?.attackBonus ?? 0),
+          armorClass: 12 + (this.originProfile?.armorBonus ?? 0) + (options.equipmentBonuses?.armorBonus ?? 0) + (bonus?.armor??0),
+          attackBonus: 5 + (this.originProfile?.attackBonus ?? 0) + (options.equipmentBonuses?.attackBonus ?? 0) + (bonus?.attack??0),
         },
         {
           id: "drone",
@@ -81,7 +84,7 @@ export class TurnManager {
       classExtraMovement:0,classNextDamageBonus:0,classNextAccuracyBonus:0,
       classEnemyArmorReduction:0,classEnemyArmorTurns:0,
       classEnemyAttackReduction:0,classEnemyAttackTurns:0,
-      energy: 10, maxEnergy: 10,
+      energy: maxEnergy, maxEnergy,
       cooldowns: { "pulse-emp": 0, barrier: 0, regeneration: 0 },
       barrierTurns: 0, enemyJamTurns: 0, terminalUsed: false, cue: null,
       round: 1,
@@ -118,11 +121,11 @@ export class TurnManager {
       && this.state.characterLevel>=skill.minimumLevel);
   }
   getClassAvailability(id:string):AbilityCheck{
-    const skill=CLASS_SKILLS[id];
+    const skill=ALL_ALL_CLASS_SKILLS[id];
     return skill?checkClassSkill(this.state,skill):{available:false,reason:"Habilidade desconhecida."};
   }
   activateClassAbility(id:string):void{
-    const skill=CLASS_SKILLS[id];
+    const skill=ALL_CLASS_SKILLS[id];
     if(!skill){this.setMessage("Habilidade desconhecida.");return;}
     const result=executeClassSkill(this.state,skill);
     if(!result.ok){this.setMessage(result.message);return;}
