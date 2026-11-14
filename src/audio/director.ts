@@ -4,7 +4,7 @@
  * Não há streaming remoto, anúncios ou telemetria.
  */
 import {getSong,isRadioDistrict,isRadioMood,RADIO_MOODS,type RadioDistrict,
- type RadioMood} from "./soundscapes";
+ type RadioMood} from "./soundscapes.ts";
 export type SoundScene="menu"|"exploration"|"interior"|"battle"|"story";
 export type SoundChannel="music"|"effects"|"ambient";
 const KEY="cyberpunk-tactical-rpg.audio.v068.";
