@@ -774,6 +774,7 @@ export default function ExplorationScreen({
           originProfile={getOriginGameplay(character.originId)}
           missionStep={mission.step}
           missionObjective={objective}
+          sewerProgress={sewer}
           clues={mission.clues.map((id) => ({ id, text: CLUE_LABELS[id] ?? "Pista registrada." }))}
           sceneTitle={sceneTitle}
           sceneSubtitle={sceneSubtitle}
