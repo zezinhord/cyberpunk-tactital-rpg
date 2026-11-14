@@ -1,4 +1,4 @@
-# Nova Arcádia 0.6.9-rc.1 — Preparação da primeira prévia pública
+# Nova Arcádia 0.6.9-rc.2 — Preparação da primeira prévia pública
 
 **Estado:** candidata em validação; **não publicada**.  
 **Branch de homologação:** `feature/landscape-mobile-v1`.  
@@ -21,6 +21,14 @@
 - [ ] Nenhuma falha crítica: crash, softlock, duplicação de XP, perda de personagem, personagem visualmente trocado, textura ausente, botão impossível de tocar, travamento constante.
 
 Se algum item falhar, **bloquear publicação**, documentar passos de reprodução e corrigir na branch.
+
+## Correções RC2 a retestar no aparelho
+
+- [ ] Em personagem com missão inicial já concluída, o HUD orienta ao **Pátio do Reúso** sem reiniciar salvamento.
+- [ ] Na Baixada, painel "Próximo passo" abre e fecha, não impede a movimentação no mapa e mostra a Operação Circuito Fantasma.
+- [ ] Na arena, botão **HABILIDADES** está visível e abre o seletor sem cortes no Android horizontal.
+- [ ] Selecionar uma técnica, ver custo e alcance, executar efeito real; observar energia, recarga e motivo da indisponibilidade.
+- [ ] Após comprar uma habilidade na árvore, ela aparece no seletor do próximo combate, mantendo classe e aparência.
 
 ## Roteiro de homologação — 30 a 60 minutos
 

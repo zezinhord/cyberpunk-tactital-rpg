@@ -1,6 +1,6 @@
 # Nova Arcádia — Projeto Éden
 
-**Candidata à primeira prévia pública: 0.6.9-rc.1 (Android, em validação).**
+**Candidata à primeira prévia pública: 0.6.9-rc.2 (Android, em validação).**
 
 RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambientado em uma cidade cyberpunk tropical. Projeto independente com React, TypeScript, Phaser 4, Vite e Capacitor 8.
 
@@ -34,6 +34,12 @@ Os dados são salvos **localmente no dispositivo**. Não há sincronização ent
 **Antes de atualizar, reinstalar, limpar os dados do aplicativo ou trocar de celular:** abra **Carregar jogo → Exportar** em cada slot e guarde o arquivo JSON fora do aplicativo. Na nova instalação, use **Importar**. Nunca presuma que o Android preservará o armazenamento ao mudar o pacote ou o certificado da assinatura.
 
 A restauração exige confirmação ao substituir um slot existente. Em caso de falha de escrita, o código tenta reverter as alterações para preservar os registros anteriores; isso não elimina a necessidade do backup externo.
+
+## Correções de usabilidade na RC2
+
+- **Missões sempre encontráveis:** o HUD da Baixada mostra o próximo passo, permite recolher o painel e dá acesso à **Operação Circuito Fantasma**; quem já concluiu "O nome que sumiu" recebe orientação para investigar o Pátio do Reúso.
+- **Habilidades durante a luta:** toque em **HABILIDADES → ESCOLHER**, selecione uma técnica de classe, comum ou de origem e confirme em **Usar habilidade**. O painel informa custo, alcance e o motivo quando a habilidade não está pronta. Técnicas ofensivas são aplicadas automaticamente ao inimigo se estiver ao alcance; é necessário aproximar-se antes de lançar uma técnica distante demais.
+- **Compatibilidade:** não foram alteradas as chaves de armazenamento dos saves nem reiniciada a campanha. Exporte o backup antes de atualizar.
 
 ## Comandos
 
