@@ -17,6 +17,7 @@ export default function InteriorWorld({
   onInteract,
   sewerProgress,
   returnFromDeep=false,
+  ferrugemTargetId=null,
 }: {
   interior: InteriorId;
   originId: OriginId;
@@ -24,6 +25,7 @@ export default function InteriorWorld({
   onInteract: (id: string) => void;
   sewerProgress: SewerProgress;
   returnFromDeep?: boolean;
+  ferrugemTargetId?:string|null;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<InteriorScene | SewerScene | FerrugemScene | null>(null);
@@ -34,7 +36,7 @@ export default function InteriorWorld({
     const host = hostRef.current;
     if (!host) return;
     const scene = interior==="ferrugem"
-      ? new FerrugemScene((id)=>callbackRef.current(id),originId,appearance)
+       ? new FerrugemScene((id)=>callbackRef.current(id),originId,appearance,ferrugemTargetId)
       : isSewerId(interior)
       ? new SewerScene(interior,(id)=>callbackRef.current(id),originId,appearance,
           sewerProgress,returnFromDeep)
@@ -56,6 +58,7 @@ export default function InteriorWorld({
 
   useEffect(() => { sceneRef.current?.setAppearance(appearance); }, [appearance]);
   useEffect(()=>{if(sceneRef.current instanceof SewerScene)sceneRef.current.setProgress(sewerProgress);},[sewerProgress]);
+  useEffect(()=>{if(sceneRef.current instanceof FerrugemScene)sceneRef.current.setObjective(ferrugemTargetId);},[ferrugemTargetId]);
 
   return <div className={`baixada-world interior-world ${interior}`} ref={hostRef} aria-label={interior === "clinic" ? "Interior isométrico da clínica comunitária" : interior === "workshop" ? "Interior isométrico da oficina do Nilo" : interior === "canal" ? "Interior isométrico da Galeria do Canal"
    : interior === "sewer-drain" ? "Galeria de Drenagem Sul subterrânea, isométrica e caminhável"

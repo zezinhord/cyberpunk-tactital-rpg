@@ -671,6 +671,7 @@ export default function ExplorationScreen({
             appearance={appearance}
             onInteract={handleInteract}
             sewerProgress={sewer}
+            ferrugemTargetId={currentFerrugemStep(ferrugem)?.actor??null}
             returnFromDeep={returnFromDeep}
           />
         ) : (

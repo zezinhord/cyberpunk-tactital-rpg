@@ -37,12 +37,26 @@ export class FerrugemScene extends Phaser.Scene{
  private queuedTarget:Cell|null=null;
  private queuedActor:string|null=null;
  private marker?:Phaser.GameObjects.Arc;
+ private objectiveIndicator?:Phaser.GameObjects.Text;
+ private objectiveActorId:string|null;
 
- constructor(onInteract:(id:string)=>void,originId:OriginId,appearance:TestAppearance){
+ constructor(onInteract:(id:string)=>void,originId:OriginId,appearance:TestAppearance,objectiveId:string|null=null){
   super({key:"FerrugemScene"});
   this.onInteract=onInteract;
   this.originId=originId;
   this.appearance=appearance;
+  this.objectiveActorId=objectiveId;
+ }
+ setObjective(id:string|null):void{
+  this.objectiveActorId=id;
+  this.updateObjectiveMarker();
+ }
+ private updateObjectiveMarker():void{
+  const actor=FERRUGEM_ACTORS.find(a=>a.id===this.objectiveActorId);
+  if(!this.objectiveIndicator)return;
+  if(!actor){this.objectiveIndicator.setVisible(false);return;}
+  const c=center(actor.tile);
+  this.objectiveIndicator.setPosition(c.x,c.y-106).setVisible(true);
  }
  setAppearance(value:TestAppearance):void{
   if(this.appearance===value)return;
@@ -54,6 +68,11 @@ export class FerrugemScene extends Phaser.Scene{
   createCharacterAnimations(this);
   this.drawFactoryDistrict();
   this.drawActors();
+  this.objectiveIndicator=this.add.text(0,0,"◆ OBJETIVO ATUAL",{
+   fontFamily:"IBM Plex Mono,monospace",fontSize:"12px",fontStyle:"bold",color:"#12232b",
+   backgroundColor:"#f2c888",padding:{x:7,y:4},
+  }).setOrigin(.5).setDepth(1500).setVisible(false);
+  this.updateObjectiveMarker();
   const p=center(this.tile);
   const texture=getPlayerTexture(this.originId,this.appearance);
   this.player=this.add.sprite(p.x,p.y,texture,frameForDirection(texture,this.direction))
