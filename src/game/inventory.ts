@@ -2,7 +2,7 @@
  * Primeiro ciclo funcional de itens: armazenamento por personagem, equipamento
  * e consumíveis. Não altera nem migra o formato do save do protagonista.
  */
-export type ItemId = "pistola_manutencao" | "colete_reaproveitado" | "curativo_campo" | "conector_reuso";
+export type ItemId = "pistola_manutencao" | "colete_reaproveitado" | "curativo_campo" | "conector_reuso" | "residuo_metalico" | "celula_energia" | "colete_reforcado" | "pistola_inducao";
 export type ItemCategory = "weapon" | "armor" | "consumable" | "material";
 export type EquipmentSlot = "weapon" | "armor";
 
@@ -23,7 +23,7 @@ export interface InventoryState {
   equipped: Record<EquipmentSlot, ItemId | null>;
 }
 export const INVENTORY_KEY = "cyberpunk-tactical-rpg.inventory.v1.";
-export const ITEM_IDS: readonly ItemId[] = ["pistola_manutencao", "colete_reaproveitado", "curativo_campo", "conector_reuso"];
+export const ITEM_IDS: readonly ItemId[] = ["pistola_manutencao", "colete_reaproveitado", "curativo_campo", "conector_reuso", "residuo_metalico", "celula_energia", "colete_reforcado", "pistola_inducao"];
 export const ITEM_CATALOG: Readonly<Record<ItemId, ItemDefinition>> = {
   pistola_manutencao: {
     id: "pistola_manutencao", name: "Pistola de manutenção", category: "weapon",
@@ -38,14 +38,32 @@ export const ITEM_CATALOG: Readonly<Record<ItemId, ItemDefinition>> = {
     description: "Recupera até 5 pontos de Vida no Limbo de Teste, usando a ação bônus.", healAmount: 5,
   },
   conector_reuso: {
-    id: "conector_reuso", name: "Conector reutilizável", category: "material",
-    description: "Componente recuperado da infraestrutura urbana. Ainda não tem receita de fabricação.",
+    id:"conector_reuso",name:"Conector reutilizável",category:"material",
+    description:"Componente de rede recuperado. Usado para fabricar armaduras e armas industriais.",
+  },
+  residuo_metalico:{
+    id:"residuo_metalico",name:"Liga reaproveitada",category:"material",
+    description:"Placa metálica recuperada na sucata de Ferrugem. Material para reforços de armadura.",
+  },
+  celula_energia:{
+    id:"celula_energia",name:"Célula de indução",category:"material",
+    description:"Célula industrial estabilizada. Componente necessário para armamento de indução.",
+  },
+  colete_reforcado:{
+    id:"colete_reforcado",name:"Colete ferroviário reforçado",category:"armor",
+    description:"Proteção artesanal produzida em Ferrugem, com placas de liga reaproveitada.",
+    slot:"armor",armorBonus:2,
+  },
+  pistola_inducao:{
+    id:"pistola_inducao",name:"Pistola de indução",category:"weapon",
+    description:"Projeto de arma eletrificada montada com peças de manutenção e uma célula estabilizada.",
+    slot:"weapon",attackBonus:2,
   },
 };
 export function createStartingInventory(ownerId: string): InventoryState {
   return {
     version: 1, ownerId,
-    quantities: { pistola_manutencao: 1, colete_reaproveitado: 1, curativo_campo: 2, conector_reuso: 0 },
+    quantities: { pistola_manutencao: 1, colete_reaproveitado: 1, curativo_campo: 2, conector_reuso: 0, residuo_metalico:0, celula_energia:0, colete_reforcado:0, pistola_inducao:0 },
     equipped: { weapon: null, armor: null },
   };
 }
