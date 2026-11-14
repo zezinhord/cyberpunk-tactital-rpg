@@ -81,6 +81,14 @@ export class BaixadaScene extends Phaser.Scene {
   private actors: WorldActor[] = [];
   private moving = false;
   private pendingInteraction: string | null = null;
+  private queuedDestination: Position | null = null;
+  private queuedActorId: string | null = null;
+  private destinationMarker?: Phaser.GameObjects.Arc;
+  private footsteps = 0;
+  private markDestination(tile:Position):void{
+    const p=tileCenter(tile);
+    this.destinationMarker?.setPosition(p.x,p.y+2).setVisible(true);
+  }
 
   private dynamicOccupancy(except?: string, includePlayer = false): Set<string> {
     const occupied = new Set<string>();
@@ -156,14 +164,14 @@ export class BaixadaScene extends Phaser.Scene {
     this.markers.setDepth(20);
     this.createPlayer();
     this.updateActorLabels();
-    this.time.addEvent({delay:1450,loop:true,callback:()=>this.tickCitizens()});
+    this.time.addEvent({delay:1700,loop:true,callback:()=>this.tickCitizens()});
     const camera = this.cameras.main;
     camera.setBounds(0, 0, BAIXADA_WIDTH, BAIXADA_HEIGHT);
     this.updateCameraForViewport();
     this.scale.on("resize", this.updateCameraForViewport, this);
     const start = tileCenter(this.playerTile);
     camera.centerOn(start.x, start.y - 34);
-    camera.startFollow(this.player, true, 0.12, 0.12);
+    camera.startFollow(this.player, true, 0.22, 0.22);
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handleTap, this);
     this.input.keyboard?.on("keydown", this.handleKeyboard, this);
 
@@ -716,6 +724,8 @@ export class BaixadaScene extends Phaser.Scene {
     this.player = this.add.sprite(point.x, point.y, texture, frameForDirection(texture, this.playerDirection))
       .setOrigin(0.5, 0.95).setScale(0.94).setDepth(point.y + 0.32);
     this.playerAnimator = new ActorAnimationController(this.player, texture, this.playerDirection);
+    this.destinationMarker=this.add.circle(point.x,point.y+2,7,0xf2c78e,.16)
+      .setStrokeStyle(1.6,0xffd39b,.92).setDepth(point.y+0.02).setVisible(false);
     this.drawPlayerMarker();
   }
 
@@ -747,7 +757,7 @@ export class BaixadaScene extends Phaser.Scene {
   }
 
   private handleTap(pointer: Phaser.Input.Pointer): void {
-    if (this.moving || !this.player) return;
+    if (!this.player) return;
     const worldPoint = pointer.positionToCamera(this.cameras.main) as { x: number; y: number };
     const selectedActor = this.actors.find((actor) => {
       const point = tileCenter(actor.tile);
@@ -756,7 +766,11 @@ export class BaixadaScene extends Phaser.Scene {
     });
 
     if (selectedActor) {
-      this.approachActor(selectedActor);
+      this.markDestination(selectedActor.tile);
+      if(this.moving){
+        this.queuedActorId=selectedActor.id;
+        this.queuedDestination=null;
+      }else this.approachActor(selectedActor);
       return;
     }
 
@@ -770,12 +784,21 @@ export class BaixadaScene extends Phaser.Scene {
     const localX = Math.abs(worldPoint.x - center.x) / (TILE_WIDTH / 2);
     const localY = Math.abs(worldPoint.y - center.y) / (TILE_HEIGHT / 2);
     if (!inside(target) || localX + localY > 1.1 || !canStand(target,{occupied:this.dynamicOccupancy()})) return;
+    this.markDestination(target);
+    if(this.moving){
+      // Último toque vence: será aplicado ao término da célula corrente.
+      // Evita abandonar a rota ou teletransportar o avatar no meio do tween.
+      this.queuedDestination={...target};
+      this.queuedActorId=null;
+      return;
+    }
+    this.pendingInteraction=null;
     const path = this.findWorldPath(this.playerTile, target);
     if (path) this.walkPath(path);
   }
 
   private handleKeyboard(event: KeyboardEvent): void {
-    if (this.moving || !this.player) return;
+    if (!this.player) return;
     const key = event.key.toLowerCase();
     const direction = key === "arrowup" || key === "w" ? DIRECTIONS[0]
       : key === "arrowright" || key === "d" ? DIRECTIONS[1]
@@ -783,6 +806,14 @@ export class BaixadaScene extends Phaser.Scene {
           : key === "arrowleft" || key === "a" ? DIRECTIONS[3] : undefined;
     if (!direction) return;
     const next = { x: this.playerTile.x + direction.x, y: this.playerTile.y + direction.y };
+    if(this.moving){
+      if(canStand(next,{occupied:this.dynamicOccupancy()})){
+        this.queuedDestination=next;this.queuedActorId=null;this.markDestination(next);
+      }
+      return;
+    }
+    this.markDestination(next);
+    this.pendingInteraction=null;
     const path = this.findWorldPath(this.playerTile, next);
     if (path) this.walkPath(path);
   }
@@ -807,14 +838,33 @@ export class BaixadaScene extends Phaser.Scene {
     if (path.length <= 1 || this.moving) return;
     this.moving = true;
     const steps = path.slice(1);
-    const destination=path[path.length-1]!;
+    let destination=path[path.length-1]!;
     let alternateAttempts=0;
     const nextStep = (): void => {
+      if(this.queuedActorId){
+        const actor=this.actors.find(a=>a.id===this.queuedActorId);
+        this.queuedActorId=null;this.queuedDestination=null;
+        this.pendingInteraction=null;this.moving=false;
+        if(actor)this.approachActor(actor);
+        else this.destinationMarker?.setVisible(false);
+        return;
+      }
+      if(this.queuedDestination){
+        const target=this.queuedDestination;
+        this.queuedDestination=null;
+        this.pendingInteraction=null;
+        const reroute=this.findWorldPath(this.playerTile,target);
+        steps.splice(0,steps.length,...(reroute?.slice(1)??[]));
+        destination=target;
+        alternateAttempts=0;
+      }
       const next = steps.shift();
       if (!next || !this.player) {
         this.moving = false;
         this.playerAnimator?.play("idle");
+        this.destinationMarker?.setVisible(false);
         this.finishPendingInteraction();
+        this.onPositionChange?.({...this.playerTile},true);
         return;
       }
       const previous = this.playerTile;
@@ -837,6 +887,8 @@ export class BaixadaScene extends Phaser.Scene {
         this.pendingInteraction = null;
         this.moving = false;
         this.playerAnimator?.play("idle");
+        this.destinationMarker?.setVisible(false);
+        this.onPositionChange?.({...this.playerTile},true);
         return;
       }
       const direction: IsoDirection = next.y < previous.y ? 0 : next.x > previous.x ? 1 : next.y > previous.y ? 2 : 3;
@@ -849,22 +901,22 @@ export class BaixadaScene extends Phaser.Scene {
         targets: this.playerShadow,
         x: point.x,
         y: point.y + 2,
-        duration: 190,
-        ease: "Sine.easeInOut",
+        duration: next.x!==previous.x&&next.y!==previous.y?195:140,
+        ease: "Linear",
         onUpdate: () => this.playerShadow.setDepth(this.playerShadow.y - 2.04),
       });
       this.tweens.add({
         targets: this.player,
         x: point.x,
         y: point.y,
-        duration: 190,
-        ease: "Sine.easeInOut",
+        duration: next.x!==previous.x&&next.y!==previous.y?195:140,
+        ease: "Linear",
         onUpdate: () => this.player.setDepth(this.player.y + 0.32),
         onComplete: () => {
           this.drawPlayerMarker();
           this.updateActorLabels();
-          audioDirector.effect("step");
-          this.onPositionChange?.({...this.playerTile});
+          if(++this.footsteps%3===0)audioDirector.effect("step");
+          this.onPositionChange?.({...this.playerTile},false);
           nextStep();
         },
       });
