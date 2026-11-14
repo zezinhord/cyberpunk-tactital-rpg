@@ -133,3 +133,44 @@
 .na-item-row button,.na-item-unequip { flex:none; min-height:48px; padding:7px 12px; border:1px solid rgba(255,209,102,.45); border-radius:5px; color:#f2dcae; background:#253032; font:700 12px var(--display); }
 .na-item-unequip { margin-top:9px; }
 @media (orientation:landscape) and (max-height:400px) { .na-item-row { padding:6px 3px; } }
+
+
+/* Hotfix 0.6.9 RC2: objetivos permanecem legíveis no HUD e podem ser recolhidos.
+   O painel anterior usava posicionamento absoluto fora da área visível
+   enquanto a campanha de 19 objetivos seguia no fluxo oculto da tela. */
+.na-mission-hub { display:flex;flex-direction:column;gap:7px; }
+.na-hub-toggle { min-height:44px;padding:7px 11px;border:1px solid #c6a171;border-radius:8px;
+  background:#213235;color:#f4ddaf;font:700 12px var(--display);text-align:center; }
+.na-mission-details { display:flex;flex-direction:column;gap:7px; }
+.na-next-step { display:flex;flex-direction:column;gap:5px;padding:10px 12px;
+  border:1px solid #e5b77e;border-left:4px solid #e5b77e;border-radius:8px;
+  background:rgba(17,31,34,.98);color:#f6eee2; }
+.na-next-step span { font:700 10px var(--mono);color:#f3c58b; }
+.na-next-step strong { font:700 13px/1.35 var(--display);overflow-wrap:anywhere; }
+.na-next-step small { color:#bfd4c9;font-size:11px; }
+.na-mission-hub .na-objective-toggle { position:static!important;top:auto!important;right:auto!important;
+  width:100%!important;min-height:42px;flex:none; }
+.na-mission-hub .mission-card { position:static!important;top:auto!important;right:auto!important;
+  bottom:auto!important;width:100%!important;max-height:none!important;max-width:none!important;
+  margin:0;overflow:visible;box-shadow:none; }
+.na-mission-hub .na-trial-panel { margin:0;flex:none; }
+.na-mission-hub.collapsed .na-mission-details { display:none; }
+.na-mission-hub .na-clinic-treatment { position:static; }
+@media (orientation:landscape) {
+  .na-mission-hub { position:absolute;z-index:5;top:calc(var(--na-safe-top) + 56px);
+    right:var(--na-safe-right);bottom:var(--na-safe-bottom);
+    width:min(350px,42vw);max-height:calc(100dvh - 66px);
+    overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;
+    padding:4px;border:1px solid rgba(218,182,130,.3);border-radius:9px;
+    background:rgba(10,22,26,.91);box-shadow:0 8px 28px rgba(0,0,0,.45);
+    pointer-events:auto; }
+  .na-mission-hub.collapsed { top:calc(var(--na-safe-top) + 54px);
+    bottom:auto;width:min(205px,36vw);background:transparent;
+    border:0;box-shadow:none;padding:0; }
+  .na-mission-hub .na-next-step { position:sticky;top:0;z-index:1; }
+  .na-mission-hub .na-trial-panel button { width:100%; }
+  .na-mission-hub .na-hub-toggle { flex:none; }
+}
+@media (orientation:portrait) {
+  .na-mission-hub { margin:7px 10px; }
+}
