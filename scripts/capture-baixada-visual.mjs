@@ -514,6 +514,96 @@ try {
     Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   console.log("QA campanha: missão iniciada com etapa da Dra. Amara.");
 
+  // QA subterrâneo no viewport real Android: interações públicas, sem ganchos de teste.
+  // A posição é salva no dispositivo como qualquer personagem que caminhou ao Pátio Sul.
+  await evaluate(`(()=>{
+    const raw=localStorage.getItem("cyberpunk-tactical-rpg.character.v1");
+    const id=JSON.parse(raw).character.id;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+id,JSON.stringify({x:33,y:20}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título ao visitar ampliação leste");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-sewer-quick-access"),"escada do esgoto detectada no mundo aberto");
+  const surfaceAccess=await evaluate('document.querySelector(".na-sewer-quick-access")?.textContent');
+  if(!surfaceAccess.includes("GALERIA DE DRENAGEM"))
+    throw new Error("Acesso da Galeria não foi encontrado: "+surfaceAccess);
+  await sleep(950);
+  await writeFile("qa/baixada-expandida-esgoto-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".na-sewer-quick-access").click();true');
+  await poll(()=>has(".interior-world.sewer-drain canvas"),"mapa 1 Galeria de Drenagem em Phaser");
+  await sleep(1300);
+  const drainInfo=await evaluate(`(()=>{
+    const c=document.querySelector(".interior-world.sewer-drain canvas");
+    const r=c?.getBoundingClientRect();
+    return {width:r?.width,height:r?.height,canvasW:c?.width,canvasH:c?.height,
+      title:document.querySelector(".district-brand h1")?.textContent,
+      hubCollapsed:!!document.querySelector(".na-mission-hub.collapsed")};
+  })()`);
+  if(!drainInfo.canvasW||drainInfo.width<400||drainInfo.height<260||
+     !drainInfo.title?.includes("Galeria de Drenagem")||!drainInfo.hubCollapsed)
+    throw new Error("Mapa subterrâneo 1 inválido: "+JSON.stringify(drainInfo));
+  await writeFile("qa/esgoto-galeria-drenagem-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".area-return").click();true');
+  await poll(()=>has(".na-sewer-quick-access"),"retorno à superfície via escada da galeria");
+  // A segunda saída não pode entrar na Câmara se o jogador não recuperou manifesto.
+  await evaluate(`(()=>{
+    const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+id,JSON.stringify({x:34,y:29}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"retomar no segundo acesso");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-sewer-quick-access"),"segunda escada do esgoto detectada");
+  const emergency=await evaluate('document.querySelector(".na-sewer-quick-access")?.textContent');
+  if(!emergency?.includes("CÂMARA 04"))
+    throw new Error("Segunda saída mal conectada: "+emergency);
+  await evaluate('document.querySelector(".na-sewer-quick-access").click();true');
+  await poll(()=>has(".dialogue-panel"),"bloqueio narrativo da saída profunda");
+  const lockedMessage=await evaluate('document.querySelector(".dialogue-panel")?.textContent');
+  if(!lockedMessage?.includes("bloqueada"))
+    throw new Error("Saída profunda sem validação de progresso: "+lockedMessage);
+  // Reabre a campanha no checkpoint já concluído: a saída passa a ser alcançável.
+  await evaluate(`(()=>{
+    const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
+    localStorage.setItem("cyberpunk-tactical-rpg.sewer-v09.v1."+id,
+      JSON.stringify({traceFound:true,pumpRestored:true,gateOpened:true,
+        manifestRecovered:true,sampleRecovered:false}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"retomar após checkpoint subterrâneo");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-sewer-quick-access"),"saída profunda habilitada");
+  await evaluate('document.querySelector(".na-sewer-quick-access").click();true');
+  await poll(()=>has(".interior-world.sewer-deep canvas"),"mapa 2 Câmara de Recalque em Phaser");
+  await sleep(1200);
+  const deepInfo=await evaluate(`(()=>{
+    const c=document.querySelector(".interior-world.sewer-deep canvas");
+    const r=c?.getBoundingClientRect();
+    return {width:r?.width,height:r?.height,title:document.querySelector(".district-brand h1")?.textContent,
+      progress:document.querySelector(".na-sewer-heading strong")?.textContent};
+  })()`);
+  if(deepInfo.width<400||deepInfo.height<260||
+     !deepInfo.title?.includes("Câmara de Recalque")||
+     !deepInfo.progress?.includes("4 / 4"))
+    throw new Error("Mapa subterrâneo 2 inválido: "+JSON.stringify(deepInfo));
+  await writeFile("qa/esgoto-camara-recalque-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".area-return").click();true');
+  await poll(()=>has(".interior-world.sewer-drain canvas"),"retorno profundo → galeria");
+  await evaluate('document.querySelector(".area-return").click();true');
+  await poll(()=>has(".baixada-world canvas:not(.missing)"),"retorno galeria → superfície");
+  const backTitle=await evaluate('document.querySelector(".district-brand h1")?.textContent');
+  if(backTitle?.includes("Galeria de Drenagem")||backTitle?.includes("Câmara de Recalque"))
+    throw new Error("Retorno subterrâneo prendeu o personagem: "+backTitle);
+  console.log("QA subterrâneo: 39×34, ambas as escadas, dois mapas renderizados, bloqueio, checkpoint e retorno.");
+
+
 
 
   console.log("QA visual: capturas masculina/feminina; canvas preservado após alternância.");
