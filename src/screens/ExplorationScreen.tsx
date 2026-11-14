@@ -144,7 +144,10 @@ export default function ExplorationScreen({
   const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));
   const [trialNotice,setTrialNotice]=useState("");
   const [sectorId,setSectorId]=useState<SectorId>(()=>sectorAt(loadWorldLocation(character.id)));
-  useEffect(()=>{audioDirector.setScene(interior?"interior":"exploration");},[interior]);
+  useEffect(()=>{
+    audioDirector.setDistrict(interior==="ferrugem"?"ferrugem":"baixada");
+    audioDirector.setScene(interior?"interior":"exploration");
+  },[interior]);
 
   useEffect(() => {
     saveMission(character.id, mission);
