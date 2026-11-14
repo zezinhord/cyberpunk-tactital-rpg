@@ -15,6 +15,7 @@ interface Props {
   onExport: (id:string)=>Promise<string>;
   onImport: (file:File)=>Promise<string>;
   saveNotice: string;
+  onReplayOpening: () => void;
 }
 
 type Panel = "none" | "load" | "settings" | "credits" | "confirm";
@@ -26,7 +27,7 @@ function readMotionPreference(): boolean {
 }
 
 export default function TitleScreen({
-  character,slots,onContinue,onNew,onLoadSlot,onDeleteSlot,onExport,onImport,saveNotice,
+  character,slots,onContinue,onNew,onLoadSlot,onDeleteSlot,onExport,onImport,saveNotice,onReplayOpening,
 }: Props) {
   const [panel, setPanel] = useState<Panel>("none");
   const [notice,setNotice]=useState("");
@@ -144,6 +145,10 @@ export default function TitleScreen({
                   <input type="checkbox" checked={reduceMotion} onChange={(event) => setReduceMotion(event.target.checked)} />
                 </label>
                 <AudioControls />
+                {character&&<button type="button" className="na-modal-secondary"
+                  onClick={()=>{setPanel("none");onReplayOpening();}}>
+                  Rever apresentação de Nova Arcádia
+                </button>}
                 <p className="na-title-modal-note">Qualidade gráfica avançada ainda não está disponível.</p>
               </>
             )}
