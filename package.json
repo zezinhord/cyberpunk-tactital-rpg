@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "generate:characters": "python tools/generate_character_sprites.py",
-    "prebuild": "npm run generate:characters",
+    "generate:soundscapes": "python tools/generate_soundscapes.py",
+    "prebuild": "npm run generate:characters && npm run generate:soundscapes",
     "predev": "npm run generate:characters",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
