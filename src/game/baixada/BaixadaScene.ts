@@ -69,6 +69,7 @@ function walkable(tile: Position): boolean { return isWalkable(tile); }
 export class BaixadaScene extends Phaser.Scene {
   private readonly onInteract: (id: string) => void;
   private readonly onPositionChange?: (tile: Position, settled?:boolean) => void;
+  private readonly onSceneReady?:()=>void;
   private readonly originId: OriginId;
   private appearance: TestAppearance;
   private playerAnimator?: ActorAnimationController;
@@ -132,13 +133,15 @@ export class BaixadaScene extends Phaser.Scene {
 
 
   constructor(onInteract: (id: string) => void, originId: OriginId, appearance: TestAppearance,
-    startTile?: Position, onPositionChange?: (tile: Position, settled?:boolean) => void) {
+    startTile?: Position, onPositionChange?: (tile: Position, settled?:boolean) => void,
+    onSceneReady?:()=>void) {
     super({ key: "BaixadaScene" });
     this.onInteract = onInteract;
     this.originId = originId;
     this.appearance = appearance;
     if(startTile && canStand(startTile))this.playerTile={...startTile};
     this.onPositionChange=onPositionChange;
+    this.onSceneReady=onSceneReady;
   }
 
   setAppearance(appearance: TestAppearance): void {
@@ -184,6 +187,10 @@ export class BaixadaScene extends Phaser.Scene {
       this.playerAnimator?.dispose();
       this.scale.off("resize", this.updateCameraForViewport, this);
     });
+    // Sinal explícito: o React só considera o mapa aberto depois de
+    // completar a construção de edifícios, piso e jogador. Existência do
+    // canvas isoladamente NÃO comprova que o Phaser inicializou a cena.
+    this.onSceneReady?.();
   }
 
   private updateCameraForViewport(): void {
