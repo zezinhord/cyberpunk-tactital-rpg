@@ -106,18 +106,23 @@ try{
    const host=document.querySelector(".baixada-world");
    const canvas=host.querySelector("canvas"),ctx=canvas.getContext("2d");
    if(!ctx)return {error:"Canvas 2D ausente"};
-   const colors=new Set();
+   const colors=new Set(),pixels=[];
    for(let y=1;y<6;y++)for(let x=1;x<8;x++){
     const rgb=ctx.getImageData(Math.floor(canvas.width*x/8),
       Math.floor(canvas.height*y/6),1,1).data;
-    colors.add(rgb[0]+","+rgb[1]+","+rgb[2]);
+    const value=[...rgb].join(",");
+    colors.add(value);
+    if(pixels.length<9)pixels.push(value);
    }
    return {engine:host.dataset.engine,ready:host.dataset.sceneState,
-    colors:colors.size,bytes:canvas.width*canvas.height*4,
+    colors:colors.size,pixels,bytes:canvas.width*canvas.height*4,
+    canvasWidth:canvas.width,canvasHeight:canvas.height,
+    ctxState:ctx.isContextLost?.()??false,
     w:host.clientWidth,h:host.clientHeight,
     loading:!!host.querySelector(".na-world-startup"),
     saved:!!localStorage.getItem("cyberpunk-tactical-rpg.character.v1")};
  })()`);
+ console.log("DIAGNÓSTICO CANVAS ANDROID:",JSON.stringify(metrics));
  if(metrics.error||metrics.engine!=="native-2d"||metrics.ready!=="ready"||
     metrics.colors<5||metrics.bytes>4_500_000||metrics.w<600||metrics.h<300||
     metrics.loading||!metrics.saved)
