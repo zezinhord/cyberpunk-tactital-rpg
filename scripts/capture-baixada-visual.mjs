@@ -391,6 +391,24 @@ try {
      !missionLayout.title.toLowerCase().includes("o nome que sumiu"))
     throw new Error("Orientação de missão fora de tela: "+JSON.stringify(missionLayout));
   await poll(()=>has(".na-trial-panel"),"Campanha de teste no mapa");
+  // Retomar personagem que já concluiu a primeira missão no APK anterior.
+  // A nova versão deve apontar para o Pátio sem reiniciar seu progresso.
+  await evaluate(`(()=>{
+    const raw=localStorage.getItem("cyberpunk-tactical-rpg.character.v1");
+    const id=raw&&JSON.parse(raw).character?.id;
+    localStorage.setItem("cyberpunk-tactical-rpg.mission.v1."+id,
+      JSON.stringify({step:3,clues:["canal"]}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título para retomar missão antiga");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-mission-hub .na-next-step"),"objetivo persistido após atualização");
+  const legacyNext=await evaluate('document.querySelector(".na-next-step")?.textContent');
+  if(!legacyNext?.includes("Pátio"))
+    throw new Error("Missão anterior concluída não encaminha ao Pátio: "+legacyNext);
+  await writeFile("qa/proxima-missao-914x411.png",
+    Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   const trialButton=await evaluate('document.querySelector(".na-trial-panel button")?.textContent');
   if(!trialButton?.includes("Iniciar operação"))throw new Error("Campanha não pode ser iniciada: "+trialButton);
   await evaluate('document.querySelector(".na-trial-panel button").click();true');
