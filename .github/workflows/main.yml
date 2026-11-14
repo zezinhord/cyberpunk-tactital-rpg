@@ -90,8 +90,17 @@ jobs:
       - name: Validar planta, colisões e rotas da Baixada
         run: node --experimental-strip-types scripts/test-baixada-layout.mjs
 
+      - name: Verificar sintetizador de trilha original
+        run: |
+          command -v ffmpeg
+          command -v ffprobe
+          ffmpeg -hide_banner -encoders | grep -q libopus
+
       - name: Compilar aplicacao
         run: npm run build
+
+      - name: Validar 56 trilhas originais e duração do conteúdo
+        run: node --experimental-strip-types scripts/test-soundscapes.mjs
 
       - name: Verificar os 12 spritesheets direcionais
         run: node scripts/test-character-sheets.mjs
@@ -183,6 +192,14 @@ jobs:
           echo "APK_BYTES=$BYTES"
           echo "META_BYTES=100000000"
           echo "PERCENTUAL=$((BYTES * 100 / 100000000))%"
+          if [ "$BYTES" -lt 100000000 ]; then
+            echo "ERRO: o APK ainda não contém 100 MB reais de conteúdo original." >&2
+            exit 1
+          fi
+          if [ "$BYTES" -gt 115000000 ]; then
+            echo "ERRO: pacote acima do orçamento de 115 MB, revisar compressão." >&2
+            exit 1
+          fi
           {
             echo "## Orçamento de conteúdo do APK"
             echo "APK real: **$BYTES bytes**"
