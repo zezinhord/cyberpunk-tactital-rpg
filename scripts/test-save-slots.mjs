@@ -5,6 +5,7 @@ import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,MAX_CHARACTER_S
 import {exportCharacterBackup,importCharacterBackup} from "../src/game/character/backup.ts";
 import {CHARACTER_SLOT_INDEX} from "../src/game/character/slot-core.ts";
 import {HEALTH_KEY,loadHealth,saveHealth,healAtClinic} from "../src/game/combat/health.ts";
+import {TRIAL_KEY,TRIAL_STEPS,startTrial,FRESH_TRIAL,advanceTrial,readTrial,saveTrial} from "../src/game/story/field-test.ts";
 
 let db=new Map();
 globalThis.localStorage={
@@ -45,16 +46,32 @@ assert.equal(loadHealth("unknown",18),18);
 db.set(HEALTH_KEY+"bad","not json");
 assert.equal(loadHealth("bad",18),18);
 assert.equal(saveHealth(id,9,20),true);
+const started=startTrial(FRESH_TRIAL);
+const firstStep=advanceTrial(started,TRIAL_STEPS[0].actor).progress;
+assert.equal(firstStep.step,1);
+assert.equal(saveTrial(id,firstStep),true);
 const previouslyActive=loadCharacter()?.id;
 const exported=exportCharacterBackup(a.id);
 assert.equal(loadCharacter()?.id,previouslyActive,"Exportar slot inativo não deve trocar protagonista");
 const parsed=JSON.parse(exported);
 assert.equal(parsed.version,1);
 assert.equal(parsed.character.id,a.id);
-assert.ok(parsed.data.inventory&&parsed.data.market&&parsed.data.health&&parsed.data.mission);
+assert.ok(parsed.data.inventory&&parsed.data.market&&parsed.data.health&&parsed.data.mission&&parsed.data.trial);
 const beforeCount=listCharacterSlots().length;
 assert.equal(importCharacterBackup(exported).ok,false,"Mesmo ID exige confirmação");
 assert.equal(listCharacterSlots().length,beforeCount);
+// Falha simulada na última etapa da importação: slot e dados prévios não podem
+// ficar substituídos parcialmente, mesmo quando o armazenamento falha.
+assert.equal(saveHealth(id,7,20),true);
+let failOnce=true;
+globalThis.localStorage.setItem=(key,value)=>{
+ if(key===TRIAL_KEY+id&&failOnce){failOnce=false;throw new Error("storage quota");}
+ db.set(key,String(value));
+};
+assert.equal(importCharacterBackup(exported,true).ok,false);
+assert.equal(loadHealth(id,20),7,"Falha deve reverter dados anteriores");
+assert.equal(readTrial(id).step,1,"Campanha anterior deve permanecer intacta");
+assert.equal(saveHealth(id,9,20),true);
 assert.equal(importCharacterBackup(exported,true).ok,true,"Restaurar mesmo ID mediante autorização");
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,format:"invalid"})).ok,false);
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,"../../../admin":"x"}})).ok,false);
@@ -64,6 +81,7 @@ db=new Map();
 assert.equal(importCharacterBackup(exported).ok,true);
 assert.equal(loadCharacter()?.id,a.id);
 assert.equal(loadHealth(a.id,20),9);
+assert.equal(readTrial(a.id).step,1,"Progresso da campanha deve sobreviver a exportação e importação");
 assert.equal(db.get("cyberpunk-tactical-rpg.world-location.v068."+id),JSON.stringify({x:12,y:26}));
 assert.ok(listCharacterSlots().length===1);
 assert.equal(loadCharacterSlot(b.id),null,"Slots não existentes neste dispositivo não devem aparecer");
@@ -71,6 +89,7 @@ assert.equal(removeCharacterSlot(a.id),true);
 assert.equal(db.get(HEALTH_KEY+a.id),undefined);
 assert.equal(db.get("cyberpunk-tactical-rpg.inventory.v1."+a.id),undefined);
 assert.equal(db.get("cyberpunk-tactical-rpg.mission.v1."+a.id),undefined);
+assert.equal(db.get(TRIAL_KEY+a.id),undefined,"Exclusão remove progresso da campanha do slot");
 assert.equal(loadCharacter(),null);
 assert.equal(listCharacterSlots().length,0);
 // Migração a partir da chave única v1 sem índice.
