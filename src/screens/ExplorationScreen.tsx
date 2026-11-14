@@ -113,7 +113,7 @@ export default function ExplorationScreen({
   const [interior, setInterior] = useState<InteriorId | null>(null);
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
   const [journalOpen, setJournalOpen] = useState(false);
-  const [missionOpen, setMissionOpen] = useState(false);
+  const [missionOpen, setMissionOpen] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [market,setMarket]=useState(()=>readMarket(character.id));
   const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));
@@ -509,8 +509,19 @@ export default function ExplorationScreen({
         )}
       </section>
 
+      <aside className="na-mission-hub" aria-label="Próximas missões e objetivos">
+        <div className="na-next-step" role="status">
+          <span>PRÓXIMO PASSO · {trial.started&&!trial.completed?"OPERAÇÃO CIRCUITO FANTASMA":mission.step<3?"O NOME QUE SUMIU":!v09.reported?"INVESTIGAÇÃO V-09":"NOVO CAPÍTULO"}</span>
+          <strong>{trial.started&&!trial.completed
+            ? currentTrialStep(trial)?.objective
+            : mission.step<3 ? objective
+            : !v09.reported ? objective
+            : trial.completed ? "Operação concluída. Continue explorando Nova Arcádia."
+            : "Inicie a Operação Circuito Fantasma no painel abaixo."}</strong>
+          {trial.started&&!trial.completed&&<small>Etapa {trial.step+1} de {TRIAL_STEPS.length} · {currentTrialStep(trial)?.sector}</small>}
+        </div>
       <button type="button" className="na-objective-toggle" onClick={() => setMissionOpen((value) => !value)} aria-expanded={missionOpen}>
-        <span>◈ {v09.reported ? "INVESTIGAÇÃO ATUALIZADA" : "OBJETIVO ATUAL"}</span><span aria-hidden="true">{missionOpen ? "−" : "+"}</span>
+        <span>◈ {mission.step===3?"CONSULTAR INVESTIGAÇÃO":"INVESTIGAÇÃO INICIAL"}</span><span aria-hidden="true">{missionOpen ? "−" : "+"}</span>
       </button>
       {missionOpen && <section className="mission-card" aria-label="Missão atual">
         <div className="mission-card-top">
@@ -562,7 +573,7 @@ export default function ExplorationScreen({
 
       <section className="na-trial-panel" aria-label="Operação Circuito Fantasma">
         <div className="na-trial-heading">
-          <div><span className="eyebrow">CAMPANHA DE TESTES · PROJETO ÉDEN</span>
+          <div><span className="eyebrow">PRÓXIMA OPERAÇÃO · PROJETO ÉDEN</span>
             <h2>Operação Circuito Fantasma</h2></div>
           <strong>{trial.completed?"CONCLUÍDA":trial.started?"ETAPA "+Math.min(trial.step+1,TRIAL_STEPS.length)+"/"+TRIAL_STEPS.length:"NOVA · "+ESTIMATED_MINUTES+" MIN EST."}</strong>
         </div>
@@ -604,6 +615,7 @@ export default function ExplorationScreen({
                 : "Seu estado já está estabilizado. Nenhum tratamento adicional foi necessário."}]);
           }}>Receber tratamento ({Math.max(0,maxHp-currentHp)} PV)</button>
       </div>}
+      </aside>
       <div className="exploration-footer-actions single-action">
         <button type="button" className="explore-secondary" onClick={() => onOpenBattle("test")}>
           Arena tática de teste
