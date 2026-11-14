@@ -1,6 +1,7 @@
 import type {PlayerCharacter} from "./types.ts";
 import {isPlayerCharacter,parseCharacterSave,saveCharacter} from "./storage.ts";
 import {containsCharacterSlot,hasSlotCapacity,readCharacterSlot} from "./slots.ts";
+import {CHARACTER_SAVE_KEY,CHARACTER_SLOT_INDEX,CHARACTER_SLOT_PREFIX} from "./slot-core.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
  */
@@ -12,6 +13,7 @@ export const CHARACTER_BACKUP_KEYS={
  v09:"cyberpunk-tactical-rpg.story-v09.v068.",
  market:"cyberpunk-tactical-rpg.market.v1.",
  health:"cyberpunk-tactical-rpg.health.v1.",
+ trial:"cyberpunk-tactical-rpg.trial.v1.",
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
 export interface CharacterBackup{
@@ -58,12 +60,36 @@ export function importCharacterBackup(text:string,overwrite=false):
  }
  const storage=globalThis.localStorage;
  if(!storage)return {ok:false,message:"Armazenamento local indisponível."};
+ // Snapshot de todos os registros atingidos: importações interrompidas não
+ // podem deixar um slot substituído pela metade ou apagar dados anteriores.
+ const keys=[
+   CHARACTER_SAVE_KEY,CHARACTER_SLOT_INDEX,CHARACTER_SLOT_PREFIX+character.id,
+   ...Object.values(CHARACTER_BACKUP_KEYS).map(prefix=>prefix+character.id),
+ ];
+ const previous=new Map<string,string|null>();
  try{
+   for(const key of keys)previous.set(key,storage.getItem(key));
+ }catch{return {ok:false,message:"Não foi possível verificar o armazenamento antes da importação."};}
+ const rollback=()=>{
+   for(const [key,original] of previous){
+     try{
+       if(original===null)storage.removeItem(key);
+       else storage.setItem(key,original);
+     }catch{/* Preserva os demais registros mesmo quando o dispositivo está cheio. */}
+   }
+ };
+ try{
+   if(!saveCharacter(character)){
+     rollback();
+     return {ok:false,message:"Não foi possível gravar o personagem restaurado. Os dados anteriores foram preservados quando possível."};
+   }
    for(const [field,prefix] of Object.entries(CHARACTER_BACKUP_KEYS)){
      const value=data[field as BackupField];
      if(value!==undefined)storage.setItem(prefix+character.id,value);
    }
- }catch{return {ok:false,message:"Falha ao restaurar dados adicionais do backup."};}
- if(!saveCharacter(character))return {ok:false,message:"Não foi possível gravar o personagem restaurado."};
+ }catch{
+   rollback();
+   return {ok:false,message:"Falha ao restaurar o backup. Os dados anteriores foram preservados quando possível."};
+ }
  return {ok:true,character,message:"Backup restaurado. Slot "+character.name+" disponível."};
 }
