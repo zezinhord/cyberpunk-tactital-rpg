@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {SEWER_MAPS,sewerApproach,sewerRoute,sewerWalkable,sewerWater,sewerSolid,sewerKey}
+import {SEWER_MAPS,sewerApproach,sewerRoute,sewerWalkable,sewerWater,sewerSolid,sewerKey,canSewerTraverse}
  from "../src/game/baixada/sewer-layout.ts";
 import {FRESH_SEWER,SEWER_KEY,readSewer,saveSewer,applySewerEvent,hasSewerEvidence,
  sewerNextObjective,sewerStatus,normalizeSewer} from "../src/game/story/sewer-v09.ts";
@@ -38,8 +38,18 @@ for(const id of names){
    "Interação remota sem aproximação: "+actor.id);
   for(let i=1;i<path.length;i++){
    const a=path[i-1],b=path[i];
-   assert.equal(Math.abs(a.x-b.x)+Math.abs(a.y-b.y),1,"Movimento diagonal: "+id);
+   assert.ok(canSewerTraverse(id,a,b),"Passo diagonale atravessou uma quina: "+id);
    assert.ok(sewerWalkable(id,b),"Rota atravessa obstáculo "+id);
+  }
+ }
+ // Atravessar a água ou uma quina sólida nunca é permitido.
+ for(const blocked of map.obstacles){
+  for(const from of [{x:blocked.x-1,y:blocked.y-1},
+                     {x:blocked.x+1,y:blocked.y+1}]){
+   const to={x:from.x+1,y:from.y+1};
+   if(sewerWalkable(id,from)&&sewerWalkable(id,to)&&
+      (to.x===blocked.x||from.y===blocked.y))
+     assert.equal(canSewerTraverse(id,from,to),false,"Canto atravessável");
   }
  }
  assert.equal(sewerRoute(id,map.entry,map.actors[0].tile),null,
