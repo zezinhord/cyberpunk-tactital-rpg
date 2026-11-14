@@ -14,7 +14,11 @@ for (const building of BUILDINGS) {
     }
   }
 }
-assert.equal(canTraverse({x:6,y:9},{x:7,y:10}),false,"Diagonal nunca liberada");
+assert.equal(canTraverse({x:6,y:9},{x:7,y:10}),true,"Diagonal segura liberada");
+assert.equal(canTraverse({x:6,y:9},{x:7,y:10},{occupied:new Set(["7,9"])}),false,
+ "Diagonal não pode cortar canto ocupado por NPC");
+assert.equal(canTraverse({x:6,y:9},{x:7,y:10},{occupied:new Set(["6,10"])}),false,
+ "Diagonal bloqueada pela segunda célula lateral");
 assert.equal(canTraverse({x:6,y:9},{x:8,y:9}),false,"Movimento rápido de duas células bloqueado");
 for(const tiles of Object.values(PROPS))for(const tile of tiles)assert.equal(collisionAt(tile),"prop");
 for(const [id,tile] of Object.entries(ACTOR_TILES)){
