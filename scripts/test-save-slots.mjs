@@ -3,7 +3,8 @@ import {createPlayerCharacter,loadCharacter,saveCharacter,CHARACTER_SAVE_KEY} fr
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,MAX_CHARACTER_SLOTS,
   readCharacterSlot,containsCharacterSlot} from "../src/game/character/slots.ts";
 import {exportCharacterBackup,importCharacterBackup} from "../src/game/character/backup.ts";
-import {CHARACTER_SLOT_INDEX} from "../src/game/character/slot-core.ts";
+import {CHARACTER_SLOT_INDEX,setActiveRaw} from "../src/game/character/slot-core.ts";
+import {createStartingInventory,saveInventory} from "../src/game/inventory.ts";
 import {HEALTH_KEY,loadHealth,saveHealth,healAtClinic} from "../src/game/combat/health.ts";
 import {TRIAL_KEY,TRIAL_STEPS,startTrial,FRESH_TRIAL,advanceTrial,readTrial,saveTrial} from "../src/game/story/field-test.ts";
 
@@ -118,4 +119,12 @@ assert.equal(listCharacterSlots().length,MAX_CHARACTER_SLOTS);
 const overflow=createPlayerCharacter("Over","corporativo","solo");
 assert.equal(saveCharacter(overflow),false);
 assert.equal(containsCharacterSlot(b.id),true);
+// Não anunciar sucesso quando as permissões ou o contexto bloqueiam localStorage.
+const availableStorage=globalThis.localStorage;
+globalThis.localStorage=undefined;
+assert.equal(saveHealth(a.id,5,20),false);
+assert.equal(saveTrial(a.id,firstStep),false);
+assert.equal(saveInventory(createStartingInventory(a.id)),false);
+assert.equal(setActiveRaw("save"),false);
+globalThis.localStorage=availableStorage;
 console.log("Saves: legado, slots independentes, limite, backup seguro, importação, Vida persistente e tratamento aprovados.");
