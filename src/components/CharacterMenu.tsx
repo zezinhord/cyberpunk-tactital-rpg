@@ -1,5 +1,6 @@
 import { useState } from "react";
 import AudioControls from "./AudioControls";
+import {readGraphicsMode,saveGraphicsMode,type GraphicsMode} from "../game/performance";
 import type { OriginGameplayProfile, PlayerCharacter } from "../game/character";
 import { ITEM_CATALOG, ITEM_IDS } from "../game/inventory";
 import type { InventoryState, ItemId } from "../game/inventory";
@@ -99,6 +100,8 @@ export default function CharacterMenu({
 }: Props) {
   const [activeSection, setActiveSection] = useState<MenuSection>("character");
   const [pendingClass,setPendingClass]=useState<ClassId|null>(null);
+  const [graphicsMode,setGraphicsMode]=useState<GraphicsMode>(readGraphicsMode);
+  const [graphicsNotice,setGraphicsNotice]=useState("");
   const activeItem = MENU_ITEMS.find((item) => item.id === activeSection)!;
   const attributeEntries = Object.entries(character.attributes);
   const progress = Math.max(0, Math.min(3, missionStep));
@@ -385,8 +388,29 @@ export default function CharacterMenu({
                   <DataCard label="SALVAMENTO" value="Neste dispositivo" detail="Personagem e missão em armazenamento local" />
                   <DataCard label="PLATAFORMA" value="Android" detail="Aplicativo compilado via Capacitor" />
                 </section>
+                <section className="na-performance-options" aria-label="Qualidade gráfica e desempenho">
+                  <strong>DESEMPENHO NO ANDROID</strong>
+                  <p>Se ocorrerem travamentos ou quedas de FPS, escolha Economia (30 FPS).
+                    Para aparelhos que suportarem, use Balanceado (até 60 FPS).
+                    A alteração entra em vigor quando reabrir o aplicativo.</p>
+                  <div role="group" aria-label="Perfil de gráficos">
+                    {(["economy","balanced"] as const).map(mode=>
+                      <button type="button" key={mode}
+                        aria-pressed={graphicsMode===mode}
+                        onClick={()=>{
+                          if(saveGraphicsMode(mode)){
+                            setGraphicsMode(mode);
+                            setGraphicsNotice("Perfil salvo. Feche e reabra o jogo para aplicar a configuração.");
+                          }else setGraphicsNotice("Não foi possível salvar a configuração gráfica.");
+                        }}>
+                        {mode==="economy"?"Economia · 30 FPS":"Balanceado · até 60 FPS"}
+                      </button>)}
+                  </div>
+                  {graphicsNotice&&<small role="status">{graphicsNotice}</small>}
+                </section>
                 <AudioControls />
-                <p className="menu-footnote">Idioma e qualidade gráfica serão configuráveis em entregas futuras.</p>
+                <p className="menu-footnote">Em caso de fechamento inesperado, anote o aparelho,
+                  a etapa do jogo e se estava explorando ou combatendo.</p>
               </div>
             )}
           </div>
