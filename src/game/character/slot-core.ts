@@ -44,5 +44,6 @@ export function readRawSlot(id:string):string|null{
  try{return globalThis.localStorage?.getItem(CHARACTER_SLOT_PREFIX+id)??null;}catch{return null;}
 }
 export function setActiveRaw(raw:string):boolean{
- try{globalThis.localStorage?.setItem(CHARACTER_SAVE_KEY,raw);return true;}catch{return false;}
+ try{const storage=globalThis.localStorage;if(!storage)return false;
+ storage.setItem(CHARACTER_SAVE_KEY,raw);return true;}catch{return false;}
 }
