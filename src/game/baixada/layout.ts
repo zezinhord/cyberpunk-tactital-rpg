@@ -1,5 +1,5 @@
-/** Planta isométrica da Baixada 0.6.7a.
- * Coordenadas do grid 20x16: fonte única para arte, interação e colisões.
+/** Planta isométrica da Baixada 0.6.9-rc.4.
+ * Grid expandido com o setor de manutenção sul, entrada e saída do esgoto.
  * A planta de circulação é intencionalmente mais importante que a decoração.
  */
 export interface Tile { readonly x: number; readonly y: number }
@@ -18,8 +18,8 @@ export interface BuildingSpec {
   readonly sign?: string;
 }
 
-export const GRID_WIDTH = 33;
-export const GRID_HEIGHT = 30;
+export const GRID_WIDTH = 39;
+export const GRID_HEIGHT = 34;
 export const PLAYER_START: Tile = { x: 6, y: 9 };
 
 /** Entradas e NPCs preservados nas mesmas células da campanha anterior. */
@@ -36,6 +36,8 @@ export const ACTOR_TILES = {
   "feira-corretor": { x: 11, y: 24 },
   "feira-ajuda": { x: 6, y: 25 },
   "feira-archive": { x: 17, y: 29 },
+  "enter-sewer-drain": { x: 34, y: 20 },
+  "enter-sewer-deep": { x: 35, y: 29 },
 } as const satisfies Record<string, Tile>;
 
 /** Sete volumes distintos; sem prédios de preenchimento sobre as vias principais. */
@@ -62,6 +64,11 @@ export const BUILDINGS: ReadonlyArray<BuildingSpec> = [
   { id:"feira-antenna", x:19,y:21,width:3,depth:3,height:105,wall:0x756957,roof:0x656e68,accent:0xd3b47e,style:"utility",sign:"REDE LOCAL" },
   { id:"feira-bancas", x:7,y:27,width:4,depth:2,height:73,wall:0x967253,roof:0x756459,accent:0xf2c278,style:"market",sign:"TROCAS / CABOS" },
   { id:"feira-deposito", x:24,y:25,width:4,depth:3,height:86,wall:0x676a64,roof:0x586565,accent:0xccb48d,style:"depot",sign:"CARGAS / LESTE" },
+  // Extensão leste do Pátio: corredor industrial e novas bocas de manutenção.
+  { id:"subestacao-sul", x:34,y:7,width:3,depth:3,height:104,wall:0x485f61,roof:0x3b5156,accent:0xe6bd7c,style:"utility",sign:"SUBESTAÇÃO SUL" },
+  { id:"estacao-drenagem", x:34,y:14,width:3,depth:3,height:92,wall:0x67716b,roof:0x4c6264,accent:0xe4aa68,style:"factory",sign:"DRENAGEM 04" },
+  { id:"posto-hidraulico", x:31,y:23,width:3,depth:3,height:88,wall:0x806c58,roof:0x64706c,accent:0xf0c484,style:"workshop",sign:"ESTAÇÃO / BOMBA" },
+  { id:"deposito-valvulas", x:35,y:31,width:3,depth:3,height:73,wall:0x65686a,roof:0x4d585c,accent:0xd2b68b,style:"depot",sign:"VÁLVULAS / 04" },
 ];
 
 /** Decoração deliberada: cada objeto ocupa uma célula visual e lógica.
@@ -69,10 +76,10 @@ export const BUILDINGS: ReadonlyArray<BuildingSpec> = [
  */
 export const PROPS = {
   marketStalls: [{ x: 16, y: 4 }, { x: 9, y: 24 }, { x: 15, y: 28 }],
-  palms: [{ x: 5, y: 2 }, { x: 18, y: 8 }, { x: 5, y: 14 }, { x: 21, y: 18 }, { x: 4, y: 29 }],
-  lamps: [{ x: 6, y: 5 }, { x: 15, y: 10 }, { x: 25, y: 6 }, { x: 32, y: 10 }, { x: 19, y: 28 }],
+  palms: [{ x: 5, y: 2 }, { x: 18, y: 8 }, { x: 5, y: 14 }, { x: 21, y: 18 }, { x: 4, y: 29 }, { x: 2, y: 32 }],
+  lamps: [{ x: 6, y: 5 }, { x: 15, y: 10 }, { x: 25, y: 6 }, { x: 32, y: 10 }, { x: 19, y: 28 }, { x: 37, y: 18 }, { x: 33, y: 29 }],
   bins: [{ x: 11, y: 5 }, { x: 15, y: 8 }, { x: 8, y: 11 }, { x: 31, y: 7 }, { x: 4, y: 28 }],
-  crates: [{ x: 5, y: 8 }, { x: 12, y: 11 }, { x: 18, y: 7 }, { x: 27, y: 7 }, { x: 20, y: 15 }, { x: 26, y: 22 }],
+  crates: [{ x: 5, y: 8 }, { x: 12, y: 11 }, { x: 18, y: 7 }, { x: 27, y: 7 }, { x: 20, y: 15 }, { x: 26, y: 22 }, { x: 38, y: 24 }, { x: 32, y: 32 }],
 } as const satisfies Record<string, ReadonlyArray<Tile>>;
 
 /** Habitantes com rotas próprias; não são pontos sólidos permanentes. */
@@ -93,7 +100,7 @@ export function isIndustrialSector(tile: Tile): boolean { return tile.x >= 20; }
 export function isCommercialSector(tile: Tile): boolean { return tile.y >= 20 && tile.x < 23; }
 export const SECTORS = [
   {id:"baixada",name:"Baixada Central",type:"residential",description:"Clínica, moradias e Canal Sul"},
-  {id:"patio",name:"Pátio do Reúso",type:"industrial",description:"Cooperativa e infraestrutura comunitária"},
+  {id:"patio",name:"Pátio do Reúso",type:"industrial",description:"Cooperativa, subestação e acessos de drenagem subterrânea"},
   {id:"feira",name:"Mercado dos Cabos",type:"commercial",description:"Feira, redes informais e casa comum"},
 ] as const;
 export type SectorId=(typeof SECTORS)[number]["id"];
@@ -134,11 +141,15 @@ export function isStreet(tile: Tile): boolean {
     || (x === 24 && y >= 4 && y <= 19) || (x === 29 && y >= 4 && y <= 19)
     || (y === 14 && x >= 19 && x <= 32)
     // Circuito da Feira: travessas conectadas, calçadão e ruas de serviço.
-    || (y === 19 && x >= 3 && x <= 29)
+    || (y === 19 && x >= 3 && x <= 38)
     || (x === 6 && y >= 19 && y <= 29)
     || (x === 12 && y >= 19 && y <= 29)
     || (x === 18 && y >= 19 && y <= 29)
     || (x === 22 && y >= 18 && y <= 29)
     || (x === 29 && y >= 18 && y <= 29)
-    || (y === 26 && x >= 3 && x <= 32);
+    || (y === 26 && x >= 3 && x <= 38)
+    // Passarelas abertas da expansão leste e retorno do nível -02.
+    || (x === 34 && y >= 17 && y <= 30)
+    || (x === 35 && y >= 25 && y <= 30)
+    || (y === 30 && x >= 29 && x <= 38);
 }
