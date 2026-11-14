@@ -70,7 +70,7 @@ jobs:
         run: |
           node --experimental-strip-types scripts/test-progression.mjs
           node --experimental-strip-types scripts/test-field-test.mjs
-          node scripts/test-combat-waves.mjs
+          node --experimental-strip-types scripts/test-combat-waves.mjs
 
       - name: Validar planta, colisões e rotas da Baixada
         run: node --experimental-strip-types scripts/test-baixada-layout.mjs

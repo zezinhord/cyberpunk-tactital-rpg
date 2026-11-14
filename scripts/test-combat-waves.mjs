@@ -1,20 +1,17 @@
 import assert from "node:assert/strict";
-import {createRequire} from "node:module";
-import {readFileSync} from "node:fs";
-const require=createRequire(import.meta.url);
-const tsPackage=require("typescript");
-const ts=tsPackage.default??tsPackage;
-// Testa o mesmo TurnManager de produção. Um loader de desenvolvimento CJS
-// usa apenas TypeScript já fixado no package-lock, sem dependências extras.
-require.extensions[".ts"]=(mod,filename)=>{
-  const source=readFileSync(filename,"utf8");
-  const output=ts.transpileModule(source,{fileName:filename,compilerOptions:{
-    module:1,target:9,
-    esModuleInterop:true,
-  }}).outputText;
-  mod._compile(output,filename);
-};
-const {TurnManager}=require("../src/game/TurnManager.ts");
+import {registerHooks} from "node:module";
+// Node 22.23+ oferece strip-types nativo; o hook resolve os imports
+// extensionless de código TS tal como o Vite já faz em produção.
+registerHooks({
+ resolve(specifier,context,nextResolve){
+  if((specifier.startsWith("./")||specifier.startsWith("../")) &&
+    !/\\.[cm]?[jt]s$/.test(specifier)){
+    return nextResolve(specifier+".ts",context);
+  }
+  return nextResolve(specifier,context);
+ }
+});
+const {TurnManager}=await import("../src/game/TurnManager.ts");
  for(const encounter of ["trial-1","trial-2","trial-3"]){
   const m=new TurnManager({
    playerName:"Protagonista",originId:"baixada",classId:"solo",
