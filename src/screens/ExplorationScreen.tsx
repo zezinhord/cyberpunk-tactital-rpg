@@ -536,7 +536,7 @@ export default function ExplorationScreen({
             <h2>O nome que sumiu</h2>
           </div>
           <span className={mission.step === 3 ? "mission-status complete" : "mission-status"}>
-            {v09.reported ? "CAPÍTULO 02" : "EM ANDAMENTO"}
+            {v09.reported ? "CAPÍTULO 02" : mission.step===3 ? "ETAPA 1 CONCLUÍDA" : "EM ANDAMENTO"}
           </span>
         </div>
         <p className="market-state-strip">COMUNIDADE {market.trust}/5 · ALERTA DA REDE {market.heat}/5 · PISTAS DO MERCADO {market.clues.length}</p>
