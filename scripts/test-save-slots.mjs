@@ -85,6 +85,8 @@ assert.equal(saveHealth(id,9,20),true);
 assert.equal(importCharacterBackup(exported,true).ok,true,"Restaurar mesmo ID mediante autorização");
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,format:"invalid"})).ok,false);
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,"../../../admin":"x"}})).ok,false);
+assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,constructor:"{}"}})).ok,false);
+assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,trial:JSON.stringify({started:true,completed:false,step:999,history:[]})}})).ok,false);
 assert.equal(importCharacterBackup(exported.padEnd(1_000_002," ")).ok,false);
 // Recriar armazenamento de outro aparelho e importar backup exportado.
 db=new Map();
