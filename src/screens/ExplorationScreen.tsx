@@ -181,6 +181,15 @@ export default function ExplorationScreen({
       return;
     }
     setFerrugem(result.progress);
+    if(result.progress.completed){
+      // A resolução altera indicadores já usados nos diálogos do Mercado.
+      // Publicar amplia o alerta da rede; proteger fortalece a confiança local.
+      const adjusted={...market,
+        trust:Math.min(5,market.trust+(result.progress.ending==="proteger"?1:0)),
+        heat:Math.min(5,market.heat+(result.progress.ending==="publicar"?1:0)),
+      };
+      if(saveMarket(character.id,adjusted))setMarket(adjusted);
+    }
     const rewarded=onQuestXp("ferrugem-"+result.stage.id,result.stage.xp);
     const materials:Partial<Record<string,ItemId>>={
       consumo:"celula_energia",componentes:"residuo_metalico",turno:"conector_reuso",
@@ -642,7 +651,7 @@ export default function ExplorationScreen({
         <div className="explorer-character-data">
           <span className="eyebrow">PROTAGONISTA · NÍVEL {character.level}</span>
           <strong>{character.name}</strong>
-          <small>{origin.name} · {getSectorById(sectorId).name}</small>
+          <small>{origin.name} · {interior==="ferrugem"?"Ferrugem":getSectorById(sectorId).name}</small>
         </div>
         <div className="district-clock">
           <span>18:40</span>
@@ -652,7 +661,7 @@ export default function ExplorationScreen({
 
       <section className="district-scene-section">
         <div className="district-scene-heading">
-          <span>{interior ? "ÁREA INTERNA" : "EXPLORAÇÃO ISOMÉTRICA"}</span>
+          <span>{interior==="ferrugem"?"DISTRITO INDUSTRIAL":interior?"ÁREA INTERNA":"EXPLORAÇÃO ISOMÉTRICA"}</span>
           <span>TOQUE PARA SE MOVER</span>
         </div>
         {interior ? (
@@ -692,7 +701,7 @@ export default function ExplorationScreen({
       </section>
       {(interior==="sewer-drain"||interior==="sewer-deep"||interior==="ferrugem")&&<button type="button"
         className="na-sewer-objective-hint" onClick={()=>setHubOpen(true)}
-        aria-label="Abrir objetivos da investigação subterrânea">
+        aria-label={interior==="ferrugem"?"Abrir objetivos da missão Ferrugem":"Abrir objetivos da investigação subterrânea"}>
         <span>{interior==="ferrugem"?"◈ MISSÃO EM FERRUGEM · TOQUE PARA DETALHES":
           "◈ OBJETIVO SUBTERRÂNEO · TOQUE PARA DETALHES"}</span>
         <strong>{interior==="ferrugem"?ferrugemObjective(ferrugem):sewerNextObjective(sewer)}</strong>
@@ -716,8 +725,8 @@ export default function ExplorationScreen({
         </button>
         <div id="na-mission-details" className="na-mission-details">
         <div className="na-next-step" role="status">
-          <span>PRÓXIMO PASSO · {trial.started&&!trial.completed?"OPERAÇÃO CIRCUITO FANTASMA":mission.step<3?"O NOME QUE SUMIU":!v09.reported?"INVESTIGAÇÃO V-09":"NOVO CAPÍTULO"}</span>
-          <strong>{trial.started&&!trial.completed
+          <span>PRÓXIMO PASSO · {interior==="ferrugem"?"ECOS DE FERRUGEM":trial.started&&!trial.completed?"OPERAÇÃO CIRCUITO FANTASMA":mission.step<3?"O NOME QUE SUMIU":!v09.reported?"INVESTIGAÇÃO V-09":"NOVO CAPÍTULO"}</span>
+          <strong>{interior==="ferrugem"?ferrugemObjective(ferrugem):trial.started&&!trial.completed
             ? currentTrialStep(trial)?.objective
             : mission.step<3 ? objective
             : !v09.reported ? objective
