@@ -21,6 +21,16 @@ assert.equal(saveCharacter(a),true);
 assert.equal(saveCharacter(b),true);
 assert.equal(listCharacterSlots().length,2);
 assert.equal(loadCharacter()?.id,b.id);
+// Falha no terceiro registro não pode sobrescrever só o slot ou seu índice.
+let failActiveOnce=true;
+globalThis.localStorage.setItem=(key,value)=>{
+ if(key===CHARACTER_SAVE_KEY&&failActiveOnce){failActiveOnce=false;throw new Error("quota");}
+ db.set(key,String(value));
+};
+assert.equal(saveCharacter({...b,name:"NÃO SALVAR"}),false);
+assert.equal(loadCharacter()?.name,"Oficial","Personagem ativo preservado após escrita parcial");
+assert.equal(readCharacterSlot(b.id)?.name,"Oficial","Slot preservado após escrita parcial");
+assert.equal(listCharacterSlots().length,2);
 assert.equal(readCharacterSlot(a.id)?.experience,37);
 assert.equal(loadCharacter()?.id,b.id,"Consulta passiva não pode alterar o protagonista ativo");
 assert.equal(loadCharacterSlot(a.id)?.id,a.id);
