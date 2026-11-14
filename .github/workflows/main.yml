@@ -66,6 +66,9 @@ jobs:
           node --experimental-strip-types scripts/test-class-saves.mjs
           node --experimental-strip-types scripts/test-save-slots.mjs
 
+      - name: Testar perfis gráficos e FPS Android
+        run: node --experimental-strip-types scripts/test-performance.mjs
+
       - name: Testar prólogo cinematográfico e migração de salvamentos
         run: node --experimental-strip-types scripts/test-opening.mjs
 
