@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
-import {build} from "esbuild";
-import {mkdtemp,rm} from "node:fs/promises";
-import {tmpdir} from "node:os";
-import {join} from "node:path";
-import {pathToFileURL} from "node:url";
-// Bundle o TurnManager real para executar o teste via Node sem alterar imports
-// TypeScript usados pelo Vite. Não simula recompensas, ataques nem cooldowns.
-const dir=await mkdtemp(join(tmpdir(),"nova-arcadia-combat-"));
-try{
- const outfile=join(dir,"turn.mjs");
- await build({entryPoints:["src/game/TurnManager.ts"],outfile,bundle:true,
-   platform:"node",format:"esm",logLevel:"silent"});
- const {TurnManager}=await import(pathToFileURL(outfile).href);
+import {createRequire} from "node:module";
+import {readFileSync} from "node:fs";
+const require=createRequire(import.meta.url);
+const ts=require("typescript");
+// Testa o mesmo TurnManager de produção. Um loader de desenvolvimento CJS
+// usa apenas TypeScript já fixado no package-lock, sem dependências extras.
+require.extensions[".ts"]=(mod,filename)=>{
+  const source=readFileSync(filename,"utf8");
+  const output=ts.transpileModule(source,{fileName:filename,compilerOptions:{
+    module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
+    esModuleInterop:true,
+  }}).outputText;
+  mod._compile(output,filename);
+};
+const {TurnManager}=require("../src/game/TurnManager.ts");
  for(const encounter of ["trial-1","trial-2","trial-3"]){
   const m=new TurnManager({
    playerName:"Protagonista",originId:"baixada",classId:"solo",
@@ -55,4 +57,4 @@ try{
   }
  }
  console.log("Combat: 2+2+3 ondas reais, três fontes de dano, energia e classe preservadas.");
-}finally{await rm(dir,{force:true,recursive:true});}
+console.log("Combat: 2+2+3 ondas reais, três fontes de dano, energia e classe preservadas.");
