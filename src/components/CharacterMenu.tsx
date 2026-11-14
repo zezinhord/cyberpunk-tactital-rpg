@@ -7,6 +7,8 @@ import type { TestAppearance } from "../game/test-arena/appearance";
 import { getPlayerSpriteUrl } from "../game/baixada/sprites";
 import ClassSelection from "./ClassSelection";
 import ProgressionTree from "./ProgressionTree";
+import {SEWER_MAPS} from "../game/baixada/sewer-layout";
+import {sewerStatus,type SewerProgress} from "../game/story/sewer-v09";
 import type {StatId} from "../game/progression/tree";
 import {getClassById,CLASS_SKILLS,getClassSkills,type ClassId} from "../game/classes/registry";
 
@@ -29,6 +31,7 @@ interface Props {
   originProfile: OriginGameplayProfile;
   missionStep: 0 | 1 | 2 | 3;
   missionObjective: string;
+  sewerProgress:SewerProgress;
   clues: JournalClue[];
   sceneTitle: string;
   sceneSubtitle: string;
@@ -84,6 +87,7 @@ export default function CharacterMenu({
   originProfile,
   missionStep,
   missionObjective,
+  sewerProgress,
   clues,
   sceneTitle,
   sceneSubtitle,
@@ -330,7 +334,14 @@ export default function CharacterMenu({
                     </div>
                   ))}
                 </section>
-                <p className="menu-footnote">O mapa interativo e o deslocamento entre distritos ainda não estão disponíveis nesta versão. A Baixada é a área jogável atual.</p>
+                <section className="menu-list-panel">
+                  <span className="menu-panel-kicker">SUBSOLO / ROTAS JOGÁVEIS</span>
+                  {Object.values(SEWER_MAPS).map(area=><div className="menu-list-row current" key={area.id}>
+                    <span>↓</span><strong>{area.name}</strong>
+                    <small>{area.subtitle} · JOGÁVEL</small>
+                  </div>)}
+                </section>
+                <p className="menu-footnote">A Baixada ampliada e as duas zonas subterrâneas são exploráveis. Os outros distritos permanecem em desenvolvimento.</p>
               </div>
             )}
 
@@ -339,12 +350,19 @@ export default function CharacterMenu({
                 <section className="menu-quest-card">
                   <div className="menu-quest-heading">
                     <div><span className="menu-panel-kicker">MISSÃO PRINCIPAL // BAIXADA</span><h4>O nome que sumiu</h4></div>
-                    <strong>{missionStep === 3 ? "CONCLUÍDA" : "ATIVA"}</strong>
+                    <strong>{missionStep === 3 ? (sewerProgress.manifestRecovered?"ESGOTO INVESTIGADO":"CLÍNICA CONCLUÍDA") : "ATIVA"}</strong>
                   </div>
                   <p>Uma pessoa desapareceu depois de procurar atendimento por causa de um implante defeituoso. O registro oficial foi apagado, mas a clínica preservou uma cópia local.</p>
                   <div className="menu-quest-progress"><span style={{ width: ((progress / 3) * 100) + "%" }} /></div>
-                  <small>{progress} / 3 etapas concluídas</small>
+                  <small>{progress} / 3 etapas da clínica concluídas</small>
                   <div className="menu-objective"><span>OBJETIVO ATUAL</span><strong>{missionObjective}</strong></div>
+                </section>
+                <section className="menu-list-panel">
+                  <span className="menu-panel-kicker">ROTA SUBTERRÂNEA // {sewerStatus(sewerProgress)}</span>
+                  <div className="menu-list-row"><span>{sewerProgress.traceFound?"✓":"○"}</span><strong>Rastros V-09</strong><small>GALERIA -01</small></div>
+                  <div className="menu-list-row"><span>{sewerProgress.pumpRestored?"✓":"○"}</span><strong>Bomba hidráulica</strong><small>GALERIA -01</small></div>
+                  <div className="menu-list-row"><span>{sewerProgress.gateOpened?"✓":"○"}</span><strong>Comporta 04</strong><small>DESCIDA -02</small></div>
+                  <div className="menu-list-row"><span>{sewerProgress.manifestRecovered?"✓":"○"}</span><strong>Manifesto V-09</strong><small>CÂMARA -02</small></div>
                 </section>
                 <section className="menu-list-panel">
                   <span className="menu-panel-kicker">PISTAS E REGISTROS // {clues.length}</span>
