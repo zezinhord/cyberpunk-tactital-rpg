@@ -15,3 +15,28 @@
 .na-trial-history{max-height:190px;overflow:auto}
 .na-trial-history summary{cursor:pointer;min-height:36px;color:#ead1aa;font-size:11px;padding:7px}
 .na-trial-history p{padding-left:9px;font-size:11px}
+
+
+/* Investigação da rota V-09: quatro marcos distribuídos por dois níveis subterrâneos. */
+.na-sewer-panel{display:flex;flex-direction:column;gap:7px;margin:0;padding:11px 12px;
+ border:1px solid rgba(204,174,120,.63);border-left:3px solid #dfad70;border-radius:9px;
+ color:#e5e8e1;background:linear-gradient(125deg,rgba(17,38,43,.97),rgba(27,33,35,.96));}
+.na-sewer-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.na-sewer-heading span{font:700 10px var(--mono);color:#e5bd84;letter-spacing:.04em;}
+.na-sewer-heading strong{font:600 10px var(--mono);color:#d7e2d7;text-align:right;}
+.na-sewer-panel p{font:500 12px/1.45 var(--body);margin:0;color:#e7e8dd;}
+.na-sewer-panel>small{font:500 10px/1.4 var(--mono);color:#e5bd84;}
+.na-sewer-checkpoints{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;}
+.na-sewer-checkpoints span{display:flex;align-items:center;gap:5px;padding:5px 7px;
+ min-height:28px;border:1px solid #385058;border-radius:5px;background:#1a3038;
+ font:600 10px var(--mono);color:#bbc8c5;}
+.na-sewer-checkpoints span.complete{border-color:#c5a574;color:#f3d9a8;background:#33413c;}
+/* Os dois mapas subterrâneos ocupam todo o viewport Phaser, sem imagens externas. */
+.interior-world.sewer-drain,.interior-world.sewer-deep{
+ border-color:#5c6b69;background:#08151a;touch-action:manipulation;}
+@media (orientation:landscape) and (max-height:430px){
+ .na-sewer-panel{padding:7px 9px;gap:5px;}
+ .na-sewer-panel p{font-size:11px;}
+ .na-sewer-heading span,.na-sewer-heading strong{font-size:9px;}
+ .na-sewer-checkpoints span{padding:3px 5px;min-height:24px;}
+}
