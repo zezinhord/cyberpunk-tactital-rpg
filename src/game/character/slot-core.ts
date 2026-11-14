@@ -38,7 +38,7 @@ export function persistActiveAndSlot(id:string,serialized:string):boolean{
      }catch{/* Reversão parcial: não perder o backup já gravado. */}
    }
    return false;
- }}
+ }
 }
 export function readRawSlot(id:string):string|null{
  try{return globalThis.localStorage?.getItem(CHARACTER_SLOT_PREFIX+id)??null;}catch{return null;}
