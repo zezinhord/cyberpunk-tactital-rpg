@@ -18,7 +18,11 @@ export interface Unit extends Position {
 import type { SpecialId } from "./abilities/catalog";
 
 export type CombatVisual = "basic" | "hit" | "miss" | "move" | "emp" | "shield" | "repair" | "terminal";
-export interface CombatCue { sequence: number; visual: CombatVisual; target: "player" | "enemy" | "terminal"; amount?: number }
+export interface CombatCue { sequence: number; visual: CombatVisual;
+ target: "player" | "enemy" | "terminal"; amount?: number;
+ /** Caminho confirmado, somente para animar; regras já consomem passos no motor. */
+ path?:readonly Position[];
+}
 
 export type EncounterId="test"|"v09"|"trial-1"|"trial-2"|"trial-3"|
  "district-aurea"|"district-subsolo"|"district-setor-zero"|

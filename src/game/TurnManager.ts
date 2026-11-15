@@ -5,7 +5,9 @@ import { checkSpecial, useSpecial, advanceSpecialRound, isEnemyJammed, advanceBa
 import type { SpecialId } from "./abilities/catalog";
 import type { AbilityCheck } from "./abilities/engine.ts";
 import type { CombatVisual } from "./types";
-import { findPath, getReachableCells, MOVEMENT_PER_TURN } from "./map";
+import { findPath,getReachableCells,coverBetween,coverArmorBonus,MOVEMENT_PER_TURN,
+  type CoverGrade } from "./map";
+import {enemyProfile,planEnemyTurn,withinShot} from "./tactics";
 import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types";
 import type { OriginGameplayProfile } from "./character/types";
 
@@ -32,12 +34,14 @@ export interface TurnManagerOptions {
   classId?: string | null;
   characterAbilities?: readonly string[];
   characterSkillRanks?:Readonly<Record<string,number>>;
+  weaponId?:string|null;
   encounterId?: EncounterId;
 }
 
 export class TurnManager {
   private readonly events = new TypedEventBus<GameEvents>();
   private readonly originProfile?: OriginGameplayProfile;
+  private readonly weaponRange:number;
   private temporaryArmorBonus = 0;
   private temporaryMovementBonus = 0;
   private nextAttackDamageBonus = 0;
@@ -46,6 +50,8 @@ export class TurnManager {
 
   constructor(options: TurnManagerOptions = {}) {
     this.originProfile = options.originProfile;
+    this.weaponRange=options.weaponId==="pistola_inducao"?5:
+      options.weaponId==="pistola_manutencao"?4:1;
     const bonus=options.progressionBonuses;
     const movementPerTurn = MOVEMENT_PER_TURN + (this.originProfile?.movementBonus ?? 0)+(bonus?.movement??0);
     const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0);
@@ -117,7 +123,8 @@ export class TurnManager {
       log: [...this.state.log],
       cooldowns: { ...this.state.cooldowns },
       classCooldowns:{...this.state.classCooldowns},
-      cue: this.state.cue ? { ...this.state.cue } : null,
+      cue: this.state.cue ? {...this.state.cue,
+        path:this.state.cue.path?.map(tile=>({...tile}))} : null,
     };
   }
 
@@ -184,8 +191,10 @@ export class TurnManager {
     this.publish();
   }
 
-  private setCue(visual: CombatVisual, target: "player" | "enemy" | "terminal", amount?: number): void {
-    this.state.cue = { sequence: (this.state.cue?.sequence ?? 0) + 1, visual, target, amount };
+  private setCue(visual: CombatVisual, target: "player" | "enemy" | "terminal",
+    amount?: number,path?:readonly Position[]): void {
+    this.state.cue = {sequence:(this.state.cue?.sequence??0)+1,
+      visual,target,amount,path};
   }
 
   getReachableCells(): Position[] {
@@ -194,13 +203,40 @@ export class TurnManager {
     return getReachableCells(this.state.units, player, this.state.movementRemaining);
   }
 
+  /** Prévia única para lógica, HUD e ação real: evita indicadores mentirosos. */
+  getBasicAttackPreview():{
+    available:boolean;reason:string;range:number;distance:number;
+    mode:"melee"|"ranged";cover:CoverGrade;defense:number;
+  }{
+    const player=livingUnit(this.state.units,"runner");
+    const enemy=livingUnit(this.state.units,"drone");
+    const mode=this.weaponRange>1?"ranged":"melee";
+    const range=this.weaponRange;
+    const dist=player&&enemy?distance(player,enemy):0;
+    const cover=player&&enemy&&range>1?coverBetween(player,enemy):"none";
+    const defense=(enemy?.armorClass??0)+(cover==="partial"?2:0);
+    let reason="";
+    if(!player||!enemy)reason="Sem alvo disponível.";
+    else if(this.state.combatComplete)reason="Combate encerrado.";
+    else if(this.state.activeSide!=="player")reason="Aguarde seu turno.";
+    else if(!this.state.mainActionAvailable)reason="Ação principal já utilizada.";
+    else if(dist>range)reason="Alvo fora do alcance ("+range+" células).";
+    else if(range>1&&cover==="full")reason="Disparo bloqueado por obstáculo.";
+    return {available:reason==="",reason,range,distance:dist,mode,cover,defense};
+  }
+
   canAttack(): boolean {
-    const player = livingUnit(this.state.units, "runner");
-    const enemy = livingUnit(this.state.units, "drone");
-    return Boolean(
-      player && enemy && this.state.activeSide === "player" && !this.state.combatComplete
-      && this.state.mainActionAvailable && distance(player, enemy) <= 1,
-    );
+    return this.getBasicAttackPreview().available;
+  }
+
+  /** Intenção contextual antecipada, sem revelar resultados aleatórios. */
+  getEnemyIntent():string{
+    const player=livingUnit(this.state.units,"runner");
+    const enemy=livingUnit(this.state.units,"drone");
+    if(!player||!enemy||this.state.combatComplete)return "Sem ameaça ativa";
+    if(this.state.enemyJamTurns>0)return "Interferência ativa: ação hostil bloqueada";
+    return planEnemyTurn(enemy,player,this.state.units,
+      enemyProfile(this.state.encounterId,this.state.wave)).intent;
   }
 
   activateOriginAbility(): void {
@@ -270,7 +306,7 @@ export class TurnManager {
     }
     player.x = x;
     player.y = y;
-    this.setCue("move", "player");
+    this.setCue("move", "player",undefined,path);
     this.state.movementRemaining -= cost;
     this.state.message = `Movimento concluído: ${cost} célula(s) consumida(s).`;
     this.addLog(`[MOVIMENTO] ${player.name} avançou ${cost} célula(s).`);
@@ -278,39 +314,34 @@ export class TurnManager {
   }
 
   attack(): void {
-    const player = livingUnit(this.state.units, "runner");
-    const enemy = livingUnit(this.state.units, "drone");
-    if (!player || !enemy || this.state.activeSide !== "player" || this.state.combatComplete) return;
-    if (!this.state.mainActionAvailable) {
-      this.setMessage("Ação principal já utilizada neste turno.");
-      return;
+    const preview=this.getBasicAttackPreview();
+    if(!preview.available){this.setMessage(preview.reason);return;}
+    const player=livingUnit(this.state.units,"runner")!;
+    const enemy=livingUnit(this.state.units,"drone")!;
+    const roll=rollDie(20);
+    const attackBonus=player.attackBonus+this.nextAttackAccuracyBonus+
+      this.state.classNextAccuracyBonus;
+    const total=roll+attackBonus;
+    this.state.mainActionAvailable=false;
+    this.nextAttackAccuracyBonus=0;
+    this.state.classNextAccuracyBonus=0;
+    if(roll===20||total>=preview.defense){
+      const baseDamage=rollDie(preview.mode==="ranged"?6:6)+2+
+        (this.weaponRange===5?1:0);
+      const damage=baseDamage+this.nextAttackDamageBonus+this.state.classNextDamageBonus;
+      enemy.hp=Math.max(0,enemy.hp-damage);
+      this.setCue("hit","enemy",Math.min(damage,enemy.hp+damage));
+      this.state.message=preview.mode==="ranged"?
+        `${player.name} disparou e causou ${damage} de dano.`:
+        `${player.name} acertou e causou ${damage} de dano.`;
+      this.addLog(`[ATAQUE] ${preview.mode==="ranged"?"Tiro":"Corpo a corpo"} · d20 ${roll} + ${attackBonus} = ${total} vs ${preview.defense}. ${damage} dano.`);
+    }else{
+      this.setCue("miss","enemy");
+      this.state.message="O ataque não atingiu o alvo.";
+      this.addLog(`[ATAQUE] d20 ${roll} + ${attackBonus} = ${total} vs ${preview.defense}. Falha.`);
     }
-    if (distance(player, enemy) > 1) {
-      this.setMessage("A sentinela está fora do alcance corpo a corpo.");
-      return;
-    }
-    const roll = rollDie(20);
-    const attackBonus = player.attackBonus + this.nextAttackAccuracyBonus + this.state.classNextAccuracyBonus;
-    const total = roll + attackBonus;
-    this.state.mainActionAvailable = false;
-    this.nextAttackAccuracyBonus = 0;
-    this.state.classNextAccuracyBonus = 0;
-    if (roll === 20 || total >= enemy.armorClass) {
-      const baseDamage = rollDie(6) + 2;
-      const damage = baseDamage + this.nextAttackDamageBonus + this.state.classNextDamageBonus;
-      this.nextAttackDamageBonus = 0;
-      this.state.classNextDamageBonus=0;
-      enemy.hp = Math.max(0, enemy.hp - damage);
-      this.setCue("hit", "enemy", damage);
-      this.state.message = `${player.name} acertou o ataque e causou ${damage} de dano.`;
-      this.addLog(`[ATAQUE] d20 ${roll} + ${attackBonus} = ${total}. ${damage} de dano.`);
-    } else {
-      this.nextAttackDamageBonus = 0;
-      this.state.classNextDamageBonus=0;
-      this.setCue("miss", "enemy");
-      this.state.message = `${player.name} errou o ataque.`;
-      this.addLog(`[ATAQUE] d20 ${roll} + ${attackBonus} = ${total}. Ataque falhou.`);
-    }
+    this.nextAttackDamageBonus=0;
+    this.state.classNextDamageBonus=0;
     this.resolveEnemyDown();
     this.publish();
   }
@@ -321,41 +352,37 @@ export class TurnManager {
     const enemy = livingUnit(this.state.units, "drone");
     if (!player || !enemy) return;
     this.state.activeSide = "enemy";
-    this.state.message = "Turno da sentinela. Mantenha cobertura e prepare o próximo movimento.";
-    this.addLog("[TURNO] A sentinela está agindo.");
+    this.state.message = "Turno hostil. Observe a linha de tiro e as coberturas.";
+    this.addLog("[TURNO] A unidade hostil está agindo.");
     this.publish();
     const jammed = isEnemyJammed(this.state);
     if (jammed) {
       this.addLog("[CONTROLE] EMP bloqueou a ação da sentinela.");
       this.setCue("emp", "enemy");
     }
-    const adjacentTargets: Position[] = [
-      { x: player.x, y: player.y - 1 }, { x: player.x + 1, y: player.y },
-      { x: player.x, y: player.y + 1 }, { x: player.x - 1, y: player.y },
-    ];
-    const possiblePaths = adjacentTargets
-      .map((target) => findPath(enemy, target, this.state.units, enemy.id))
-      .filter((path): path is Position[] => path !== null)
-      .sort((a, b) => a.length - b.length);
-    const path = possiblePaths[0];
-    if (!jammed && distance(enemy, player) > 1 && path && path.length > 1) {
-      const destination = path[Math.min(2, path.length - 1)];
-      if (destination) {
-        enemy.x = destination.x;
-        enemy.y = destination.y;
-        this.addLog("[IA TÁTICA] A sentinela reposicionou-se em direção ao alvo.");
+    const profile=enemyProfile(this.state.encounterId,this.state.wave);
+    if(!jammed){
+      const plan=planEnemyTurn(enemy,player,this.state.units,profile);
+      if(plan.action==="advance"||plan.action==="reposition"){
+        enemy.x=plan.target.x;
+        enemy.y=plan.target.y;
+        this.addLog("[IA TÁTICA] "+profile.name+" · "+plan.intent+".");
       }
-    }
-    if (!jammed && distance(enemy, player) <= 1) {
-      const roll = rollDie(20);
-      const total = roll + enemy.attackBonus;
-      if (roll === 20 || total >= player.armorClass) {
-        const damage = rollDie(4) + 1;
-        player.hp = Math.max(0, player.hp - damage);
-        this.setCue("hit", "player", damage);
-        this.addLog(`[INIMIGO] Ataque confirmado: ${damage} de dano recebido.`);
-      } else {
-        this.addLog("[INIMIGO] Ataque da sentinela não atingiu o alvo.");
+      if(withinShot(enemy,player,profile.range)){
+        const cover=profile.range>1?coverArmorBonus(enemy,player):0;
+        const defense=player.armorClass+cover;
+        const roll=rollDie(20),total=roll+enemy.attackBonus;
+        if(roll===20||total>=defense){
+          const damage=rollDie(profile.range>1?6:4)+(profile.range>1?1:1);
+          player.hp=Math.max(0,player.hp-damage);
+          this.setCue("hit","player",damage);
+          this.addLog(`[INIMIGO] ${profile.range>1?"Disparo":"Golpe"}: d20 ${roll} + ${enemy.attackBonus} vs ${defense}. ${damage} dano.`);
+        }else{
+          this.setCue("miss","player");
+          this.addLog(`[INIMIGO] Ataque não atingiu o protagonista (defesa ${defense}).`);
+        }
+      }else{
+        this.addLog("[IA TÁTICA] "+profile.name+" aguarda abertura na linha de tiro.");
       }
     }
     advanceBarrierAfterEnemyAction(this.state);
@@ -396,7 +423,7 @@ export class TurnManager {
     this.state.movementRemaining = this.state.movementPerTurn;
     this.state.mainActionAvailable = true;
     this.state.bonusActionAvailable = true;
-    this.state.message = "Seu turno. Reposicione-se ou ataque quando estiver ao alcance.";
+    this.state.message = "Seu turno. Utilize cobertura, alcance e posicionamento para agir.";
     this.addLog(`[TURNO] Rodada ${this.state.round}. Seu turno começou.`);
     this.publish();
   }
