@@ -29,9 +29,19 @@ const ORIGINS:Readonly<Record<OriginId,Readonly<Record<TestAppearance,string>>>>
  pesquisador:{masculine:pesquisadorM,feminine:pesquisadorF},
  nomade:{masculine:nomadeM,feminine:nomadeF},
 };
+// Habitantes nomeados têm silhuetas próprias sem gerar novas texturas.
+// Reaproveita os spritesheets direcionais originais já empacotados no APK.
 const NPCS:Readonly<Record<string,string>>={
  nilo,joana,saira,teo,
+ lia:pesquisadorF,
+ ramon:militarM,
+ duda:baixadaF,
+ iza:nomadeF,
+ tomas:gangueM,
 };
+export const LONG_NPC_SHEETS:ReadonlySet<string>=new Set([
+ "lia","ramon","duda","iza","tomas",
+]);
 const PUBLIC_DECOR:Readonly<Record<string,string>>={
  market:"/assets/baixada/market-stall.svg",
  palm:"/assets/baixada/palm-tree.svg",
