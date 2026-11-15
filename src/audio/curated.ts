@@ -243,10 +243,13 @@ export function curatedCandidates(district:RadioDistrict,mood:RadioMood,style:Ra
  const byStyle=CURATED_TRACKS.filter(x=>available.has(x.id)&&
    (style==="auto"||x.style===style));
  const exact=byStyle.filter(x=>x.districts.includes(district)&&x.moods.includes(mood));
- if(exact.length>=2)return exact;
  const sameDistrict=byStyle.filter(x=>x.districts.includes(district));
  const sameMood=byStyle.filter(x=>x.moods.includes(mood));
- return [...new Map([...exact,...sameDistrict,...sameMood,...byStyle].map(x=>[x.id,x])).values()];
+ // Evita playlists de apenas 1-2 títulos em regiões pequenas; o contexto é
+ // preferência musical, não uma restrição rígida que provoca repetição.
+ const ordered=[...new Map([...exact,...sameMood,...sameDistrict,...byStyle]
+   .map(x=>[x.id,x])).values()];
+ return ordered;
 }
 export function chooseWithoutRepetition<T extends {url:string}>(
  candidates:readonly T[],recent:readonly string[],random=0.5
