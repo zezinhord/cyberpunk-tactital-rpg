@@ -32,6 +32,7 @@ export function checkClassSkill(state:GameState,ability:ClassSkill):ClassCheck {
    // Descargas físicas não atravessam paredes. Efeitos de controle de rede
    // sem dano continuam representando interferência remota digital.
    if(ability.range>1&&hasEffect(ability,"damage")&&
+      ability.classId!=="netrunner"&&!hasEffect(ability,"jam")&&
       !hasLineOfSight(player,enemy))
      return {available:false,reason:"Obstáculo bloqueia a técnica ofensiva."};
  }
