@@ -63,6 +63,7 @@ class SynthDirector {
   private playingArtist="Nova Arcádia";
   private selectedLicensedId="";
   private musicFadeToken=0;
+  private readonly radioListeners=new Set<(status:RadioStatus)=>void>();
   private readonly volumes:{[K in SoundChannel]:number}={
     music:readVolume("music"),effects:readVolume("effects"),ambient:readVolume("ambient"),
   };
@@ -117,8 +118,19 @@ class SynthDirector {
       }).then(catalog=>{
         this.licensed=new Set((catalog.items??[]).map(item=>item.id));
         if(this.licensed.size&&this.style!=="original")this.nextSong();
+        this.notifyRadio();
       }).catch(()=>{/* Mantém trilha local original. */});
     }catch{this.ctx=null;this.outputs=null;}
+  }
+  subscribeRadio(listener:(status:RadioStatus)=>void):()=>void{
+    this.radioListeners.add(listener);
+    listener(this.getRadioStatus());
+    return ()=>{this.radioListeners.delete(listener);};
+  }
+  private notifyRadio():void{
+    if(this.radioListeners.size===0)return;
+    const state=this.getRadioStatus();
+    for(const listener of this.radioListeners)listener(state);
   }
   getVolume(channel:SoundChannel):number{return this.volumes[channel];}
   setVolume(channel:SoundChannel,value:number):void {
@@ -131,6 +143,7 @@ class SynthDirector {
       this.soundtrack.volume=v*.65;
       if(v===0)this.soundtrack.pause();
       else if(this.soundtrack.paused)this.switchTrack();
+      this.notifyRadio();
     }
   }
   setScene(scene:SoundScene):void {
@@ -216,6 +229,7 @@ class SynthDirector {
       this.history=[...this.history.filter(existing=>existing!==url),url].slice(-4);
       audio.volume=0;
     }
+    this.notifyRadio();
     if(this.volumes.music===0){audio.pause();this.stopSynthScore();return;}
     try{
       const token=++this.musicFadeToken;
