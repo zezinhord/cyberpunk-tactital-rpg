@@ -156,13 +156,19 @@ export function normalizeProgression(char:PlayerCharacter):PlayerCharacter{
    const count=Math.min(sane(char.attributes[id]),attrBudget,Math.max(0,MAX_STAT_RANK-fixed));
    attr[id]=count;attrBudget-=count;
  }
- const abilities=new Set<string>(char.classId&&isPlayableClass(char.classId)?getStartingClassAbilities(char.classId):[]);
+ // Sem classe definida, IDs legados são mantidos como arquivo inerte.
+ // O motor só executa IDs cadastrados da classe ativa.
+ const abilities=new Set<string>(char.classId&&isPlayableClass(char.classId)?
+   getStartingClassAbilities(char.classId):
+   char.abilities.filter(id=>typeof id==="string"&&id.length<=80));
  const general:string[]=[];
  const ranks:Record<string,number>={};
  let budget=POINTS_PER_LEVEL.skills*(level-1);
  // Legado possuía técnicas desbloqueadas sem mapa de ranks.
- const acquired=[...new Set(char.abilities)].filter(id=>
-   Boolean(ALL_CLASS_SKILLS[id])&&ALL_CLASS_SKILLS[id].classId===char.classId)
+ const acquired=[...new Set(char.abilities)].filter(id=>{
+   const node=ALL_CLASS_SKILLS[id];
+   return Boolean(node&&node.classId===char.classId);
+ })
    .sort((a,b)=>ALL_CLASS_SKILLS[a]!.minimumLevel-ALL_CLASS_SKILLS[b]!.minimumLevel);
  for(const id of acquired){
    const node=ALL_CLASS_SKILLS[id]!;
