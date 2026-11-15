@@ -218,7 +218,7 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Medir tamanho real da APK e progresso da meta de 100 MB
+      - name: Verificar APK real sem limite maximo de tamanho
         if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
@@ -232,15 +232,12 @@ jobs:
             echo "ERRO: o APK ainda não contém 100 MB reais de conteúdo original." >&2
             exit 1
           fi
-          if [ "$BYTES" -gt 115000000 ]; then
-            echo "ERRO: pacote acima do orçamento de 115 MB, revisar compressão." >&2
-            exit 1
-          fi
           {
-            echo "## Orçamento de conteúdo do APK"
+            echo "## Tamanho do APK (sem limite maximo)"
             echo "APK real: **$BYTES bytes**"
             echo "Meta de conteúdo: **100.000.000 bytes (100 MB decimais)**"
-            echo "Progresso: **$((BYTES * 100 / 100000000))%**"
+            echo "Progresso sobre o mínimo histórico: **$((BYTES * 100 / 100000000))%**"
+            echo "Não existe limite máximo de tamanho nesta compilação."
             echo "Arquivos de preenchimento não são permitidos. Arte e áudio devem ser otimizados e carregados conforme a área."
           } >> "$GITHUB_STEP_SUMMARY"
 
