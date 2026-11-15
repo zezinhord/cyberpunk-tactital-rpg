@@ -42,5 +42,12 @@ assert.equal(equipped.canAttack(),false);
 const ai=planEnemyTurn(enemy,player,equipped.state.units,enemyProfile("v09",1));
 assert.ok(["attack","reposition","advance","blocked"].includes(ai.action));
 assert.equal(enemyProfile("test",1).range,1);
+const helixPlayer={id:"runner",name:"Operativo",side:"player",x:1,y:1,hp:18,maxHp:18,armorClass:13,attackBonus:5};
+const helixEnemy={id:"drone",name:"Agente",side:"enemy",x:2,y:0,hp:14,maxHp:14,armorClass:13,attackBonus:4};
+const coverPlan=planEnemyTurn(helixEnemy,helixPlayer,[helixPlayer,helixEnemy],enemyProfile("district-aurea",1));
+assert.equal(coverPlan.action,"reposition","Agente Helix não buscou a cobertura disponível");
+assert.deepEqual(coverPlan.target,{x:3,y:0});
+assert.equal(coverPlan.cover,"partial");
+
 assert.ok(enemyProfile("district-setor-zero",3).range>=3);
 console.log("Tática: LoS, obstrução, cobertura, arma de fogo, economia e IA aprovados.");
