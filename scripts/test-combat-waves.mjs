@@ -43,6 +43,8 @@ const {TurnManager}=await import("../src/game/TurnManager.ts");
       m.activateSpecial("pulse-emp");
    }else m.attack();
    state=m.getState();
+   assert.equal(state.defeatedEnemyCount,wave,
+     encounter+" deve registrar uma baixa por onda, sem repetir XP");
    if(wave<total){
      assert.equal(state.wave,wave+1,encounter+" não avançou onda");
      assert.equal(state.combatComplete,false,"Vitória cedo demais");
