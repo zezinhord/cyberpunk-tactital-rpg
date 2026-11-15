@@ -5,6 +5,8 @@
  */
 import {getSong,isRadioDistrict,isRadioMood,type RadioDistrict,
  type RadioMood} from "./soundscapes.ts";
+import {chooseWithoutRepetition,curatedCandidates,isRadioStyle,
+ type RadioStyle} from "./curated.ts";
 export type SoundScene="menu"|"exploration"|"interior"|"battle"|"story";
 export type SoundChannel="music"|"effects"|"ambient";
 const KEY="cyberpunk-tactical-rpg.audio.v068.";
@@ -19,8 +21,8 @@ function persistRadioValue(key:string,value:string):void{
  try{globalThis.localStorage?.setItem(RADIO_KEY+key,value);}catch{}
 }
 export interface RadioStatus{
- mode:RadioMode;district:RadioDistrict;mood:RadioMood;
- playing:boolean;trackName:string;availableTracks:number;
+ mode:RadioMode;district:RadioDistrict;mood:RadioMood;style:RadioStyle;
+ playing:boolean;trackName:string;trackArtist:string;availableTracks:number;
 }
 export function readVolume(channel:SoundChannel):number {
   try { const raw=globalThis.localStorage?.getItem(KEY+channel);if(raw===null||raw===undefined)return DEFAULT[channel];const v=Number(raw);return Number.isFinite(v)&&v>=0&&v<=1?v:DEFAULT[channel]; }
@@ -52,6 +54,15 @@ class SynthDirector {
   private radioMood:RadioMood=isRadioMood(savedRadioValue("mood"))
     ?savedRadioValue("mood") as RadioMood:"exploracao";
   private rotation=0;
+  private style:RadioStyle=isRadioStyle(savedRadioValue("style"))?
+    savedRadioValue("style") as RadioStyle:"auto";
+  private licensed=new Set<string>();
+  private failedLicensed=new Set<string>();
+  private history:string[]=[];
+  private playingName="";
+  private playingArtist="Nova Arcádia";
+  private selectedLicensedId="";
+  private musicFadeToken=0;
   private readonly volumes:{[K in SoundChannel]:number}={
     music:readVolume("music"),effects:readVolume("effects"),ambient:readVolume("ambient"),
   };
@@ -78,21 +89,35 @@ class SynthDirector {
         const audio=new Audio();
         audio.preload="none";
         audio.loop=false;
-        audio.volume=this.volumes.music*0.42;
+        audio.volume=this.volumes.music*0.65;
         audio.onended=()=>{
-          if(this.radioMode==="auto"){
-            this.rotation++;
-          }
+          this.rotation++;
           this.soundtrackURL="";
           this.switchTrack();
         };
         audio.onerror=()=>{
+          if(this.selectedLicensedId){
+            this.failedLicensed.add(this.selectedLicensedId);
+            this.soundtrackURL="";
+            this.selectedLicensedId="";
+            this.switchTrack();
+            return;
+          }
           this.soundtrackBlocked=true;
           this.startScore();
         };
         this.soundtrack=audio;
       }catch{/* Fallback síntese procedural. */}
       this.switchTrack();
+      // Somente arquivos locais: os originais continuam funcionando offline caso
+      // a importação CC0 não exista na versão de desenvolvimento.
+      void fetch("/assets/music/catalog.json",{cache:"force-cache"}).then(response=>{
+        if(!response.ok)throw Error("Sem catálogo CC0");
+        return response.json() as Promise<{items?:{id:string}[]}>;
+      }).then(catalog=>{
+        this.licensed=new Set((catalog.items??[]).map(item=>item.id));
+        if(this.licensed.size&&this.style!=="original")this.nextSong();
+      }).catch(()=>{/* Mantém trilha local original. */});
     }catch{this.ctx=null;this.outputs=null;}
   }
   getVolume(channel:SoundChannel):number{return this.volumes[channel];}
@@ -103,7 +128,7 @@ class SynthDirector {
     const ctx=this.ctx,g=this.outputs?.[channel];
     if(ctx&&g)g.gain.setTargetAtTime(v,ctx.currentTime,0.055);
     if(channel==="music"&&this.soundtrack){
-      this.soundtrack.volume=v*.42;
+      this.soundtrack.volume=v*.65;
       if(v===0)this.soundtrack.pause();
       else if(this.soundtrack.paused)this.switchTrack();
     }
@@ -111,23 +136,24 @@ class SynthDirector {
   setScene(scene:SoundScene):void {
     if(scene===this.current)return;
     this.current=scene;
-    this.beat=0;this.rotation=0;
+    this.beat=0;this.rotation++;
     this.switchTrack();
   }
   setDistrict(district:RadioDistrict):void{
     if(this.district===district)return;
     this.district=district;
     if(this.radioMode==="auto"){
-      this.rotation=0;
+      this.rotation++;
       this.switchTrack();
     }
   }
   getRadioStatus():RadioStatus{
     const district=this.radioMode==="manual"?this.radioDistrict:this.district;
     const mood=this.radioMode==="manual"?this.radioMood:this.automaticMood();
-    return {mode:this.radioMode,district,mood,
+    return {mode:this.radioMode,district,mood,style:this.style,
       playing:!!this.soundtrack&&!this.soundtrack.paused&&!this.soundtrackBlocked,
-      trackName:getSong(district,mood).name,availableTracks:56};
+      trackName:this.playingName||getSong(district,mood).name,
+      trackArtist:this.playingArtist,availableTracks:56+this.licensed.size};
   }
   setRadioStation(district:RadioDistrict,mood:RadioMood):void{
     if(!isRadioDistrict(district)||!isRadioMood(mood))return;
@@ -136,12 +162,23 @@ class SynthDirector {
     persistRadioValue("mode","manual");
     persistRadioValue("district",district);
     persistRadioValue("mood",mood);
-    this.rotation=0;this.switchTrack();
+    this.rotation++;this.switchTrack();
+  }
+  setRadioStyle(style:RadioStyle):void{
+    if(!isRadioStyle(style))return;
+    this.style=style;
+    persistRadioValue("style",style);
+    this.nextSong();
+  }
+  nextSong():void{
+    this.rotation++;
+    this.soundtrackURL="";
+    this.switchTrack();
   }
   setRadioAutomatic():void{
     this.radioMode="auto";
     persistRadioValue("mode","auto");
-    this.rotation=0;this.switchTrack();
+    this.rotation++;this.switchTrack();
   }
   private automaticMood():RadioMood{
     const moods:readonly RadioMood[]=this.current==="menu"
@@ -160,19 +197,40 @@ class SynthDirector {
     if(!this.ctx||!this.soundtrack)return;
     const district=this.radioMode==="manual"?this.radioDistrict:this.district;
     const mood=this.radioMode==="manual"?this.radioMood:this.automaticMood();
-    const url=getSong(district,mood).url;
+    const legacy=getSong(district,mood);
+    const pool=curatedCandidates(district,mood,this.style,
+      new Set([...this.licensed].filter(id=>!this.failedLicensed.has(id))));
+    const chosen=chooseWithoutRepetition(pool,this.history,Math.random());
+    const selected=chosen??null;
+    const url=selected?.url??legacy.url;
     const audio=this.soundtrack;
     if(this.soundtrackURL!==url){
       audio.pause();
+      this.musicFadeToken++;
       audio.src=url;
       this.soundtrackURL=url;
       this.soundtrackBlocked=false;
+      this.selectedLicensedId=selected?.id??"";
+      this.playingName=selected?.name??legacy.name;
+      this.playingArtist=selected?.artist??"Trilha original de Nova Arcádia";
+      this.history=[...this.history.filter(existing=>existing!==url),url].slice(-4);
+      audio.volume=0;
     }
     if(this.volumes.music===0){audio.pause();this.stopSynthScore();return;}
     try{
+      const token=++this.musicFadeToken;
       const promise=audio.play();
       if(promise)void promise.then(()=>{
-        if(this.soundtrack===audio&&!audio.paused)this.stopSynthScore();
+        if(this.soundtrack!==audio||audio.paused)return;
+        this.stopSynthScore();
+        const start=performance.now();
+        const fade=()=>{
+          if(token!==this.musicFadeToken||audio.paused)return;
+          const ratio=Math.min(1,(performance.now()-start)/700);
+          audio.volume=Math.max(0,Math.min(1,this.volumes.music*0.65*ratio));
+          if(ratio<1)requestAnimationFrame(fade);
+        };
+        requestAnimationFrame(fade);
       }).catch(()=>{
         this.soundtrackBlocked=true;
         this.startScore();
