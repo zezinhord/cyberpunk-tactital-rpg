@@ -167,3 +167,11 @@
 @media (max-width:600px) {
   .na-ability-picker-content { grid-template-columns:minmax(0,1fr); }
 }
+
+/* Estado de cobertura e ameaça: leitura curta sob o mapa, sem
+   esconder ataques, turno ou o painel de habilidades. */
+.na-combat-tactical-readout{display:flex;flex-wrap:wrap;gap:4px 10px;
+ padding:4px 7px;margin:0 0 2px;font:600 10px "IBM Plex Mono",monospace;
+ color:#d9e9e9;background:#132d36;border:1px solid rgba(120,188,197,.36);border-radius:5px}
+.na-combat-tactical-readout span:last-child{color:#f1c58d}
+@media(max-height:480px){.na-combat-tactical-readout{font-size:9px;gap:2px 8px;padding:2px 5px}}
