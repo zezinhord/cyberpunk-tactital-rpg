@@ -240,11 +240,12 @@ export default function App() {
   const maximumHp=18+(originProfile?.maxHpBonus??0)+progressionBonuses.hp;
   const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
     currentHp:loadHealth(character?.id??"",maximumHp),
-    progressionBonuses:combatProgression(character),encounterId:battleMode }), [character?.id, battleReset, battleMode, originProfile, bonuses]);
+    progressionBonuses:combatProgression(character),encounterId:battleMode,weaponId:inventory.equipped.weapon }), [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
   const [state, setState] = useState<GameState>(() => manager.getState());
   const player = getUnit(state, "runner");
   const enemy = getUnit(state, "drone");
-  const canAttack = manager.canAttack();
+  const attackPreview=manager.getBasicAttackPreview();
+  const canAttack = attackPreview.available;
   const victory = Boolean(enemy && enemy.hp <= 0);
 
   useEffect(() => {
@@ -615,6 +616,12 @@ export default function App() {
              isTrialEncounter(battleMode)?"ONDA "+state.wave+" DE "+state.totalWaves+" · 8 × 8":"SIMULAÇÃO 01 · 8 × 8"}</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
           <Battlefield manager={manager} appearance={appearance} originId={character.originId} />
           <p className="board-hint">{getHint(state, canAttack)}</p>
+          <div className="na-combat-tactical-readout" aria-live="polite">
+            <span>ALCANCE: {attackPreview.range} · {attackPreview.mode==="ranged"?"ARMA DE FOGO":"CORPO A CORPO"}</span>
+            <span>COBERTURA DO ALVO: {attackPreview.cover==="partial"?"PARCIAL +2 DEF":
+              attackPreview.cover==="full"?"TIRO BLOQUEADO":"SEM COBERTURA"}</span>
+            <span>INTENÇÃO HOSTIL: {manager.getEnemyIntent()}</span>
+          </div>
         </section>
       </section>
       <aside className="arena-console" aria-label="Painel de combate e habilidades">
@@ -655,7 +662,9 @@ export default function App() {
           <div className="actions">
             <button type="button" className="end-turn-button" disabled={state.activeSide !== "player" || state.combatComplete || !state.bonusActionAvailable || !player || player.hp >= player.maxHp || inventory.quantities.curativo_campo < 1} onClick={handleUseMedkit}>Curativo ({inventory.quantities.curativo_campo})</button>
             <button type="button" className="end-turn-button" onClick={() => { buzz(); manager.endPlayerTurn(); }} disabled={state.activeSide !== "player" || state.combatComplete}>Encerrar turno</button>
-            <button type="button" className="attack-button" onClick={() => { buzz(20); manager.attack(); }} disabled={!canAttack}>Ataque básico</button>
+            <button type="button" className="attack-button" onClick={() => { buzz(20); manager.attack(); }}
+              title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense}`:attackPreview.reason}
+              disabled={!canAttack}>{attackPreview.mode==="ranged"?"Disparar":"Ataque corpo a corpo"}</button>
           </div>
           <div className="secondary-actions">{battleMode==="test" && <button type="button" onClick={() => setBattleReset((value) => value + 1)}>Reiniciar arena</button>}<button type="button" onClick={() => setScreen("exploration")} >Voltar à exploração</button></div>
         </section>
