@@ -198,6 +198,32 @@ export class BattleScene extends Phaser.Scene {
     this.bars.clear();
     graphics.fillStyle(COLOR.bg, 1);
     graphics.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    // Limbo: galpão de ensaio industrial, com infraestrutura e ruído urbano.
+    // Somente desenho: tabuleiro, colisão e turnos permanecem idênticos.
+    graphics.fillStyle(0x1f353b, .52);
+    graphics.fillRect(0, 0, CANVAS_WIDTH, 62);
+    graphics.fillStyle(0x5d5145, .3);
+    for(let i=0;i<9;i++){
+      const x=i*61-9;
+      const h=16+(i*23)%37;
+      graphics.fillRect(x,62-h,35+(i%3)*7,h);
+      graphics.fillStyle(0xdaa36f,.18);
+      graphics.fillRect(x+8,62-h+9,3,5);
+      graphics.fillStyle(0x5d5145,.3);
+    }
+    graphics.lineStyle(2,0xd1a172,.27);
+    graphics.beginPath();
+    graphics.moveTo(0,48);graphics.lineTo(480,48);
+    graphics.strokePath();
+    graphics.lineStyle(2,0x5a858b,.45);
+    graphics.beginPath();graphics.moveTo(0,59);
+    graphics.lineTo(175,48);graphics.lineTo(360,56);
+    graphics.lineTo(480,47);graphics.strokePath();
+    // Iluminação fria nas canaletas e âmbar nos equipamentos neutros.
+    graphics.fillStyle(0x75b0b7,.08);
+    graphics.fillEllipse(196,165,380,210);
+    graphics.fillStyle(0xd6a36d,.07);
+    graphics.fillEllipse(416,225,160,210);
 
     const reachable = new Set(this.manager.getReachableCells().map((cell) => `${cell.x},${cell.y}`));
     for (let depth = 0; depth <= BOARD_WIDTH + BOARD_HEIGHT - 2; depth += 1) {
@@ -211,6 +237,14 @@ export class BattleScene extends Phaser.Scene {
           graphics.lineStyle(1, COLOR.line, 0.9);
           this.traceDiamond(center.x, center.y);
           graphics.strokePath();
+          // Reflexos de piso metálico e desgaste de circulação.
+          if(!isBlocked({x,y})&&(x*7+y*11)%13===0){
+            graphics.lineStyle(1,0x80b1bb,.24);
+            graphics.beginPath();
+            graphics.moveTo(center.x-9,center.y+2);
+            graphics.lineTo(center.x+7,center.y+2);
+            graphics.strokePath();
+          }
           if (reachable.has(`${x},${y}`)) {
             graphics.fillStyle(COLOR.cyan, 0.22);
             this.traceDiamond(center.x, center.y, TILE_WIDTH - 5, TILE_HEIGHT - 5);
