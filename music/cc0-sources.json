@@ -1,0 +1,240 @@
+{
+  "format": "nova-arcadia-licensed-music",
+  "version": 1,
+  "license": "CC0-1.0",
+  "tracks": [
+    {
+      "id": "ai-fight",
+      "title": "AI Fight",
+      "artist": "Alexander Ehlers (tricksntraps)",
+      "style": "cyberpunk",
+      "districts": [
+        "ferrugem",
+        "setor-zero",
+        "aurea"
+      ],
+      "moods": [
+        "confronto",
+        "perseguicao"
+      ],
+      "source": "https://opengameart.org/content/t-t-free-cyberpunk-pack-2",
+      "source_file": "ai_fight_120bpm.ogg",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "id": "new-factory",
+      "title": "New Factory",
+      "artist": "Alexander Ehlers (tricksntraps)",
+      "style": "cyberpunk",
+      "districts": [
+        "ferrugem",
+        "aurea"
+      ],
+      "moods": [
+        "exploracao",
+        "investigacao",
+        "contatos"
+      ],
+      "source": "https://opengameart.org/content/t-t-free-cyberpunk-pack-2",
+      "source_file": "new_factory_129bpm.ogg",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "id": "night-club-chill",
+      "title": "Night Club Chill",
+      "artist": "Alexander Ehlers (tricksntraps)",
+      "style": "cyberpunk",
+      "districts": [
+        "prisma",
+        "subsolo",
+        "baixada"
+      ],
+      "moods": [
+        "contatos",
+        "exploracao",
+        "abertura"
+      ],
+      "source": "https://opengameart.org/content/t-t-free-cyberpunk-pack-2",
+      "source_file": "night_club_chill_100bpm.ogg",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "id": "strange-experiments",
+      "title": "Strange Experiments",
+      "artist": "Alexander Ehlers (tricksntraps)",
+      "style": "cyberpunk",
+      "districts": [
+        "setor-zero",
+        "aurea",
+        "subsolo"
+      ],
+      "moods": [
+        "investigacao",
+        "memorias",
+        "revelacao"
+      ],
+      "source": "https://opengameart.org/content/t-t-free-cyberpunk-pack-2",
+      "source_file": "strange_experiments_80bpm.ogg",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "id": "the-casino",
+      "title": "The Casino",
+      "artist": "Alexander Ehlers (tricksntraps)",
+      "style": "cyberpunk",
+      "districts": [
+        "prisma",
+        "aurea"
+      ],
+      "moods": [
+        "contatos",
+        "exploracao",
+        "abertura"
+      ],
+      "source": "https://opengameart.org/content/t-t-free-cyberpunk-pack-2",
+      "source_file": "the_casino_120bpm.ogg",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "id": "through-sewers",
+      "title": "Through the Sewers",
+      "artist": "Alexander Ehlers (tricksntraps)",
+      "style": "cyberpunk",
+      "districts": [
+        "subsolo",
+        "baixada"
+      ],
+      "moods": [
+        "perseguicao",
+        "investigacao",
+        "confronto"
+      ],
+      "source": "https://opengameart.org/content/t-t-free-cyberpunk-pack-2",
+      "source_file": "through_the_sewers_1766bpm.ogg",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "id": "funky-house",
+      "title": "Funky House",
+      "artist": "Of Far Different Nature",
+      "style": "tropical",
+      "districts": [
+        "baixada",
+        "prisma",
+        "periferia"
+      ],
+      "moods": [
+        "exploracao",
+        "contatos",
+        "abertura"
+      ],
+      "source": "https://opengameart.org/content/funky-house",
+      "source_file": "Of Far Different Nature - Funky House (CC0)_0.mp3",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "id": "tropical-loop",
+      "title": "Tropical Loop",
+      "artist": "wipics",
+      "style": "tropical",
+      "districts": [
+        "baixada",
+        "periferia",
+        "prisma"
+      ],
+      "moods": [
+        "exploracao",
+        "contatos",
+        "perseguicao"
+      ],
+      "source": "https://opengameart.org/content/tropical-loop",
+      "source_file": "Tropical.wav",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "id": "bossa-nova",
+      "title": "8bit Bossa",
+      "artist": "Joth",
+      "style": "tropical",
+      "districts": [
+        "baixada",
+        "prisma"
+      ],
+      "moods": [
+        "contatos",
+        "exploracao",
+        "memorias"
+      ],
+      "source": "https://opengameart.org/content/bossa-nova",
+      "source_file": "8bit Bossa.mp3",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "id": "tropical-fantasy",
+      "title": "Tropical Fantasy",
+      "artist": "Spring Spring",
+      "style": "tropical",
+      "districts": [
+        "periferia",
+        "baixada"
+      ],
+      "moods": [
+        "exploracao",
+        "abertura",
+        "contatos"
+      ],
+      "source": "https://opengameart.org/content/tropical-fantasy",
+      "source_file": "tropicalfantasy_2.ogg",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "id": "pondering-cosmos",
+      "title": "Pondering the Cosmos",
+      "artist": "Ruskerdax",
+      "style": "cyberpunk",
+      "districts": [
+        "setor-zero",
+        "aurea",
+        "subsolo"
+      ],
+      "moods": [
+        "investigacao",
+        "revelacao",
+        "memorias"
+      ],
+      "source": "https://opengameart.org/content/pondering-the-cosmos",
+      "source_file": "Ruskerdax - Pondering the Cosmos_0.mp3",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    },
+    {
+      "id": "feel-good-island",
+      "title": "Feel Good Island Loop",
+      "artist": "Brandon Morris / AntumDeluge",
+      "style": "tropical",
+      "districts": [
+        "periferia",
+        "baixada"
+      ],
+      "moods": [
+        "contatos",
+        "memorias",
+        "exploracao"
+      ],
+      "source": "https://opengameart.org/content/feel-good-island-loop",
+      "source_file": "feel_good_island_loop_0.ogg",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"
+    }
+  ]
+}

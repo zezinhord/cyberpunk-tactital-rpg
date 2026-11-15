@@ -1,6 +1,7 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { audioDirector, type SoundChannel } from "../audio/director";
 import {RADIO_DISTRICTS,RADIO_MOODS,type RadioDistrict,type RadioMood} from "../audio/soundscapes";
+import type {RadioStyle} from "../audio/curated";
 const CHANNELS: readonly {id:SoundChannel;label:string;description:string}[] = [
  {id:"music",label:"Música",description:"Trilha eletrônica contextual"},
  {id:"effects",label:"Efeitos",description:"Passos, portas e combate"},
@@ -8,10 +9,11 @@ const CHANNELS: readonly {id:SoundChannel;label:string;description:string}[] = [
 ];
 export default function AudioControls(){
  const uid=useId();
+ useEffect(()=>audioDirector.subscribeRadio(setRadio),[]);
  const [radio,setRadio]=useState(()=>audioDirector.getRadioStatus());
  const [vol,setVol]=useState<Record<SoundChannel,number>>(()=>({
  music:audioDirector.getVolume("music"),effects:audioDirector.getVolume("effects"),ambient:audioDirector.getVolume("ambient")}));
- return <fieldset className="na-audio-settings"><legend>ÁUDIO · COMPOSIÇÃO ORIGINAL</legend>
+ return <fieldset className="na-audio-settings"><legend>ÁUDIO · RÁDIO DE NOVA ARCÁDIA</legend>
   {CHANNELS.map(c=>{const id=uid+"-"+c.id,value=Math.round(vol[c.id]*100);
    return <label className="na-audio-row" key={id} htmlFor={id}>
     <span><strong>{c.label}</strong><small>{c.description}</small></span>
@@ -23,8 +25,29 @@ export default function AudioControls(){
    </label>;})}
   <div className="na-radio-settings" aria-label="Rádio de Nova Arcádia">
    <div><strong>RÁDIO DOS DISTRITOS</strong>
-    <small>56 faixas originais · sete distritos · reprodução individual</small></div>
-   <p>{radio.mode==="auto"?"Trilha automática conforme o cenário.":"Sintonia manual ativa: "+radio.trackName}</p>
+    <small>{radio.availableTracks} faixas locais · estilos urbanos, cyberpunk e tropical</small></div>
+   <p>{radio.mode==="auto"?"DJ automático conforme distrito, situação e estilo.":"Sintonia manual de distrito e situação."}</p>
+   <div className="na-radio-now-playing" role="status">
+     <strong>TOCANDO AGORA</strong><span>{radio.trackName}</span>
+     <small>{radio.trackArtist}</small>
+   </div>
+   <div className="na-radio-selector na-radio-style-row">
+     <label>Estilo musical
+       <select aria-label="Estilo de música" value={radio.style}
+        onChange={e=>{
+          audioDirector.setRadioStyle(e.target.value as RadioStyle);
+          setRadio(audioDirector.getRadioStatus());
+        }}>
+         <option value="auto">Misto · música variada</option>
+         <option value="cyberpunk">Cyberpunk / dark techno</option>
+         <option value="tropical">Tropical / house / bossa</option>
+         <option value="original">Trilha procedural original</option>
+       </select>
+     </label>
+     <button type="button" className="na-radio-auto" onClick={()=>{
+       audioDirector.nextSong();setRadio(audioDirector.getRadioStatus());
+     }}>Próxima faixa ↻</button>
+   </div>
    <div className="na-radio-selector">
     <label>Distrito
      <select value={radio.district} aria-label="Sintonia do distrito"
@@ -49,7 +72,7 @@ export default function AudioControls(){
     disabled={radio.mode==="auto"} onClick={()=>{
      audioDirector.setRadioAutomatic();setRadio(audioDirector.getRadioStatus());
     }}>Voltar à trilha automática</button>
-   <small>Arquivos de áudio inclusos no APK. Sem internet, anúncios ou transmissão de dados. O botão de Música acima controla o volume.</small>
+   <small>Faixas CC0 importadas na compilação, além da trilha original. Reprodução offline e sem anúncios; artistas e licenças nos créditos. Faixas NCS ainda não estão incluídas porque exigem autorização para jogos.</small>
   </div>
  </fieldset>;
 }
