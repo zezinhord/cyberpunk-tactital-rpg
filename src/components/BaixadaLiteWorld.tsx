@@ -139,14 +139,33 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
    paintCityBackground(ctx,width,height);
    // Segue a posição interpolada do avatar para caminhar sem saltos de câmera.
    view=getView(width,height,renderPosition);
-   for(let y=0;y<GRID_HEIGHT;y++)for(let x=0;x<GRID_WIDTH;x++){
+   // Continuidade urbana além da borda física do mapa.
+   // É SOMENTE decoração: canStand() continua proibindo sair do grid.
+   // Inverter a projeção limita o laço aos losangos efetivamente visíveis,
+   // evitando varrer milhares de tiles fora da tela em Android de entrada.
+   const screenTile=(px:number,py:number):Tile=>{
+     const wx=(px-view.offsetX)/view.zoom;
+     const wy=(py-view.offsetY)/view.zoom;
+     const rx=(wx-ORIGIN_X)/(TILE_W/2),ry=(wy-ORIGIN_Y)/(TILE_H/2);
+     return {x:(rx+ry)/2,y:(ry-rx)/2};
+   };
+   const bounds=[screenTile(-80,-90),screenTile(width+80,-90),
+     screenTile(-80,height+90),screenTile(width+80,height+90)];
+   const minX=Math.max(-35,Math.floor(Math.min(...bounds.map(v=>v.x)))-2);
+   const maxX=Math.min(GRID_WIDTH+35,Math.ceil(Math.max(...bounds.map(v=>v.x)))+2);
+   const minY=Math.max(-35,Math.floor(Math.min(...bounds.map(v=>v.y)))-2);
+   const maxY=Math.min(GRID_HEIGHT+35,Math.ceil(Math.max(...bounds.map(v=>v.y)))+2);
+   for(let y=minY;y<=maxY;y++)for(let x=minX;x<=maxX;x++){
      const p=project(view,center({x,y}));
      if(p.x< -50||p.x>width+50||p.y< -45||p.y>height+45)continue;
+     const outside=x<0||y<0||x>=GRID_WIDTH||y>=GRID_HEIGHT;
      const industrial=isIndustrialSector({x,y});
      const commercial=isCommercialSector({x,y});
-     const road=isStreet({x,y});
-     const shade=(x*7+y*11)%5;
-     const palette=commercial
+     const road=!outside&&isStreet({x,y});
+     const shade=((x*7+y*11)%5+5)%5;
+     const palette=outside
+       ? ["#2b3739","#303b3b","#34403f","#303d3d","#2d393b"]
+       : commercial
        ? road?["#534c44","#554a41","#594f44","#53463d","#514941"]:
          ["#6b6152","#6d6253","#665d4e","#716253","#686052"]
        : industrial
@@ -155,7 +174,16 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
        : road?["#424846","#3d4747","#404b48","#424846","#3e4747"]:
          ["#475046","#424c45","#4a4e43","#485046","#435048"];
      diamond(ctx,p,view.zoom,palette[shade]??"#424846",
-       "rgba(108,130,121,.19)");
+       outside?"rgba(93,119,119,.1)":"rgba(108,130,121,.19)");
+     if(outside){
+       // Pavimento de continuidade mais apagado, sem indicar nova rota.
+       if((x*13+y*7)%29===0){
+         ctx.strokeStyle="rgba(164,148,127,.13)";ctx.lineWidth=.8;
+         ctx.beginPath();ctx.moveTo(p.x-7*view.zoom,p.y);
+         ctx.lineTo(p.x+5*view.zoom,p.y+3*view.zoom);ctx.stroke();
+       }
+       continue;
+     }
      if(!road&&shade===2&&canStand({x,y})){
        ctx.fillStyle="rgba(174,191,162,.12)";
        ctx.fillRect(p.x-6*view.zoom,p.y+1*view.zoom,12*view.zoom,2*view.zoom);
