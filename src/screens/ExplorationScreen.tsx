@@ -3,6 +3,7 @@ import BaixadaWorld from "../components/BaixadaWorld";
 // Carrega Phaser apenas quando o protagonista entra num interior/distrito.
  // A Baixada Android funciona com Canvas 2D sem o peso do motor Phaser.
  const InteriorWorld=lazy(()=>import("../components/InteriorWorld"));
+import SceneRecovery from "../components/SceneRecovery";
 import { getOriginById, getOriginGameplay } from "../game/character";
 import CharacterMenu from "../components/CharacterMenu";
 import type { InventoryState, ItemId } from "../game/inventory";
@@ -809,7 +810,7 @@ export default function ExplorationScreen({
           <span>TOQUE PARA SE MOVER</span>
         </div>
         {interior ? (
-          <Suspense fallback={<div className="baixada-world na-world-host" role="status">
+          <SceneRecovery name="região explorável"><Suspense fallback={<div className="baixada-world na-world-host" role="status">
             Preparando a região selecionada…
           </div>}>
             <InteriorWorld
@@ -823,7 +824,7 @@ export default function ExplorationScreen({
             ferrugemTargetId={currentFerrugemStep(ferrugem)?.actor??null}
             returnFromDeep={returnFromDeep}
             />
-          </Suspense>
+          </Suspense></SceneRecovery>
         ) : (
           <BaixadaWorld originId={character.originId} appearance={appearance} characterId={character.id}
             onSectorChange={setSectorId} onNearbyAccess={setNearSewerAccess} onInteract={handleInteract} />
