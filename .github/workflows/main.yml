@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - feature/landscape-mobile-v1
+      - feature/progression-audit-nova-arcadia-v071
   pull_request:
     branches:
       - main
