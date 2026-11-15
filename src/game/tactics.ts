@@ -35,6 +35,26 @@ export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
  profile:EnemyProfile):EnemyPlan{
  const shot=(pos:Position)=>withinShot(pos,player,profile.range);
  if(shot(enemy)){
+   // Seguranças corporativos e caçadores preferem um ângulo protegido de tiro
+   // quando a rota cabe no deslocamento do turno. Drones de assalto não recuam.
+   if((profile.role==="helix"||profile.role==="hunter")&&
+      coverArmorBonus(player,enemy)===0&&manhattan(enemy,player)>1){
+     const shelters:{pos:Position;steps:number}[]=[];
+     for(let y=0;y<BOARD_HEIGHT;y++)for(let x=0;x<BOARD_WIDTH;x++){
+       const pos={x,y};
+       if(isBlocked(pos)||!shot(pos)||coverArmorBonus(player,pos)===0)continue;
+       const path=findPath(enemy,pos,units,enemy.id);
+       if(path&&path.length>1&&path.length-1<=profile.mobility)
+         shelters.push({pos,steps:path.length-1});
+     }
+     shelters.sort((a,b)=>a.steps-b.steps||
+       manhattan(a.pos,player)-manhattan(b.pos,player)||
+       a.pos.y-b.pos.y||a.pos.x-b.pos.x);
+     if(shelters.length){
+       return {action:"reposition",target:shelters[0]!.pos,mode:"ranged",
+         cover:"partial",intent:"Buscar cobertura e flanquear"};
+     }
+   }
    // Drones corpo a corpo continuam pressionando o jogador a curta distância.
    return {action:"attack",target:{x:enemy.x,y:enemy.y},
      mode:manhattan(enemy,player)<=1?"melee":"ranged",
