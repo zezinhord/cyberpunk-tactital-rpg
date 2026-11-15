@@ -54,12 +54,15 @@ try{
   "--headless=new","--no-sandbox","--disable-gpu","--disable-dev-shm-usage",
   "--no-first-run","--disable-extensions","--remote-allow-origins=*",
   "--remote-debugging-port="+DEBUG,"--user-data-dir="+dir,"about:blank",
- ],{stdio:"ignore",detached:true});
+ ],{stdio:["ignore","ignore","pipe"],detached:true});
+ let chromeMessages="";
+ browser.stderr?.on("data",d=>{chromeMessages=(chromeMessages+String(d)).slice(-1400);});
  const tab=await until(async()=>{
+  if(browser?.exitCode!==null)throw new Error("Chromium encerrou: "+chromeMessages);
   const resp=await fetch("http://127.0.0.1:"+DEBUG+"/json");
   const tabs=await resp.json();
   return tabs.find(x=>x.type==="page"&&x.webSocketDebuggerUrl);
- },"tab Chromium Android");
+ },"tab Chromium Android",180);
  cdp=await session(tab.webSocketDebuggerUrl);
  const send=cdp.send;
  const evalJS=async script=>{
