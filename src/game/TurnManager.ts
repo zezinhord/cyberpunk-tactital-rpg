@@ -85,7 +85,7 @@ export class TurnManager {
       ],
       activeSide: "player",
       encounterId: options.encounterId ?? "test",
-      wave:1,totalWaves:trialWaveCount,
+      wave:1,totalWaves:trialWaveCount,defeatedEnemyCount:0,
       archetypeId: "field-operative", characterLevel: options.characterLevel ?? 1,
       originId: options.originId ?? "corporativo", classId: options.classId ?? null,
       characterAbilities: options.characterAbilities ?? [],characterSkillRanks:options.characterSkillRanks ?? {}, classCooldowns:{}, classGuardBonus:0, classGuardTurns:0,
@@ -406,7 +406,10 @@ export class TurnManager {
    */
   private resolveEnemyDown():void{
     const enemy=this.state.units.find(unit=>unit.id==="drone");
-    if(!enemy||enemy.hp>0)return;
+    if(!enemy||enemy.hp>0||this.state.combatComplete)return;
+    // Registro por inimigo, inclusive ondas intermediárias; o App concede
+    // XP com ID único e persistente no slot do personagem.
+    this.state.defeatedEnemyCount++;
     const trial=this.state.encounterId.startsWith("trial-");
     const district=this.state.encounterId.startsWith("district-");
     const waves=trial||district;
