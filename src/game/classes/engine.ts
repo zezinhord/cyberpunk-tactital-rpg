@@ -1,5 +1,6 @@
 import type { GameState, Unit } from "../types";
 import type { ClassSkill, ClassEffect } from "./registry";
+import {hasLineOfSight} from "../map";
 
 export type ClassCheck={available:true}|{available:false;reason:string};
 export interface ClassResult {ok:boolean;message:string;amount:number}
@@ -28,6 +29,11 @@ export function checkClassSkill(state:GameState,ability:ClassSkill):ClassCheck {
    if(!enemy||enemy.hp<=0)return {available:false,reason:"Sem alvo hostil ativo."};
    if(distance(player,enemy)>ability.range)
      return {available:false,reason:"Alvo fora do alcance de "+ability.range+" célula(s)."};
+   // Descargas físicas não atravessam paredes. Efeitos de controle de rede
+   // sem dano continuam representando interferência remota digital.
+   if(ability.range>1&&hasEffect(ability,"damage")&&
+      !hasLineOfSight(player,enemy))
+     return {available:false,reason:"Obstáculo bloqueia a técnica ofensiva."};
  }
  if(hasEffect(ability,"heal")&&player.hp>=player.maxHp)
    return {available:false,reason:"Vida já está no máximo."};
