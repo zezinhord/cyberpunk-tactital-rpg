@@ -147,3 +147,7 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Spritesheets reprodutíveis gerados pelo script Python (12 apresentações)
+src/assets/characters/player-*-masculine.png
+src/assets/characters/player-*-feminine.png

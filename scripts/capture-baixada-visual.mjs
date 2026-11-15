@@ -1,0 +1,815 @@
+/** Captura real da interface Phaser, sem Playwright nem dependências externas.
+ * A captura é bloqueante após retries; não aprovar build com erro em runtime.
+ */
+import { spawn, spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+const URL = "http://127.0.0.1:4173";
+const DEBUG_PORT = 9232;
+const OUT = "qa/baixada-1600x720.png";
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function poll(callback, description, attempts = 90) {
+  let last;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      last = await callback();
+      if (last) return last;
+    } catch { /* browser or server is still booting */ }
+    await sleep(250);
+  }
+  throw new Error("QA visual: não foi possível aguardar " + description + ". Último resultado: " + String(last));
+}
+
+function findChrome() {
+  for (const name of ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"]) {
+    const result = spawnSync("which", [name], { encoding: "utf8" });
+    if (result.status === 0) return result.stdout.trim();
+  }
+  throw new Error("QA visual: Chromium não instalado no runner.");
+}
+
+function createSession(wsUrl) {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(wsUrl);
+    let id = 0;
+    const pending = new Map();
+    const exceptions = [];
+    ws.addEventListener("open", () => resolve({
+      exceptions,
+      send(method, params = {}) {
+        return new Promise((resolveCall, rejectCall) => {
+          const next = ++id;
+          pending.set(next, { resolveCall, rejectCall });
+          ws.send(JSON.stringify({ id: next, method, params }));
+        });
+      },
+      close: () => ws.close(),
+    }), { once: true });
+    ws.addEventListener("error", () => reject(new Error("CDP WebSocket indisponível.")), { once: true });
+    ws.addEventListener("message", (event) => {
+      const msg = JSON.parse(String(event.data));
+      if (msg.method === "Runtime.exceptionThrown") {
+        const error = msg.params?.exceptionDetails?.exception?.description
+          ?? msg.params?.exceptionDetails?.text ?? "exceção desconhecida";
+        exceptions.push(error);
+      }
+      if (!msg.id || !pending.has(msg.id)) return;
+      const { resolveCall, rejectCall } = pending.get(msg.id);
+      pending.delete(msg.id);
+      msg.error ? rejectCall(new Error(msg.error.message)) : resolveCall(msg.result);
+    });
+  });
+}
+
+let server, browser, session;
+try {
+  server = spawn("npm", ["run", "preview", "--", "--host", "127.0.0.1", "--port", "4173"], {
+    stdio: "ignore", detached: true,
+  });
+  await poll(async () => (await fetch(URL)).ok, "servidor de prévia");
+
+  const userDataDir = await mkdtemp(path.join(tmpdir(), "na-cdp-"));
+  browser = spawn(findChrome(), [
+    "--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage",
+    "--no-first-run", "--no-default-browser-check", "--disable-extensions",
+    "--remote-allow-origins=*", "--remote-debugging-port=" + DEBUG_PORT,
+    "--user-data-dir=" + userDataDir, "about:blank",
+  ], { stdio: "ignore", detached: true });
+
+  const tab = await poll(async () => {
+    const r = await fetch("http://127.0.0.1:" + DEBUG_PORT + "/json");
+    const tabs = await r.json();
+    return tabs.find((x) => x.type === "page" && x.webSocketDebuggerUrl);
+  }, "aba Chromium");
+  session = await createSession(tab.webSocketDebuggerUrl);
+  const send = (method, params) => session.send(method, params);
+  const evaluate = async (expression) => {
+    const result = await send("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true });
+    if (result.exceptionDetails) throw new Error(JSON.stringify(result.exceptionDetails));
+    return result.result?.value;
+  };
+  const has = (selector) => evaluate("Boolean(document.querySelector(" + JSON.stringify(selector) + "))");
+
+  await send("Page.enable");
+  await send("Runtime.enable");
+  await send("Emulation.setDeviceMetricsOverride", {
+    width: 1600, height: 720, deviceScaleFactor: 1, mobile: true,
+    screenOrientation: { type: "landscapePrimary", angle: 90 },
+  });
+  await send("Page.navigate", { url: URL });
+  await poll(() => has(".na-title-option"), "menu inicial React");
+  await evaluate('document.querySelectorAll(".na-title-option")[1].click();true');
+  await poll(() => has("#character-name"), "formulário do protagonista");
+
+  await evaluate('(()=>{const e=document.querySelector("#character-name");const p=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value");p.set.call(e,"Visual QA");e.dispatchEvent(new Event("input",{bubbles:true}));return true;})()');
+  // A origem Baixada e a classe Corporativo são escolhas distintas, verificadas
+  // sem reiniciar o protagonista nem exigir origem/classe com mesmo identificador.
+  await poll(() => evaluate('document.querySelectorAll(".class-grid .class-option").length===11'),"11 classes oficiais");
+  await evaluate('document.querySelectorAll(".origin-card")[1].click();true');
+  await evaluate('document.querySelectorAll(".class-grid .class-option")[6].click();true');
+  await poll(() => evaluate('document.querySelectorAll(".class-grid .class-option")[6].getAttribute("aria-pressed")==="true"'),"classe Corpo selecionada");
+  await poll(() => evaluate('Boolean(document.querySelector(".creation-shell .primary-button:not([disabled])"))'),"nome e classe validados");
+  await evaluate('document.querySelector(".class-grid").scrollIntoView({block:"center"});true');
+  await sleep(400);
+  const classSelectionShot=await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false});
+  await mkdir("qa",{recursive:true});
+  await writeFile("qa/selecionar-11-classes-1600x720.png",Buffer.from(classSelectionShot.data,"base64"));
+  await evaluate('document.querySelector(".creation-shell .primary-button").click();true');
+  const identity=await evaluate(`(()=>{
+    const raw=localStorage.getItem("cyberpunk-tactical-rpg.character.v1");
+    const c=raw?JSON.parse(raw).character:null;
+    return {origin:c?.originId,classId:c?.classId,abilities:c?.abilities??[]};
+  })()`);
+  if(identity.origin!=="baixada"||identity.classId!=="corporativo"||
+    !identity.abilities.includes("corporativo-protocolo"))throw new Error("Classe/Origem não persistidas de forma independente: "+JSON.stringify(identity));
+  // A primeira abertura é narrativa; texto progride sem vídeo ou fontes remotas.
+  await poll(() => has(".na-opening-screen"), "cutscene após criar protagonista");
+  const progressBefore=await evaluate('document.querySelector(".na-opening-typed")?.textContent.length');
+  await sleep(275);
+  const progressAfter=await evaluate('document.querySelector(".na-opening-typed")?.textContent.length');
+  if(progressAfter<=progressBefore)throw new Error("A cutscene não revelou texto dinamicamente.");
+  const firstVisual=await evaluate('document.querySelector(".na-opening-art")?.className');
+  if(!firstVisual.includes("visual-skyline"))throw new Error("A arte da primeira cena não foi carregada.");
+  await writeFile("qa/prologo-cinematografico-1600x720.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  // Em celular horizontal a cutscene deve caber no viewport sem esconder Avançar.
+  await send("Emulation.setDeviceMetricsOverride",{
+    width:914,height:411,deviceScaleFactor:1.75,mobile:true,
+    screenOrientation:{type:"landscapePrimary",angle:90},
+  });
+  const openingMobile=await evaluate(`(()=>{
+    const button=document.querySelector(".na-opening-next");
+    const screen=document.querySelector(".na-opening-screen");
+    const scene=document.querySelector(".na-opening-art");
+    const b=button?.getBoundingClientRect(),s=screen?.getBoundingClientRect();
+    return {buttonTop:b?.top,buttonBottom:b?.bottom,buttonHeight:b?.height,
+      screenHeight:s?.height,artWidth:scene?.getBoundingClientRect().width,
+      viewportHeight:innerHeight,viewportWidth:innerWidth};
+  })()`);
+  if(openingMobile.buttonHeight<44||openingMobile.buttonTop<0||
+     openingMobile.buttonBottom>openingMobile.viewportHeight+2||
+     openingMobile.screenHeight>openingMobile.viewportHeight+2||
+     openingMobile.artWidth<180)
+    throw new Error("Prólogo cortado em Android 914x411: "+JSON.stringify(openingMobile));
+  await writeFile("qa/prologo-cinematografico-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await send("Emulation.setDeviceMetricsOverride",{
+    width:1600,height:720,deviceScaleFactor:1,mobile:true,
+    screenOrientation:{type:"landscapePrimary",angle:90},
+  });
+  // Reabrir o jogo antes de terminar o prólogo NÃO deve perder a cutscene.
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título após interromper cutscene");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-opening-screen"),"retomada de cutscene interrompida");
+  await evaluate('document.querySelector(".na-opening-top button").click();true');
+  await poll(()=>has(".intro-shell .primary-button"),"prólogo individual da origem");
+  const cinematicSave=await evaluate(`(()=>{
+    const save=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    return {viewed:save.openingSeen,completed:save.introductionCompleted,
+      origin:save.originId,classId:save.classId};
+  })()`);
+  if(cinematicSave.viewed!==true||cinematicSave.completed!==false||
+     cinematicSave.origin!=="baixada"||cinematicSave.classId!=="corporativo")
+    throw new Error("Abertura corrompeu identidade ou não salvou estado: "+JSON.stringify(cinematicSave));
+  await evaluate('document.querySelector(".intro-shell .primary-button").click();true');
+  await poll(() => has(".baixada-world canvas"), "canvas Phaser");
+  await sleep(2600);
+
+  const metrics = await evaluate('(()=>{const c=document.querySelector(".baixada-world canvas");const r=c.getBoundingClientRect();return {scene:!!c,width:Math.round(r.width),height:Math.round(r.height),canvasWidth:c.width,canvasHeight:c.height,title:document.title};})()');
+  if (!metrics?.scene || metrics.width < 200 || metrics.height < 150) {
+    throw new Error("Viewport Phaser inválido: " + JSON.stringify(metrics));
+  }
+
+  // Teclas rápidas simulam novo comando enquanto o tween do primeiro
+  // movimento ainda está em andamento. Anteriormente o segundo era ignorado.
+  await evaluate('document.querySelector(".baixada-world canvas")?.focus();true');
+  const moveKey=async()=>{
+    await send("Input.dispatchKeyEvent",{
+      type:"keyDown",key:"d",code:"KeyD",windowsVirtualKeyCode:68,nativeVirtualKeyCode:68});
+    await send("Input.dispatchKeyEvent",{
+      type:"keyUp",key:"d",code:"KeyD",windowsVirtualKeyCode:68,nativeVirtualKeyCode:68});
+  };
+  await moveKey();
+  await sleep(35);
+  await moveKey();
+  await poll(()=>evaluate(`(()=>{
+    const save=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    const point=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.world-location.v068."+save.id)??"null");
+    return point?.x===8&&point?.y===9;
+  })()`),"dois passos com redirecionamento durante a caminhada",50);
+  console.log("QA movimentação: segundo comando aceito durante tween e posição final persistida.");
+
+  const shot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  const bytes = Buffer.from(shot.data, "base64");
+  if (bytes.length < 15000) throw new Error("Captura PNG pequena ou vazia: " + bytes.length + " bytes.");
+  await mkdir("qa", { recursive: true });
+  await writeFile(OUT, bytes);
+
+  // Verifica integração do personagem: trocar a apresentação não pode remontar
+  // o canvas Phaser, reiniciar a Baixada nem alterar a identidade salva.
+  await evaluate('window.__qaCanvas = document.querySelector(".baixada-world canvas");true');
+  await evaluate('document.querySelector(".menu-trigger").click();true');
+  await poll(() => has(".character-body-selection"), "troca corporal na central");
+  await evaluate('document.querySelectorAll(".character-body-selection button")[1].click();true');
+  await poll(() => evaluate('document.querySelectorAll(".character-body-selection button")[1]?.getAttribute("aria-pressed") === "true"'),
+    "apresentação feminina selecionada");
+  const persisted = await evaluate('document.querySelector(".baixada-world canvas") === window.__qaCanvas');
+  if (!persisted) throw new Error("A troca corporal remontou o canvas Phaser e pode ter reiniciado a posição.");
+  await evaluate('document.querySelector(".menu-close-button").click();true');
+  await poll(() => evaluate('!document.querySelector(".character-menu-shell")'), "fechamento do menu");
+  await sleep(650);
+  const femaleShot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  const femaleBytes = Buffer.from(femaleShot.data, "base64");
+  if (femaleBytes.length < 15000) throw new Error("Captura da variante feminina inválida.");
+  await writeFile("qa/baixada-feminina-1600x720.png", femaleBytes);
+  await writeFile("qa/baixada-metricas.json", JSON.stringify({
+    metrics, pngBytes: bytes.length, femalePngBytes: femaleBytes.length,
+    sameCanvasAfterAppearanceChange: persisted, runtimeExceptions: session.exceptions,
+  }, null, 2));
+
+  // Percorre a mesma sessão salva em novo ponto de spawn válido no Pátio:
+  // valida layout real do setor industrial sem reescrever o mapa em teste.
+  const relocated = await evaluate(`(()=>{
+    const raw=localStorage.getItem("cyberpunk-tactical-rpg.character.v1");
+    if(!raw)return false;
+    const id=JSON.parse(raw)?.character?.id;
+    if(!id)return false;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+id,
+      JSON.stringify({x:28,y:12}));
+    return true;
+  })()`);
+  if(!relocated)throw new Error("QA industrial: personagem salvo não encontrado.");
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"menu para restaurar exploração");
+  // O replay não pode reiniciar a missão nem forçar uma nova criação.
+  await evaluate('document.querySelectorAll(".na-title-option")[3].click();true');
+  await poll(()=>evaluate('Boolean([...document.querySelectorAll(".na-title-modal button")].find(b=>b.textContent?.includes("Rever apresentação")))'),"opção de rever a cutscene");
+  await evaluate('[...document.querySelectorAll(".na-title-modal button")].find(b=>b.textContent?.includes("Rever apresentação")).click();true');
+  await poll(()=>has(".na-opening-screen"),"replay manual do prólogo");
+  await evaluate('document.querySelector(".na-opening-top button").click();true');
+  await poll(()=>has(".na-title-option"),"replay retorna ao menu");
+  const replaySave=await evaluate(`(()=>{
+    const c=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    return {openingSeen:c.openingSeen,introductionCompleted:c.introductionCompleted,
+      classId:c.classId,originId:c.originId};
+  })()`);
+  if(!replaySave.openingSeen||!replaySave.introductionCompleted||
+      replaySave.classId!=="corporativo"||replaySave.originId!=="baixada")
+    throw new Error("Rever apresentação alterou o personagem: "+JSON.stringify(replaySave));
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".baixada-world canvas"),"mapa industrial restaurado");
+  await sleep(2100);
+  const patioShot=await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false});
+  const patioPng=Buffer.from(patioShot.data,"base64");
+  if(patioPng.length<15000)throw new Error("QA industrial: screenshot vazio");
+  await writeFile("qa/patio-reuso-1600x720.png",patioPng);
+  console.log("QA industrial: Pátio do Reúso capturado em 1600×720.");
+
+  // Percurso adicional: restaura o mesmo protagonista em célula caminhável do
+  // Mercado dos Cabos. É uma preparação de QA, não um teleporte de gameplay.
+  const marketReady=await evaluate(`(()=>{
+    const raw=localStorage.getItem("cyberpunk-tactical-rpg.character.v1");
+    const id=raw&&JSON.parse(raw)?.character?.id;
+    if(!id)return false;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+id,
+      JSON.stringify({x:12,y:26}));
+    return true;
+  })()`);
+  if(!marketReady)throw new Error("QA feira: salvamento não encontrado.");
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título da feira");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".baixada-world canvas"),"cena da feira");
+  await poll(()=>evaluate('document.querySelector(".district-brand h1")?.textContent.includes("Mercado dos Cabos")'),"identidade visual da feira");
+  await sleep(1700);
+  const marketPng=Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64");
+  if(marketPng.length<15000)throw new Error("QA feira: screenshot vazio");
+  await writeFile("qa/mercado-dos-cabos-1600x720.png",marketPng);
+  const marketMetrics=await evaluate(`(()=>{
+    const canvas=document.querySelector(".baixada-world canvas");
+    const label=document.querySelector(".district-brand h1")?.textContent;
+    const save=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1"));
+    return {canvas:!!canvas,sector:label,origin:save.character.originId,
+      classId:save.character.classId,position:JSON.parse(localStorage.getItem(
+      "cyberpunk-tactical-rpg.world-location.v068."+save.character.id))};
+  })()`);
+  if(marketMetrics.origin!=="baixada"||marketMetrics.classId!=="corporativo"||
+     marketMetrics.position?.y!==26)throw new Error("QA feira: origem/classe/posição alteradas "+JSON.stringify(marketMetrics));
+  await writeFile("qa/mercado-dos-cabos-metricas.json",JSON.stringify(marketMetrics,null,2));
+  console.log("QA Mercado dos Cabos: setor, personagem e geometria capturados.");
+
+
+  // QA móvel da arena: comandos devem permanecer disponíveis mesmo
+  // quando a seção de recursos e habilidades excede o viewport.
+  await evaluate('document.querySelector(".menu-trigger").click();true');
+  await poll(() => has(".character-menu-nav"), "central do protagonista reaberta");
+  await evaluate('Array.from(document.querySelectorAll(".character-menu-nav button")).find(b => b.textContent.includes("Configurações")).click();true');
+  await poll(() => evaluate('Boolean(Array.from(document.querySelectorAll(".menu-two-columns button")).find(b => b.textContent.includes("Abrir Limbo de Teste")))'), "configurações com arena");
+  await evaluate('Array.from(document.querySelectorAll(".menu-two-columns button")).find(b => b.textContent.includes("Abrir Limbo de Teste")).click();true');
+  await poll(() => has(".arena-v030 .arena-console-scroll"), "arena tática");
+  await sleep(500);
+  const arenaLayout = await evaluate(`(() => {
+    const area=document.querySelector(".arena-console");
+    const scroll=document.querySelector(".arena-console-scroll");
+    const dock=area?.querySelector(".control-sheet");
+    const attack=dock?.querySelector(".attack-button");
+    const turn=dock?.querySelector(".end-turn-button");
+    const abilities=scroll?.querySelector(".arena-specials");
+    if(!area||!scroll||!dock||!attack||!turn||!abilities)return {error:"Elemento da arena ausente"};
+    const outer=area.getBoundingClientRect(), d=dock.getBoundingClientRect();
+    const a=attack.getBoundingClientRect(), t=turn.getBoundingClientRect();
+    return {outer:{top:outer.top,bottom:outer.bottom}, dock:{top:d.top,bottom:d.bottom,height:d.height},
+      attack:{top:a.top,bottom:a.bottom,height:a.height},turn:{top:t.top,bottom:t.bottom,height:t.height},
+      scrollClient:scroll.clientHeight,scrollContent:scroll.scrollHeight,
+      topResourcesVisible:abilities.getBoundingClientRect().top>=scroll.getBoundingClientRect().top,
+      windowHeight:innerHeight};
+  })()`);
+  if (arenaLayout.error || arenaLayout.dock.top < arenaLayout.outer.top - 3 ||
+      arenaLayout.dock.bottom > arenaLayout.outer.bottom + 3 ||
+      arenaLayout.attack.bottom > arenaLayout.windowHeight - 2 ||
+      arenaLayout.turn.bottom > arenaLayout.windowHeight - 2 ||
+      arenaLayout.attack.height < 44 || arenaLayout.turn.height < 44) {
+    throw new Error("Painel fixo não está inteiramente utilizável: " + JSON.stringify(arenaLayout));
+  }
+  // Executa habilidade exclusiva e observa a alteração real de energia e
+  // Defesa do personagem. Não aceita animação ou mensagem sem mutação de regras.
+  const arenaTexture=await evaluate('document.querySelector(".battlefield-canvas canvas")?.getAttribute("data-player-texture")');
+  const skillLauncher=await evaluate(`(()=>{
+    const b=document.querySelector(".na-abilities-open"),r=b?.getBoundingClientRect();
+    return {label:b?.textContent,height:r?.height,top:r?.top,bottom:r?.bottom};
+  })()`);
+  if(arenaTexture!=="player-baixada-feminine" || !skillLauncher.label?.includes("HABILIDADES") ||
+     !skillLauncher.label?.includes("1 da classe") || skillLauncher.height<44 ||
+     skillLauncher.bottom>arenaLayout.windowHeight) {
+    throw new Error("Arena não preservou sprite/seletor: "+JSON.stringify({arenaTexture,skillLauncher}));
+  }
+  await writeFile("qa/arena-identidade-e-poderes.json",JSON.stringify({arenaTexture,skillLauncher},null,2));
+  console.log("QA combate: sprite Baixada feminino e seletor de habilidades sempre acessível.");
+
+  const classButton=await evaluate(`(()=>{
+    const button=document.querySelector(".arena-special.class-exclusive");
+    if(!button)return {found:false};
+    return {found:true,name:button.textContent,disabled:button.getAttribute("aria-disabled")};
+  })()`);
+  if(!classButton.found || !classButton.name.includes("Protocolo de Contingência") ||
+      classButton.disabled!=="false")throw new Error("Habilidade da classe não carregada: "+JSON.stringify(classButton));
+  await evaluate('document.querySelector(".na-abilities-open").click();true');
+  await poll(()=>has(".na-ability-picker"),"seletor de técnicas em primeiro plano");
+  const pickerLayout=await evaluate(`(()=>{
+    const dialog=document.querySelector(".na-ability-picker");
+    const r=dialog?.getBoundingClientRect();
+    return {width:r?.width,height:r?.height,top:r?.top,bottom:r?.bottom,
+      options:document.querySelectorAll(".na-ability-choice").length,
+      titles:[...document.querySelectorAll(".na-ability-picker-group h3")].map(el=>el.textContent)};
+  })()`);
+  if(pickerLayout.options!==5||pickerLayout.top<0||pickerLayout.bottom>arenaLayout.windowHeight+1||
+     !pickerLayout.titles.includes("Técnicas da classe"))
+    throw new Error("Seletor inacessível: "+JSON.stringify(pickerLayout));
+  await evaluate('document.querySelector(".na-ability-choice").click();true');
+  await poll(()=>evaluate('document.querySelector(".na-ability-picker-selected strong")?.textContent.includes("Protocolo de Contingência")'),"técnica escolhida");
+  const selectedButton=await evaluate('document.querySelector(".na-ability-picker-actions button.primary")?.disabled');
+  if(selectedButton)throw new Error("Técnica inicial deveria estar pronta.");
+  await writeFile("qa/seletor-habilidades-1600x720.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".na-ability-picker-actions button.primary").click();true');
+  await poll(()=>evaluate('!document.querySelector(".na-ability-picker")'),"seletor fecha após usar poder");
+  await poll(()=>evaluate('document.querySelector(".combat-message")?.textContent.includes("Protocolo de Contingência")'),"efeito real da habilidade Corpo");
+  const classMutation=await evaluate(`(()=>{
+    const energy=document.querySelector(".arena-energy strong")?.textContent;
+    const guard=document.querySelector(".arena-effects")?.textContent;
+    const player=document.querySelector(".units")?.textContent;
+    return {energy,guard,player};
+  })()`);
+  if(!classMutation.energy.includes("7 / 10") ||
+     !classMutation.guard.includes("Proteção da classe"))
+    throw new Error("Habilidade sem modificação esperada de regras: "+JSON.stringify(classMutation));
+  await writeFile("qa/arena-habilidade-classe-1600x720.png",
+    Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await writeFile("qa/arena-habilidade-classe-metricas.json",JSON.stringify(classMutation,null,2));
+  console.log("QA classe: Baixada + Corporativo salvos; efeito real da classe executado.");
+
+  const arenaShot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  const arenaPng = Buffer.from(arenaShot.data,"base64");
+  await writeFile("qa/arena-comandos-fixos-1600x720.png", arenaPng);
+  await writeFile("qa/arena-comandos-metricas.json",JSON.stringify(arenaLayout,null,2));
+  console.log("QA arena: comandos sempre visíveis:",JSON.stringify(arenaLayout));
+
+  // Regressão Android de entrada: slot carregável e controles de toque em 914x411.
+  await send("Emulation.setDeviceMetricsOverride",{
+    width:914,height:411,deviceScaleFactor:1.75,mobile:true,
+    screenOrientation:{type:"landscapePrimary",angle:90},
+  });
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"menu de slots em viewport móvel");
+  await evaluate('document.querySelectorAll(".na-title-option")[2].click();true');
+  await poll(()=>has(".save-slot-entry"),"slot individual na nova central");
+  const saveUi=await evaluate(`(()=>{
+    const modal=document.querySelector(".na-title-modal");
+    const rows=[...document.querySelectorAll(".save-slot-entry")];
+    const actionButtons=[...document.querySelectorAll(".save-slot-actions button")];
+    const r=modal.getBoundingClientRect();
+    return {slots:rows.length,modalTop:r.top,modalBottom:r.bottom,
+      viewport:innerHeight,importFile:!!document.querySelector('.backup-import-label input[type="file"]'),
+      minButton:Math.min(...actionButtons.map(b=>b.getBoundingClientRect().height)),
+      activeName:rows[0]?.textContent};
+  })()`);
+  if(saveUi.slots<1||!saveUi.importFile||saveUi.modalTop<-2||
+     saveUi.modalBottom>saveUi.viewport+2||saveUi.minButton<43)
+     throw new Error("QA slots Android 914x411: "+JSON.stringify(saveUi));
+  await writeFile("qa/slots-914x411.png",Buffer.from((await send("Page.captureScreenshot",{
+    format:"png",captureBeyondViewport:false})).data,"base64"));
+  await writeFile("qa/slots-914x411-metricas.json",JSON.stringify(saveUi,null,2));
+  console.log("QA slots Android 914×411:",JSON.stringify(saveUi));
+
+  // QA persistência de Vida: um protagonista que volta a combater deve
+  // manter seus ferimentos e ganhar HP real ao consumir um curativo.
+  await evaluate(`(()=>{
+    const c=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    localStorage.setItem("cyberpunk-tactical-rpg.health.v1."+c.id,
+      JSON.stringify({hp:6,maxHp:18}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título após salvar ferimentos");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-explore-health"),"HUD de Vida na Baixada");
+  const healthBefore=await evaluate('document.querySelector(".na-explore-health")?.textContent.trim()');
+  if(!healthBefore.includes("6/"))throw new Error("A Vida não foi restaurada da exploração: "+healthBefore);
+  await evaluate('document.querySelector(".exploration-footer-actions.single-action button").click();true');
+  await poll(()=>has(".unit-card.cyan"),"personagem ferido no combate");
+  const arenaHp=await evaluate('document.querySelector(".unit-card.cyan .unit-stats b")?.textContent.trim()');
+  if(!arenaHp.startsWith("6/"))throw new Error("Arena reinicializou a Vida: "+arenaHp);
+  // O seletor deve funcionar no viewport horizontal real do Android (914x411),
+  // não apenas no screenshot desktop 1600x720.
+  const mobileLauncher=await evaluate(`(()=>{
+    const r=document.querySelector(".na-abilities-open")?.getBoundingClientRect();
+    return {top:r?.top,bottom:r?.bottom,height:r?.height,screenHeight:innerHeight};
+  })()`);
+  if(!mobileLauncher.height||mobileLauncher.height<44||
+     mobileLauncher.top<0||mobileLauncher.bottom>mobileLauncher.screenHeight)
+    throw new Error("Botão de habilidades não tocável no Android: "+JSON.stringify(mobileLauncher));
+  await evaluate('document.querySelector(".na-abilities-open").click();true');
+  await poll(()=>has(".na-ability-picker"),"seletor de habilidades Android 914x411");
+  const mobileModal=await evaluate(`(()=>{
+    const r=document.querySelector(".na-ability-picker")?.getBoundingClientRect();
+    const confirm=document.querySelector(".na-ability-picker-actions .primary")?.getBoundingClientRect();
+    return {top:r?.top,bottom:r?.bottom,screenHeight:innerHeight,
+      confirmTop:confirm?.top,confirmBottom:confirm?.bottom,
+      count:document.querySelectorAll(".na-ability-choice").length};
+  })()`);
+  if(mobileModal.top<0||mobileModal.bottom>mobileModal.screenHeight+2||
+     mobileModal.confirmBottom>mobileModal.screenHeight+2||mobileModal.count!==5)
+    throw new Error("Seletor cortado no Android 914x411: "+JSON.stringify(mobileModal));
+  await writeFile("qa/seletor-habilidades-914x411.png",
+    Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".na-ability-picker-head button").click();true');
+  await poll(()=>evaluate('!document.querySelector(".na-ability-picker")'),"fechamento seletor Android");
+  await evaluate('document.querySelector(".actions .end-turn-button").click();true');
+  await poll(()=>evaluate('document.querySelector(".combat-message")?.textContent.includes("Curativo de campo")'),
+    "uso real de curativo");
+  const healResult=await evaluate(`(()=>{
+    const c=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    const health=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.health.v1."+c.id));
+    return {hp:health.hp,shown:document.querySelector(".unit-card.cyan .unit-stats b")?.textContent};
+  })()`);
+  if(healResult.hp!==11||!healResult.shown.startsWith("11/"))
+    throw new Error("Curativo não persistiu Vida real: "+JSON.stringify(healResult));
+  await evaluate('document.querySelector(".secondary-actions button:last-child").click();true');
+  await poll(()=>has(".na-explore-health"),"retorno à exploração com Vida salva");
+  const healthAfter=await evaluate('document.querySelector(".na-explore-health")?.textContent.trim()');
+  if(!healthAfter.includes("11/"))throw new Error("Retorno perdeu Vida: "+healthAfter);
+  await writeFile("qa/vida-persistente-914x411.png",Buffer.from((await send("Page.captureScreenshot",{
+    format:"png",captureBeyondViewport:false})).data,"base64"));
+  console.log("QA Vida: ferimentos entre cenas 6 HP → curativo 11 HP → exploração 11 HP.");
+  // QA da nova campanha: início pelo jogador e persistência do primeiro objetivo.
+  await poll(()=>has(".na-mission-hub .na-next-step"),"orientação da missão acessível");
+  const missionLayout=await evaluate(`(()=>{
+    const hub=document.querySelector(".na-mission-hub"),next=hub?.querySelector(".na-next-step"),
+      r=hub?.getBoundingClientRect(),n=next?.getBoundingClientRect();
+    return {top:r?.top,right:r?.right,bottom:r?.bottom,width:r?.width,viewportWidth:innerWidth,viewportHeight:innerHeight,
+      nextTop:n?.top,nextBottom:n?.bottom,visible:getComputedStyle(next).display!=="none",
+      title:next?.textContent};
+  })()`);
+  if(!missionLayout.visible||missionLayout.top<0||missionLayout.bottom>missionLayout.viewportHeight+2||
+     missionLayout.right>missionLayout.viewportWidth+2||missionLayout.nextTop<0||
+     !missionLayout.title.toLowerCase().includes("o nome que sumiu"))
+    throw new Error("Orientação de missão fora de tela: "+JSON.stringify(missionLayout));
+  await poll(()=>has(".na-trial-panel"),"Campanha de teste no mapa");
+  // Retomar personagem que já concluiu a primeira missão no APK anterior.
+  // A nova versão deve apontar para o Pátio sem reiniciar seu progresso.
+  await evaluate(`(()=>{
+    const raw=localStorage.getItem("cyberpunk-tactical-rpg.character.v1");
+    const id=raw&&JSON.parse(raw).character?.id;
+    localStorage.setItem("cyberpunk-tactical-rpg.mission.v1."+id,
+      JSON.stringify({step:3,clues:["canal"]}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título para retomar missão antiga");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-mission-hub .na-next-step"),"objetivo persistido após atualização");
+  const legacyNext=await evaluate('document.querySelector(".na-next-step")?.textContent');
+  if(!legacyNext?.includes("Pátio"))
+    throw new Error("Missão anterior concluída não encaminha ao Pátio: "+legacyNext);
+  await evaluate('document.querySelector(".na-hub-toggle").click();true');
+  const collapsed=await evaluate('getComputedStyle(document.querySelector(".na-mission-details")).display==="none"');
+  if(!collapsed)throw new Error("HUD de missões não recolheu.");
+  await evaluate('document.querySelector(".na-hub-toggle").click();true');
+  const reopened=await evaluate('getComputedStyle(document.querySelector(".na-mission-details")).display!=="none"');
+  if(!reopened)throw new Error("HUD de missões não reabriu.");
+  await writeFile("qa/proxima-missao-914x411.png",
+    Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  const trialButton=await evaluate('document.querySelector(".na-trial-panel button")?.textContent');
+  if(!trialButton?.includes("Iniciar operação"))throw new Error("Campanha não pode ser iniciada: "+trialButton);
+  await evaluate('document.querySelector(".na-trial-panel button").click();true');
+  await poll(()=>has(".na-trial-objective"),"Primeiro objetivo de campanha");
+  const activeStage=await evaluate('document.querySelector(".na-trial-objective strong")?.textContent');
+  if(!activeStage?.includes("Dra. Amara"))throw new Error("Objetivo de campanha errado: "+activeStage);
+  await writeFile("qa/operacao-circuito-914x411.png",
+    Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  console.log("QA campanha: missão iniciada com etapa da Dra. Amara.");
+
+  // QA subterrâneo no viewport real Android: interações públicas, sem ganchos de teste.
+  // A posição é salva no dispositivo como qualquer personagem que caminhou ao Pátio Sul.
+  await evaluate(`(()=>{
+    const raw=localStorage.getItem("cyberpunk-tactical-rpg.character.v1");
+    const id=JSON.parse(raw).character.id;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+id,JSON.stringify({x:33,y:20}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título ao visitar ampliação leste");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-sewer-quick-access"),"escada do esgoto detectada no mundo aberto");
+  const surfaceAccess=await evaluate('document.querySelector(".na-sewer-quick-access")?.textContent');
+  if(!surfaceAccess.includes("GALERIA DE DRENAGEM"))
+    throw new Error("Acesso da Galeria não foi encontrado: "+surfaceAccess);
+  await sleep(950);
+  await writeFile("qa/baixada-expandida-esgoto-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".na-sewer-quick-access").click();true');
+  await poll(()=>has(".interior-world.sewer-drain canvas"),"mapa 1 Galeria de Drenagem em Phaser");
+  await sleep(1300);
+  const drainInfo=await evaluate(`(()=>{
+    const c=document.querySelector(".interior-world.sewer-drain canvas");
+    const r=c?.getBoundingClientRect();
+    return {width:r?.width,height:r?.height,canvasW:c?.width,canvasH:c?.height,
+      title:document.querySelector(".district-brand h1")?.textContent,
+      hubCollapsed:!!document.querySelector(".na-mission-hub.collapsed")};
+  })()`);
+  if(!drainInfo.canvasW||drainInfo.width<400||drainInfo.height<260||
+     !drainInfo.title?.includes("Galeria de Drenagem")||!drainInfo.hubCollapsed)
+    throw new Error("Mapa subterrâneo 1 inválido: "+JSON.stringify(drainInfo));
+  await writeFile("qa/esgoto-galeria-drenagem-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".area-return").click();true');
+  await poll(()=>has(".na-sewer-quick-access"),"retorno à superfície via escada da galeria");
+  // A segunda saída não pode entrar na Câmara se o jogador não recuperou manifesto.
+  await evaluate(`(()=>{
+    const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+id,JSON.stringify({x:34,y:29}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"retomar no segundo acesso");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-sewer-quick-access"),"segunda escada do esgoto detectada");
+  const emergency=await evaluate('document.querySelector(".na-sewer-quick-access")?.textContent');
+  if(!emergency?.includes("CÂMARA 04"))
+    throw new Error("Segunda saída mal conectada: "+emergency);
+  await evaluate('document.querySelector(".na-sewer-quick-access").click();true');
+  await poll(()=>has(".dialogue-panel"),"bloqueio narrativo da saída profunda");
+  const lockedMessage=await evaluate('document.querySelector(".dialogue-panel")?.textContent');
+  if(!lockedMessage?.includes("bloqueada"))
+    throw new Error("Saída profunda sem validação de progresso: "+lockedMessage);
+  // Reabre a campanha no checkpoint já concluído: a saída passa a ser alcançável.
+  await evaluate(`(()=>{
+    const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
+    localStorage.setItem("cyberpunk-tactical-rpg.sewer-v09.v1."+id,
+      JSON.stringify({traceFound:true,pumpRestored:true,gateOpened:true,
+        manifestRecovered:true,sampleRecovered:false}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"retomar após checkpoint subterrâneo");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-sewer-quick-access"),"saída profunda habilitada");
+  await evaluate('document.querySelector(".na-sewer-quick-access").click();true');
+  await poll(()=>has(".interior-world.sewer-deep canvas"),"mapa 2 Câmara de Recalque em Phaser");
+  await sleep(1200);
+  const deepInfo=await evaluate(`(()=>{
+    const c=document.querySelector(".interior-world.sewer-deep canvas");
+    const r=c?.getBoundingClientRect();
+    return {width:r?.width,height:r?.height,title:document.querySelector(".district-brand h1")?.textContent,
+      progress:document.querySelector(".na-sewer-heading strong")?.textContent};
+  })()`);
+  if(deepInfo.width<400||deepInfo.height<260||
+     !deepInfo.title?.includes("Câmara de Recalque")||
+     !deepInfo.progress?.includes("4 / 4"))
+    throw new Error("Mapa subterrâneo 2 inválido: "+JSON.stringify(deepInfo));
+  await writeFile("qa/esgoto-camara-recalque-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".area-return").click();true');
+  await poll(()=>has(".interior-world.sewer-drain canvas"),"retorno profundo → galeria");
+  await evaluate('document.querySelector(".area-return").click();true');
+  await poll(()=>has(".baixada-world:not(.interior-world) canvas"),"retorno galeria → superfície");
+  const backTitle=await evaluate('document.querySelector(".district-brand h1")?.textContent');
+  if(backTitle?.includes("Galeria de Drenagem")||backTitle?.includes("Câmara de Recalque"))
+    throw new Error("Retorno subterrâneo prendeu o personagem: "+backTitle);
+  console.log("QA subterrâneo: 39×34, ambas as escadas, dois mapas renderizados, bloqueio, checkpoint e retorno.");
+
+
+
+
+  // Ferrugem: novo distrito deve abrir pelo terminal de transporte do
+  // Pátio Sul usando o save real; não depende de rotas de teste privadas.
+  await evaluate(`(()=>{
+    const character=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+character.id,
+      JSON.stringify({x:36,y:22}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título antes da viagem industrial");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-sewer-quick-access"),"terminal de transporte de Ferrugem");
+  const gateLabel=await evaluate('document.querySelector(".na-sewer-quick-access")?.textContent');
+  if(!gateLabel?.includes("FERRUGEM"))throw new Error("Não há acesso ao distrito Ferrugem: "+gateLabel);
+  await evaluate('document.querySelector(".na-sewer-quick-access").click();true');
+  await poll(()=>has(".interior-world.ferrugem canvas"),"canvas industrial de Ferrugem");
+  await sleep(1300);
+  const ferrugemMetrics=await evaluate(`(()=>{
+    const canvas=document.querySelector(".interior-world.ferrugem canvas");
+    const r=canvas?.getBoundingClientRect();
+    const title=document.querySelector(".district-brand h1")?.textContent;
+    const character=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    const raw=localStorage.getItem("cyberpunk-tactical-rpg.ferrugem.v1."+character.id);
+    const quest=raw?JSON.parse(raw):null;
+    return {width:r?.width,height:r?.height,title,
+      questStarted:quest?.started,questStep:quest?.step,scene:!!canvas};
+  })()`);
+  if(!ferrugemMetrics.scene||ferrugemMetrics.width<400||ferrugemMetrics.height<260||
+     !ferrugemMetrics.title?.includes("Ferrugem")||
+     ferrugemMetrics.questStarted!==true||ferrugemMetrics.questStep!==0)
+    throw new Error("Novo distrito ou missão Ferrugem não foi inicializado: "+JSON.stringify(ferrugemMetrics));
+  await writeFile("qa/ferrugem-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  // Reiniciar o documento no meio da Ferrugem simula fechamento do processo
+  // Android: o distrito e os marcos devem reaparecer ao continuar o save.
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"reabertura após fechamento em Ferrugem");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".interior-world.ferrugem canvas"),"retorno persistente à Ferrugem");
+  await evaluate('document.querySelector(".menu-trigger").click();true');
+  await poll(()=>has(".character-menu-shell"),"menu de Ferrugem");
+  await evaluate('[...document.querySelectorAll(".character-menu-nav button")].find(b=>b.textContent?.includes("Inventário")).click();true');
+  await poll(()=>has(".na-crafting-panel"),"oficina de fabricação no inventário");
+  const recipes=await evaluate('document.querySelectorAll(".na-crafting-recipe").length');
+  if(recipes!==2)throw new Error("Receitas não aparecem no inventário: "+recipes);
+  await writeFile("qa/ferrugem-fabricacao-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".menu-close-button").click();true');
+  await poll(()=>evaluate('!document.querySelector(".character-menu-shell")'),"fechar oficina");
+  await evaluate('document.querySelector(".area-return").click();true');
+  await poll(()=>has(".baixada-world:not(.interior-world) canvas"),"volta de Ferrugem à Baixada");
+  const ferrugemSaved=await evaluate(`(()=>{
+    const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
+    const loc=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.world-location.v068."+id));
+    return {x:loc.x,y:loc.y};
+  })()`);
+  if(ferrugemSaved.x!==36||ferrugemSaved.y!==22)
+    throw new Error("Volta de Ferrugem perdeu ponto seguro da Baixada: "+JSON.stringify(ferrugemSaved));
+  console.log("QA Ferrugem: distrito Phaser, capítulo inicializado, retorno e save preservados.");
+
+  // Os cinco novos distritos devem ser navegáveis no mesmo ambiente Android
+  // horizontal; a viagem usa os botões reais e o save do protagonista.
+  await evaluate(`(()=>{
+    const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+id,
+      JSON.stringify({x:37,y:25}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"menu após atualizar posição para terminal de transporte");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-sewer-quick-access"),"acesso rápido a central interdistrital");
+  const transitLabel=await evaluate('document.querySelector(".na-sewer-quick-access")?.textContent');
+  if(!transitLabel?.includes("INTERDISTRITAL"))throw new Error("Central interdistrital inacessível: "+transitLabel);
+  const newDistricts=["aurea","subsolo","setor-zero","prisma","periferia"];
+  for(let i=0;i<newDistricts.length;i++){
+    const id=newDistricts[i];
+    await evaluate('document.querySelector(".na-sewer-quick-access").click();true');
+    await poll(()=>has(".na-transit-panel"),"central de transporte para "+id);
+    await evaluate(`document.querySelectorAll(".na-transit-grid button")[${i+1}].click();true`);
+    await poll(()=>has(".interior-world."+id+" canvas"),"mapa isométrico "+id);
+    await sleep(450);
+    const check=await evaluate(`(()=>{
+      const canvas=document.querySelector(".interior-world.${id} canvas");
+      const rect=canvas?.getBoundingClientRect();
+      const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+      const stored=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.city-chapters.v1."+hero.id)??"{}");
+      return {width:rect?.width,height:rect?.height,
+        title:document.querySelector(".district-brand h1")?.textContent,
+        active:stored["${id}"]?.started===true};
+    })()`);
+    if(check.width<400||check.height<260||!check.active)
+      throw new Error("Novo distrito não inicializado: "+id+" "+JSON.stringify(check));
+    await writeFile("qa/distrito-"+id+"-914x411.png",Buffer.from(
+      (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+    if(i===0){
+      await send("Page.navigate",{url:URL});
+      await poll(()=>has(".na-title-option"),"título após fechar no distrito Áurea");
+      await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+      await poll(()=>has(".interior-world.aurea canvas"),"retomada exata do distrito Áurea");
+    }
+    await evaluate('document.querySelector(".area-return").click();true');
+    await poll(()=>has(".baixada-world:not(.interior-world) canvas"),"retorno "+id+" à Baixada");
+    await poll(()=>has(".na-sewer-quick-access"),"central de transporte após "+id);
+  }
+  // Reproduzir o caso relatado pelo usuário: WebView Android horizontal,
+  // perfil Economia/Canvas. O antigo QA testava dimensões, não pixels.
+  await send("Emulation.setUserAgentOverride",{userAgent:
+    "Mozilla/5.0 (Linux; Android 15; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36"});
+  await evaluate('localStorage.removeItem("cyberpunk-tactical-rpg.graphics-mode.v1");true');
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título Android simulado");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>evaluate('document.querySelector(".baixada-world[data-scene-state=ready] canvas")?.width>200'),
+    "cena realmente renderizada no Android Economy Canvas",100);
+  await poll(()=>evaluate('document.querySelector(".baixada-world")?.dataset.artReady==="true"'),
+    "spritesheets e SVGs originais na Baixada Android",100);
+  const androidPixels=await evaluate(`(()=>{
+    const host=document.querySelector(".baixada-world");
+    const canvas=host?.querySelector("canvas");
+    const ctx=canvas?.getContext("2d");
+    if(!ctx)return {status:host?.dataset.sceneState,renderer:host?.dataset.renderer,colors:0};
+    const colors=new Set();
+    for(let y=1;y<=5;y++)for(let x=1;x<=7;x++){
+      const d=ctx.getImageData(Math.floor(canvas.width*x/8),
+        Math.floor(canvas.height*y/6),1,1).data;
+      colors.add(d[0]+","+d[1]+","+d[2]);
+    }
+    return {status:host?.dataset.sceneState,renderer:host?.dataset.renderer,colors:colors.size,
+      panelCollapsed:document.querySelector(".na-mission-hub")?.classList.contains("collapsed"),
+      engine:host?.dataset.engine,bootOverlay:!!host?.querySelector(".na-world-startup"),
+      artStyle:host?.dataset.artStyle,artReady:host?.dataset.artReady,
+      artLoaded:Number(host?.dataset.artLoaded??0),heroSprite:host?.dataset.heroSprite,
+      canvasBytes:canvas?.width*canvas?.height*4};
+  })()`);
+  if(androidPixels.renderer!=="canvas"||androidPixels.engine!=="native-2d"||
+    androidPixels.artStyle!=="restored-phaser"||androidPixels.artReady!=="true"||
+    androidPixels.artLoaded<8||androidPixels.heroSprite!=="loaded"||
+    androidPixels.bootOverlay||androidPixels.status!=="ready"||
+    androidPixels.canvasBytes>4_500_000||androidPixels.colors<12||
+    androidPixels.panelCollapsed!==true)
+    throw new Error("O Android mostra mapa em branco ou o HUD o bloqueia: "+JSON.stringify(androidPixels));
+  const androidShot=Buffer.from((await send("Page.captureScreenshot",{
+    format:"png",captureBeyondViewport:false})).data,"base64");
+  await writeFile("qa/baixada-android-canvas-914x411.png",androidShot);
+  const pixelCheck=spawnSync("python3",["-c",
+    "from PIL import Image;import sys;im=Image.open(sys.argv[1]).convert('RGB');w,h=im.size;a=im.crop((int(w*.19),int(h*.30),int(w*.53),int(h*.80)));colors=set(a.getdata());print('Mapa Android: cores reais =',len(colors));sys.exit(0 if len(colors)>20 else 1)",
+    "qa/baixada-android-canvas-914x411.png"],{encoding:"utf8"});
+  if(pixelCheck.status!==0)
+    throw new Error("Screenshot em branco detectado no modo Android: "+pixelCheck.stdout+" "+pixelCheck.stderr);
+  // O novo motor Android deve aceitar deslocamento físico e preservar o
+  // mesmo save, sem Phaser.Game, WebGL, textura gigante ou loading infinito.
+  const beforeNativeMove=await evaluate(`(()=>{
+    const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
+    return JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.world-location.v068."+id));
+  })()`);
+  await send("Input.dispatchKeyEvent",{type:"keyDown",key:"w",code:"KeyW",
+    windowsVirtualKeyCode:87,nativeVirtualKeyCode:87});
+  await send("Input.dispatchKeyEvent",{type:"keyUp",key:"w",code:"KeyW",
+    windowsVirtualKeyCode:87,nativeVirtualKeyCode:87});
+  await poll(()=>evaluate(`(()=>{
+    const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
+    const at=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.world-location.v068."+id));
+    return at.x===${beforeNativeMove.x}&&at.y===${beforeNativeMove.y}-1;
+  })()`),"movimento Android nativo com salvamento",45);
+  if(await evaluate('!!document.querySelector(".baixada-world .na-world-startup")'))
+    throw new Error("O mapa leve voltou à tela de carregamento durante a caminhada.");
+  console.log("QA movimento Android: navegação do teclado e save funcional no motor nativo.");
+
+  console.log("QA Android: ARTE ORIGINAL restaurada, "+androidPixels.artLoaded+
+    " imagens (personagens e props), "+androidPixels.colors+
+    " cores amostradas, 2D leve e HUD recolhido.");
+
+  console.log("QA cidade: 5 novos mapas, central de transporte, capítulos e retomada após fechar.");
+
+  console.log("QA visual: capturas masculina/feminina; canvas preservado após alternância.");
+  console.log("Viewport: " + JSON.stringify(metrics) + ", PNG: " + bytes.length + " bytes");
+  if (session.exceptions.length) {
+    throw new Error("Exceções de execução detectadas no navegador: " + session.exceptions.join(" | ").slice(0,1500));
+  }
+} finally {
+  session?.close();
+  for (const child of [browser, server]) {
+    if (child?.pid) {
+      try { process.kill(-child.pid, "SIGKILL"); } catch { child.kill("SIGKILL"); }
+    }
+  }
+}

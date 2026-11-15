@@ -1,36 +1,26 @@
-import { useEffect, useRef } from "react";
-import Phaser from "phaser";
-import { BAIXADA_VIEW_HEIGHT, BAIXADA_VIEW_WIDTH, BaixadaScene } from "../game/baixada/BaixadaScene";
-import type { OriginId } from "../game/character";
+import {lazy,Suspense} from "react";
+import {isAndroidDevice} from "../game/performance";
+import BaixadaLiteWorld from "./BaixadaLiteWorld";
+import type {OriginId} from "../game/character";
+import type {TestAppearance} from "../game/test-arena/appearance";
+import type {SectorId} from "../game/baixada/layout";
 
-interface BaixadaWorldProps {
-  onInteract: (id: string) => void;
-  originId: OriginId;
+/** Android não precisa criar Phaser.Game nem carregar atlases extensos para
+ * abrir a Baixada. O Phaser anterior permanece disponível em navegadores
+ * desktop e é importado somente quando necessário.
+ */
+const PhaserWorld=lazy(()=>import("./BaixadaPhaserWorld"));
+interface Props{
+  onInteract:(id:string)=>void;
+  originId:OriginId;
+  appearance:TestAppearance;
+  characterId:string;
+  onSectorChange?:(sector:SectorId)=>void;
+  onNearbyAccess?:(actorId:string|null)=>void;
 }
-
-export default function BaixadaWorld({ onInteract, originId }: BaixadaWorldProps) {
-  const hostRef = useRef<HTMLDivElement>(null);
-  const callbackRef = useRef(onInteract);
-  callbackRef.current = onInteract;
-
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-
-    const scene = new BaixadaScene((id) => callbackRef.current(id), originId);
-    const game = new Phaser.Game({
-      type: Phaser.AUTO,
-      parent: host,
-      width: BAIXADA_VIEW_WIDTH,
-      height: BAIXADA_VIEW_HEIGHT,
-      backgroundColor: "#101820",
-      scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-      render: { antialias: true, roundPixels: false },
-      scene: [scene],
-    });
-
-    return () => game.destroy(true);
-  }, [originId]);
-
-  return <div className="baixada-world" ref={hostRef} aria-label="Baixada expandida: ruas do Canal, Mercado da Ponte, Praça da Caixa d’Água, NPCs e acessos aos interiores" />;
+export default function BaixadaWorld(props:Props){
+  if(isAndroidDevice())return <BaixadaLiteWorld {...props}/>;
+  return <Suspense fallback={<div className="baixada-world" role="status">Carregando mapa isométrico...</div>}>
+    <PhaserWorld {...props}/>
+  </Suspense>;
 }

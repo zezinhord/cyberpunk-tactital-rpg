@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="112" height="190" viewBox="0 0 112 190">
+  <ellipse cx="57" cy="181" rx="27" ry="6" fill="#081116" opacity=".33"/>
+  <!-- Tronco curvo -->
+  <path d="M54 178 Q64 134 58 103 Q54 78 56 55" fill="none" stroke="#49382c" stroke-width="11" stroke-linecap="round"/>
+  <path d="M54 178 Q64 134 58 103 Q54 78 56 55" fill="none" stroke="#98714b" stroke-width="5" stroke-linecap="round"/>
+  <g stroke="#d0a36b" stroke-width="2" opacity=".65">
+    <path d="M57 150 L65 148 M59 137 L67 135 M58 123 L65 122 M56 109 L63 108 M55 95 L62 95 M55 80 L61 80"/>
+  </g>
+  <!-- Folhas principais -->
+  <g stroke="#294d3d" stroke-width="2" stroke-linejoin="round">
+    <path d="M56 61 Q24 29 4 42 Q24 44 42 68 Q20 51 8 66 Q31 62 53 76 Q26 74 18 91 Q43 79 57 79 Z" fill="#628a61"/>
+    <path d="M56 61 Q42 19 61 5 Q56 29 66 57 Q68 31 88 20 Q76 43 67 66 Q88 48 108 54 Q85 61 64 76 Z" fill="#789a6a"/>
+    <path d="M57 63 Q81 27 105 32 Q84 43 68 70 Q89 59 103 73 Q80 70 62 82 Q88 82 94 101 Q74 86 57 82 Z" fill="#557f58"/>
+    <path d="M56 65 Q30 47 17 18 Q38 33 58 56 Q47 27 60 10 Q62 37 65 59 Q75 35 95 30 Q81 51 67 69 Z" fill="#86a16e"/>
+  </g>
+  <!-- Nervuras e segmentos foliares -->
+  <g fill="none" stroke="#b4bd86" stroke-width="1.2" opacity=".8">
+    <path d="M56 74 Q28 50 7 44 M51 70 L25 43 M47 68 L17 63 M51 76 L22 86"/>
+    <path d="M59 69 Q58 32 61 9 M62 60 L85 25 M66 68 L103 54 M62 75 L101 75"/>
+    <path d="M61 75 Q85 47 105 34 M66 73 L91 64 M58 72 L76 32"/>
+  </g>
+  <!-- Cocos e base da copa -->
+  <g stroke="#4d3527" stroke-width="1.5">
+    <ellipse cx="54" cy="66" rx="6" ry="8" fill="#956b43"/>
+    <ellipse cx="63" cy="67" rx="6" ry="8" fill="#ad7b48"/>
+    <ellipse cx="59" cy="75" rx="5" ry="7" fill="#80583b"/>
+  </g>
+</svg>

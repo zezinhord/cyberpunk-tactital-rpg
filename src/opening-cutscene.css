@@ -1,0 +1,159 @@
+/* Abertura cinematográfica: 6 quadros CSS sem downloads, vídeo ou Phaser extra.
+   Paleta de Éden verde restrita ao painel do sistema. */
+.na-opening-screen{
+  display:flex;flex-direction:column;gap:0;isolation:isolate;width:100%;height:100dvh;min-height:320px;
+  padding:0 max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left));
+  overflow:hidden;color:#e9ede8;background:#070f17;font-family:var(--body);
+}
+.na-opening-top,.na-opening-footer{
+  display:flex;flex:none;align-items:center;justify-content:space-between;gap:12px;z-index:2;
+}
+.na-opening-top{height:52px;padding:3px 7px;border-bottom:1px solid rgba(212,174,118,.24);}
+.na-opening-top>span{color:#d2ac75;font:600 10px var(--mono);letter-spacing:.1em;}
+.na-opening-top b{color:#7999a0;font-weight:400;}
+.na-opening-top button{flex:none;min-height:44px;padding:5px 11px;border:1px solid #506c75;
+  border-radius:6px;background:#142630;color:#d8e7e6;font:700 11px var(--display);}
+.na-opening-top button span{margin-left:6px;color:#d7ac74;}
+.na-opening-layout{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,1fr);
+  flex:1 1 auto;min-height:0;gap:18px;padding:10px 0;align-items:stretch;}
+.na-opening-art{position:relative;min-width:0;min-height:0;overflow:hidden;
+  border:1px solid #334650;border-radius:8px;background:linear-gradient(150deg,#122533,#344c4d 55%,#102029);
+  box-shadow:inset 0 0 85px rgba(2,8,11,.6);}
+.na-opening-art:before{content:"";position:absolute;inset:0;z-index:3;pointer-events:none;
+  opacity:.2;background:repeating-linear-gradient(0deg,transparent 0 4px,rgba(2,8,11,.22) 4px 5px);}
+.na-opening-glow{position:absolute;left:-5%;right:0;top:-45%;height:110%;
+  background:radial-gradient(circle at 64% 62%,rgba(205,132,82,.25),transparent 54%);}
+.na-opening-scene-id{position:absolute;z-index:5;bottom:8px;left:10px;padding:5px 7px;
+  background:rgba(7,18,24,.76);border-left:2px solid #e9b77c;
+  color:#e8c6a2;font:600 9px var(--mono);letter-spacing:.06em;}
+.na-opening-narrative{display:flex;flex-direction:column;justify-content:center;min-width:0;min-height:0;
+  overflow-y:auto;padding:8px clamp(9px,2vw,29px) 8px 6px;overscroll-behavior:contain;}
+.na-opening-chapter{margin:0 0 12px;font:700 10px var(--mono);letter-spacing:.15em;color:#dfb678;}
+.na-opening-narrative h1{margin:0 0 15px;font:700 clamp(20px,3.2vw,38px)/1.04 var(--display);
+  text-wrap:balance;color:#f2e8d8;}
+.na-opening-typed{min-height:104px;margin:0;color:#c9d8d7;font-size:clamp(13px,1.35vw,16px);
+  line-height:1.58;white-space:pre-line;overflow-wrap:anywhere;}
+.na-opening-caret{color:#ecc28a;animation:na-opening-blink .65s steps(1,end) infinite;}
+@keyframes na-opening-blink{50%{opacity:0}}
+.na-opening-error{margin:8px 0 0;border-left:2px solid #e68f80;padding:7px;
+  color:#ffc7bf;background:rgba(104,40,40,.35);font-size:12px;}
+.na-opening-prompt{margin:auto 0 0;padding-top:12px;color:#8ca8ae;font:500 10px var(--mono);}
+.na-opening-footer{min-height:64px;border-top:1px solid rgba(211,171,119,.22);padding:7px 5px;}
+.na-opening-progress{display:flex;align-items:center;gap:6px;}
+.na-opening-progress i{display:block;width:clamp(15px,3vw,35px);height:4px;border-radius:3px;background:#3a5158;}
+.na-opening-progress i.active{background:#e4b985;box-shadow:0 0 9px rgba(225,169,97,.2);}
+.na-opening-progress small{margin-left:8px;color:#aabac3;font:600 11px var(--mono);}
+.na-opening-next{display:flex;align-items:center;justify-content:space-between;gap:18px;
+  min-width:185px;min-height:48px;padding:8px 14px;border:0;border-radius:7px;
+  color:#101d22;background:#e7b97f;font:800 13px var(--display);}
+.na-opening-next span{font-size:20px;}
+
+/* 01 e 03 — silhueta urbana tropical; lâminas de prédios em camadas. */
+.na-opening-art.visual-skyline{background:linear-gradient(#0a1c30 0%,#374d55 46%,#91664d 66%,#0e1a22 100%);}
+.na-opening-art.visual-districts{background:linear-gradient(125deg,#182c3b,#6d6358 55%,#242e36 56%,#0d171e);}
+.na-opening-sun{position:absolute;top:5%;right:26%;width:min(30%,150px);aspect-ratio:1;
+  border-radius:50%;background:radial-gradient(circle,#f0ba83 0%,#b87657 48%,transparent 72%);
+  filter:blur(3px);opacity:.79;}
+.na-opening-horizon{position:absolute;left:-4%;width:110%;bottom:0;display:flex;align-items:flex-end;gap:1.5%;height:85%;}
+.na-opening-horizon i{display:block;flex:1;background:#23343c;min-width:0;
+  box-shadow:inset 2px 0 rgba(255,215,159,.13),8px 0 16px rgba(3,10,15,.15);}
+.na-opening-horizon.far{bottom:17%;height:56%;filter:blur(1.5px);opacity:.8;}
+.na-opening-horizon.far i:nth-child(1){height:66%}.na-opening-horizon.far i:nth-child(2){height:87%}
+.na-opening-horizon.far i:nth-child(3){height:48%}.na-opening-horizon.far i:nth-child(4){height:95%}
+.na-opening-horizon.far i:nth-child(5){height:60%}.na-opening-horizon.far i:nth-child(6){height:78%}
+.na-opening-horizon.far i:nth-child(7){height:50%}
+.na-opening-horizon.near{height:54%;opacity:.95;}
+.na-opening-horizon.near i{background:repeating-linear-gradient(180deg,#16232b 0 18px,#293e43 18px 20px);}
+.na-opening-horizon.near i:nth-child(1){height:75%}.na-opening-horizon.near i:nth-child(2){height:51%}
+.na-opening-horizon.near i:nth-child(3){height:95%}.na-opening-horizon.near i:nth-child(4){height:55%}
+.na-opening-horizon.near i:nth-child(5){height:77%}.na-opening-horizon.near i:nth-child(6){height:49%}
+.na-opening-rail{position:absolute;left:-5%;right:-5%;bottom:12%;height:5px;
+  background:#d6a06f;box-shadow:0 9px 0 #112630,0 16px 0 #0a161f;
+  transform:rotate(-3deg);}
+.visual-districts .na-opening-horizon.far{left:0;width:58%;opacity:.96;}
+.visual-districts .na-opening-horizon.far i{background:#4f5256;}
+.visual-districts .na-opening-horizon.near{left:51%;width:54%;height:43%;}
+.visual-districts .na-opening-horizon.near i{background:repeating-linear-gradient(180deg,#14232b 0 22px,#9d6748 22px 24px);}
+
+/* 02 — sinal do Éden: verde reservado exclusivamente à IA. */
+.visual-eden{background:radial-gradient(circle at 55% 48%,#214d42 0%,#0b231f 55%,#06141a 100%);}
+.visual-eden .na-opening-glow{background:radial-gradient(circle,rgba(125,255,179,.19),transparent 52%);}
+.na-opening-network{position:absolute;inset:-20%;opacity:.45;transform:rotate(-12deg);
+  background:linear-gradient(90deg,transparent 96%,rgba(125,255,179,.34) 97%),
+  linear-gradient(transparent 96%,rgba(125,255,179,.28) 97%);background-size:35px 35px;}
+.na-opening-eden-symbol{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  width:min(49%,210px);aspect-ratio:1;border:1px solid #7dffb3;border-radius:50%;
+  box-shadow:0 0 0 18px rgba(125,255,179,.05),0 0 65px rgba(125,255,179,.18);}
+.na-opening-eden-symbol span{color:#7dffb3;font:700 clamp(56px,10vw,113px)/1 var(--display);}
+.na-opening-eden-symbol small{color:#b9f5d0;font:500 8px var(--mono);letter-spacing:.1em;}
+.na-opening-network-label{position:absolute;right:10px;top:12px;color:#8bddb1;font:500 9px var(--mono);}
+
+/* 04 — prontuário e registros adulterados. */
+.visual-records{background:radial-gradient(circle at 65% 40%,#3b3039,#18262d 65%,#0b1820);}
+.na-opening-document{position:absolute;top:14%;left:15%;width:70%;height:68%;
+  display:flex;flex-direction:column;gap:9px;padding:clamp(12px,2.2vw,24px);
+  border:1px solid #a98a64;border-top:3px solid #e6b57e;background:#20343a;
+  box-shadow:12px 13px 0 #0b1922;transform:rotate(-3deg);}
+.na-opening-document small{color:#b1c7c7;font:500 9px var(--mono);}
+.na-opening-document strong{color:#ead6b7;font:700 clamp(15px,2vw,26px) var(--display);}
+.na-opening-document i{display:block;width:90%;height:8px;background:#547178;}
+.na-opening-document i:nth-of-type(2){width:74%;}.na-opening-document i:nth-of-type(3){width:85%;background:#0a1218;}
+.na-opening-document i:nth-of-type(4){width:52%;background:#0a1218;}
+.na-opening-document span{margin-top:auto;color:#e9a088;font:700 11px var(--mono);}
+.na-opening-archive-mark{position:absolute;right:15px;bottom:10%;padding:6px;
+  transform:rotate(-4deg);background:#472f31;color:#ffc4a3;font:700 10px var(--mono);}
+
+/* 05 — protagonista sem impor etnia ou gênero; o nome é o do save ativo. */
+.visual-operative{background:radial-gradient(circle at 48% 28%,#3f5b66,#182932 58%,#0b151b);}
+.na-opening-operative{position:absolute;left:10%;bottom:-16%;width:58%;height:100%;}
+.na-opening-operative-head{position:absolute;top:15%;left:34%;width:27%;height:24%;
+  border:2px solid #556a72;border-radius:42% 42% 38% 38%;background:#182a34;z-index:2;}
+.na-opening-operative-body{position:absolute;bottom:0;left:11%;width:79%;height:69%;
+  clip-path:polygon(22% 0,73% 0,98% 26%,100% 100%,0 100%,0 23%);
+  background:linear-gradient(100deg,#1f424c,#162630 60%,#0d1a24);border-top:2px solid #78949b;}
+.na-opening-operative-visor{position:absolute;z-index:3;top:24%;left:39%;width:18%;height:5px;
+  background:#e9b578;box-shadow:0 0 17px rgba(233,181,120,.4);}
+.na-opening-id-card{position:absolute;z-index:4;right:7%;top:23%;display:flex;flex-direction:column;
+  gap:7px;max-width:54%;padding:12px;border:1px solid rgba(230,190,131,.5);
+  background:rgba(10,25,31,.9);box-shadow:0 6px 20px rgba(0,0,0,.36);}
+.na-opening-id-card small{color:#dbb988;font:500 9px var(--mono);}
+.na-opening-id-card strong{font:700 clamp(15px,2.1vw,25px) var(--display);overflow-wrap:anywhere;}
+.na-opening-id-card span{color:#b9cad2;font:500 10px var(--mono);}
+
+/* 06 — entrada do canal, promessa dos futuros mapas de esgoto. */
+.visual-canal{background:linear-gradient(170deg,#101a22 0%,#253c41 50%,#0b151d 100%);}
+.na-opening-tunnel-ring{position:absolute;left:50%;top:56%;transform:translate(-50%,-50%);
+  width:72%;aspect-ratio:1.7/1;border:20px solid #344d50;border-bottom-width:9px;
+  border-radius:52% 52% 10% 10%/75% 75% 5% 5%;box-shadow:0 0 0 14px #121e24;}
+.na-opening-tunnel-ring.inner{width:49%;aspect-ratio:1.5/1;border-width:10px;opacity:.65;background:#0b141b;}
+.na-opening-canal-door{position:absolute;left:50%;top:53%;transform:translate(-50%,-50%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;
+  width:28%;height:35%;border:5px solid #5b7271;border-radius:8px;background:#14222a;}
+.na-opening-canal-door strong{font:700 clamp(20px,3vw,35px) var(--display);color:#e7ad6b;}
+.na-opening-canal-door span{color:#a6bdc4;font:600 8px var(--mono);}
+.na-opening-sewer-flow{position:absolute;left:-10%;right:-10%;bottom:-16%;height:34%;
+  background:repeating-linear-gradient(168deg,#2b4f52 0 6px,#15303e 6px 14px);
+  transform:skewX(-20deg);opacity:.7;}
+@media(orientation:landscape) and (max-height:440px){
+  .na-opening-top{height:44px;}
+  .na-opening-layout{gap:10px;padding:6px 0;}
+  .na-opening-narrative{padding:4px 5px 4px 2px;}
+  .na-opening-chapter{margin-bottom:6px;font-size:9px;}
+  .na-opening-narrative h1{margin-bottom:7px;font-size:clamp(18px,2.8vw,26px);}
+  .na-opening-typed{min-height:82px;font-size:clamp(12px,1.5vw,14px);line-height:1.45;}
+  .na-opening-prompt{padding-top:4px;font-size:9px;}
+  .na-opening-footer{min-height:57px;padding:4px 2px;}
+  .na-opening-next{min-height:45px;}
+  .na-opening-top>span{font-size:9px;}
+}
+@media (orientation:portrait){
+  .na-opening-screen{height:100dvh;overflow:auto;}
+  .na-opening-layout{grid-template-columns:1fr;grid-template-rows:minmax(160px,42dvh) minmax(0,1fr);}
+  .na-opening-narrative{padding:7px;}
+  .na-opening-typed{min-height:88px;}
+}
+@media (prefers-reduced-motion:reduce){
+  .na-opening-caret{animation:none;}
+}
+.na-reduce-motion .na-opening-caret{animation:none;}

@@ -1,0 +1,18 @@
+/* Seleção independente das 11 classes oficiais. */
+.class-selection{display:flex;flex-direction:column;gap:10px;margin:14px 0}
+.class-selection .section-heading{margin:0}
+.class-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}
+.class-grid.compact{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.class-option{min-height:84px;padding:9px 11px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:5px;text-align:left;background:#19272f;border:1px solid #556b76;color:#dce7e8;border-radius:7px;cursor:pointer;touch-action:manipulation}
+.class-option.selected{border-color:#4cd5e9;background:#183841;box-shadow:inset 0 0 0 1px #4cd5e9}
+.class-option:focus-visible{outline:3px solid #e0b377;outline-offset:2px}
+.class-option .class-index{font:600 10px var(--mono);letter-spacing:.06em;color:#b2bcbf}
+.class-option strong{font-size:14px;line-height:1.2}
+.class-option small{font-size:11px;color:#acbdc0;line-height:1.35}
+.class-selection-detail{border:1px solid #416876;padding:10px 12px;background:#142931;color:#dce6e7;border-radius:8px}
+.class-selection-detail>strong{font-size:14px}
+.class-selection-detail p{font-size:12px;line-height:1.45;margin:7px 0}
+.class-selection-detail small{font-size:11px;color:#b0c6c9}
+.class-skill-preview{padding:7px 9px;border-left:3px solid #ddab68;background:#23333b}
+.class-skill-preview small{display:inline-block;margin-left:6px}
+@media(max-width:690px){.class-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.class-grid.compact{grid-template-columns:repeat(2,minmax(0,1fr))}}

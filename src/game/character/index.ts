@@ -10,6 +10,7 @@ export { ORIGIN_GAMEPLAY, getOriginGameplay } from "./gameplay";
 export {
   CHARACTER_SAVE_KEY,
   createPlayerCharacter,
+  assignCharacterClass,
   deleteCharacterSave,
   loadCharacter,
   saveCharacter,

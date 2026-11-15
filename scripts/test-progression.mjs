@@ -1,0 +1,77 @@
+import assert from "node:assert/strict";
+import {CLASS_IDS,ADVANCED_CLASS_SKILLS,getClassSkills,CLASS_SKILLS} from "../src/game/classes/registry.ts";
+import {createPlayerCharacter,loadCharacter,saveCharacter} from "../src/game/character/storage.ts";
+import {gainExperience,levelAtXp,purchaseAttribute,purchaseSkill,availableAttributePoints,
+ availableSkillPoints,combatProgression,STAT_IDS,MAX_LEVEL,LEVEL_XP} from "../src/game/progression/tree.ts";
+
+const db=new Map();
+globalThis.localStorage={getItem:k=>db.get(k)??null,setItem:(k,v)=>db.set(k,String(v)),removeItem:k=>db.delete(k)};
+assert.equal(levelAtXp(0),1);
+assert.equal(levelAtXp(29),1);
+assert.equal(levelAtXp(30),2);
+assert.equal(levelAtXp(75),3);
+assert.equal(levelAtXp(900),MAX_LEVEL);
+assert.equal(LEVEL_XP.length,MAX_LEVEL);
+assert.equal(STAT_IDS.length,5);
+assert.equal(Object.keys(ADVANCED_CLASS_SKILLS).length,22);
+for(const classId of CLASS_IDS){
+ let c=createPlayerCharacter("Teste","baixada",classId);
+ assert.equal(c.level,1);
+ assert.equal(availableAttributePoints(c),0);
+ assert.equal(availableSkillPoints(c),0);
+ assert.equal(purchaseSkill(c,getClassSkills(classId)[1].id).ok,false);
+ const grown=gainExperience(c,80);
+ assert.equal(grown.levelsGained,2);
+ c=grown.character;
+ assert.equal(c.level,3);
+ assert.equal(availableAttributePoints(c),4);
+ assert.equal(availableSkillPoints(c),4);
+ const atk0=combatProgression(c);
+ const up=purchaseAttribute(c,"precisao");
+ assert.equal(up.ok,true);
+ c=up.character;
+ assert.equal(combatProgression(c).attack,atk0.attack+1);
+ const vigor=purchaseAttribute(c,"vigor");
+ assert.equal(vigor.ok,true);
+ c=vigor.character;
+ assert.equal(combatProgression(c).hp,atk0.hp+3);
+ const reflex=purchaseAttribute(c,"reflexos");
+ assert.equal(reflex.ok,true);c=reflex.character;
+ const ifc=purchaseAttribute(c,"interface");assert.equal(ifc.ok,true);c=ifc.character;
+ assert.equal(availableAttributePoints(c),0);
+ assert.equal(purchaseAttribute(c,"influencia").ok,false);
+ assert.equal(combatProgression(c).armor,1);
+ assert.equal(combatProgression(c).energy,2);
+ const advanced=getClassSkills(classId).filter(s=>s.minimumLevel>=2)
+   .sort((a,b)=>a.minimumLevel-b.minimumLevel);
+ assert.equal(advanced.length,2,classId+" precisa duas técnicas");
+ assert.equal(advanced[0].classId,classId);
+ assert.equal(advanced[0].minimumLevel,2);
+ assert.equal(advanced[1].minimumLevel,3);
+ assert.equal(purchaseSkill(c,advanced[1].id).ok,false,"Sem pular pré-requisito");
+ const purchased=purchaseSkill(c,advanced[0].id);assert.equal(purchased.ok,true);
+ c=purchased.character;
+ assert.ok(c.abilities.includes(advanced[0].id));
+ assert.ok(c.abilities.includes(CLASS_SKILLS[getClassSkills(classId)[0].id].id));
+ const third=purchaseSkill(c,advanced[1].id);assert.equal(third.ok,true);
+ c=third.character;
+ assert.ok(c.abilities.includes(advanced[1].id));
+ assert.equal(purchaseSkill(c,advanced[1].id).ok,false);
+ const general=purchaseSkill(c,"passivo-mira");assert.equal(general.ok,true);
+ c=general.character;
+ assert.equal(combatProgression(c).attack,atk0.attack+2);
+ assert.equal(saveCharacter(c),true);
+ const restored=loadCharacter();
+ assert.equal(restored?.classId,classId);
+ assert.equal(restored?.level,3);
+ assert.equal(restored?.abilities.length,3);
+ assert.equal(availableSkillPoints(restored),1);
+ assert.equal(purchaseSkill(restored,"passivo-circuitos").ok,true);
+ assert.equal(purchaseSkill(restored,CLASS_IDS.find(other=>other!==classId)+"-something").ok,false);
+ // Liberar o slot antes do próximo teste (limite real de oito).
+ const slots=JSON.parse(db.get("cyberpunk-tactical-rpg.character-slots.v1"));
+ db.delete("cyberpunk-tactical-rpg.character-slot.v1."+c.id);
+ db.set("cyberpunk-tactical-rpg.character-slots.v1",JSON.stringify(slots.filter(id=>id!==c.id)));
+}
+assert.equal(gainExperience(createPlayerCharacter("x","baixada","solo"),-3).levelsGained,0);
+console.log("Progressão: 11 árvores, 22 técnicas, XP, níveis, atributos, passivas, pré-requisitos e persistência aprovados.");
