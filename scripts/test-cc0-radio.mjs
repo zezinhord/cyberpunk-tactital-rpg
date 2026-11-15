@@ -1,0 +1,44 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import {CURATED_TRACKS,curatedCandidates,chooseWithoutRepetition,
+ isRadioStyle} from "../src/audio/curated.ts";
+import {RADIO_DISTRICTS,RADIO_MOODS} from "../src/audio/soundscapes.ts";
+const catalog=JSON.parse(readFileSync(new URL("../music/cc0-sources.json",import.meta.url),"utf8"));
+assert.equal(catalog.license,"CC0-1.0");
+assert.equal(CURATED_TRACKS.length,12);
+const byId=new Map(catalog.tracks.map(track=>[track.id,track]));
+const ids=new Set(CURATED_TRACKS.map(track=>track.id));
+assert.equal(ids.size,CURATED_TRACKS.length);
+for(const song of CURATED_TRACKS){
+ const manifest=byId.get(song.id);
+ assert.ok(manifest,"Sem inventário de direitos para "+song.id);
+ assert.equal(manifest.license,"CC0-1.0");
+ assert.equal(manifest.source,song.source);
+ assert.equal(manifest.artist,song.artist);
+ assert.equal(manifest.title,song.name);
+ assert.ok(song.url.endsWith(song.id+".ogg"));
+ assert.ok(song.source.startsWith("https://opengameart.org/content/"));
+ assert.ok(song.districts.length>=2);
+ assert.ok(song.moods.length>=2);
+ for(const district of song.districts)assert.ok(RADIO_DISTRICTS.some(x=>x.id===district));
+ for(const mood of song.moods)assert.ok(RADIO_MOODS.some(x=>x.id===mood));
+}
+const tropical=curatedCandidates("baixada","exploracao","tropical",ids);
+assert.ok(tropical.length>=3);
+assert.ok(tropical.every(x=>x.style==="tropical"));
+const cyberpunk=curatedCandidates("ferrugem","confronto","cyberpunk",ids);
+assert.ok(cyberpunk.length>=2);
+assert.ok(cyberpunk.every(x=>x.style==="cyberpunk"));
+assert.equal(curatedCandidates("baixada","exploracao","original",ids).length,0);
+assert.equal(curatedCandidates("baixada","exploracao","auto",new Set).length,0);
+const all=curatedCandidates("baixada","exploracao","auto",ids);
+const first=chooseWithoutRepetition(all,[],0);
+assert.ok(first);
+const second=chooseWithoutRepetition(all,[first.url],0);
+assert.notEqual(second.url,first.url,"Não repetir a mesma música");
+const third=chooseWithoutRepetition(all,[first.url,second.url],0);
+assert.ok(third&&third.url!==first.url&&third.url!==second.url);
+assert.equal(chooseWithoutRepetition([],[],0),null);
+for(const x of ["auto","cyberpunk","tropical","original"])assert.ok(isRadioStyle(x));
+assert.equal(isRadioStyle("youtube"),false,"Não permitir streaming externo/sem licença");
+console.log("Rádio CC0: 12 músicas, gêneros, filtros, três seleções diferentes e créditos verificáveis.");

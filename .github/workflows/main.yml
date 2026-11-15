@@ -7,6 +7,7 @@ on:
       - main
       - feature/landscape-mobile-v1
       - feature/progression-audit-nova-arcadia-v071
+      - feature/music-director-v072
   pull_request:
     branches:
       - main
@@ -44,6 +45,11 @@ jobs:
 
       - name: Instalar dependencias imutaveis
         run: npm ci --no-audit --no-fund
+
+      - name: Verificar catálogo de direitos CC0 antes da compilação
+        run: |
+          python tools/import_cc0_music.py --check
+          node --experimental-strip-types scripts/test-cc0-radio.mjs
 
       - name: Verificar TypeScript antes da geração pesada de recursos
         run: npx tsc -b
@@ -113,6 +119,15 @@ jobs:
           command -v ffmpeg
           command -v ffprobe
           ffmpeg -hide_banner -encoders | grep 'libopus'
+
+      - name: Restaurar musicas CC0 licenciadas entre compilações
+        uses: actions/cache@v4
+        with:
+          path: public/assets/music
+          key: nova-arcadia-cc0-v1-${{ hashFiles('music/cc0-sources.json', 'tools/import_cc0_music.py') }}
+
+      - name: Importar musicas reais CC0 para reproduzir sem internet
+        run: python tools/import_cc0_music.py
 
       - name: Compilar aplicacao
         run: npm run build
