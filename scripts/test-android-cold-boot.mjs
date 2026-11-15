@@ -102,6 +102,8 @@ try{
  await until(()=>has(".baixada-world[data-engine=native-2d]"),"motor independente Android");
  await until(()=>evalJS('document.querySelector(".baixada-world")?.dataset.sceneState==="ready"'),
   "mapa nativo realmente desenhado",40);
+ await until(()=>evalJS('document.querySelector(".baixada-world")?.dataset.artReady==="true"'),
+  "sprites originais das classes e NPCs carregados",55);
  const metrics=await evalJS(`(()=>{
    const host=document.querySelector(".baixada-world");
    const canvas=host.querySelector("canvas"),ctx=canvas.getContext("2d");
@@ -117,6 +119,8 @@ try{
    return {engine:host.dataset.engine,ready:host.dataset.sceneState,
     colors:colors.size,pixels,bytes:canvas.width*canvas.height*4,
     canvasWidth:canvas.width,canvasHeight:canvas.height,
+    artStyle:host.dataset.artStyle,artReady:host.dataset.artReady,
+    artLoaded:Number(host.dataset.artLoaded),heroSprite:host.dataset.heroSprite,
     ctxState:ctx.isContextLost?.()??false,
     w:host.clientWidth,h:host.clientHeight,
     loading:!!host.querySelector(".na-world-startup"),
@@ -124,7 +128,9 @@ try{
  })()`);
  console.log("DIAGNÓSTICO CANVAS ANDROID:",JSON.stringify(metrics));
  if(metrics.error||metrics.engine!=="native-2d"||metrics.ready!=="ready"||
-    metrics.colors<5||metrics.bytes>4_500_000||metrics.w<600||metrics.h<300||
+    metrics.artStyle!=="restored-phaser"||metrics.artReady!=="true"||
+    metrics.artLoaded<8||metrics.heroSprite!=="loaded"||
+    metrics.colors<12||metrics.bytes>4_500_000||metrics.w<600||metrics.h<300||
     metrics.loading||!metrics.saved)
    throw new Error("Android voltou ao mapa vazio: "+JSON.stringify(metrics));
  await mkdir("qa",{recursive:true});
@@ -140,8 +146,9 @@ try{
   const at=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.world-location.v068."+c.id));
   return at.x===7&&at.y===9;
  })()`),"movimento e save em boot frio",30);
- console.log("Android frio aprovado: mapa nativo em primeira abertura, "+
-   metrics.colors+" cores, "+metrics.bytes+" bytes de canvas; toque e posição prontos.");
+ console.log("Android frio com ARTE ORIGINAL: "+metrics.artLoaded+
+   " imagens originais, personagem em spritesheet, "+metrics.colors+
+   " cores e "+metrics.bytes+" bytes de canvas; movimento e save prontos.");
 }finally{
  cdp?.close();
  for(const child of [browser,preview])if(child?.pid){

@@ -740,6 +740,8 @@ try {
   await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
   await poll(()=>evaluate('document.querySelector(".baixada-world[data-scene-state=ready] canvas")?.width>200'),
     "cena realmente renderizada no Android Economy Canvas",100);
+  await poll(()=>evaluate('document.querySelector(".baixada-world")?.dataset.artReady==="true"'),
+    "spritesheets e SVGs originais na Baixada Android",100);
   const androidPixels=await evaluate(`(()=>{
     const host=document.querySelector(".baixada-world");
     const canvas=host?.querySelector("canvas");
@@ -754,11 +756,15 @@ try {
     return {status:host?.dataset.sceneState,renderer:host?.dataset.renderer,colors:colors.size,
       panelCollapsed:document.querySelector(".na-mission-hub")?.classList.contains("collapsed"),
       engine:host?.dataset.engine,bootOverlay:!!host?.querySelector(".na-world-startup"),
+      artStyle:host?.dataset.artStyle,artReady:host?.dataset.artReady,
+      artLoaded:Number(host?.dataset.artLoaded??0),heroSprite:host?.dataset.heroSprite,
       canvasBytes:canvas?.width*canvas?.height*4};
   })()`);
   if(androidPixels.renderer!=="canvas"||androidPixels.engine!=="native-2d"||
+    androidPixels.artStyle!=="restored-phaser"||androidPixels.artReady!=="true"||
+    androidPixels.artLoaded<8||androidPixels.heroSprite!=="loaded"||
     androidPixels.bootOverlay||androidPixels.status!=="ready"||
-    androidPixels.canvasBytes>4_500_000||androidPixels.colors<4||
+    androidPixels.canvasBytes>4_500_000||androidPixels.colors<12||
     androidPixels.panelCollapsed!==true)
     throw new Error("O Android mostra mapa em branco ou o HUD o bloqueia: "+JSON.stringify(androidPixels));
   const androidShot=Buffer.from((await send("Page.captureScreenshot",{
@@ -788,7 +794,9 @@ try {
     throw new Error("O mapa leve voltou à tela de carregamento durante a caminhada.");
   console.log("QA movimento Android: navegação do teclado e save funcional no motor nativo.");
 
-  console.log("QA Android: Canvas real, "+androidPixels.colors+" amostras, HUD recolhido e pixels coloridos.");
+  console.log("QA Android: ARTE ORIGINAL restaurada, "+androidPixels.artLoaded+
+    " imagens (personagens e props), "+androidPixels.colors+
+    " cores amostradas, 2D leve e HUD recolhido.");
 
   console.log("QA cidade: 5 novos mapas, central de transporte, capítulos e retomada após fechar.");
 
