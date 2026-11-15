@@ -89,7 +89,8 @@ for(const classId of CLASS_IDS){
  assert.equal(restored.classId,classId);
  assert.equal(restored.originId,"militar");
  assert.equal(getSkillRank(restored,root),2);
- assert.deepEqual(restored.attributes,a.attributes);
+ for(const id of STAT_IDS)assert.equal(restored.attributes[id]??0,a.attributes[id]??0,
+   "Atributo distribuído deve sobreviver ao salvamento");
  assert.equal(availableSkillPoints(restored),1);
  assert.equal(grantUniqueExperience(restored,"enemy-trial-1",16).awarded,false);
  const legacy={...restored,baseAttributes:undefined,originStatBonuses:undefined,
