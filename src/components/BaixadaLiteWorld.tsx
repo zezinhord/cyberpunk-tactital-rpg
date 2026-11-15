@@ -161,9 +161,35 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
        ctx.fillRect(p.x-6*view.zoom,p.y+1*view.zoom,12*view.zoom,2*view.zoom);
      }
      if(road&&(x+y)%7===0){
+       // Pintura desgastada: a rua permanece legível sem cobrir o piso.
        ctx.strokeStyle="rgba(239,204,132,.48)";
+       ctx.lineWidth=Math.max(.7,view.zoom);
        ctx.beginPath();ctx.moveTo(p.x-7*view.zoom,p.y+3*view.zoom);
        ctx.lineTo(p.x+7*view.zoom,p.y+3*view.zoom);ctx.stroke();
+     }
+     // Reflexos de chuva tropical, remendos e drenos procedurais estáticos.
+     // Calculados só para os tiles visíveis: nenhum shader, filtro ou textura
+     // 1960×1160 armazenada no aparelho.
+     if(road&&(x*11+y*13)%17===0){
+       ctx.beginPath();
+       ctx.ellipse(p.x+2*view.zoom,p.y+4*view.zoom,
+         11*view.zoom,3.2*view.zoom,-.08,0,Math.PI*2);
+       ctx.fillStyle="rgba(101,174,181,.22)";ctx.fill();
+       ctx.strokeStyle="rgba(196,205,179,.18)";
+       ctx.lineWidth=.8;ctx.stroke();
+     }
+     if(road&&(x*7+y*3)%23===0){
+       ctx.strokeStyle="rgba(15,28,32,.63)";ctx.lineWidth=2*view.zoom;
+       ctx.beginPath();ctx.moveTo(p.x-7*view.zoom,p.y-1*view.zoom);
+       ctx.lineTo(p.x+5*view.zoom,p.y+4*view.zoom);ctx.stroke();
+       ctx.strokeStyle="rgba(229,167,101,.37)";ctx.lineWidth=.8;
+       ctx.beginPath();ctx.moveTo(p.x-5*view.zoom,p.y+1*view.zoom);
+       ctx.lineTo(p.x+8*view.zoom,p.y+5*view.zoom);ctx.stroke();
+     }
+     if(!road&&(x*5+y*9)%19===0){
+       ctx.strokeStyle="rgba(187,159,110,.3)";ctx.lineWidth=.9;
+       ctx.beginPath();ctx.moveTo(p.x-6*view.zoom,p.y-2*view.zoom);
+       ctx.lineTo(p.x+3*view.zoom,p.y+2*view.zoom);ctx.stroke();
      }
    }
    // Renderização Canvas 2D da mesma arquitetura, sprites e props Phaser.
@@ -371,7 +397,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     setError("A tela não conseguiu desenhar o primeiro quadro. Use Tentar abrir novamente.");
   },6000);
   try{
-    context=canvas.getContext("2d",{alpha:false,willReadFrequently:true});
+    context=canvas.getContext("2d",{alpha:false});
     if(!context)throw new Error("Canvas 2D indisponível neste Android");
     notify(motion.position,true);
     canvas.addEventListener("pointerdown",pointer,{passive:false});
