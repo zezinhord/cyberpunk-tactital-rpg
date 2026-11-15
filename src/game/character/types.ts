@@ -7,7 +7,13 @@ export interface PlayerCharacter {
   name: string;
   originId: OriginId;
   classId: ClassId | null;
+  /** Apenas pontos comprados; bônus permanentes são armazenados separadamente. */
   attributes: Readonly<Record<string, number>>;
+  baseAttributes?: Readonly<Record<string, number>>;
+  originStatBonuses?: Readonly<Record<string, number>>;
+  classStatBonuses?: Readonly<Record<string, number>>;
+  /** Rank 1 indica desbloqueio, 2+ representa aprimoramentos comprados. */
+  skillRanks?: Readonly<Record<string, number>>;
   skills: readonly string[];
   abilities: readonly string[];
   equipment: readonly string[];
