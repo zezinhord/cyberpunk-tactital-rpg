@@ -325,7 +325,7 @@ export class TurnManager {
     this.state.mainActionAvailable=false;
     this.nextAttackAccuracyBonus=0;
     this.state.classNextAccuracyBonus=0;
-    if(roll===20||(roll!==1&&total>=preview.defense)){
+    if(roll===20||total>=preview.defense){
       const baseDamage=rollDie(preview.mode==="ranged"?6:6)+2+
         (this.weaponRange===5?1:0);
       const damage=baseDamage+this.nextAttackDamageBonus+this.state.classNextDamageBonus;
@@ -372,7 +372,7 @@ export class TurnManager {
         const cover=profile.range>1?coverArmorBonus(enemy,player):0;
         const defense=player.armorClass+cover;
         const roll=rollDie(20),total=roll+enemy.attackBonus;
-        if(roll===20||(roll!==1&&total>=defense)){
+        if(roll===20||total>=defense){
           const damage=rollDie(profile.range>1?6:4)+(profile.range>1?1:1);
           player.hp=Math.max(0,player.hp-damage);
           this.setCue("hit","player",damage);
