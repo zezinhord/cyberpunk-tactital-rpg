@@ -27,6 +27,32 @@ assert.ok(melee.getState().cue?.path?.length>=2,"Animação recebeu caminho tát
 
 const equipped=new TurnManager({encounterId:"v09",weaponId:"pistola_manutencao"});
 assert.equal(equipped.getBasicAttackPreview().range,4);
+const covered=new TurnManager({encounterId:"v09",weaponId:"pistola_inducao"});
+covered.state.units[0].x=1;covered.state.units[0].y=1;
+covered.state.units[1].x=3;covered.state.units[1].y=0;
+const coveredPreview=covered.getBasicAttackPreview();
+assert.equal(coveredPreview.cover,"partial");
+assert.equal(coveredPreview.defense,covered.state.units[1].armorClass+2);
+assert.equal(coveredPreview.available,true);
+const oldRandom=Math.random;
+Math.random=()=>0.99;
+try{
+ const hp=covered.state.units[1].hp;
+ covered.attack();
+ assert.equal(covered.state.mainActionAvailable,false);
+ assert.ok(covered.state.units[1].hp<hp,"Pistola equipada não causou dano real");
+}finally{Math.random=oldRandom;}
+const hacker=new TurnManager({
+ classId:"netrunner",originId:"baixada",characterLevel:1,
+ characterAbilities:["netrunner-intrusao"]
+});
+hacker.state.units[0].x=1;hacker.state.units[0].y=2;
+hacker.state.units[1].x=5;hacker.state.units[1].y=2;
+assert.equal(hacker.getClassAvailability("netrunner-intrusao").available,true,
+ "Intrusão digital não exige linha visual de disparo");
+hacker.activateClassAbility("netrunner-intrusao");
+assert.equal(hacker.state.enemyJamTurns,1);
+assert.equal(hacker.state.units[1].hp,hacker.state.units[1].maxHp-3);
 assert.ok(equipped.getEnemyIntent().length>2);
 const player=equipped.state.units[0],enemy=equipped.state.units[1];
 player.x=1;player.y=2;enemy.x=5;enemy.y=2;
