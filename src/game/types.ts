@@ -30,6 +30,7 @@ export interface GameState {
   originId: string;
   classId: string | null;
   characterAbilities: readonly string[];
+  characterSkillRanks?: Readonly<Record<string,number>>;
   classCooldowns: Record<string,number>;
   classGuardBonus: number;
   classGuardTurns: number;
@@ -43,6 +44,8 @@ export interface GameState {
   encounterId: EncounterId;
   wave:number;
   totalWaves:number;
+  /** Número de inimigos efetivamente neutralizados neste encontro. */
+  defeatedEnemyCount:number;
   energy: number;
   maxEnergy: number;
   cooldowns: Record<SpecialId, number>;

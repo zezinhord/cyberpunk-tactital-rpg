@@ -3,6 +3,7 @@ import { isOriginId } from "./origins.ts";
 import {readV09,markV09Defeated} from "../story/v09.ts";
 import { isPlayableClass,getStartingClassAbilities,type ClassId } from "../classes/registry.ts";
 import {CHARACTER_SAVE_KEY,persistActiveAndSlot} from "./slot-core.ts";
+import {normalizeProgression,ORIGIN_STAT_BONUSES,CLASS_STAT_BONUSES,BASE_ATTRIBUTES} from "../progression/tree.ts";
 export {CHARACTER_SAVE_KEY} from "./slot-core.ts";
 
 
@@ -37,10 +38,11 @@ export function parseCharacterSave(raw:string):PlayerCharacter|null {
     // Compatibilidade: personagens que venceram a V-09 antes deste patch já
     // receberam a recompensa pelo formato legado. Nunca conceder XP duas vezes.
     if(readV09(saved.id).defeated && !rewardIds.includes("v09"))rewardIds.push("v09");
-    const normalized:PlayerCharacter={...saved,classId,abilities:[...new Set([...savedAbilities,...starting])],
+    const initial:PlayerCharacter={...saved,classId,abilities:[...new Set([...savedAbilities,...starting])],
       skills:Array.isArray(saved.skills)?saved.skills:[],
       questRewards:[...new Set(rewardIds)],
       attributes:saved.attributes && typeof saved.attributes==="object"?saved.attributes:{}};
+    const normalized=normalizeProgression(initial);
     if(normalized.questRewards.includes("v09"))markV09Defeated(saved.id);
     return normalized;
   } catch {
@@ -80,6 +82,10 @@ export function createPlayerCharacter(name:string,originId:PlayerCharacter["orig
     originId,
     classId,
     attributes: {},
+    baseAttributes:{...BASE_ATTRIBUTES},
+    originStatBonuses:{...ORIGIN_STAT_BONUSES[originId]},
+    classStatBonuses:classId?{...CLASS_STAT_BONUSES[classId]}:{},
+    skillRanks:{},
     skills: [],
     abilities: classId?getStartingClassAbilities(classId):[],
     equipment: [],
@@ -101,6 +107,7 @@ export function assignCharacterClass(character:PlayerCharacter,classId:ClassId):
    return character;
  if(!isPlayableClass(classId))return character;
  return {...character,classId,
+   classStatBonuses:{...CLASS_STAT_BONUSES[classId]},
    abilities:[...new Set([...(character.abilities??[]),...getStartingClassAbilities(classId)])],
    updatedAt:new Date().toISOString()};
 }

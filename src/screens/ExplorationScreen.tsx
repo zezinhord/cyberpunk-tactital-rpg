@@ -47,6 +47,7 @@ interface Props {
   onTreatAtClinic: () => number;
   currentHp: number;
   maxHp: number;
+  progressNotice:string;
   onReturnToTitle: () => void;
   inventory: InventoryState;
   onToggleEquipment: (id: ItemId) => void;
@@ -117,6 +118,7 @@ export default function ExplorationScreen({
   onTreatAtClinic,
   currentHp,
   maxHp,
+  progressNotice,
   onReturnToTitle,
   inventory,
   onToggleEquipment,
@@ -155,6 +157,10 @@ export default function ExplorationScreen({
   const [missionOpen, setMissionOpen] = useState(true);
   const [hubOpen, setHubOpen] = useState(()=>!isAndroidDevice());
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuStartSection,setMenuStartSection]=useState<"character"|"progression">("character");
+  const [dismissedLevelNotice,setDismissedLevelNotice]=useState("");
+  const showLevelNotice=progressNotice.startsWith("SUBIU DE NÍVEL!")&&
+    dismissedLevelNotice!==progressNotice;
   const [market,setMarket]=useState(()=>readMarket(character.id));
   const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));
   const [trialNotice,setTrialNotice]=useState("");
@@ -770,6 +776,16 @@ export default function ExplorationScreen({
         </div>
       </header>
 
+      {showLevelNotice&&<div className="na-level-up-alert" role="status">
+        <strong>{progressNotice}</strong>
+        <button type="button" onClick={()=>{
+          setDismissedLevelNotice(progressNotice);
+          setMenuStartSection("progression");
+          setMenuOpen(true);
+        }}>Evoluir agora</button>
+        <button type="button" aria-label="Dispensar aviso de nível" onClick={()=>
+          setDismissedLevelNotice(progressNotice)}>×</button>
+      </div>}
       <section className="explorer-character-strip">
         <div className="explorer-avatar" aria-hidden="true">
           {character.name.slice(0, 1).toUpperCase()}
@@ -1046,6 +1062,7 @@ export default function ExplorationScreen({
 
       {menuOpen && (
         <CharacterMenu
+          initialSection={menuStartSection}
           character={character}
           appearance={appearance}
           onChangeAppearance={onChangeAppearance}

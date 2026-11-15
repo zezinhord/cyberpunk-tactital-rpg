@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Battlefield from "./components/Battlefield";
 import AbilityBar from "./components/AbilityBar";
 import OpeningCutscene from "./components/OpeningCutscene";
@@ -35,7 +35,7 @@ import { markV09Defeated,grantV09Experience } from "./game/story/v09";
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity} from "./game/character/slots";
 import {exportCharacterBackup,importCharacterBackup} from "./game/character/backup";
 import {loadHealth,saveHealth,healAtClinic} from "./game/combat/health";
-import {combatProgression,gainExperience,purchaseAttribute,purchaseSkill,
+import {combatProgression,grantUniqueExperience,purchaseAttribute,purchaseSkill,
   type StatId} from "./game/progression/tree";
 import {advanceTrialBattle,isTrialEncounter,readTrial,saveTrial,reconcileTrial} from "./game/story/field-test";
 import {isDistrictId} from "./game/districts/catalog";
@@ -207,6 +207,10 @@ function IntroductionScreen({ character, onContinue }: { character: PlayerCharac
 export default function App() {
   useEffect(()=>{audioDirector.install();},[]);
   const [character, setCharacter] = useState<PlayerCharacter | null>(() => loadCharacter());
+  // A referência evita perder XP quando duas recompensas são concedidas no
+  // mesmo tick (por exemplo, inimigo final + objetivo da missão).
+  const characterRef=useRef(character);
+  characterRef.current=character;
   const [slots,setSlots]=useState<PlayerCharacter[]>(()=>listCharacterSlots());
   const [screen, setScreen] = useState<"title" | "creation" | "resume" | "opening" | "introduction" | "exploration" | "battle">("title");
   const [openingReplay,setOpeningReplay] = useState(false);
@@ -234,7 +238,7 @@ export default function App() {
   const originProfile = useMemo(() => character ? getOriginGameplay(character.originId) : undefined, [character?.originId]);
   const progressionBonuses=combatProgression(character);
   const maximumHp=18+(originProfile?.maxHpBonus??0)+progressionBonuses.hp;
-  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,
+  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
     currentHp:loadHealth(character?.id??"",maximumHp),
     progressionBonuses:combatProgression(character),encounterId:battleMode }), [character?.id, battleReset, battleMode, originProfile, bonuses]);
   const [state, setState] = useState<GameState>(() => manager.getState());
@@ -248,6 +252,8 @@ export default function App() {
     return manager.subscribe((next)=>{
       setState(next);
       if(screen==="battle"&&character?.id){
+        for(let enemyIndex=1;enemyIndex<=next.defeatedEnemyCount;enemyIndex++)
+          grantTrialXp("enemy-"+next.encounterId+"-"+enemyIndex,8);
         const unit=next.units.find(u=>u.id==="runner");
         if(unit){
           saveHealth(character.id,unit.hp,unit.maxHp);
@@ -264,16 +270,20 @@ export default function App() {
     setScreen("battle");
   };
   const grantTrialXp=(eventId:string,amount:number):boolean=>{
-    if(!character)return false;
-    if(character.questRewards.includes(eventId))return true;
-    const next=gainExperience(character,amount);
-    const updated={...next.character,questRewards:[...character.questRewards,eventId]};
-    if(!saveCharacter(updated)){setSaveMessage("Erro ao gravar XP. Verifique o espaço disponível.");return false;}
-    setCharacter(updated);
+    const current=characterRef.current;
+    if(!current)return false;
+    const next=grantUniqueExperience(current,eventId,amount);
+    if(!next.awarded)return current.questRewards.includes(eventId);
+    if(!saveCharacter(next.character)){
+      setSaveMessage("Erro ao gravar XP. Verifique o espaço disponível.");return false;
+    }
+    characterRef.current=next.character;
+    setCharacter(next.character);
     setSlots(listCharacterSlots());
     setSaveMessage(next.levelsGained>0
-      ? "SUBIU DE NÍVEL! Nível "+updated.level+" · Abra a Árvore na Central do Personagem."
-      : "+"+amount+" XP pela Operação Circuito Fantasma.");
+      ? "SUBIU DE NÍVEL! Nível "+next.character.level+
+        " · +"+(next.levelsGained*2)+" pontos de cada tipo na Árvore."
+      : "+"+amount+" XP · "+eventId.replaceAll("-"," ")+".");
     return true;
   };
   const craftAtWorkshop=(id:RecipeId):string=>{
@@ -307,16 +317,18 @@ export default function App() {
   };
 
   useEffect(()=>{
-    if(screen!=="battle" || !character || !state.combatComplete)return;
+    if(screen!=="battle" || !characterRef.current || !state.combatComplete)return;
     const enemyDefeated=state.units.find(u=>u.id==="drone")?.hp===0;
+    const active=characterRef.current;
+    if(!active)return;
     if(enemyDefeated && isTrialEncounter(state.encounterId)){
-      const stored=readTrial(character.id);
-      const progress=reconcileTrial(stored,character.questRewards);
+      const stored=readTrial(active.id);
+      const progress=reconcileTrial(stored,active.questRewards);
       const next=advanceTrialBattle(progress,state.encounterId);
       if(next.advanced&&next.completedStep){
         const key="trial-"+next.completedStep.id;
         if(grantTrialXp(key,next.completedStep.xp)){
-          saveTrial(character.id,next.progress);
+          saveTrial(active.id,next.progress);
           audioDirector.effect("victory");
         }
       }
@@ -325,13 +337,13 @@ export default function App() {
     if(enemyDefeated&&state.encounterId.startsWith("district-")){
       const id=state.encounterId.slice("district-".length);
       if(isDistrictId(id)){
-        const stored=readDistrictProgress(character.id,id);
+        const stored=readDistrictProgress(active.id,id);
         const step=districtCurrentStep(id,stored);
         if(step?.id==="rede"&&step.slot==="relay"){
           const next=advanceDistrict(id,stored,"district-"+id+"-relay");
           if(next.advanced&&next.step&&grantTrialXp(
             "district-"+id+"-"+next.step.id,next.step.xp)){
-            if(saveDistrictProgress(character.id,id,next.state)){
+            if(saveDistrictProgress(active.id,id,next.state)){
               audioDirector.effect("victory");
             }else setSaveMessage("XP salvo, mas não foi possível registrar o confronto do distrito.");
           }
@@ -342,21 +354,22 @@ export default function App() {
     if(state.encounterId!=="v09")return;
     const defeated=state.units.find(u=>u.id==="drone")?.hp===0;
     if(!defeated)return;
-    const reward=grantV09Experience(character);
+    const reward=grantV09Experience(characterRef.current ?? active);
     if(!reward.awarded){
       // Em caso de encerramento entre as duas gravações, a recompensa
       // atômica no personagem permite restaurar o marco narrativo.
-      markV09Defeated(character.id);
+      markV09Defeated(active.id);
       return;
     }
     // XP e marcador de recompensa pertencem a UM registro local. A história
     // só é marcada após a persistência da recompensa; nunca o inverso.
     if(saveCharacter(reward.character)){
-      markV09Defeated(character.id);
+      markV09Defeated(active.id);
+      characterRef.current=reward.character;
       setCharacter(reward.character);
       setSlots(listCharacterSlots());
-      if(reward.character.level>character.level)
-        setSaveMessage("Nível "+reward.character.level+"! Pontos disponíveis na árvore de evolução.");
+      if(reward.character.level>active.level)
+        setSaveMessage("SUBIU DE NÍVEL! Nível "+reward.character.level+" · Abra a árvore para evoluir.");
       audioDirector.effect("victory");
     }else{
       setSaveMessage("Falha ao salvar recompensa V-09. Libere espaço no aparelho.");
@@ -367,10 +380,14 @@ export default function App() {
     if(!character || character.classId)return;
     const updated=assignCharacterClass(character,classId);
     if(updated===character)return;
+    if(!saveCharacter(updated)){
+      setSaveMessage("Não foi possível salvar a classe.");
+      return;
+    }
+    characterRef.current=updated;
     setCharacter(updated);
-    const saved=saveCharacter(updated);
-    if(saved)setSlots(listCharacterSlots());
-    setSaveMessage(saved?"Classe registrada no salvamento local":"Não foi possível salvar a classe");
+    setSlots(listCharacterSlots());
+    setSaveMessage("Classe registrada no salvamento local");
   };
 
   const handleCreate = (name: string, originId: OriginId, presentation: TestAppearance, classId:ClassId) => {
@@ -555,6 +572,7 @@ export default function App() {
         onTreatAtClinic={treatAtClinic}
         currentHp={healthValue}
         maxHp={maximumHp}
+        progressNotice={saveMessage}
         onReturnToTitle={() => setScreen("title")}
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}

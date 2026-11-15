@@ -54,65 +54,73 @@ export function executeClassSkill(state:GameState,ability:ClassSkill):ClassResul
  state.classCooldowns[ability.id]=ability.cooldown+1;
  let amount=0;
  const notes:string[]=[];
+ const rawRank=state.characterSkillRanks?.[ability.id]??1;
+ const rank=Number.isSafeInteger(rawRank)?Math.min(ability.maxRank,Math.max(1,rawRank)):1;
  for(const effect of ability.effects){
+   // Um único intérprete para todos os graus e classes. Aprimorar altera
+   // o efeito, nunca apenas o texto ou a aparência do nó.
+   const power=("amount" in effect?effect.amount:0)+(rank-1)*
+     (effect.type==="damage"||effect.type==="heal"?2:1);
+   const duration=("turns" in effect?effect.turns:0)+
+     (effect.type==="jam"&&rank>=3?1:0);
    switch(effect.type){
      case "damage":{
        if(!enemy)break;
-       const dealt=Math.min(enemy.hp,effect.amount);
-       enemy.hp=Math.max(0,enemy.hp-effect.amount);
+       const dealt=Math.min(enemy.hp,power);
+       enemy.hp=Math.max(0,enemy.hp-power);
        amount+=dealt;notes.push("Dano "+dealt);
        break;
      }
      case "jam":
        if(enemy && enemy.hp>0){
-         state.enemyJamTurns=Math.max(state.enemyJamTurns,effect.turns);
-         notes.push("Interferência por "+effect.turns+" ação hostil");
+         state.enemyJamTurns=Math.max(state.enemyJamTurns,duration);
+         notes.push("Interferência por "+duration+" ação hostil");
        }
        break;
      case "heal":{
-       const restored=Math.min(effect.amount,player.maxHp-player.hp);
+       const restored=Math.min(power,player.maxHp-player.hp);
        player.hp+=restored;amount+=restored;notes.push("Vida +"+restored);
        break;
      }
      case "guard":
-       player.armorClass+=effect.amount;
-       state.classGuardBonus+=effect.amount;
-       state.classGuardTurns=Math.max(state.classGuardTurns,effect.turns);
-       notes.push("Defesa +"+effect.amount+" por "+effect.turns+" ação(ões) hostis");
+       player.armorClass+=power;
+       state.classGuardBonus+=power;
+       state.classGuardTurns=Math.max(state.classGuardTurns,duration);
+       notes.push("Defesa +"+power+" por "+duration+" ação(ões) hostis");
        break;
      case "energy":{
-       const regained=Math.min(effect.amount,state.maxEnergy-state.energy);
+       const regained=Math.min(power,state.maxEnergy-state.energy);
        state.energy+=regained;amount+=regained;notes.push("Energia +"+regained);
        break;
      }
      case "movement":
-       state.movementRemaining+=effect.amount;
-       state.movementPerTurn+=effect.amount;
-       state.classExtraMovement+=effect.amount;
-       notes.push("Movimento +"+effect.amount+" neste turno");
+       state.movementRemaining+=power;
+       state.movementPerTurn+=power;
+       state.classExtraMovement+=power;
+       notes.push("Movimento +"+power+" neste turno");
        break;
      case "nextDamage":
-       state.classNextDamageBonus+=effect.amount;
-       notes.push("Próximo ataque básico +"+effect.amount+" dano");
+       state.classNextDamageBonus+=power;
+       notes.push("Próximo ataque básico +"+power+" dano");
        break;
      case "nextAccuracy":
-       state.classNextAccuracyBonus+=effect.amount;
-       notes.push("Próximo ataque básico +"+effect.amount+" acerto");
+       state.classNextAccuracyBonus+=power;
+       notes.push("Próximo ataque básico +"+power+" acerto");
        break;
      case "enemyArmor":
        if(enemy){
-         enemy.armorClass-=effect.amount;
-         state.classEnemyArmorReduction=effect.amount;
-         state.classEnemyArmorTurns=effect.turns;
-         notes.push("Defesa inimiga -"+effect.amount+" por "+effect.turns+" ação(ões)");
+         enemy.armorClass-=power;
+         state.classEnemyArmorReduction=power;
+         state.classEnemyArmorTurns=duration;
+         notes.push("Defesa inimiga -"+power+" por "+duration+" ação(ões)");
        }
        break;
      case "enemyAttack":
        if(enemy){
-         enemy.attackBonus-=effect.amount;
-         state.classEnemyAttackReduction=effect.amount;
-         state.classEnemyAttackTurns=effect.turns;
-         notes.push("Ataque inimigo -"+effect.amount+" por "+effect.turns+" ação(ões)");
+         enemy.attackBonus-=power;
+         state.classEnemyAttackReduction=power;
+         state.classEnemyAttackTurns=duration;
+         notes.push("Ataque inimigo -"+power+" por "+duration+" ação(ões)");
        }
        break;
    }

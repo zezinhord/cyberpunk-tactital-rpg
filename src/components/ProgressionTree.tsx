@@ -1,79 +1,121 @@
 import {useState} from "react";
 import type {PlayerCharacter} from "../game/character/types";
-import {getClassById,getClassSkills} from "../game/classes/registry";
-import {STATS,STAT_IDS,GENERAL_PASSIVES,
- availableAttributePoints,availableSkillPoints,statRank,
- LEVEL_XP,skillPrerequisite,type StatId} from "../game/progression/tree";
+import {ALL_CLASS_SKILLS,getClassById,getClassBranches} from "../game/classes/registry";
+import {STATS,STAT_IDS,GENERAL_PASSIVES,MAX_STAT_RANK,
+ availableAttributePoints,availableSkillPoints,statRank,statBreakdown,getSkillRank,
+ LEVEL_XP,skillPrerequisite,combatProgression,skillEffectPreview,type StatId} from "../game/progression/tree";
 
 export default function ProgressionTree({character,onAttribute,onSkill}:{
  character:PlayerCharacter;
  onAttribute:(id:StatId)=>string;
  onSkill:(id:string)=>string;
 }){
+ const [section,setSection]=useState<"attributes"|"skills">("attributes");
  const [feedback,setFeedback]=useState("");
  const attributePoints=availableAttributePoints(character);
  const skillPoints=availableSkillPoints(character);
- const classSkills=getClassSkills(character.classId);
- const orderedSkills=[...classSkills].sort((a,b)=>a.minimumLevel-b.minimumLevel);
  const xpCurrent=character.experience;
  const next=LEVEL_XP[character.level]??null;
- return <div className="na-tree">
-  <section className="na-tree-intro">
-    <h4>Árvore do protagonista · Nível {character.level}</h4>
-    <p>{next===null?"Nível máximo alcançado":xpCurrent+" / "+next+" XP para o próximo nível"}</p>
-    <div className="na-tree-points">
-      <strong>ATRIBUTOS: {attributePoints} PONTOS</strong>
-      <strong>HABILIDADES: {skillPoints} PONTOS</strong>
-    </div>
-    <p>Ao subir de nível: +2 pontos de atributos e +2 de habilidades.
-      Os efeitos comprados são permanentes e associados ao salvamento deste personagem.</p>
-    {feedback&&<p className="na-tree-feedback" role="status">{feedback}</p>}
-  </section>
-  <section className="na-tree-section">
-    <h4>1 · Atributos fundamentais</h4>
-    <div className="na-tree-grid">
-      {STAT_IDS.map(id=><article className="na-tree-node" key={id}>
-        <div><strong>{STATS[id].name}</strong><span>{statRank(character,id)} / 5</span></div>
-        <p>{STATS[id].description}</p>
-        <button type="button" disabled={attributePoints<1||statRank(character,id)>=5}
-          onClick={()=>setFeedback(onAttribute(id))}>+1 atributo · 1 ponto</button>
-      </article>)}
-    </div>
-  </section>
-  <section className="na-tree-section">
-    <h4>2 · Técnicas de classe {character.classId?"— "+getClassById(character.classId).name:""}</h4>
-    {!character.classId&&<p>Escolha uma classe na aba Personagem para desbloquear seu ramo exclusivo.</p>}
-    <div className="na-tree-grid">
-      {orderedSkills.map(skill=>{
-        const owned=character.abilities.includes(skill.id);
-        const prior=skillPrerequisite(skill.id);
-        const locked=character.level<skill.minimumLevel||Boolean(prior&&!character.abilities.includes(prior));
-        return <article className={"na-tree-node "+(owned?"unlocked":"")} key={skill.id}>
-          <div><strong>{skill.name}</strong><span>Nível {skill.minimumLevel}</span></div>
-          <p>{skill.description}</p>
-          <small>{skill.cost} EN · Recarga {skill.cooldown} turnos
-            {prior?" · Requer "+(orderedSkills.find(s=>s.id===prior)?.name??prior):""}</small>
-          <button type="button" disabled={owned||locked||skillPoints<1}
-            onClick={()=>setFeedback(onSkill(skill.id))}>
-            {owned?"Desbloqueada":locked?"Bloqueada pelo nível/pré-requisito":"Comprar · 1 ponto"}
-          </button>
-        </article>;
-      })}
-    </div>
-  </section>
-  <section className="na-tree-section">
-    <h4>3 · Passivas comuns</h4>
-    <div className="na-tree-grid">
-      {Object.entries(GENERAL_PASSIVES).map(([id,passive])=>{
-        const owned=character.skills.includes(id);
-        return <article className={"na-tree-node "+(owned?"unlocked":"")} key={id}>
-          <div><strong>{passive.name}</strong><span>Nível {passive.minimumLevel}</span></div>
-          <p>{passive.description}</p>
-          <button type="button" disabled={owned||character.level<passive.minimumLevel||skillPoints<1}
-            onClick={()=>setFeedback(onSkill(id))}>{owned?"Adquirida":"Comprar · 1 ponto"}</button>
-        </article>;
-      })}
-    </div>
-  </section>
+ const branches=getClassBranches(character.classId);
+ const statBefore=combatProgression(character);
+ const preview=(id:StatId)=>{
+   const upgraded={...character,attributes:{...character.attributes,
+     [id]:(character.attributes[id]??0)+1}};
+   const after=combatProgression(upgraded);
+   const changes=[
+    ["Vida",after.hp-statBefore.hp],["Ataque",after.attack-statBefore.attack],
+    ["Defesa",after.armor-statBefore.armor],["Movimento",after.movement-statBefore.movement],
+    ["Energia",after.energy-statBefore.energy]].filter(([,value])=>Number(value)>0);
+   return changes.map(([name,value])=>name+" +"+value).join(" · ")||
+      (id==="influencia"?"Maior influência nas negociações da Feira":"Limite de atributo");
+ };
+ return <div className="na-tree" aria-label="Evolução de personagem">
+   <header className="na-tree-intro">
+     <div className="na-tree-summary">
+       <div><small>OPERATIVO · EVOLUÇÃO</small><h4>Nível {character.level} · {character.classId?getClassById(character.classId).name:"Classe pendente"}</h4></div>
+       <div className="na-tree-points"><strong>ATR {attributePoints}</strong><strong>HAB {skillPoints}</strong></div>
+     </div>
+     <p>{next===null?"Nível máximo atingido":xpCurrent+" XP acumulados · faltam "+Math.max(0,next-xpCurrent)+" XP para o nível "+(character.level+1)}</p>
+     <div className="na-tree-xp-track" role="progressbar" aria-valuemin={0}
+       aria-valuemax={next??Math.max(1,xpCurrent)} aria-valuenow={xpCurrent}>
+       <span style={{width:(next?Math.min(100,xpCurrent/next*100):100)+"%"}}/>
+     </div>
+     <div className="na-tree-tabs" role="group" aria-label="Seção de evolução">
+       <button type="button" className={section==="attributes"?"selected":""}
+         aria-pressed={section==="attributes"} onClick={()=>setSection("attributes")}>Atributos</button>
+       <button type="button" className={section==="skills"?"selected":""}
+         aria-pressed={section==="skills"} onClick={()=>setSection("skills")}>Habilidades de classe</button>
+     </div>
+     {feedback&&<p className="na-tree-feedback" role="status">{feedback}</p>}
+   </header>
+   {section==="attributes"?<section className="na-tree-section">
+     <h4>Atributos universais</h4>
+     <p>Base + pontos investidos + origem + classe. Os bônus históricos de origem continuam válidos.</p>
+     <div className="na-tree-grid">
+       {STAT_IDS.map(id=>{
+         const breakdown=statBreakdown(character,id);
+         const canBuy=attributePoints>0&&statRank(character,id)<MAX_STAT_RANK;
+         return <article className="na-tree-node" key={id}>
+           <div><strong>{STATS[id].name}</strong><b>{breakdown.total} / {MAX_STAT_RANK}</b></div>
+           <p>{STATS[id].description}</p>
+           <small>Base {breakdown.base} · Investido +{breakdown.allocated}</small>
+           <small>Origem +{breakdown.origin} · Classe +{breakdown.profession}</small>
+           <span className="na-tree-preview">Próximo grau: {statRank(character,id)<MAX_STAT_RANK?preview(id):"Máximo alcançado"}</span>
+           <button type="button" disabled={!canBuy} onClick={()=>setFeedback(onAttribute(id))}>
+             {statRank(character,id)>=MAX_STAT_RANK?"Máximo":"Investir 1 ponto"}
+           </button>
+         </article>;
+       })}
+     </div>
+     <h4>Passivas universais</h4>
+     <div className="na-tree-grid">
+       {Object.entries(GENERAL_PASSIVES).map(([id,passive])=>{
+         const owned=character.skills.includes(id);
+         const locked=character.level<passive.minimumLevel;
+         return <article className={"na-tree-node "+(owned?"unlocked":"")} key={id}>
+           <div><strong>{passive.name}</strong><small>NV {passive.minimumLevel}</small></div>
+           <p>{passive.description}</p>
+           <small>{owned?"Ativa permanentemente":locked?"Bloqueada pelo nível":"Custa 1 ponto de habilidade"}</small>
+           <button type="button" disabled={owned||locked||skillPoints<1}
+             onClick={()=>setFeedback(onSkill(id))}>{owned?"Adquirida":"Desbloquear · 1 HAB"}</button>
+         </article>;
+       })}
+     </div>
+   </section>:<section className="na-tree-section">
+     <h4>Especializações exclusivas</h4>
+     <p>Três caminhos por classe. Cada ligação mostra a exigência de desbloqueio; o grau das técnicas altera o efeito real no combate.</p>
+     {!character.classId&&<p>Escolha uma classe na aba Personagem para habilitar seus talentos.</p>}
+     <div className="na-tree-branches">
+       {branches.map(branch=><div className="na-tree-branch" key={branch.id}>
+         <div className="na-tree-branch-heading"><h4>{branch.name}</h4><p>{branch.description}</p></div>
+         {branch.skillIds.map((id,index)=>{
+           const skill=ALL_CLASS_SKILLS[id];
+           if(!skill)return null;
+           const rank=getSkillRank(character,id);
+           const prior=skillPrerequisite(id);
+           const needsLevel=rank>0?skill.minimumLevel+rank:skill.minimumLevel;
+           const prereqLocked=Boolean(prior&&!character.abilities.includes(prior));
+           const locked=character.level<needsLevel||prereqLocked;
+           const maxed=rank>=skill.maxRank;
+           const start=skill.minimumLevel===1&&rank>=1;
+           return <div className="na-tree-connected-node" key={id}>
+             {index>0&&<div className="na-tree-connection" aria-hidden="true"><span>│</span><span>▼</span></div>}
+             <article className={"na-tree-node "+(rank?"unlocked":"")+(locked?" locked":"")}>
+               <div><strong><span aria-hidden="true">{skill.visual==="emp"?"⌁":skill.visual==="repair"?"✚":skill.visual==="shield"?"⬡":skill.visual==="move"?"➤":"⌖"}</span> {skill.name}</strong>
+                 <small>GRAU {rank}/{skill.maxRank}</small></div>
+               <p>{skill.description}</p>
+               <small>{skill.cost} energia · {skill.cooldown} turnos de recarga · alcance {skill.range}</small>
+               <small>{prior?"Requer "+(ALL_CLASS_SKILLS[prior]?.name??prior):"Raiz independente da especialização"} · Nível {needsLevel}</small>
+               <span className="na-tree-preview">{maxed?"Efeito atual: ":"Próximo grau: "}{skillEffectPreview(skill,maxed?rank:rank+1)}</span>
+               <button type="button" disabled={maxed||locked||skillPoints<1}
+                 onClick={()=>setFeedback(onSkill(id))}>
+                 {maxed?"Grau máximo":locked?"Bloqueada":start?"Aprimorar · 1 HAB":rank?"Elevar grau · 1 HAB":"Desbloquear · 1 HAB"}
+               </button>
+             </article>
+           </div>;
+         })}
+       </div>)}
+     </div>
+   </section>}
  </div>;
 }
