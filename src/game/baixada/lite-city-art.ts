@@ -94,6 +94,14 @@ export function drawCityBuilding(ctx:CanvasRenderingContext2D,b:BuildingSpec):vo
  shape(ctx,[d,c,ct,dt],wall,"#132128",1.7);
  shape(ctx,[front1,c,ct,bt],shade(b.wall,.72),"#132128",1.7);
  shape(ctx,[at,bt,ct,dt],roof,rgba(b.accent,.78),1.8);
+ // Telhas e chapas reaproveitadas criam textura isométrica sem imagens grandes.
+ // O brilho frio é material / reflexo; nunca um marcador de interação.
+ for(let i=1;i<=3;i++){
+  const t=i/4;
+  line(ctx,[{x:lerp(at.x,dt.x,t),y:lerp(at.y,dt.y,t)},
+    {x:lerp(bt.x,ct.x,t),y:lerp(bt.y,ct.y,t)}],
+    i===2?"rgba(8,26,31,.25)":"rgba(194,190,158,.19)",1);
+ }
  // Sombra sob a beirada e borda do telhado.
  line(ctx,[{x:dt.x,y:dt.y+4},{x:ct.x,y:ct.y+4}],
    "rgba(7,17,23,.56)",2);
@@ -126,6 +134,27 @@ export function drawCityBuilding(ctx:CanvasRenderingContext2D,b:BuildingSpec):vo
    ctx.fillStyle="rgba(16,29,34,.9)";ctx.fillRect(px,py,5,5);
    ctx.strokeStyle="rgba(224,196,159,.5)";ctx.lineWidth=.8;
    ctx.strokeRect(px,py,5,5);
+  }
+ }
+ // Varais, cabos e tecido são parte da identidade da Baixada.
+ // Tudo permanece contido na fachada do próprio prédio (sem bloquear ruas).
+ if(paneled){
+  const wireStart={x:lerp(d.x,c.x,.09),y:lerp(d.y,c.y,.09)-h*.52};
+  const wireEnd={x:lerp(d.x,c.x,.88),y:lerp(d.y,c.y,.88)-h*.52};
+  ctx.beginPath();ctx.moveTo(wireStart.x,wireStart.y);
+  ctx.quadraticCurveTo((wireStart.x+wireEnd.x)/2,
+    (wireStart.y+wireEnd.y)/2+7,wireEnd.x,wireEnd.y);
+  ctx.strokeStyle="rgba(25,35,37,.9)";ctx.lineWidth=1.6;ctx.stroke();
+  const fabrics=["#bd8976","#d9b98c","#6b9a9c","#997f75"];
+  for(let i=0;i<3;i++){
+   const t=(i+1)/4;
+   const x=lerp(wireStart.x,wireEnd.x,t);
+   const y=lerp(wireStart.y,wireEnd.y,t)+4;
+   const length=10+(i%2)*4;
+   shape(ctx,[{x:x-5,y},{x:x+5,y:y+1},
+     {x:x+4,y:y+length+1},{x:x-4,y:y+length}],
+     fabrics[(i+b.id.length)%fabrics.length]??"#bd8976",
+     "rgba(13,30,34,.47)",.6);
   }
  }
  if(b.style==="clinic"){
@@ -173,6 +202,21 @@ export function drawCityBuilding(ctx:CanvasRenderingContext2D,b:BuildingSpec):vo
  const roofCenter={
   x:(at.x+bt.x+ct.x+dt.x)/4,y:(at.y+bt.y+ct.y+dt.y)/4,
  };
+ // Ventilação improvisada, painéis e antenas acrescentam alturas distintas.
+ if(b.style==="housing"||b.style==="community"||b.style==="depot"||
+    b.style==="workshop"||b.style==="market"){
+  shape(ctx,[{x:roofCenter.x-20,y:roofCenter.y-5},
+    {x:roofCenter.x-1,y:roofCenter.y-14},
+    {x:roofCenter.x+17,y:roofCenter.y-4},
+    {x:roofCenter.x-2,y:roofCenter.y+5}],
+   "#24434c","rgba(143,201,205,.46)",1);
+  line(ctx,[{x:roofCenter.x-10,y:roofCenter.y-10},
+    {x:roofCenter.x+7,y:roofCenter.y+1}],
+   "rgba(149,213,220,.55)",1);
+  line(ctx,[{x:roofCenter.x-2,y:roofCenter.y-14},
+    {x:roofCenter.x-1,y:roofCenter.y+5}],
+   "rgba(149,213,220,.36)",1);
+ }
  if(b.style==="factory"){
   ctx.fillStyle="#30393d";
   ctx.fillRect(roofCenter.x-21,roofCenter.y-20,11,26);
@@ -188,6 +232,29 @@ export function drawCityBuilding(ctx:CanvasRenderingContext2D,b:BuildingSpec):vo
   line(ctx,[{x:roofCenter.x-13,y:roofCenter.y},
     {x:roofCenter.x+13,y:roofCenter.y}],"rgba(171,212,209,.65)",2);
  }
+ if(b.style==="factory"||b.style==="utility"||b.style==="canal"){
+  const mastX=roofCenter.x+26,mastY=roofCenter.y-7;
+  line(ctx,[{x:mastX,y:mastY+5},{x:mastX,y:mastY-32}],
+    "#25343a",3);
+  line(ctx,[{x:mastX-13,y:mastY-22},{x:mastX+13,y:mastY-22}],
+    "rgba(201,183,155,.85)",2);
+  line(ctx,[{x:mastX-9,y:mastY-28},{x:mastX+9,y:mastY-16}],
+    "rgba(36,49,55,.86)",1);
+  ellipse(ctx,mastX,mastY-32,2.4,2.4,"#e9b47b");
+ }
+ // Fios da rede local prendem-se aos beirais, com pequena curvatura.
+ if(b.style==="market"||b.style==="community"||b.style==="workshop"){
+  const p1={x:d.x+3,y:d.y-h*.62},p2={x:c.x-4,y:c.y-h*.62};
+  ctx.beginPath();ctx.moveTo(p1.x,p1.y);
+  ctx.quadraticCurveTo((p1.x+p2.x)/2,(p1.y+p2.y)/2+9,p2.x,p2.y);
+  ctx.strokeStyle="rgba(18,30,37,.92)";ctx.lineWidth=2;ctx.stroke();
+  for(let i=1;i<5;i++){
+   const t=i/5;
+   const px=lerp(p1.x,p2.x,t),py=lerp(p1.y,p2.y,t)+6;
+   ctx.fillStyle=i%2?"#e7b47a":"#8ea9b0";
+   ctx.fillRect(px-2,py,4,3);
+  }
+ }
  // Sinalização cromática original com moldura, não texto flutuando sobre teto.
  if(b.sign){
   const labelX=(d.x+c.x)/2,labelY=(d.y+c.y)/2-h+15;
@@ -198,6 +265,9 @@ export function drawCityBuilding(ctx:CanvasRenderingContext2D,b:BuildingSpec):vo
   ctx.font="bold 10px monospace";ctx.fillStyle="#eff3dc";
   const text=b.sign.length>15?b.sign.slice(0,14)+"…":b.sign;
   ctx.fillText(text,labelX,labelY,80);
+  // Filete luminoso legível em baixa resolução, sem filtro blur pesado.
+  ctx.fillStyle=rgba(b.accent,.8);
+  ctx.fillRect(labelX-37,labelY+6,74,1.5);
  }
  ctx.restore();
 }
