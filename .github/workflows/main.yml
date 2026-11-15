@@ -45,6 +45,9 @@ jobs:
       - name: Instalar dependencias imutaveis
         run: npm ci --no-audit --no-fund
 
+      - name: Verificar TypeScript antes da geração pesada de recursos
+        run: npx tsc -b
+
       - name: Testar sistema de habilidades
         run: node --experimental-strip-types scripts/test-abilities.mjs
 
