@@ -4,7 +4,7 @@ import {ACTOR_TILES,BUILDINGS,GRID_HEIGHT,GRID_WIDTH,PLAYER_START,PROPS,ROAMING_
   type BuildingSpec} from "../game/baixada/layout";
 import {paintCityBackground,drawCityBuilding,drawCityProp,tileWorld,
   type PropKind,type Point} from "../game/baixada/lite-city-art";
-import {createLiteArtAssets,drawLiteSprite,type LiteArtAssets} from "../game/baixada/lite-art-assets";
+import {createLiteArtAssets,drawLiteSprite,LONG_NPC_SHEETS,type LiteArtAssets} from "../game/baixada/lite-art-assets";
 import {canStand,route,approachRoute} from "../game/baixada/navigation";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
 import type {OriginId} from "../game/character";
@@ -71,7 +71,7 @@ type DrawLayer=
 const ACTOR_SKIN:Readonly<Record<string,string>>={
  vendedor:"nilo",moradora:"joana",saira:"saira",
  "patio-sentinel":"teo","feira-corretor":"nilo","feira-ajuda":"joana",
- lia:"joana",ramon:"teo",duda:"saira",iza:"teo",tomas:"nilo",
+ lia:"lia",ramon:"ramon",duda:"duda",iza:"iza",tomas:"tomas",
 };
 
 /** A Baixada Android não cria Phaser.Game, WebGL, atlases nem texturas
@@ -226,7 +226,8 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
      const skin=ACTOR_SKIN[actor.id];
      if(actor.person){
        const drawn=drawLiteSprite(ctx,skin?art?.npc(skin)??null:null,x,y,
-         {scale:.86,direction:2,frame:0,columns:4});
+         {scale:.86,direction:2,frame:0,
+          columns:skin&&LONG_NPC_SHEETS.has(skin)?12:4});
        if(!drawn){
          ctx.fillStyle=actor.id==="patio-sentinel"?"#9b4a67":"#59838c";
          ctx.fillRect(x-8,y-31,16,26);
