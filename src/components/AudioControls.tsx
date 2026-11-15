@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { audioDirector, type SoundChannel } from "../audio/director";
 import {RADIO_DISTRICTS,RADIO_MOODS,type RadioDistrict,type RadioMood} from "../audio/soundscapes";
 import type {RadioStyle} from "../audio/curated";
@@ -9,6 +9,7 @@ const CHANNELS: readonly {id:SoundChannel;label:string;description:string}[] = [
 ];
 export default function AudioControls(){
  const uid=useId();
+ useEffect(()=>audioDirector.subscribeRadio(setRadio),[]);
  const [radio,setRadio]=useState(()=>audioDirector.getRadioStatus());
  const [vol,setVol]=useState<Record<SoundChannel,number>>(()=>({
  music:audioDirector.getVolume("music"),effects:audioDirector.getVolume("effects"),ambient:audioDirector.getVolume("ambient")}));
