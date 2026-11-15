@@ -8,6 +8,7 @@ on:
       - feature/landscape-mobile-v1
       - feature/progression-audit-nova-arcadia-v071
       - feature/music-director-v072
+      - feature/stability-tactical-combat-v073
   pull_request:
     branches:
       - main
@@ -81,6 +82,11 @@ jobs:
 
       - name: Testar prólogo cinematográfico e migração de salvamentos
         run: node --experimental-strip-types scripts/test-opening.mjs
+
+      - name: Validar linha de tiro, cobertura, IA e movimento Android
+        run: |
+          node --experimental-strip-types scripts/test-tactics.mjs
+          node --experimental-strip-types scripts/test-movement.mjs
 
       - name: Testar progressao, campanha e ondas de combate
         run: |
