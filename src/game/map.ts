@@ -98,3 +98,39 @@ export function getReachableCells(units: Unit[], unit: Unit, movement: number): 
 
   return reachable;
 }
+
+/** Visibilidade entre os centros das células. O algoritmo supercover
+ * impede que disparos atravessem paredes ou cantos de duas paredes.
+ * É puro e usa a mesma malha de colisão do movimento. */
+export function hasLineOfSight(start:Position,target:Position):boolean{
+ if(!isInsideBoard(start)||!isInsideBoard(target)||
+    isBlocked(start)||isBlocked(target))return false;
+ let x=start.x,y=start.y,ix=0,iy=0;
+ const dx=target.x-x,dy=target.y-y;
+ const nx=Math.abs(dx),ny=Math.abs(dy);
+ const sx=Math.sign(dx),sy=Math.sign(dy);
+ while(ix<nx||iy<ny){
+   const a=(1+2*ix)*ny,b=(1+2*iy)*nx;
+   if(a===b){
+     // No cruzamento de quina, ambas as células vizinhas devem estar livres.
+     if(isBlocked({x:x+sx,y})||isBlocked({x,y:y+sy}))return false;
+     x+=sx;y+=sy;ix++;iy++;
+   }else if(a<b){x+=sx;ix++;}
+   else{y+=sy;iy++;}
+   if(isBlocked({x,y}))return false;
+ }
+ return true;
+}
+export type CoverGrade="none"|"partial"|"full";
+export function coverBetween(attacker:Position,target:Position):CoverGrade{
+ if(!hasLineOfSight(attacker,target))return "full";
+ const dx=attacker.x-target.x,dy=attacker.y-target.y;
+ if(Math.abs(dx)+Math.abs(dy)<=1)return "none";
+ const offsets=[{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+ return offsets.some(dir=>
+   (dir.x*dx+dir.y*dy)>0&&isBlocked({x:target.x+dir.x,y:target.y+dir.y}))
+     ?"partial":"none";
+}
+export function coverArmorBonus(attacker:Position,target:Position):number{
+ return coverBetween(attacker,target)==="partial"?2:0;
+}
