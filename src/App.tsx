@@ -252,6 +252,8 @@ export default function App() {
     return manager.subscribe((next)=>{
       setState(next);
       if(screen==="battle"&&character?.id){
+        for(let enemyIndex=1;enemyIndex<=next.defeatedEnemyCount;enemyIndex++)
+          grantTrialXp("enemy-"+next.encounterId+"-"+enemyIndex,8);
         const unit=next.units.find(u=>u.id==="runner");
         if(unit){
           saveHealth(character.id,unit.hp,unit.maxHp);
@@ -317,9 +319,6 @@ export default function App() {
   useEffect(()=>{
     if(screen!=="battle" || !characterRef.current || !state.combatComplete)return;
     const enemyDefeated=state.units.find(u=>u.id==="drone")?.hp===0;
-    // A arena concede XP somente na primeira vitória por personagem;
-    // encontros de campanha concedem 8 XP por inimigo, após a última onda.
-    if(enemyDefeated&&!grantTrialXp("enemy-"+state.encounterId,8*state.totalWaves))return;
     const active=characterRef.current;
     if(!active)return;
     if(enemyDefeated && isTrialEncounter(state.encounterId)){
