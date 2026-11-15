@@ -96,8 +96,10 @@ export function getSkillRank(char:PlayerCharacter,id:string):number{
  Math.min(spec.maxRank,Math.max(1,raw)):1;
 }
 export function purchasedActiveSkills(char:PlayerCharacter):string[]{
- return char.abilities.filter(id=>Boolean(ALL_CLASS_SKILLS[id])&&
-   ALL_CLASS_SKILLS[id].minimumLevel>1&&ALL_CLASS_SKILLS[id].classId===char.classId);
+ return char.abilities.filter(id=>{
+   const node=ALL_CLASS_SKILLS[id];
+   return Boolean(node&&node.minimumLevel>1&&node.classId===char.classId);
+ });
 }
 export function availableSkillPoints(char:PlayerCharacter):number{
  const spent=[...new Set(purchasedActiveSkills(char))].length+
@@ -161,9 +163,9 @@ export function normalizeProgression(char:PlayerCharacter):PlayerCharacter{
  // Legado possuía técnicas desbloqueadas sem mapa de ranks.
  const acquired=[...new Set(char.abilities)].filter(id=>
    Boolean(ALL_CLASS_SKILLS[id])&&ALL_CLASS_SKILLS[id].classId===char.classId)
-   .sort((a,b)=>ALL_CLASS_SKILLS[a].minimumLevel-ALL_CLASS_SKILLS[b].minimumLevel);
+   .sort((a,b)=>ALL_CLASS_SKILLS[a]!.minimumLevel-ALL_CLASS_SKILLS[b]!.minimumLevel);
  for(const id of acquired){
-   const node=ALL_CLASS_SKILLS[id];
+   const node=ALL_CLASS_SKILLS[id]!;
    if(abilities.has(id)||level<node.minimumLevel||budget<1)continue;
    const prior=skillPrerequisite(id);
    if(prior&&!abilities.has(prior))continue;
