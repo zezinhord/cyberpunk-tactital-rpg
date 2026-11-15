@@ -1,6 +1,10 @@
 import {useEffect,useRef,useState} from "react";
-import {ACTOR_TILES,BUILDINGS,GRID_HEIGHT,GRID_WIDTH,PLAYER_START,PROPS,
-  sectorAt,isStreet,isIndustrialSector,isCommercialSector,type Tile,type SectorId} from "../game/baixada/layout";
+import {ACTOR_TILES,BUILDINGS,GRID_HEIGHT,GRID_WIDTH,PLAYER_START,PROPS,ROAMING_NPCS,
+  sectorAt,isStreet,isIndustrialSector,isCommercialSector,type Tile,type SectorId,
+  type BuildingSpec} from "../game/baixada/layout";
+import {paintCityBackground,drawCityBuilding,drawCityProp,tileWorld,
+  type PropKind,type Point} from "../game/baixada/lite-city-art";
+import {createLiteArtAssets,drawLiteSprite,type LiteArtAssets} from "../game/baixada/lite-art-assets";
 import {canStand,route,approachRoute} from "../game/baixada/navigation";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
 import type {OriginId} from "../game/character";
@@ -29,6 +33,7 @@ const ACTORS:ReadonlyArray<{id:string;tile:Tile;label:string;person:boolean}>= [
  {id:"enter-sewer-deep",tile:ACTOR_TILES["enter-sewer-deep"],label:"ESGOTO -02",person:false},
  {id:"enter-ferrugem",tile:ACTOR_TILES["enter-ferrugem"],label:"FERRUGEM",person:false},
  {id:"enter-city-transit",tile:ACTOR_TILES["enter-city-transit"],label:"TRANSPORTE",person:false},
+ ...ROAMING_NPCS.map(n=>({id:n.id,tile:n.route[0],label:n.name.toUpperCase(),person:true})),
 ];
 const TILE_W=48,TILE_H=24,ORIGIN_X=850,ORIGIN_Y=135;
 const center=(p:Tile):{x:number;y:number}=>({
@@ -56,27 +61,24 @@ function diamond(ctx:CanvasRenderingContext2D,p:{x:number;y:number},zoom:number,
  ctx.fillStyle=fill;ctx.fill();
  ctx.lineWidth=.8;ctx.strokeStyle=stroke;ctx.stroke();
 }
-function isoBlock(ctx:CanvasRenderingContext2D,p:{x:number;y:number},zoom:number,
- width:number,depth:number,height:number,roof:string,wall:string):void{
- const w=width*24*zoom,h=depth*12*zoom,up=Math.max(27,height*.65)*zoom;
- const left={x:p.x-w,y:p.y},right={x:p.x+w,y:p.y};
- const top={x:p.x,y:p.y-h},bottom={x:p.x,y:p.y+h};
- ctx.beginPath();ctx.moveTo(left.x,left.y);ctx.lineTo(bottom.x,bottom.y);
- ctx.lineTo(bottom.x,bottom.y-up);ctx.lineTo(left.x,left.y-up);ctx.closePath();
- ctx.fillStyle=wall;ctx.fill();
- ctx.beginPath();ctx.moveTo(bottom.x,bottom.y);ctx.lineTo(right.x,right.y);
- ctx.lineTo(right.x,right.y-up);ctx.lineTo(bottom.x,bottom.y-up);ctx.closePath();
- ctx.fillStyle="#263b41";ctx.fill();
- ctx.beginPath();ctx.moveTo(top.x,top.y-up);ctx.lineTo(right.x,right.y-up);
- ctx.lineTo(bottom.x,bottom.y-up);ctx.lineTo(left.x,left.y-up);ctx.closePath();
- ctx.fillStyle=roof;ctx.fill();
- ctx.strokeStyle="rgba(232,189,136,.36)";ctx.lineWidth=1;ctx.stroke();
-}
+/** Elementos ordenados por profundidade, construídos uma única vez.
+ * O primeiro plano cobre os objetos ao fundo como no Phaser original.
+ */
+type DrawLayer=
+ |{kind:"building";depth:number;pos:Point;building:BuildingSpec}
+ |{kind:"prop";depth:number;pos:Point;tile:Tile;prop:PropKind}
+ |{kind:"actor";depth:number;pos:Point;actor:(typeof ACTORS)[number]};
+const ACTOR_SKIN:Readonly<Record<string,string>>={
+ vendedor:"nilo",moradora:"joana",saira:"saira",
+ "patio-sentinel":"teo","feira-corretor":"nilo","feira-ajuda":"joana",
+ lia:"joana",ramon:"teo",duda:"saira",iza:"teo",tomas:"nilo",
+};
+
 /** A Baixada Android não cria Phaser.Game, WebGL, atlases nem texturas
  * 1960×1160. Usa somente um canvas com dimensões limitadas e renderização
  * sob demanda. A lógica de caminhada/colisão é a MESMA do Phaser.
  */
-export default function BaixadaLiteWorld({onInteract,appearance,characterId,
+export default function BaixadaLiteWorld({onInteract,originId,appearance,characterId,
   onSectorChange,onNearbyAccess}:Props){
  const hostRef=useRef<HTMLDivElement>(null);
  const canvasRef=useRef<HTMLCanvasElement>(null);
@@ -104,6 +106,20 @@ export default function BaixadaLiteWorld({onInteract,appearance,characterId,
   let view=getView(900,440,renderPosition);
   let marker:Tile|null=null;
   const actorById=new Map(ACTORS.map(a=>[a.id,a]));
+  let art:LiteArtAssets|null=null;
+  let facing:0|1|2|3=2;
+  const layers:DrawLayer[]=[
+    ...BUILDINGS.map(b=>({
+      kind:"building" as const,building:b,
+      pos:tileWorld({x:b.x+b.width,y:b.y+b.depth}),
+      depth:tileWorld({x:b.x+b.width,y:b.y+b.depth}).y+.04,
+    })),
+    ...(Object.keys(PROPS) as PropKind[]).flatMap(prop=>
+      PROPS[prop].map(tile=>({kind:"prop" as const,prop,tile,pos:tileWorld(tile),
+        depth:tileWorld(tile).y+.12}))),
+    ...ACTORS.map(actor=>({kind:"actor" as const,actor,
+      pos:tileWorld(actor.tile),depth:tileWorld(actor.tile).y+.2})),
+  ].sort((a,b)=>a.depth-b.depth);
   const notify=(tile:Tile,settled:boolean)=>{
    const now=Date.now();
    if(settled||now-lastSave>=1200){
@@ -120,18 +136,7 @@ export default function BaixadaLiteWorld({onInteract,appearance,characterId,
    ctx.setTransform(canvas.width/Math.max(1,width),0,0,
      canvas.height/Math.max(1,height),0,0);
    ctx.fillStyle="#12212b";ctx.fillRect(0,0,width,height);
-   // Distância e relevo: uma paisagem própria, mesmo com economia de memória.
-   const sky=ctx.createLinearGradient(0,0,0,height);
-   sky.addColorStop(0,"#132936");sky.addColorStop(.55,"#314042");
-   sky.addColorStop(1,"#3b3835");
-   ctx.fillStyle=sky;ctx.fillRect(0,0,width,height);
-   ctx.fillStyle="rgba(238,162,89,.15)";
-   ctx.beginPath();ctx.arc(width*.72,height*.22,74,0,Math.PI*2);ctx.fill();
-   for(let i=0;i<18;i++){
-     const x=(i*91+32)%(width+70);
-     ctx.fillStyle=i%3===0?"rgba(15,31,36,.75)":"rgba(28,48,53,.78)";
-     ctx.fillRect(x,height*.28-35-(i*29)%77,45+(i%3)*12,height*.42);
-   }
+   paintCityBackground(ctx,width,height);
    // Segue a posição interpolada do avatar para caminhar sem saltos de câmera.
    view=getView(width,height,renderPosition);
    for(let y=0;y<GRID_HEIGHT;y++)for(let x=0;x<GRID_WIDTH;x++){
@@ -140,85 +145,115 @@ export default function BaixadaLiteWorld({onInteract,appearance,characterId,
      const industrial=isIndustrialSector({x,y});
      const commercial=isCommercialSector({x,y});
      const road=isStreet({x,y});
-     const shade=(x*7+y*11)%4;
-     const tone=road?(shade===0?"#646460":"#515c58"):
-       industrial?"#565d56":commercial?"#726352":"#51665e";
-     diamond(ctx,p,view.zoom,tone,"rgba(166,180,165,.29)");
+     const shade=(x*7+y*11)%5;
+     const palette=commercial
+       ? road?["#534c44","#554a41","#594f44","#53463d","#514941"]:
+         ["#6b6152","#6d6253","#665d4e","#716253","#686052"]
+       : industrial
+       ? road?["#393e40","#394044","#3f4242","#363e41","#414849"]:
+         ["#514d44","#555247","#4c4d48","#54504a","#524e46"]
+       : road?["#424846","#3d4747","#404b48","#424846","#3e4747"]:
+         ["#475046","#424c45","#4a4e43","#485046","#435048"];
+     diamond(ctx,p,view.zoom,palette[shade]??"#424846",
+       "rgba(108,130,121,.19)");
+     if(!road&&shade===2&&canStand({x,y})){
+       ctx.fillStyle="rgba(174,191,162,.12)";
+       ctx.fillRect(p.x-6*view.zoom,p.y+1*view.zoom,12*view.zoom,2*view.zoom);
+     }
      if(road&&(x+y)%7===0){
        ctx.strokeStyle="rgba(239,204,132,.48)";
        ctx.beginPath();ctx.moveTo(p.x-7*view.zoom,p.y+3*view.zoom);
        ctx.lineTo(p.x+7*view.zoom,p.y+3*view.zoom);ctx.stroke();
      }
    }
-   // Edifícios: volumes geométricos gerados por desenho vetorial em tempo real.
-   const blocks=BUILDINGS.map(b=>({b,p:project(view,center({
-     x:b.x+Math.floor(b.width/2),y:b.y+Math.floor(b.depth/2)
-   }))})).sort((a,b)=>a.p.y-b.p.y);
-   for(const {b,p} of blocks){
-     if(p.x< -180||p.x>width+180||p.y< -170||p.y>height+160)continue;
-     isoBlock(ctx,p,view.zoom,b.width,b.depth,b.height,
-       "#"+b.roof.toString(16).padStart(6,"0"),
-       "#"+b.wall.toString(16).padStart(6,"0"));
-     if(b.sign&&view.zoom>=.83){
-       ctx.font="bold "+Math.max(10,Math.floor(10*view.zoom))+"px monospace";
-       ctx.fillStyle="#f0d5ad";
-       ctx.fillText(b.sign,p.x-40*view.zoom,p.y-b.height*.63*view.zoom-6);
+   // Renderização Canvas 2D da mesma arquitetura, sprites e props Phaser.
+   // A câmera e a projeção compartilham a geometria do mapa original;
+   // não há textura única gigantesca nem carregamento de sprites ociosos.
+   const visible=layers.filter(layer=>{
+     const p=project(view,layer.pos);
+     return p.x>=-205&&p.x<=width+205&&p.y>=-245&&p.y<=height+215;
+   });
+   ctx.save();
+   ctx.translate(view.offsetX,view.offsetY);
+   ctx.scale(view.zoom,view.zoom);
+   const drawHero=()=>{
+     const x=renderPosition.x,y=renderPosition.y;
+     ctx.fillStyle="rgba(3,11,17,.6)";
+     ctx.beginPath();ctx.ellipse(x,y+3,17,6,0,0,Math.PI*2);ctx.fill();
+     const walking=motion.step!==null;
+     const frame=walking?Math.floor(performance.now()/126)%4:0;
+     const original=drawLiteSprite(ctx,art?.player(presentation.current)??null,x,y,
+       {scale:.94,direction:facing,frame,columns:12});
+     host.dataset.heroSprite=original?"loaded":"pending";
+     if(!original){
+       // Silhueta apenas durante o download local da skin do próprio APK.
+       ctx.fillStyle="#00a9ba";ctx.fillRect(x-8,y-32,16,25);
+       ctx.fillStyle="#bb9070";ctx.fillRect(x-6,y-42,12,12);
      }
-   }
-   for(const point of PROPS.marketStalls){
-     const p=project(view,center(point));if(p.x<0||p.x>width||p.y<0||p.y>height)continue;
-     ctx.fillStyle="#715346";ctx.fillRect(p.x-13,p.y-20,26,20);
-     ctx.fillStyle="#e0b078";ctx.fillRect(p.x-16,p.y-25,32,7);
-   }
-   for(const point of PROPS.palms){
-     const p=project(view,center(point));if(p.x<0||p.x>width||p.y<0||p.y>height)continue;
-     ctx.strokeStyle="#947b5b";ctx.lineWidth=3*view.zoom;
-     ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-3,p.y-28*view.zoom);ctx.stroke();
-     ctx.fillStyle="#648373";
-     ctx.beginPath();ctx.ellipse(p.x-3,p.y-30*view.zoom,18*view.zoom,7*view.zoom,-.25,0,Math.PI*2);ctx.fill();
-   }
-   // NPCs, acessos e terminais do mesmo catálogo de colisões do Phaser.
-   const visibleActors=ACTORS.map(a=>({a,p:project(view,center(a.tile))}))
-      .filter(({p})=>p.x> -75&&p.x<width+75&&p.y> -100&&p.y<height+80)
-      .sort((a,b)=>a.p.y-b.p.y);
-   for(const {a,p} of visibleActors){
-     ctx.fillStyle="rgba(2,10,16,.48)";
-     ctx.beginPath();ctx.ellipse(p.x,p.y+2,15*view.zoom,5*view.zoom,0,0,Math.PI*2);ctx.fill();
-     if(a.person){
-       ctx.fillStyle=a.id==="patio-sentinel"?"#a94f69":"#56858b";
-       ctx.fillRect(p.x-8*view.zoom,p.y-31*view.zoom,16*view.zoom,26*view.zoom);
-       ctx.fillStyle="#d6ad8a";
-       ctx.beginPath();ctx.arc(p.x,p.y-38*view.zoom,7*view.zoom,0,Math.PI*2);ctx.fill();
+     ctx.strokeStyle="#00d7f0";ctx.lineWidth=1.7;
+     ctx.beginPath();ctx.ellipse(x,y+2,17,8,0,0,Math.PI*2);ctx.stroke();
+   };
+   const drawActor=(actor:(typeof ACTORS)[number])=>{
+     const p=tileWorld(actor.tile),x=p.x,y=p.y;
+     ctx.fillStyle="rgba(4,13,19,.5)";
+     ctx.beginPath();ctx.ellipse(x,y+2,14,4,0,0,Math.PI*2);ctx.fill();
+     const skin=ACTOR_SKIN[actor.id];
+     if(actor.person){
+       const drawn=drawLiteSprite(ctx,skin?art?.npc(skin)??null:null,x,y,
+         {scale:.86,direction:2,frame:0,columns:4});
+       if(!drawn){
+         ctx.fillStyle=actor.id==="patio-sentinel"?"#9b4a67":"#59838c";
+         ctx.fillRect(x-8,y-31,16,26);
+         ctx.fillStyle="#d3aa88";ctx.fillRect(x-6,y-41,12,11);
+       }
+       if(actor.id==="patio-sentinel"){
+         ctx.strokeStyle="#ff5c92";ctx.lineWidth=1.8;
+         ctx.beginPath();ctx.ellipse(x,y,14,7,0,0,Math.PI*2);ctx.stroke();
+       }
      }else{
-       ctx.fillStyle="#1c3139";
-       ctx.fillRect(p.x-11*view.zoom,p.y-37*view.zoom,22*view.zoom,35*view.zoom);
-       ctx.strokeStyle="#efb879";ctx.lineWidth=2;
-       ctx.strokeRect(p.x-11*view.zoom,p.y-37*view.zoom,22*view.zoom,35*view.zoom);
-       ctx.fillStyle="#edbd83";ctx.fillRect(p.x-7*view.zoom,p.y-30*view.zoom,14*view.zoom,4*view.zoom);
+       const terminal=/terminal|console|archive/.test(actor.id);
+       ctx.fillStyle="#16272e";ctx.fillRect(x-12,y-42,24,40);
+       ctx.lineWidth=2;ctx.strokeStyle="#f0b675";
+       ctx.strokeRect(x-12,y-42,24,40);
+       ctx.fillStyle=terminal?"#e5bb81":"#28373a";
+       ctx.fillRect(x-9,y-37,18,25);
+       if(terminal){
+         ctx.fillStyle="#415f61";ctx.fillRect(x-7,y-34,14,11);
+         ctx.fillStyle="#e7c08a";
+         for(let i=0;i<3;i++)ctx.fillRect(x-6,y-20+i*4,11-i*2,1);
+       }else{
+         ctx.fillStyle="#e9b976";ctx.fillRect(x+6,y-23,3,4);
+       }
      }
-     if(distance(motion.position,a.tile)<=5){
-       ctx.font="bold 11px monospace";const labelWidth=ctx.measureText(a.label).width;
-       ctx.fillStyle="rgba(15,25,31,.94)";
-       ctx.fillRect(p.x-labelWidth/2-5,p.y-59*view.zoom-13,labelWidth+10,17);
-       ctx.fillStyle="#f7ddb8";ctx.fillText(a.label,p.x-labelWidth/2,p.y-59*view.zoom);
+     if(distance(motion.position,actor.tile)<=3){
+       const label=actor.label;
+       ctx.font="bold 10px monospace";
+       const labelWidth=ctx.measureText(label).width;
+       ctx.fillStyle="rgba(11,26,32,.94)";
+       ctx.fillRect(x-labelWidth/2-6,y-65,labelWidth+12,17);
+       ctx.strokeStyle=actor.id==="patio-sentinel"?"#e85e89":"rgba(238,182,109,.61)";
+       ctx.lineWidth=.9;ctx.strokeRect(x-labelWidth/2-6,y-65,labelWidth+12,17);
+       ctx.textAlign="center";ctx.textBaseline="middle";
+       ctx.fillStyle="#f0e6d2";ctx.fillText(label,x,y-56);
+       ctx.textAlign="start";ctx.textBaseline="alphabetic";
      }
-   }
+   };
    if(marker){
-     const p=project(view,center(marker));
-     ctx.strokeStyle="#eecb88";ctx.lineWidth=2;
-     ctx.beginPath();ctx.ellipse(p.x,p.y,12*view.zoom,6*view.zoom,0,0,Math.PI*2);ctx.stroke();
+     const m=tileWorld(marker);
+     ctx.strokeStyle="#ecc78c";ctx.lineWidth=1.7;
+     ctx.beginPath();ctx.ellipse(m.x,m.y,12,6,0,0,Math.PI*2);ctx.stroke();
    }
-   const avatar=project(view,renderPosition);
-   const cy=avatar.y;
-   ctx.fillStyle="rgba(3,11,17,.63)";
-   ctx.beginPath();ctx.ellipse(avatar.x,cy+4,15*view.zoom,5*view.zoom,0,0,Math.PI*2);ctx.fill();
-   ctx.fillStyle="#00c8db";ctx.fillRect(avatar.x-8*view.zoom,cy-30*view.zoom,16*view.zoom,27*view.zoom);
-   ctx.fillStyle=presentation.current==="feminine"?"#e3a87e":"#bd9c83";
-   ctx.beginPath();ctx.arc(avatar.x,cy-39*view.zoom,8*view.zoom,0,Math.PI*2);ctx.fill();
-   ctx.fillStyle="#1d343d";ctx.fillRect(avatar.x-8*view.zoom,cy-43*view.zoom,16*view.zoom,6*view.zoom);
-   ctx.fillStyle="#f2cc8b";ctx.fillRect(avatar.x-5*view.zoom,cy-40*view.zoom,10*view.zoom,2*view.zoom);
-   ctx.strokeStyle="#00e5ff";ctx.lineWidth=1.4;
-   ctx.beginPath();ctx.ellipse(avatar.x,cy+2,17*view.zoom,8*view.zoom,0,0,Math.PI*2);ctx.stroke();
+   let heroDrawn=false;
+   for(const layer of visible){
+     if(!heroDrawn&&renderPosition.y<=layer.depth){
+       drawHero();heroDrawn=true;
+     }
+     if(layer.kind==="building")drawCityBuilding(ctx,layer.building);
+     else if(layer.kind==="prop"&&art)drawCityProp(ctx,layer.prop,layer.tile,art);
+     else if(layer.kind==="actor")drawActor(layer.actor);
+   }
+   if(!heroDrawn)drawHero();
+   ctx.restore();
    if(!painted){painted=true;setStatus("ready");setError("");}
   };
   const schedule=()=>{
@@ -236,8 +271,10 @@ export default function BaixadaLiteWorld({onInteract,appearance,characterId,
         callbacks.current.onInteract(actor);
       return;
     }
+    const dx=next.x-motion.position.x,dy=next.y-motion.position.y;
+    facing=dy<0?0:dx>0?1:dy>0?2:3;
     motion.step={from:{...motion.position},to:next,start:now,
-      duration:next.x!==motion.position.x&&next.y!==motion.position.y?195:150};
+      duration:dx!==0&&dy!==0?195:150};
   };
   const tick=(now:number)=>{
     if(disposed)return;
@@ -337,6 +374,14 @@ export default function BaixadaLiteWorld({onInteract,appearance,characterId,
       observer=new ResizeObserver(sizing);observer.observe(host);
     }else window.addEventListener("resize",sizing);
     scene.current={go,frame:schedule};
+    art=createLiteArtAssets(originId,()=>{
+      if(disposed)return;
+      host.dataset.artLoaded=String(art?.loaded()??0);
+      host.dataset.artReady=art?.ready()?"true":"false";
+      schedule();
+    });
+    host.dataset.artLoaded=String(art.loaded());
+    host.dataset.artReady=art.ready()?"true":"false";
     sizing();
   }catch(e){
     setStatus("failed");
@@ -351,14 +396,16 @@ export default function BaixadaLiteWorld({onInteract,appearance,characterId,
     canvas.removeEventListener("pointerdown",pointer);
     window.removeEventListener("keydown",keydown);
     scene.current=null;
+    art?.dispose();
     // Preservar o último tile confirmado mesmo após fechamento inesperado.
     notify(motion.position,true);
   };
- },[characterId,reboot]);
+ },[characterId,originId,reboot]);
  useEffect(()=>{scene.current?.frame();},[appearance]);
  const restart=()=>{setStatus("loading");setError("");setReboot(n=>n+1);};
  return <div className="baixada-world na-world-host" ref={hostRef}
-   data-renderer="canvas" data-engine="native-2d" data-scene-state={status}
+   data-renderer="canvas" data-engine="native-2d"
+   data-art-style="restored-phaser" data-scene-state={status}
    aria-label="Mapa leve e interativo da Baixada em Android">
    <canvas ref={canvasRef} tabIndex={0} style={{width:"100%",height:"100%",
      display:"block",touchAction:"none"}} aria-label="Toque no chão para caminhar; toque nos habitantes e terminais para interagir"/>
