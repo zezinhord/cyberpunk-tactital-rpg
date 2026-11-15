@@ -73,7 +73,7 @@ export const CLASS_BRANCHES:Readonly<Record<ClassId,readonly ClassBranch[]>>=
    classId,config.map((item,index)=>({id:classId+"-branch-"+index,
      name:item.name,description:item.description,
      skillIds:[item.root,classId+"-branch-skill-"+index]}))
- ])) as Record<ClassId,readonly ClassBranch[]>;
+ ])) as unknown as Record<ClassId,readonly ClassBranch[]>;
 
 export const BRANCH_CLASS_SKILLS:Readonly<Record<string,ClassSkill>>=
  Object.fromEntries(Object.entries(paths).flatMap(([classId,config])=>
