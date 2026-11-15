@@ -406,7 +406,7 @@ export class TurnManager {
    */
   private resolveEnemyDown():void{
     const enemy=this.state.units.find(unit=>unit.id==="drone");
-    if(!enemy||enemy.hp>0||this.state.combatComplete)return;
+    if(!enemy||enemy.hp>0||this.state.defeatedEnemyCount>=this.state.wave)return;
     // Registro por inimigo, inclusive ondas intermediárias; o App concede
     // XP com ID único e persistente no slot do personagem.
     this.state.defeatedEnemyCount++;
