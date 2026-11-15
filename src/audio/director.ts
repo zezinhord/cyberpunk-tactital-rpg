@@ -73,6 +73,21 @@ class SynthDirector {
     const unlock=()=>{this.activate();window.removeEventListener("pointerdown",unlock);window.removeEventListener("keydown",unlock);};
     window.addEventListener("pointerdown",unlock,{once:true,passive:true});
     window.addEventListener("keydown",unlock,{once:true});
+    // App em segundo plano não pode gastar CPU com síntese nem continuar a
+    // tocar: retoma a mesma faixa após a volta, sem carregar outra.
+    document.addEventListener("visibilitychange",()=>{
+      if(document.hidden){
+        this.soundtrack?.pause();
+        this.stopSynthScore();
+        this.musicFadeToken++;
+        if(this.ctx)void this.ctx.suspend().catch(()=>{});
+      }else if(this.ctx){
+        void this.ctx.resume().then(()=>{
+          if(this.volumes.music>0)this.switchTrack();
+        }).catch(()=>{});
+      }
+      this.notifyRadio();
+    });
   }
   private activate():void {
     if(this.ctx){void this.ctx.resume();return;}
@@ -230,6 +245,9 @@ class SynthDirector {
       audio.volume=0;
     }
     this.notifyRadio();
+    if(typeof document!=="undefined"&&document.hidden){
+      audio.pause();this.stopSynthScore();return;
+    }
     if(this.volumes.music===0){audio.pause();this.stopSynthScore();return;}
     try{
       const token=++this.musicFadeToken;
@@ -266,7 +284,7 @@ class SynthDirector {
     osc.onended=()=>{osc.disconnect();g.disconnect();};
   }
   private startScore():void {
-    if(typeof window==="undefined"||!this.ctx)return;
+    if(typeof window==="undefined"||!this.ctx||document.hidden)return;
     this.stopSynthScore();
     if(this.soundtrack&&!this.soundtrack.paused)return;
     const score=SCORES[this.current];
