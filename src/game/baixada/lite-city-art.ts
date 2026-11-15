@@ -88,7 +88,7 @@ export function drawCityBuilding(ctx:CanvasRenderingContext2D,b:BuildingSpec):vo
  const h=b.height;
  const at={x:a.x,y:a.y-h},bt={x:front1.x,y:front1.y-h};
  const ct={x:c.x,y:c.y-h},dt={x:d.x,y:d.y-h};
- const wall=hex(b.wall),roof=hex(b.roof),accent=hex(b.accent);
+ const wall=hex(b.wall),roof=hex(b.roof);
  ctx.save();
  // Volume original da Baixada. A luz vem da esquerda e revela a fachada.
  shape(ctx,[d,c,ct,dt],wall,"#132128",1.7);
