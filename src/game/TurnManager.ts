@@ -31,6 +31,7 @@ export interface TurnManagerOptions {
   originId?: string;
   classId?: string | null;
   characterAbilities?: readonly string[];
+  characterSkillRanks?:Readonly<Record<string,number>>;
   encounterId?: EncounterId;
 }
 
@@ -87,7 +88,7 @@ export class TurnManager {
       wave:1,totalWaves:trialWaveCount,
       archetypeId: "field-operative", characterLevel: options.characterLevel ?? 1,
       originId: options.originId ?? "corporativo", classId: options.classId ?? null,
-      characterAbilities: options.characterAbilities ?? [], classCooldowns:{}, classGuardBonus:0, classGuardTurns:0,
+      characterAbilities: options.characterAbilities ?? [],characterSkillRanks:options.characterSkillRanks ?? {}, classCooldowns:{}, classGuardBonus:0, classGuardTurns:0,
       classExtraMovement:0,classNextDamageBonus:0,classNextAccuracyBonus:0,
       classEnemyArmorReduction:0,classEnemyArmorTurns:0,
       classEnemyAttackReduction:0,classEnemyAttackTurns:0,
