@@ -1,4 +1,4 @@
-# Nova Arcádia 0.7.0-rc.3 — Marco de conteúdo 100 MB
+# Nova Arcádia 0.7.0-rc.4 — Marco de conteúdo 100 MB
 
 **Estado:** candidata em validação; **não publicada**.  
 **Branch de homologação:** `feature/landscape-mobile-v1`.  
@@ -43,6 +43,26 @@ Se algum item falhar, **bloquear publicação**, documentar passos de reproduç�
 **Fronteira de escopo:** prólogo e dois mapas subterrâneos estão implementados na RC4. A revisão integral dos sprites, o balanceamento final de inimigos e testes de desempenho em diferentes aparelhos permanecem pendentes.
 
 [Questionário da prévia fechada — 8 perguntas (0–5)](AVALIACAO-TESTADORES.md)
+
+## RC4 — validação de fidelidade visual sem regressão de desempenho
+
+- [ ] Na Baixada, comparar com RC3: o protagonista precisa usar **sua skin
+      de origem e apresentação selecionada**, não um boneco de duas cores.
+- [ ] Nilo, Joana, Saira, Téo e demais personagens devem exibir sprites
+      direcionais originais, com roupas e silhuetas distintas.
+- [ ] Os prédios devem exibir janelas, portas, cobogós, telhados, toldos,
+      letreiros e variações reais da planta original (não blocos lisos).
+- [ ] Barracas e palmeiras recuperam os SVGs detalhados já existentes.
+- [ ] O jogador deve conseguir caminhar, interagir com a clínica e abrir o
+      transporte sem carregar Phaser nem perder seu slot.
+- [ ] A tela não pode voltar a “Carregando a Baixada” indefinidamente.
+- [ ] No Android Economia, confirmar que o jogo conserva o ritmo de 30 FPS
+      e não perde estabilidade quando o personagem percorre o distrito.
+- [ ] Na captura automatizada de boot frio devem constar oito imagens
+      originais carregadas, superfície Canvas 2D abaixo de 4,5 MB e
+      pixels diferentes do fundo.
+- [ ] Confirmar build Android com assinatura compatível e
+      APK real ≥100 MB; exportar backup antes de atualizar.
 
 ## RC3 — teste físico obrigatório após fechamento no carregamento
 

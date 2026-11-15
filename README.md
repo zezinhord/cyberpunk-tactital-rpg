@@ -1,6 +1,6 @@
 # Nova Arcádia — Projeto Éden
 
-**Candidata à primeira prévia pública: 0.7.0-rc.3 (Android, em validação).**
+**Candidata à primeira prévia pública: 0.7.0-rc.4 (Android, em validação).**
 
 RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambientado em uma cidade cyberpunk tropical. Projeto independente com React, TypeScript, Phaser 4, Vite e Capacitor 8.
 
@@ -40,6 +40,41 @@ A restauração exige confirmação ao substituir um slot existente. Em caso de 
 - **Missões sempre encontráveis:** o HUD da Baixada mostra o próximo passo, permite recolher o painel e dá acesso à **Operação Circuito Fantasma**; quem já concluiu "O nome que sumiu" recebe orientação para investigar o Pátio do Reúso.
 - **Habilidades durante a luta:** toque em **HABILIDADES → ESCOLHER**, selecione uma técnica de classe, comum ou de origem e confirme em **Usar habilidade**. O painel informa custo, alcance e o motivo quando a habilidade não está pronta. Técnicas ofensivas são aplicadas automaticamente ao inimigo se estiver ao alcance; é necessário aproximar-se antes de lançar uma técnica distante demais.
 - **Compatibilidade:** não foram alteradas as chaves de armazenamento dos saves nem reiniciada a campanha. Exporte o backup antes de atualizar.
+
+## RC4 — Identidade visual da Baixada restaurada no Android
+
+A RC3 eliminou o travamento da abertura, mas seus personagens viraram
+**silhuetas genéricas** e os prédios perderam as texturas vetoriais, janelas,
+placas e mobiliário, contrariando a direção de arte definida no projeto.
+A RC4 corrige essa regressão **sem voltar ao Phaser no Android**:
+
+- Restaurados os **12 spritesheets originais** das seis origens e duas apresentações;
+  por sessão são decodificados somente os dois sprites do protagonista atual.
+  Personagens do cenário usam as artes originais de Nilo, Joana, Saira e Téo;
+  não são substituídos por bonecos geométricos.
+- Fachadas e telhados recuperam as mesmas proporções isométricas, paletas,
+  volumes, janelas e acabamentos que o mapa Phaser original: cobogós,
+  portas de serviço, toldos, placas luminosas, canos, estruturas industriais
+  e detalhes próprios de clínicas, casas, oficinas e mercados.
+- Os **SVGs originais de barracas e palmeiras** voltam a ser usados;
+  luminárias, caixotes, coletores e marcas de drenagem reaparecem nas células
+  originais. Ordem de desenho por profundidade restabelecida.
+- Piso industrial, residencial e comercial recupera a variação de cores
+  e o contraste escuro da Baixada original, sem blocos lisos improvisados.
+- Motor de Canvas 2D nativo, sem Phaser/WebGL na Baixada Android:
+  uma superfície limitada a 1280×720, sprites carregados sob demanda e
+  **desenho limitado a 30 FPS** durante a caminhada; personagem parado
+  não força quadros contínuos.
+- Testes de primeira abertura e visual em Chromium Android exigem
+  **carregamento real das oito imagens** (2 sprites protagonistas, 4 NPCs,
+  2 SVGs), pixels coloridos, personagem desenhado, armazenamento preservado
+  e limite de memória do framebuffer. São capturadas screenshots do mapa.
+- Os sete distritos, as 56 faixas de áudio e as regras de combate permanecem.
+  O pacote continua com a meta de 100 MB de conteúdo real.
+
+**A compatibilidade no Galaxy A07 e Redmi Note 12S ainda precisa ser
+confirmada pelos testes físicos.** As capturas de QA comprovam a restauração
+das artes no Chromium, não a ausência de fechamentos em todos os aparelhos.
 
 ## Hotfix 0.7.0 RC3 — Baixada nativa para Android com memória reduzida
 
