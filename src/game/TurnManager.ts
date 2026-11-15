@@ -7,7 +7,7 @@ import type { AbilityCheck } from "./abilities/engine.ts";
 import type { CombatVisual } from "./types";
 import { findPath,getReachableCells,coverBetween,coverArmorBonus,MOVEMENT_PER_TURN,
   type CoverGrade } from "./map";
-import {enemyProfile,manhattan,planEnemyTurn,withinShot} from "./tactics";
+import {enemyProfile,planEnemyTurn,withinShot} from "./tactics";
 import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types";
 import type { OriginGameplayProfile } from "./character/types";
 
