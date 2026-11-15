@@ -1,6 +1,8 @@
-import { useEffect, useState } from "react";
+import {lazy,Suspense,useEffect,useState} from "react";
 import BaixadaWorld from "../components/BaixadaWorld";
-import InteriorWorld from "../components/InteriorWorld";
+// Carrega Phaser apenas quando o protagonista entra num interior/distrito.
+ // A Baixada Android funciona com Canvas 2D sem o peso do motor Phaser.
+ const InteriorWorld=lazy(()=>import("../components/InteriorWorld"));
 import { getOriginById, getOriginGameplay } from "../game/character";
 import CharacterMenu from "../components/CharacterMenu";
 import type { InventoryState, ItemId } from "../game/inventory";
@@ -807,7 +809,10 @@ export default function ExplorationScreen({
           <span>TOQUE PARA SE MOVER</span>
         </div>
         {interior ? (
-          <InteriorWorld
+          <Suspense fallback={<div className="baixada-world na-world-host" role="status">
+            Preparando a região selecionada…
+          </div>}>
+            <InteriorWorld
             interior={interior}
             characterId={character.id}
             districtTarget={isDistrictId(interior)?districtCurrentStep(interior,cityChapters[interior])?.slot??null:null}
@@ -817,7 +822,8 @@ export default function ExplorationScreen({
             sewerProgress={sewer}
             ferrugemTargetId={currentFerrugemStep(ferrugem)?.actor??null}
             returnFromDeep={returnFromDeep}
-          />
+            />
+          </Suspense>
         ) : (
           <BaixadaWorld originId={character.originId} appearance={appearance} characterId={character.id}
             onSectorChange={setSectorId} onNearbyAccess={setNearSewerAccess} onInteract={handleInteract} />
