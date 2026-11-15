@@ -265,20 +265,84 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
          ctx.strokeStyle="#ff5c92";ctx.lineWidth=1.8;
          ctx.beginPath();ctx.ellipse(x,y,14,7,0,0,Math.PI*2);ctx.stroke();
        }
-     }else{
-       const terminal=/terminal|console|archive/.test(actor.id);
-       ctx.fillStyle="#16272e";ctx.fillRect(x-12,y-42,24,40);
-       ctx.lineWidth=2;ctx.strokeStyle="#f0b675";
-       ctx.strokeRect(x-12,y-42,24,40);
-       ctx.fillStyle=terminal?"#e5bb81":"#28373a";
-       ctx.fillRect(x-9,y-37,18,25);
-       if(terminal){
-         ctx.fillStyle="#415f61";ctx.fillRect(x-7,y-34,14,11);
-         ctx.fillStyle="#e7c08a";
-         for(let i=0;i<3;i++)ctx.fillRect(x-6,y-20+i*4,11-i*2,1);
-       }else{
-         ctx.fillStyle="#e9b976";ctx.fillRect(x+6,y-23,3,4);
+     }else if(actor.id==="enter-sewer-drain"||actor.id==="enter-sewer-deep"){
+       // Bocas de drenagem niveladas com o asfalto, não portas no vazio.
+       ctx.fillStyle="rgba(3,10,14,.6)";
+       ctx.beginPath();ctx.ellipse(x,y+2,22,10,0,0,Math.PI*2);ctx.fill();
+       ctx.fillStyle="#273b40";ctx.beginPath();
+       ctx.ellipse(x,y-1,20,9,0,0,Math.PI*2);ctx.fill();
+       ctx.strokeStyle="#e4b273";ctx.lineWidth=2;
+       ctx.beginPath();ctx.ellipse(x,y-1,20,9,0,0,Math.PI*2);ctx.stroke();
+       ctx.strokeStyle="rgba(171,193,186,.7)";ctx.lineWidth=1.7;
+       for(let i=-2;i<=2;i++){
+         ctx.beginPath();ctx.moveTo(x-11+i*5,y-5);
+         ctx.lineTo(x-11+i*5,y+4);ctx.stroke();
        }
+       ctx.fillStyle="#e4b273";ctx.fillRect(x-3,y-17,6,3);
+     }else if(actor.id==="enter-city-transit"){
+       // Quiosque de transporte com pedestal, tela e marcador de rota.
+       ctx.fillStyle="#152930";ctx.fillRect(x-18,y-49,36,46);
+       ctx.fillStyle="#4a5d5e";ctx.fillRect(x-14,y-44,28,31);
+       ctx.fillStyle="#a6b5a5";ctx.fillRect(x-11,y-41,22,20);
+       ctx.fillStyle="#253d47";ctx.fillRect(x-9,y-39,18,16);
+       ctx.strokeStyle="#e9b676";ctx.lineWidth=2;
+       ctx.strokeRect(x-18,y-49,36,46);
+       ctx.fillStyle="#e9b676";ctx.fillRect(x-15,y-55,30,6);
+       ctx.fillStyle="#f5d5a2";ctx.font="bold 7px monospace";
+       ctx.textAlign="center";ctx.fillText("NA // 07",x,y-51);
+       ctx.fillStyle="#8bc1c8";ctx.fillRect(x-6,y-36,12,2);
+       for(let i=0;i<3;i++)ctx.fillRect(x-7+i*6,y-31,3,4);
+       ctx.fillStyle="#34494b";ctx.fillRect(x-22,y-3,44,6);
+       ctx.textAlign="start";
+     }else if(actor.id==="enter-ferrugem"){
+       // Pórtico industrial de passagem, com sinalização de risco.
+       ctx.fillStyle="#29373a";
+       ctx.fillRect(x-23,y-49,7,49);ctx.fillRect(x+16,y-49,7,49);
+       ctx.fillRect(x-23,y-49,46,8);
+       ctx.strokeStyle="#cfa069";ctx.lineWidth=2;
+       ctx.strokeRect(x-23,y-49,46,8);
+       for(let i=0;i<5;i++){
+         ctx.fillStyle=i%2?"#17232a":"#e0a96c";
+         ctx.fillRect(x-18+i*8,y-48,7,5);
+       }
+       ctx.strokeStyle="rgba(196,206,193,.5)";
+       ctx.beginPath();ctx.moveTo(x-15,y-13);ctx.lineTo(x+15,y-13);
+       ctx.stroke();
+       ctx.fillStyle="#e0b47a";ctx.fillRect(x-11,y-36,22,3);
+     }else if(actor.id==="feira-archive"){
+       // Painel de boletins comunitários no Mercado dos Cabos.
+       ctx.fillStyle="#1a3036";ctx.fillRect(x-20,y-42,40,38);
+       ctx.strokeStyle="#d2aa76";ctx.lineWidth=2;
+       ctx.strokeRect(x-20,y-42,40,38);
+       ctx.fillStyle="#d9bd94";ctx.fillRect(x-16,y-37,14,22);
+       ctx.fillStyle="#a2b0a5";ctx.fillRect(x+1,y-34,14,17);
+       ctx.fillStyle="#6b4b4b";ctx.fillRect(x+4,y-29,9,2);
+       ctx.fillStyle="#3e5154";ctx.fillRect(x-12,y-32,6,2);
+       ctx.fillStyle="#c99466";ctx.fillRect(x-10,y-24,6,3);
+       ctx.fillStyle="#28383e";ctx.fillRect(x-16,y-4,4,9);
+       ctx.fillRect(x+12,y-4,4,9);
+     }else if(/terminal|console/.test(actor.id)){
+       // Console inclinado com monitor e teclado, sem portal fictício.
+       ctx.fillStyle="#192c32";ctx.fillRect(x-14,y-28,28,23);
+       ctx.fillStyle="#354a50";ctx.fillRect(x-18,y-43,36,27);
+       ctx.strokeStyle="#eab879";ctx.lineWidth=2;
+       ctx.strokeRect(x-18,y-43,36,27);
+       ctx.fillStyle="#83b2b9";ctx.fillRect(x-14,y-39,28,17);
+       ctx.fillStyle="#1c3a44";ctx.fillRect(x-12,y-37,24,13);
+       ctx.fillStyle="#e6c08d";
+       for(let i=0;i<3;i++)ctx.fillRect(x-9,y-33+i*4,15-i*3,1);
+       ctx.fillStyle="#a58565";ctx.fillRect(x-16,y-14,32,5);
+     }else{
+       // Portas de acesso com soleira física e cobertura contextual.
+       ctx.fillStyle="#323d3c";ctx.fillRect(x-17,y-5,34,7);
+       ctx.fillStyle="#1b3036";ctx.fillRect(x-12,y-37,24,33);
+       ctx.strokeStyle="#e4b273";ctx.lineWidth=1.7;
+       ctx.strokeRect(x-12,y-37,24,33);
+       ctx.fillStyle="#506769";ctx.fillRect(x-9,y-34,18,27);
+       ctx.fillStyle="#14282f";ctx.fillRect(x-7,y-32,14,25);
+       ctx.fillStyle="#e9b976";ctx.fillRect(x+3,y-20,3,4);
+       ctx.fillStyle="#ac805a";ctx.fillRect(x-16,y-42,32,6);
+       ctx.strokeStyle="#e4b273";ctx.strokeRect(x-16,y-42,32,6);
      }
      if(distance(motion.position,actor.tile)<=3){
        const label=actor.label;
