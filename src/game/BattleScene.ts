@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { BOARD_HEIGHT, BOARD_WIDTH, isBlocked } from "./map";
+import { BOARD_HEIGHT, BOARD_WIDTH, isBlocked, coverBetween } from "./map";
 import { TurnManager } from "./TurnManager";
 import type { GameState, Position, Unit } from "./types";
 import type { TestAppearance } from "./test-arena/appearance";
@@ -268,6 +268,23 @@ export class BattleScene extends Phaser.Scene {
     graphics.strokeRect(terminal.x - 7, terminal.y - 21, 14, 12);
 
     const targetable = this.manager.canAttack();
+    const attacker=state.units.find(u=>u.id==="runner");
+    const target=state.units.find(u=>u.id==="drone");
+    if(attacker&&target&&target.hp>0){
+      const cover=coverBetween(attacker,target);
+      // Delimita obstáculos e proteção do alvo sem trocar as texturas
+      // originais dos protagonistas, NPCs ou tabuleiro.
+      const center=tileCenter(target);
+      if(cover==="partial"){
+        graphics.lineStyle(2,COLOR.amber,.94);
+        this.traceDiamond(center.x,center.y,TILE_WIDTH-2,TILE_HEIGHT-2);
+        graphics.strokePath();
+      }else if(cover==="full"){
+        graphics.lineStyle(2,COLOR.magenta,.65);
+        this.traceDiamond(center.x,center.y,TILE_WIDTH-2,TILE_HEIGHT-2);
+        graphics.strokePath();
+      }
+    }
     state.units
       .filter((unit) => unit.hp > 0)
       .sort((a, b) => a.x + a.y - (b.x + b.y))
