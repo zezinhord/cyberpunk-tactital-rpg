@@ -18,13 +18,15 @@ export default function Battlefield({ manager, appearance,originId }: Battlefiel
     const host = hostRef.current;
     if (!host) return;
     const game = new Phaser.Game({
-      type: Phaser.AUTO,
+      // Canvas 2D preserva as texturas originais e evita contextos WebGL
+      // instáveis em dispositivos com GPUs modestas.
+      type: Phaser.CANVAS,
       parent: host,
       width: CANVAS_WIDTH,
       height: CANVAS_HEIGHT,
       backgroundColor: "#0d1220",
       scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-      render: { antialias: true },
+      render: { antialias: false },
       scene: [new BattleScene(manager, appearance,originId)],
     });
     return () => game.destroy(true);
