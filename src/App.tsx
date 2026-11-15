@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import Battlefield from "./components/Battlefield";
+import {lazy,Suspense,useEffect,useMemo,useRef,useState} from "react";
+// Phaser só deve ser baixado e inicializado quando uma batalha começar.
+ // Evita carregar o motor de combate no primeiro boot Android da Baixada.
+ const Battlefield=lazy(()=>import("./components/Battlefield"));
 import AbilityBar from "./components/AbilityBar";
 import OpeningCutscene from "./components/OpeningCutscene";
 import {nextStoryScreen,markOpeningSeen} from "./game/story/opening";
@@ -614,7 +616,11 @@ export default function App() {
         <section className="battle-panel" aria-label="Combate tático isométrico">
           <div className="map-label"><span>{battleMode.startsWith("district-")?"AGENTES HELIX · ONDA "+state.wave+" / "+state.totalWaves: battleMode==="v09"?"UNIDADE HOSTIL · V-09":
              isTrialEncounter(battleMode)?"ONDA "+state.wave+" DE "+state.totalWaves+" · 8 × 8":"SIMULAÇÃO 01 · 8 × 8"}</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
-          <Battlefield manager={manager} appearance={appearance} originId={character.originId} />
+          <Suspense fallback={<div className="battlefield-canvas" role="status">
+            Preparando arena tática sem bloquear a exploração…
+          </div>}>
+            <Battlefield manager={manager} appearance={appearance} originId={character.originId} />
+          </Suspense>
           <p className="board-hint">{getHint(state, canAttack)}</p>
           <div className="na-combat-tactical-readout" aria-live="polite">
             <span>ALCANCE: {attackPreview.range} · {attackPreview.mode==="ranged"?"ARMA DE FOGO":"CORPO A CORPO"}</span>
