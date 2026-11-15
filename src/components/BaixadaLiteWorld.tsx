@@ -6,6 +6,7 @@ import {paintCityBackground,drawCityBuilding,drawCityProp,tileWorld,
   type PropKind,type Point} from "../game/baixada/lite-city-art";
 import {createLiteArtAssets,drawLiteSprite,LONG_NPC_SHEETS,type LiteArtAssets} from "../game/baixada/lite-art-assets";
 import {canStand,route,approachRoute} from "../game/baixada/navigation";
+import {smoothCamera,interpolateWalk} from "../game/baixada/motion";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
 import type {OriginId} from "../game/character";
 import type {TestAppearance} from "../game/test-arena/appearance";
@@ -96,14 +97,15 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
   const host=hostRef.current,canvas=canvasRef.current;
   if(!host||!canvas)return;
   let disposed=false,context:CanvasRenderingContext2D|null=null;
-  let frameId=0,painted=false,lastSave=0,lastRender=0;
+  let frameId=0,painted=false,lastSave=0,lastRender=0,lastTick=0,suspendedAt=0;
   let width=0,height=0;
   let motion:Motion={
    position:loadWorldLocation(characterId),steps:[],step:null,pendingActor:null,
   };
   if(!canStand(motion.position))motion.position={...PLAYER_START};
   let renderPosition:{x:number;y:number}=center(motion.position);
-  let view=getView(900,440,renderPosition);
+  let cameraPosition:{x:number;y:number}={...renderPosition};
+  let view=getView(900,440,cameraPosition);
   let marker:Tile|null=null;
   const actorById=new Map(ACTORS.map(a=>[a.id,a]));
   let art:LiteArtAssets|null=null;
@@ -138,7 +140,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
    ctx.fillStyle="#12212b";ctx.fillRect(0,0,width,height);
    paintCityBackground(ctx,width,height);
    // Segue a posição interpolada do avatar para caminhar sem saltos de câmera.
-   view=getView(width,height,renderPosition);
+   view=getView(width,height,cameraPosition);
    // Continuidade urbana além da borda física do mapa.
    // É SOMENTE decoração: canStand() continua proibindo sair do grid.
    // Inverter a projeção limita o laço aos losangos efetivamente visíveis,
@@ -376,7 +378,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
    if(!painted){painted=true;setStatus("ready");setError("");}
   };
   const schedule=()=>{
-   if(disposed||frameId)return;
+   if(disposed||frameId||document.hidden)return;
    frameId=requestAnimationFrame((now)=>{frameId=0;tick(now);});
   };
   const startStep=(now:number)=>{
@@ -397,11 +399,13 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
   };
   const tick=(now:number)=>{
     if(disposed)return;
+    const deltaMs=lastTick?Math.max(0,Math.min(64,now-lastTick)):16.67;
+    lastTick=now;
     if(motion.step){
       const step=motion.step;
       const portion=Math.max(0,Math.min(1,(now-step.start)/step.duration));
       const a=center(step.from),b=center(step.to);
-      renderPosition={x:a.x+(b.x-a.x)*portion,y:a.y+(b.y-a.y)*portion};
+      renderPosition=interpolateWalk(a,b,now-step.start,step.duration);
       if(portion>=1){
         motion.position=step.to;
         renderPosition=center(motion.position);
@@ -410,18 +414,21 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
         startStep(now);
       }
     }
+    cameraPosition=smoothCamera(cameraPosition,renderPosition,deltaMs);
+    const cameraMoving=Math.abs(cameraPosition.x-renderPosition.x)>0.35||
+      Math.abs(cameraPosition.y-renderPosition.y)>0.35;
     // Não desenha 60 vezes/s em Android econômico: mantemos interpolação
     // contínua e renderizamos até 30 FPS, sem GPU nem bitmaps full-world.
     // Ao terminar a caminhada pintamos sempre a posição final, mesmo que
     // o próximo frame ocorra antes de 33 ms.
-    if(now-lastRender>=33||!painted||motion.step===null){
+    if(now-lastRender>=33||!painted||(!motion.step&&!cameraMoving)){
      lastRender=now;
      try{paint();}catch(e){
       setStatus("failed");setError("O desenho leve encontrou um erro: "+String(e).slice(0,95));
       return;
      }
     }
-    if(motion.step)schedule();
+    if(motion.step||cameraMoving)schedule();
   };
   const go=(destination:Tile,actor?:string)=>{
     const start=motion.step?.to??motion.position;
@@ -484,6 +491,18 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     if(canStand(target))go(target);
   };
   let observer:ResizeObserver|null=null;
+  const visibility=()=>{
+    if(document.hidden){
+      suspendedAt=performance.now();
+      if(frameId)cancelAnimationFrame(frameId);
+      frameId=0;
+    }else{
+      // Animação congela enquanto aplicativo está em segundo plano.
+      if(suspendedAt&&motion.step)
+        motion.step.start+=Math.max(0,performance.now()-suspendedAt);
+      suspendedAt=0;lastTick=0;schedule();
+    }
+  };
   const watchdog=setTimeout(()=>{
     if(disposed||painted)return;
     setStatus("failed");
@@ -495,6 +514,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     notify(motion.position,true);
     canvas.addEventListener("pointerdown",pointer,{passive:false});
     window.addEventListener("keydown",keydown);
+    document.addEventListener("visibilitychange",visibility);
     if(typeof ResizeObserver!=="undefined"){
       observer=new ResizeObserver(sizing);observer.observe(host);
     }else window.addEventListener("resize",sizing);
@@ -520,6 +540,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     window.removeEventListener("resize",sizing);
     canvas.removeEventListener("pointerdown",pointer);
     window.removeEventListener("keydown",keydown);
+    document.removeEventListener("visibilitychange",visibility);
     scene.current=null;
     art?.dispose();
     // Preservar o último tile confirmado mesmo após fechamento inesperado.
