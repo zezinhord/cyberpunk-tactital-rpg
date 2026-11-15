@@ -237,3 +237,28 @@
 @media(orientation:landscape){
  .na-mission-hub.collapsed .na-hub-toggle{box-shadow:0 4px 19px rgba(0,0,0,.48);}
 }
+
+
+/* 0.7.x: moldura diegética sutil sobre o mapa Android nativo.
+   Não usa backdrop-filter, animation ou mix-blend-mode: mantém 30 FPS. */
+@media (orientation:landscape) {
+  .na-world-host[data-engine="native-2d"]::before {
+    content:""; position:absolute; inset:9px; z-index:1;
+    pointer-events:none; opacity:.62;
+    background:
+      linear-gradient(90deg,#63c6cb,#63c6cb) top left / 28px 2px no-repeat,
+      linear-gradient(180deg,#63c6cb,#63c6cb) top left / 2px 28px no-repeat,
+      linear-gradient(270deg,#e1ad78,#e1ad78) top right / 28px 2px no-repeat,
+      linear-gradient(180deg,#e1ad78,#e1ad78) top right / 2px 28px no-repeat,
+      linear-gradient(90deg,#e1ad78,#e1ad78) bottom left / 28px 2px no-repeat,
+      linear-gradient(0deg,#e1ad78,#e1ad78) bottom left / 2px 28px no-repeat,
+      linear-gradient(270deg,#63c6cb,#63c6cb) bottom right / 28px 2px no-repeat,
+      linear-gradient(0deg,#63c6cb,#63c6cb) bottom right / 2px 28px no-repeat;
+  }
+  .na-world-host[data-engine="native-2d"]::after {
+    content:""; position:absolute; inset:0; z-index:1;
+    pointer-events:none;
+    box-shadow:inset 0 0 52px rgba(3,11,17,.48);
+    background:linear-gradient(180deg,rgba(5,16,23,.24),transparent 14%,transparent 83%,rgba(5,16,23,.32));
+  }
+}
