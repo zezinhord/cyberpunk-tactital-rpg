@@ -30,6 +30,7 @@ export interface GameState {
   originId: string;
   classId: string | null;
   characterAbilities: readonly string[];
+  characterSkillRanks?: Readonly<Record<string,number>>;
   classCooldowns: Record<string,number>;
   classGuardBonus: number;
   classGuardTurns: number;
