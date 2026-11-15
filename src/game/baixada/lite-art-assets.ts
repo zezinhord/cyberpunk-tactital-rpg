@@ -91,7 +91,10 @@ export function drawLiteSprite(ctx:CanvasRenderingContext2D,img:HTMLImageElement
  const col=Math.max(0,Math.min(cols-1,options.frame??0));
  const row=ROWS[options.direction??2]??1;
  const size=options.scale;
+ ctx.save();
+ ctx.imageSmoothingEnabled=false; // pixel-art original sem borrões na escala móvel
  ctx.drawImage(img,col*64,row*80,64,80,
   x-32*size,footY-76*size,64*size,80*size);
+ ctx.restore();
  return true;
 }

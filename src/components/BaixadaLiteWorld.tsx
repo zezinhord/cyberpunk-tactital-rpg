@@ -96,7 +96,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
   const host=hostRef.current,canvas=canvasRef.current;
   if(!host||!canvas)return;
   let disposed=false,context:CanvasRenderingContext2D|null=null;
-  let frameId=0,painted=false,lastSave=0;
+  let frameId=0,painted=false,lastSave=0,lastRender=0;
   let width=0,height=0;
   let motion:Motion={
    position:loadWorldLocation(characterId),steps:[],step:null,pendingActor:null,
@@ -291,10 +291,16 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
         startStep(now);
       }
     }
-    // O loop só permanece ativo enquanto o avatar realmente se desloca.
-    try{paint();}catch(e){
+    // Não desenha 60 vezes/s em Android econômico: mantemos interpolação
+    // contínua e renderizamos até 30 FPS, sem GPU nem bitmaps full-world.
+    // Ao terminar a caminhada pintamos sempre a posição final, mesmo que
+    // o próximo frame ocorra antes de 33 ms.
+    if(now-lastRender>=33||!painted||motion.step===null){
+     lastRender=now;
+     try{paint();}catch(e){
       setStatus("failed");setError("O desenho leve encontrou um erro: "+String(e).slice(0,95));
       return;
+     }
     }
     if(motion.step)schedule();
   };
