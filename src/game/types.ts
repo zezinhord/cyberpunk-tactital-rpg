@@ -44,6 +44,8 @@ export interface GameState {
   encounterId: EncounterId;
   wave:number;
   totalWaves:number;
+  /** Número de inimigos efetivamente neutralizados neste encontro. */
+  defeatedEnemyCount:number;
   energy: number;
   maxEnergy: number;
   cooldowns: Record<SpecialId, number>;
