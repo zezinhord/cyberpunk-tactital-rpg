@@ -3,7 +3,7 @@ import type {PlayerCharacter} from "../game/character/types";
 import {ALL_CLASS_SKILLS,getClassById,getClassBranches} from "../game/classes/registry";
 import {STATS,STAT_IDS,GENERAL_PASSIVES,MAX_STAT_RANK,
  availableAttributePoints,availableSkillPoints,statRank,statBreakdown,getSkillRank,
- LEVEL_XP,skillPrerequisite,combatProgression,type StatId} from "../game/progression/tree";
+ LEVEL_XP,skillPrerequisite,combatProgression,skillEffectPreview,type StatId} from "../game/progression/tree";
 
 export default function ProgressionTree({character,onAttribute,onSkill}:{
  character:PlayerCharacter;
@@ -106,7 +106,7 @@ export default function ProgressionTree({character,onAttribute,onSkill}:{
                <p>{skill.description}</p>
                <small>{skill.cost} energia · {skill.cooldown} turnos de recarga · alcance {skill.range}</small>
                <small>{prior?"Requer "+(ALL_CLASS_SKILLS[prior]?.name??prior):"Raiz independente da especialização"} · Nível {needsLevel}</small>
-               <span className="na-tree-preview">{maxed?"Técnica aperfeiçoada":rank?"Próximo grau: poder +1 a +2 por efeito":"Ao comprar: habilidade disponível no combate"}</span>
+               <span className="na-tree-preview">{maxed?"Efeito atual: ":"Próximo grau: "}{skillEffectPreview(skill,maxed?rank:rank+1)}</span>
                <button type="button" disabled={maxed||locked||skillPoints<1}
                  onClick={()=>setFeedback(onSkill(id))}>
                  {maxed?"Grau máximo":locked?"Bloqueada":start?"Aprimorar · 1 HAB":rank?"Elevar grau · 1 HAB":"Desbloquear · 1 HAB"}

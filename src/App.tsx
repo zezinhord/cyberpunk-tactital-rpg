@@ -369,7 +369,7 @@ export default function App() {
       setCharacter(reward.character);
       setSlots(listCharacterSlots());
       if(reward.character.level>active.level)
-        setSaveMessage("Nível "+reward.character.level+"! Pontos disponíveis na árvore de evolução.");
+        setSaveMessage("SUBIU DE NÍVEL! Nível "+reward.character.level+" · Abra a árvore para evoluir.");
       audioDirector.effect("victory");
     }else{
       setSaveMessage("Falha ao salvar recompensa V-09. Libere espaço no aparelho.");
@@ -380,10 +380,14 @@ export default function App() {
     if(!character || character.classId)return;
     const updated=assignCharacterClass(character,classId);
     if(updated===character)return;
+    if(!saveCharacter(updated)){
+      setSaveMessage("Não foi possível salvar a classe.");
+      return;
+    }
+    characterRef.current=updated;
     setCharacter(updated);
-    const saved=saveCharacter(updated);
-    if(saved)setSlots(listCharacterSlots());
-    setSaveMessage(saved?"Classe registrada no salvamento local":"Não foi possível salvar a classe");
+    setSlots(listCharacterSlots());
+    setSaveMessage("Classe registrada no salvamento local");
   };
 
   const handleCreate = (name: string, originId: OriginId, presentation: TestAppearance, classId:ClassId) => {
@@ -568,6 +572,7 @@ export default function App() {
         onTreatAtClinic={treatAtClinic}
         currentHp={healthValue}
         maxHp={maximumHp}
+        progressNotice={saveMessage}
         onReturnToTitle={() => setScreen("title")}
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}

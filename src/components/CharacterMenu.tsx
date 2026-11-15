@@ -24,6 +24,7 @@ interface JournalClue {
 }
 
 interface Props {
+  initialSection?:"character"|"progression";
   character: PlayerCharacter;
   appearance: TestAppearance;
   onChangeAppearance: (appearance: TestAppearance) => void;
@@ -82,6 +83,7 @@ function DataCard({ label, value, detail }: { label: string; value: string; deta
 }
 
 export default function CharacterMenu({
+  initialSection,
   character,
   appearance,
   onChangeAppearance,
@@ -105,7 +107,7 @@ export default function CharacterMenu({
   onToggleEquipment,
   onCraft,
 }: Props) {
-  const [activeSection, setActiveSection] = useState<MenuSection>("character");
+  const [activeSection, setActiveSection] = useState<MenuSection>(initialSection??"character");
   const [pendingClass,setPendingClass]=useState<ClassId|null>(null);
   const [craftNotice,setCraftNotice]=useState("");
   const [graphicsMode,setGraphicsMode]=useState<GraphicsMode>(readGraphicsMode);

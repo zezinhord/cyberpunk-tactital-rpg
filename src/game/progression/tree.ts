@@ -1,7 +1,7 @@
 import type {PlayerCharacter} from "../character/types.ts";
 import type {OriginId} from "../character/origins.ts";
 import {ALL_CLASS_SKILLS,CLASS_IDS,getClassBranches,getStartingClassAbilities,
- isPlayableClass,type ClassId} from "../classes/registry.ts";
+ isPlayableClass,type ClassId,type ClassSkill} from "../classes/registry.ts";
 
 export const STAT_IDS=["vigor","precisao","reflexos","interface","influencia"] as const;
 export type StatId=(typeof STAT_IDS)[number];
@@ -167,7 +167,10 @@ export function normalizeProgression(char:PlayerCharacter):PlayerCharacter{
  const abilities=new Set<string>(char.classId&&isPlayableClass(char.classId)?
    getStartingClassAbilities(char.classId):
    char.abilities.filter(id=>typeof id==="string"&&id.length<=80));
- const general:string[]=[];
+ // Identificadores históricos desconhecidos não são pontos compráveis e
+ // permanecem no save inertes para não descartar informação de versões antigas.
+ const general:string[]=char.skills.filter(id=>
+   typeof id==="string"&&!(id in GENERAL_PASSIVES)&&id.length<=80);
  const ranks:Record<string,number>={};
  let budget=POINTS_PER_LEVEL.skills*(level-1);
  // Legado possuía técnicas desbloqueadas sem mapa de ranks.
@@ -199,6 +202,28 @@ export function normalizeProgression(char:PlayerCharacter):PlayerCharacter{
  return {...char,level,attributes:attr,baseAttributes,originStatBonuses,classStatBonuses,
    skills:general,abilities:[...abilities],skillRanks:ranks,
    questRewards:[...new Set(char.questRewards.filter(id=>typeof id==="string"&&id.length<120))]};
+}
+/** Prévia determinística idêntica ao cálculo de rank do motor de combate. */
+export function skillEffectPreview(skill:ClassSkill,rank:number):string{
+ const valid=Math.max(1,Math.min(skill.maxRank,Math.floor(rank)));
+ return skill.effects.map(effect=>{
+   const amount=("amount" in effect?effect.amount:0)+(valid-1)*
+      (effect.type==="damage"||effect.type==="heal"?2:1);
+   const turns=("turns" in effect?effect.turns:0)+
+      (effect.type==="jam"&&valid>=3?1:0);
+   switch(effect.type){
+     case "damage":return "Dano "+amount;
+     case "heal":return "Cura "+amount;
+     case "jam":return "Bloqueia "+turns+" ação(ões)";
+     case "guard":return "Defesa +"+amount+" por "+turns+" ação(ões)";
+     case "energy":return "Energia +"+amount;
+     case "movement":return "Movimento +"+amount;
+     case "nextDamage":return "Próximo dano +"+amount;
+     case "nextAccuracy":return "Próximo acerto +"+amount;
+     case "enemyArmor":return "Defesa inimiga -"+amount+" por "+turns+" ação(ões)";
+     case "enemyAttack":return "Ataque inimigo -"+amount+" por "+turns+" ação(ões)";
+   }
+ }).join(" · ");
 }
 export function combatProgression(char:PlayerCharacter|null):{
  hp:number;attack:number;armor:number;movement:number;energy:number}{

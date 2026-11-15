@@ -5,7 +5,7 @@ import {BRANCH_CLASS_SKILLS} from "../src/game/classes/branches.ts";
 import {createPlayerCharacter,loadCharacter,saveCharacter,parseCharacterSave} from "../src/game/character/storage.ts";
 import {gainExperience,grantUniqueExperience,levelAtXp,purchaseAttribute,purchaseSkill,
  availableAttributePoints,availableSkillPoints,combatProgression,statBreakdown,getSkillRank,
- normalizeProgression,skillPrerequisite,STAT_IDS,MAX_LEVEL,LEVEL_XP} from "../src/game/progression/tree.ts";
+ normalizeProgression,skillPrerequisite,skillEffectPreview,STAT_IDS,MAX_LEVEL,LEVEL_XP} from "../src/game/progression/tree.ts";
 import {executeClassSkill} from "../src/game/classes/engine.ts";
 
 const db=new Map();
@@ -115,6 +115,8 @@ for(const classId of CLASS_IDS){
  if(classId!=="nomade")assert.equal(sanitized.abilities.includes("nomade-arrancada"),false);
  // Os graus mudam os números no mesmo interpretador de efeitos utilizado no APK.
  const ability=ALL_CLASS_SKILLS[root];
+ assert.notEqual(skillEffectPreview(ability,1),skillEffectPreview(ability,2),
+   "A prévia deve explicitar a diferença mecânica entre os graus");
  const state=(rank)=>({
    units:[{id:"runner",name:"Operativo",side:"player",x:1,y:1,hp:4,maxHp:30,armorClass:12,attackBonus:5},
     {id:"drone",name:"Sentinela",side:"enemy",x:2,y:1,hp:40,maxHp:40,armorClass:13,attackBonus:4}],

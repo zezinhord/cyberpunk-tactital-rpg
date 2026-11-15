@@ -36,3 +36,9 @@
  .na-tree-branch{scroll-snap-align:start}
 }
 @media(max-height:450px){.na-tree-intro,.na-tree-section{padding:9px}.na-tree-branch-heading{min-height:52px}}
+
+.na-level-up-alert{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 12px;
+ border:1px solid #83c8d2;background:rgba(19,62,73,.97);color:#f0e6c9;border-radius:6px;margin:5px 10px;font-size:12px;flex-wrap:wrap}
+.na-level-up-alert strong{flex:1;min-width:160px}
+.na-level-up-alert button{min-height:48px;min-width:48px;border:1px solid #87d4de;border-radius:6px;background:#1b4d59;
+ color:#f1f4ee;padding:8px 12px;font-weight:700;touch-action:manipulation}
