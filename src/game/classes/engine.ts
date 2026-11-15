@@ -1,6 +1,6 @@
 import type { GameState, Unit } from "../types";
 import type { ClassSkill, ClassEffect } from "./registry";
-import {hasLineOfSight} from "../map";
+import {hasLineOfSight} from "../map.ts";
 
 export type ClassCheck={available:true}|{available:false;reason:string};
 export interface ClassResult {ok:boolean;message:string;amount:number}
