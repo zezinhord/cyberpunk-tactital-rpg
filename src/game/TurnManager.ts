@@ -123,7 +123,8 @@ export class TurnManager {
       log: [...this.state.log],
       cooldowns: { ...this.state.cooldowns },
       classCooldowns:{...this.state.classCooldowns},
-      cue: this.state.cue ? { ...this.state.cue } : null,
+      cue: this.state.cue ? {...this.state.cue,
+        path:this.state.cue.path?.map(tile=>({...tile}))} : null,
     };
   }
 
@@ -190,8 +191,10 @@ export class TurnManager {
     this.publish();
   }
 
-  private setCue(visual: CombatVisual, target: "player" | "enemy" | "terminal", amount?: number): void {
-    this.state.cue = { sequence: (this.state.cue?.sequence ?? 0) + 1, visual, target, amount };
+  private setCue(visual: CombatVisual, target: "player" | "enemy" | "terminal",
+    amount?: number,path?:readonly Position[]): void {
+    this.state.cue = {sequence:(this.state.cue?.sequence??0)+1,
+      visual,target,amount,path};
   }
 
   getReachableCells(): Position[] {
@@ -303,7 +306,7 @@ export class TurnManager {
     }
     player.x = x;
     player.y = y;
-    this.setCue("move", "player");
+    this.setCue("move", "player",undefined,path);
     this.state.movementRemaining -= cost;
     this.state.message = `Movimento concluído: ${cost} célula(s) consumida(s).`;
     this.addLog(`[MOVIMENTO] ${player.name} avançou ${cost} célula(s).`);

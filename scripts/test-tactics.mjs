@@ -14,10 +14,17 @@ assert.equal(hasLineOfSight({x:2,y:2},{x:4,y:4}),false,"Tiro cruzou canto sólid
 assert.equal(coverBetween({x:1,y:2},{x:5,y:2}),"full");
 assert.equal(coverBetween({x:1,y:6},{x:1,y:2}),"none");
 assert.equal(coverArmorBonus({x:1,y:6},{x:1,y:2}),0);
+assert.equal(coverBetween({x:1,y:1},{x:3,y:0}),"partial");
+assert.equal(coverArmorBonus({x:1,y:1},{x:3,y:0}),2);
 assert.equal(withinShot({x:1,y:2},{x:5,y:2},6),false,"Alcance não pode atravessar parede");
 const melee=new TurnManager({encounterId:"test"});
 assert.equal(melee.getBasicAttackPreview().range,1);
 assert.equal(melee.canAttack(),false);
+melee.state.units[0].x=2;melee.state.units[0].y=0;
+melee.state.units[1].x=1;melee.state.units[1].y=0;
+melee.movePlayerTo(2,1);
+assert.ok(melee.getState().cue?.path?.length>=2,"Animação recebeu caminho tático");
+
 const equipped=new TurnManager({encounterId:"v09",weaponId:"pistola_manutencao"});
 assert.equal(equipped.getBasicAttackPreview().range,4);
 assert.ok(equipped.getEnemyIntent().length>2);

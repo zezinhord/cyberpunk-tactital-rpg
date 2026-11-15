@@ -627,6 +627,8 @@ export default function App() {
             <span>COBERTURA DO ALVO: {attackPreview.cover==="partial"?"PARCIAL +2 DEF":
               attackPreview.cover==="full"?"TIRO BLOQUEADO":"SEM COBERTURA"}</span>
             <span>INTENÇÃO HOSTIL: {manager.getEnemyIntent()}</span>
+            {!attackPreview.available&&state.activeSide==="player"&&!state.combatComplete&&
+              <span className="na-tactic-disabled-reason">{attackPreview.reason}</span>}
           </div>
         </section>
       </section>

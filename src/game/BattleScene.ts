@@ -45,6 +45,8 @@ export class BattleScene extends Phaser.Scene {
   private playerImage?: Phaser.GameObjects.Sprite;
   private enemyImage?: Phaser.GameObjects.Image;
   private lastCue = 0;
+  private movementTicket=0;
+  private playerMoving=false;
   private unsubscribe?: () => void;
 
   constructor(manager: TurnManager, appearance: TestAppearance,originId:OriginId) {
@@ -79,6 +81,8 @@ export class BattleScene extends Phaser.Scene {
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handleBoardTap, this);
     this.unsubscribe = this.manager.subscribe((state) => this.renderState(state));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.movementTicket++;
+      this.playerMoving=false;
       this.unsubscribe?.();
       this.input.off(Phaser.Input.Events.POINTER_DOWN, this.handleBoardTap, this);
     });
@@ -119,28 +123,39 @@ export class BattleScene extends Phaser.Scene {
     const beforeX = this.playerImage?.x ?? 0;
     const beforeY = this.playerImage?.y ?? 0;
     this.drawBoard(state);
-    if (player && this.playerImage) {
-      const dest = tileCenter(player);
-      if (moveCue && beforeX > 0) {
-        const dx=dest.x-beforeX,dy=dest.y-beforeY;
-        const direction:IsoDirection=Math.abs(dx)>Math.abs(dy)?
-          (dx>0?1:3):(dy>0?2:0);
-        playWalk(this.playerImage,getPlayerTexture(this.originId,this.appearance),direction);
-        this.tweens.killTweensOf(this.playerImage);
-        this.playerImage.setPosition(beforeX, beforeY);
-        this.tweens.add({
-          targets: this.playerImage, x: dest.x, y: dest.y,
-          duration: 220, ease: "Sine.Out",
-          onComplete: () => {
-            if (this.playerImage){
-              playIdle(this.playerImage,getPlayerTexture(this.originId,this.appearance),direction);
-            }
-          },
-        });
-      } else {
-        this.playerImage.setPosition(dest.x, dest.y);
+    if(player&&this.playerImage){
+      const destination=tileCenter(player);
+      if(moveCue){
+        const sprite=this.playerImage;
+        const path=state.cue?.path;
+        const coordinates=path&&path.length>1?path.slice(1).map(tileCenter):[destination];
+        this.tweens.killTweensOf(sprite);
+        const ticket=++this.movementTicket;
+        this.playerMoving=true;
+        const advance=(index:number)=>{
+          if(ticket!==this.movementTicket||!this.playerImage)return;
+          if(index>=coordinates.length){
+            this.playerMoving=false;
+            sprite.setPosition(destination.x,destination.y);
+            playIdle(sprite,getPlayerTexture(this.originId,this.appearance),
+              coordinates.length>1?2:0);
+            return;
+          }
+          const next=coordinates[index]!;
+          const dx=next.x-sprite.x,dy=next.y-sprite.y;
+          const direction:IsoDirection=Math.abs(dx)>Math.abs(dy)?
+            (dx>0?1:3):(dy>0?2:0);
+          playWalk(sprite,getPlayerTexture(this.originId,this.appearance),direction);
+          this.tweens.add({targets:sprite,x:next.x,y:next.y,
+            duration:115,ease:"Linear",onComplete:()=>advance(index+1)});
+        };
+        sprite.setPosition(beforeX>0?beforeX:destination.x,
+          beforeY>0?beforeY:destination.y);
+        advance(0);
+      }else if(!this.playerMoving){
+        this.playerImage.setPosition(destination.x,destination.y);
       }
-      this.playerImage.setVisible(player.hp > 0);
+      this.playerImage.setVisible(player.hp>0);
     }
     if (enemy && this.enemyImage) {
       const dest = tileCenter(enemy);
