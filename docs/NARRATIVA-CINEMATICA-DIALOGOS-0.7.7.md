@@ -1,15 +1,15 @@
 # NOVA ARCÁDIA 0.7.7 — Direção cinematográfica e conversas expressivas
 
-**Estado:** especificação de produção, **não implementada**. Base visual: 0.7.6 / PR #9. Agente: \`nova-arcadia-game-art-ui\`. Não há alterações de gameplay, assets ou saves neste documento.
+**Estado:** especificação de produção, **não implementada**. Base visual: 0.7.6 / PR #9. Agente: `nova-arcadia-game-art-ui`. Não há alterações de gameplay, assets ou saves neste documento.
 
 ## 0. Diagnóstico do jogo atual
 
-- \`src/game/story/opening.ts\`: a abertura tem **seis** painéis: Promise, Eden, Divide, Erased, You, Begin. Inclui identificação da origem e pista V-09. \`OpeningCutscene.tsx\` já fornece digitação gradual (2 caracteres/25 ms), avanço em dois toques, pular e redução de movimento.
-- \`src/opening-cutscene.css\`: os quadros são CSS estáticos com formas e planos, não cenas isométricas animadas.
-- \`src/screens/ExplorationScreen.tsx\`: um \`DialogueState\` contém páginas \`{speaker,role,portrait,text,choices}\`, e o retrato visual é apenas a letra/símbolo. O \`selectAnswer\` já aplica \`clue\` e \`marketAction\` com efeitos reais de missão; **não remover nem duplicar essas ações**.
-- \`src/game/dialogues/patio.ts\`: Lia, Ramon e Duda possuem opções narrativas. Outras interações têm somente fala ou progressão específica. Os novos componentes devem funcionar com ambos.
-- \`src/game/character/introductions.ts\`: existem seis introduções exclusivas por origem. O novo prólogo geral não substitui nem invalida essa etapa.
-- \`src/game/baixada/sprites.ts\` e \`tools/generate_character_sprites.py\`: spritesheets 64×80 quadros, animações direcionais. **Sprites de corpo inteiro não são equivalentes a retratos emocionais de alta resolução**; desenvolver retratos próprios e consistentes.
+- `src/game/story/opening.ts`: a abertura tem **seis** painéis: Promise, Eden, Divide, Erased, You, Begin. Inclui identificação da origem e pista V-09. `OpeningCutscene.tsx` já fornece digitação gradual (2 caracteres/25 ms), avanço em dois toques, pular e redução de movimento.
+- `src/opening-cutscene.css`: os quadros são CSS estáticos com formas e planos, não cenas isométricas animadas.
+- `src/screens/ExplorationScreen.tsx`: um `DialogueState` contém páginas `{speaker,role,portrait,text,choices}`, e o retrato visual é apenas a letra/símbolo. O `selectAnswer` já aplica `clue` e `marketAction` com efeitos reais de missão; **não remover nem duplicar essas ações**.
+- `src/game/dialogues/patio.ts`: Lia, Ramon e Duda possuem opções narrativas. Outras interações têm somente fala ou progressão específica. Os novos componentes devem funcionar com ambos.
+- `src/game/character/introductions.ts`: existem seis introduções exclusivas por origem. O novo prólogo geral não substitui nem invalida essa etapa.
+- `src/game/baixada/sprites.ts` e `tools/generate_character_sprites.py`: spritesheets 64×80 quadros, animações direcionais. **Sprites de corpo inteiro não são equivalentes a retratos emocionais de alta resolução**; desenvolver retratos próprios e consistentes.
 
 ## 1. Conceito dramatúrgico
 
@@ -55,7 +55,7 @@ Não adicionar flags de reputação nesta cena. Nome, origem, classe e apresenta
 
 **Câmera:** deslocamento suave de 3–6% e zoom moderado de até 1.08; respeitar oclusão, evitar tremor contínuo. No modo reduzido, cortes sem parallax, flash ou digitação prolongada.
 
-**Ritmo:** som ambiente quase constante, um efeito focal por corte, silêncio intencional em C05/C07. Reutilizar \`audioDirector\`, mas mapear efeitos disponíveis antes de invocar chaves novas. Não alegar dublagem onde não existe: voz sintética é opção futura, sempre com legenda.
+**Ritmo:** som ambiente quase constante, um efeito focal por corte, silêncio intencional em C05/C07. Reutilizar `audioDirector`, mas mapear efeitos disponíveis antes de invocar chaves novas. Não alegar dublagem onde não existe: voz sintética é opção futura, sempre com legenda.
 
 **Paleta:** ciano aliado, magenta hostil, âmbar neutro, verde exclusivamente na manifestação do Éden. Contraste social se expressa sobretudo por arquitetura, enquadramento, materiais e distribuição de luz.
 
@@ -127,7 +127,7 @@ O adaptador visual **não altera** as missões. O novo tipo estende as páginas 
       choices?: ConversationOption[]; // reutilizar o tipo atual
     }
 
-**Migração:** quando \`portraitId\` não existir, mostrar retrato visual neutro do tipo; a letra antiga permanece fallback temporário, nunca tela branca. IDs de \`choices\`, \`clue\` e \`marketAction\` continuam idênticos. O registro de pistas passa pela função atual; a UI **não** grava missão ou XP por si mesma. Cancelar diálogo não deve aplicar decisão pendente.
+**Migração:** quando `portraitId` não existir, mostrar retrato visual neutro do tipo; a letra antiga permanece fallback temporário, nunca tela branca. IDs de `choices`, `clue` e `marketAction` continuam idênticos. O registro de pistas passa pela função atual; a UI **não** grava missão ou XP por si mesma. Cancelar diálogo não deve aplicar decisão pendente.
 
 ### 2.5 Exemplo completo A: Dra. Amara (clínica, começo da V-09)
 
@@ -164,9 +164,9 @@ O adaptador visual **não altera** as missões. O novo tipo estende as páginas 
 
 ## 3. Plano técnico em incrementos isolados
 
-**Entrega 1 — Prólogo:** ampliar \`OpeningVisual\` e \`OPENING_PANELS\` para 8 quadros; extrair a arte para componentes de camadas com parallax controlado; manter marcação \`openingSeen\`, opção pular, \`nextStoryScreen\`, acessibilidade e seis origens. A intro individual continua a seguir.
+**Entrega 1 — Prólogo:** ampliar `OpeningVisual` e `OPENING_PANELS` para 8 quadros; extrair a arte para componentes de camadas com parallax controlado; manter marcação `openingSeen`, opção pular, `nextStoryScreen`, acessibilidade e seis origens. A intro individual continua a seguir.
 
-**Entrega 2 — UI de diálogo:** criar \`NpcDialoguePanel\` e adaptador da estrutura atual; mover a apresentação do bloco JSX de \`ExplorationScreen.tsx\` para esse componente mantendo os mesmos callbacks, \`say\`, \`selectAnswer\` e bloqueios de missão. Integrar Amara, Joana e Nilo primeiro, depois Lia, demais testemunhas e guias distritais.
+**Entrega 2 — UI de diálogo:** criar `NpcDialoguePanel` e adaptador da estrutura atual; mover a apresentação do bloco JSX de `ExplorationScreen.tsx` para esse componente mantendo os mesmos callbacks, `say`, `selectAnswer` e bloqueios de missão. Integrar Amara, Joana e Nilo primeiro, depois Lia, demais testemunhas e guias distritais.
 
 **Entrega 3 — Retratos:** produzir assets locais por NPC, poses neutro/preocupado/determinado; cache/carregamento por conversa, fallback seguro por tipo de falante; sem imagens remotas ou fonte de rede.
 
@@ -182,4 +182,4 @@ O adaptador visual **não altera** as missões. O novo tipo estende as páginas 
 - Com o jogo minimizado e retomado, as falas e os botões mantêm estado seguro, sem loop de som ou crashe.
 - Capturas inspecionadas por humano + suites de QA; validação de Galaxy A07 e Redmi Note 12S obrigatória antes de homologar.
 
-**Esta especificação não constitui implementação.** A revisão do gameplay deve ocorrer em branch separada e PR draft, sem merge na \`main\` sem autorização.
+**Esta especificação não constitui implementação.** A revisão do gameplay deve ocorrer em branch separada e PR draft, sem merge na `main` sem autorização.
