@@ -12,6 +12,7 @@ import ClassSelection from "./ClassSelection";
 import ProgressionTree from "./ProgressionTree";
 import {SEWER_MAPS} from "../game/baixada/sewer-layout";
 import {favorStatus,visibleFavors,type FavorContext,type FavorState} from "../game/story/favors";
+import {FACTION_NAMES,factionStanding,type Reputation} from "../game/story/reputation";
 import {sewerStatus,type SewerProgress} from "../game/story/sewer-v09";
 import {FERRUGEM_STEPS,ferrugemObjective,type FerrugemProgress} from "../game/ferrugem/story";
 import type {StatId} from "../game/progression/tree";
@@ -39,6 +40,7 @@ interface Props {
   missionObjective: string;
   favors:FavorState;
   favorContext:FavorContext;
+  reputation:Reputation;
   sewerProgress:SewerProgress;
   ferrugemProgress:FerrugemProgress;
   clues: JournalClue[];
@@ -100,6 +102,7 @@ export default function CharacterMenu({
   missionObjective,
   favors,
   favorContext,
+  reputation,
   sewerProgress,
   ferrugemProgress,
   clues,
@@ -405,6 +408,22 @@ export default function CharacterMenu({
                     <small>{ferrugemProgress.ending==="publicar"?"PUBLICAÇÃO":ferrugemProgress.ending==="proteger"?"PROTEÇÃO COMUNITÁRIA":"EM INVESTIGAÇÃO"}</small>
                   </div>}
                 </section>}
+                <details className="menu-list-panel menu-faction-brief">
+                  <summary>RELAÇÕES E REPUTAÇÃO · {reputation.honor} HONRA · {reputation.community}/10 CONFIANÇA LOCAL</summary>
+                  <p>A Honra reconhece ajuda entregue; cada facção mantém sua própria relação.
+                    Escolhas de divulgação, sigilo e credenciais têm consequências distintas.</p>
+                  {(["helix","movimento_livre","mercado_cinzento"] as const).map(id=>
+                    <div className="menu-list-row" key={id}>
+                      <span aria-hidden="true">{reputation.factions[id]<0?"!":reputation.factions[id]>=4?"✦":"○"}</span>
+                      <strong>{FACTION_NAMES[id]}</strong>
+                      <small>{factionStanding(reputation.factions[id])} ·
+                        {" "}{reputation.factions[id]>0?"+":""}{reputation.factions[id]}</small>
+                    </div>)}
+                  <p>Ajuda médica de Marta: 3 Honra e +2 no Movimento Livre.
+                    Contatos de Davi: +2 no Mercado Cinzento e dossiê V-09 entregue.
+                    Acesso Helix: +2 na corporação e dossiê entregue.
+                    Os acordos podem conceder suprimentos únicos, mas deixam registros e alteram relações.</p>
+                </details>
                 <section className="menu-list-panel" aria-label="Histórico dos favores">
                   <span className="menu-panel-kicker">REDE DE FAVORES · {favors.credits} CRÉDITOS · {favors.honor} HONRA</span>
                   {visibleFavors(favorContext).length===0?
