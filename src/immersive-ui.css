@@ -294,3 +294,73 @@
 @media (orientation:portrait){
  .na-clinic-quick-treatment{margin:10px;position:relative;z-index:2}
 }
+
+
+/* 0.7.9: HUD de missões compacto, sem cards extensos nem spoilers de futuras missões. */
+.na-mission-hub.na-quest-hud{
+ display:flex;flex-direction:column;gap:0;overflow:hidden;
+ border:1px solid rgba(195,164,120,.48);border-radius:9px;
+ background:rgba(11,24,31,.92);box-shadow:0 8px 25px #0008;
+ color:#e7e8db;
+}
+.na-quest-hud .na-hub-toggle{
+ display:flex;justify-content:space-between;align-items:center;gap:9px;
+ min-height:48px;text-align:left;padding:7px 10px;width:100%;
+ background:#172c34;border:0;border-bottom:1px solid rgba(216,176,112,.28);
+ color:#efcca0;font:700 11px var(--display);
+}
+.na-quest-hud .na-hub-toggle strong{flex:1}
+.na-quest-hud .na-quest-peek{padding:7px 10px 9px;min-height:34px}
+.na-quest-peek strong{font:600 11px/1.35 var(--body);display:-webkit-box;
+ -webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere}
+.na-quest-peek small{display:block;color:#f0bd8d;font:600 10px var(--mono);margin-top:4px}
+.na-quest-hud .na-quest-details{display:flex;flex-direction:column;gap:0;min-height:0;
+ overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.na-quest-tabs{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:8px}
+.na-quest-tabs button{height:44px;min-width:0;border:1px solid #48626a;border-radius:6px;
+ background:#22353b;color:#c5d5d2;font:700 12px var(--display)}
+.na-quest-tabs button[aria-selected=true]{background:#57412e;color:#fce4b9;border-color:#d1a26a}
+.na-quest-tab-content{display:flex;flex-direction:column;gap:8px;padding:7px 12px 12px}
+.na-quest-kicker{color:#ddad75;font:700 9px/1.4 var(--mono);letter-spacing:.03em}
+.na-quest-tab-content h3{font:700 18px/1.2 var(--display);color:#f6e9ce;margin:0}
+.na-quest-tab-content p{font:500 12px/1.45 var(--body);margin:0;color:#e0e6dd}
+.na-quest-tab-content small{font:500 10px/1.4 var(--body);color:#b7cbc6}
+.na-quest-tab-content button:not(.na-quest-tabs button){min-height:46px}
+.na-quest-primary,.na-quest-secondary{width:100%;padding:8px;
+ border:1px solid #bd905d;border-radius:6px;font:700 11px/1.2 var(--display)}
+.na-quest-primary{background:#d3a56d;color:#152329}
+.na-quest-secondary{background:#283940;color:#e5cb9e}
+.na-quest-notice{display:block;border-left:3px solid #d3a56d;padding-left:8px;color:#f3cfa3!important}
+.na-favor-wallet{display:flex;justify-content:space-around;gap:9px;border:1px solid #5e554b;
+ padding:9px;border-radius:6px;background:#15282f}
+.na-favor-wallet span{color:#c6bbb0;font:700 10px var(--mono)}
+.na-favor-wallet strong{display:block;font:700 19px var(--display);color:#f5d6a3}
+.na-favor-row{display:flex;flex-direction:column;gap:6px;padding:9px;
+ border:1px solid #53666b;border-radius:7px;background:#192e32}
+.na-favor-row>div{display:flex;justify-content:space-between;gap:7px;align-items:baseline}
+.na-favor-row strong{font:700 12px/1.25 var(--display);color:#f3d6ac}
+.na-favor-row>div small{white-space:nowrap}
+.na-favor-row>button{min-height:48px!important;padding:7px 9px;
+ border-radius:5px;border:1px solid #b99867;background:#54412f;color:#fff0d5;
+ font:700 12px var(--display);text-align:center}
+.na-favor-row .na-favor-ready{color:#d3bb81}
+.na-favor-active{font:600 10px var(--mono);color:#c6d1c6}
+@media (orientation:landscape){
+ .na-mission-hub.na-quest-hud{
+  position:absolute;z-index:5;right:var(--na-safe-right);
+  top:calc(var(--na-safe-top) + 55px);bottom:auto;
+  width:min(310px,40vw);max-height:min(64dvh,340px);
+  padding:0;overflow:hidden;
+ }
+ .na-mission-hub.na-quest-hud.collapsed{
+  top:calc(var(--na-safe-top) + 55px);bottom:auto;
+  width:min(224px,33vw);max-height:115px;
+  background:rgba(13,28,33,.9);border:1px solid rgba(195,164,120,.48);
+  box-shadow:0 7px 18px #0006;padding:0;
+ }
+ .na-mission-hub.na-quest-hud.expanded{max-height:min(68dvh,345px)}
+ .na-mission-hub.na-quest-hud .na-quest-details{display:flex}
+}
+@media (orientation:portrait){
+ .na-mission-hub.na-quest-hud{margin:8px 10px;width:auto;max-height:55vh}
+}
