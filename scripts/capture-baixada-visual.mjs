@@ -674,13 +674,20 @@ try {
   const deepInfo=await evaluate(`(()=>{
     const c=document.querySelector(".interior-world.sewer-deep canvas");
     const r=c?.getBoundingClientRect();
-    return {width:r?.width,height:r?.height,title:document.querySelector(".district-brand h1")?.textContent,
-      progress:document.querySelector(".na-sewer-heading strong")?.textContent};
+    const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1"))?.character;
+    const saved=hero&&localStorage.getItem("cyberpunk-tactical-rpg.sewer-v09.v1."+hero.id);
+    const checkpoint=saved?JSON.parse(saved):null;
+    // O HUD 0.7.9 não apresenta mais .na-sewer-heading.
+    // Avaliar o estado real da investigação sem depender do painel retraído.
+    return {width:r?.width,height:r?.height,
+      title:document.querySelector(".district-brand h1")?.textContent,
+      checkpoint};
   })()`);
   if(deepInfo.width<400||deepInfo.height<260||
      !deepInfo.title?.includes("Câmara de Recalque")||
-     !deepInfo.progress?.includes("4 / 4"))
-    throw new Error("Mapa subterrâneo 2 inválido: "+JSON.stringify(deepInfo));
+     !deepInfo.checkpoint?.traceFound||!deepInfo.checkpoint?.pumpRestored||
+     !deepInfo.checkpoint?.gateOpened||!deepInfo.checkpoint?.manifestRecovered)
+    throw new Error("Mapa subterrâneo 2 ou checkpoint inválido: "+JSON.stringify(deepInfo));
   await writeFile("qa/esgoto-camara-recalque-914x411.png",Buffer.from(
     (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   await evaluate('document.querySelector(".area-return").click();true');
