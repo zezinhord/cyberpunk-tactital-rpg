@@ -1,4 +1,6 @@
 import {lazy,Suspense,useEffect,useState} from "react";
+import NpcDialoguePanel from "../components/NpcDialoguePanel";
+import "../dialogue-cinematic.css";
 import BaixadaWorld from "../components/BaixadaWorld";
 // Carrega Phaser apenas quando o protagonista entra num interior/distrito.
  // A Baixada Android funciona com Canvas 2D sem o peso do motor Phaser.
@@ -1096,74 +1098,40 @@ export default function ExplorationScreen({
       )}
 
       {currentDialogue && (
-        <div
-          className="dialogue-scrim"
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setDialogue(null);
-          }}
-        >
-          <section
-            className="dialogue-panel"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dialogue-title"
-          >
-            <div className="dialogue-head">
-              <div className="dialogue-portrait" aria-hidden="true">
-                {currentDialogue.portrait}
-              </div>
-              <div>
-                <span className="eyebrow">{currentDialogue.role}</span>
-                <h2 id="dialogue-title">{currentDialogue.speaker}</h2>
-              </div>
-            </div>
-            <p>{currentDialogue.text}</p>
-            {cityDecision&&currentDialogue.speaker===getDistrict(cityDecision).guideName&&
-             districtCurrentStep(cityDecision,cityChapters[cityDecision])?.id==="escolha"&&
-             <div className="na-ferrugem-choices" role="group" aria-label="Destino do dossiê comunitário">
-              <button type="button" onClick={()=>{
-                const district=cityDecision;setCityDecision(null);
-                registerCityEvent(district,"district-"+district+"-guide","divulgar");
-              }}>Divulgar as provas agora</button>
-              <button type="button" onClick={()=>{
-                const district=cityDecision;setCityDecision(null);
-                registerCityEvent(district,"district-"+district+"-guide","resguardar");
-              }}>Resguardar as testemunhas</button>
-             </div>}
-            {ferrugemDecisionPending&&currentDialogue.speaker==="Rosa"&&
-             currentFerrugemStep(ferrugem)?.id==="decisao"&&
-             <div className="na-ferrugem-choices" role="group" aria-label="Destino das provas de Ferrugem">
-              <button type="button" onClick={()=>{
-                setFerrugemDecisionPending(false);
-                registerFerrugemEvent("ferrugem-foreman","publicar");
-              }}>Publicar as provas agora</button>
-              <button type="button" onClick={()=>{
-                setFerrugemDecisionPending(false);
-                registerFerrugemEvent("ferrugem-foreman","proteger");
-              }}>Proteger as testemunhas primeiro</button>
-             </div>}
-            {currentDialogue.choices && <div className="dialogue-choice-list" role="group" aria-label="Respostas do protagonista">
-              {currentDialogue.choices.map(choice=><button type="button" key={choice.id}
-                onClick={()=>selectAnswer(choice)}>{choice.label}</button>)}
-            </div>}
-            <button
-              type="button"
-              className="dialogue-continue"
-              onClick={() => {
-                setDialogue((current) => {
-                  if (!current || current.index + 1 >= current.pages.length) return null;
-                  return { ...current, index: current.index + 1 };
-                });
-              }}
-            >
-              {dialogue && dialogue.index + 1 < dialogue.pages.length
-                ? "Continuar"
-                : "Fechar diálogo"}
-              <span>→</span>
-            </button>
-          </section>
-        </div>
+       <NpcDialoguePanel key={dialogue?.index} page={currentDialogue}
+        pageIndex={dialogue?.index??0} totalPages={dialogue?.pages.length??1}
+        onClose={()=>setDialogue(null)}
+        onNext={()=>{
+          setDialogue(current=>{
+            if(!current||current.index+1>=current.pages.length)return null;
+            return {...current,index:current.index+1};
+          });
+        }} onAnswer={selectAnswer}>
+        {cityDecision&&currentDialogue.speaker===getDistrict(cityDecision).guideName&&
+         districtCurrentStep(cityDecision,cityChapters[cityDecision])?.id==="escolha"&&
+         <div className="na-ferrugem-choices" role="group" aria-label="Destino do dossiê comunitário">
+          <button type="button" onClick={()=>{
+            const district=cityDecision;setCityDecision(null);
+            registerCityEvent(district,"district-"+district+"-guide","divulgar");
+          }}>Divulgar as provas agora</button>
+          <button type="button" onClick={()=>{
+            const district=cityDecision;setCityDecision(null);
+            registerCityEvent(district,"district-"+district+"-guide","resguardar");
+          }}>Resguardar as testemunhas</button>
+         </div>}
+        {ferrugemDecisionPending&&currentDialogue.speaker==="Rosa"&&
+         currentFerrugemStep(ferrugem)?.id==="decisao"&&
+         <div className="na-ferrugem-choices" role="group" aria-label="Destino das provas de Ferrugem">
+          <button type="button" onClick={()=>{
+            setFerrugemDecisionPending(false);
+            registerFerrugemEvent("ferrugem-foreman","publicar");
+          }}>Publicar as provas agora</button>
+          <button type="button" onClick={()=>{
+            setFerrugemDecisionPending(false);
+            registerFerrugemEvent("ferrugem-foreman","proteger");
+          }}>Proteger as testemunhas primeiro</button>
+         </div>}
+       </NpcDialoguePanel>
       )}
     </main>
   );
