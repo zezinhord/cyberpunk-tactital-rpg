@@ -99,7 +99,11 @@ export function acceptFavor(state:FavorState,id:FavorId,ctx:FavorContext):
  return {ok:true,state:{...state,accepted:[...state.accepted,id]},
   message:quest.contact+" confiou este favor a você. "+quest.objective};
 }
-export function recordFavorActivity(state:FavorState,actor:string):{state:FavorState;ready:readonly FavorId[]}{
+/** Um favor só avança quando a ação do cenário foi efetivamente autorizada.
+ * Ex.: consultar um console bloqueado não equivale a recuperar seus registros. */
+export function recordFavorActivity(state:FavorState,actor:string,accessible=true):
+ {state:FavorState;ready:readonly FavorId[]}{
+ if(!accessible)return {state,ready:[]};
  const ready=FAVORS.filter(f=>f.taskId===actor&&state.accepted.includes(f.id)&&
   !state.ready.includes(f.id)&&!state.claimed.includes(f.id)).map(f=>f.id);
  return ready.length?{state:{...state,ready:[...state.ready,...ready]},ready}:{state,ready:[]};
