@@ -24,6 +24,54 @@
 - Os recibos de favores e compras impedem XP ou itens em duplicidade, mesmo após retomar aplicativo interrompido. A reconciliação de recompensas é executada ao entrar na exploração.
 - Dados dos favores, saldo, Honra, compras e recibos são locais **por slot**, exportados/importados no JSON do personagem com validação estrita; excluir um slot remove seus próprios favores sem atingir os outros.
 
+## Sistema de Honra, confiança e relações de facção (0.7.9)
+
+A **Honra** continua sendo a reputação comunitária obtida ao entregar favores,
+sem penalização moral genérica. A **confiança local** combina Honra com confiança
+dos moradores nas decisões da feira (0–10). Separadamente, o protagonista tem
+relação individual com três redes (-5 a +5): **Helix Corporation**, **Movimento
+Livre** e **Mercado Cinzento**. Os estados são Hostil, Desconfiada, Neutra,
+Colaboradora e Aliada, conforme os limiares -3, -1, 2 e 4.
+
+Os três vínculos são **derivados de fatos já salvos**, sem contador independente
+manipulável: entregas de favores, decisões no Mercado dos Cabos, destinos do
+dossiê de Ferrugem e resoluções dos cinco distritos. O mesmo favor ou capítulo
+não aumenta relação duas vezes após reiniciar o aplicativo. Backups antigos
+continuam válidos, sem migração e sem novo campo obrigatório.
+
+### Acordos que mudam a jogabilidade
+
+- **Movimento Livre / Marta:** após **3 Honra e +2 de relação**, pode liberar
+  um **atendimento móvel** na Casa Comum. Reduz a atenção da rede na feira e
+  concede **2 curativos**, uma vez, via recibo persistente.
+- **Oficina de Nilo:** o suprimento extra **célula de energia (90 créditos)**
+  somente aparece após **3 Honra e +2 no Movimento Livre**. O saldo é debitado
+  e o item registrado pelos mesmos recibos idempotentes da loja anterior.
+- **Mercado Cinzento / Davi:** após **+2 com a rede** e entrega do dossiê V-09,
+  o contato oferece **rota discreta**, reduz a atenção das rondas e entrega
+  **2 conectores reutilizáveis**, uma única vez.
+- **Helix / mural da feira:** uma credencial corporativa ou a opção de
+  **compartilhar metadados** após o relatório V-09 pode levar a **+2 na Helix**.
+  Isso libera acesso a **1 célula de energia** e reduz rondas, mas compartilhar
+  registros diminui a relação com o Movimento Livre e a confiança da comunidade.
+  A origem ou classe corporativa não é obrigatória para aceitar a oferta.
+
+### Consequências e contrapesos
+
+- Divulgação, proteção de fontes e credenciais têm resultados **específicos por
+  distrito e por facção**, sem rótulo universal de "bom" ou "mau".
+- Compartilhar rotas do Subsolo prejudica os contatos do Mercado Cinzento;
+  preservar as rotas pode fortalecê-los. A Helix reage diferentemente à
+  divulgação de dossiês e à colaboração.
+- Uma relação negativa muda diálogos de Marta e Davi e bloqueia **serviços**
+  especializados que exigem confiança; não bloqueia curas essenciais,
+  a campanha principal, a criação de personagens ou favores já conquistados.
+- Os acordos rendem **itens reais**, registrados no inventário com recibos
+  exclusivos. Falhas de gravação não concedem itens e a reconciliação após
+  interrupção evita recebimento duplo.
+- Relações compactas aparecem no Quadro de Favores; o diário apresenta os
+  vínculos em seção recolhível para preservar a tela horizontal.
+
 ## Compatibilidade e limites
 
 Mantidos: a clínica, a cura no cenário, as 11 classes, seis origens, os capítulos já existentes, itens, combate tático, salvamentos anteriores e HUD Android horizontal. Nenhuma missão secundária altera arbitrariamente a história principal ou concede itens antes da entrega.
