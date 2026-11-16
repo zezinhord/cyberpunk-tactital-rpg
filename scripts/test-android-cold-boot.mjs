@@ -99,7 +99,17 @@ try{
   "nome e classe no Android");
  await evalJS('document.querySelector(".creation-shell .primary-button").click();true');
  await until(()=>has(".na-opening-screen"),"abertura cinematográfica");
- await evalJS('document.querySelector(".na-opening-top button").click();true');
+ // A abertura v0.7.7 insere o novo botão de modo automático antes de "Pular".
+ // O seletor anterior apertava o botão errado, e o teste aguardava a origem.
+ const controls=await evalJS(`(()=>{
+   const root=document.querySelector(".na-opening-screen");
+   const skip=root?.querySelector('button[aria-label="Pular apresentação e continuar"]');
+   const auto=root?.querySelector(".na-opening-autoplay");
+   return {skipFound:!!skip,autoFound:!!auto,autoEnabled:auto?.getAttribute("aria-pressed")};
+ })()`);
+ if(!controls.skipFound||!controls.autoFound||controls.autoEnabled!=="false")
+  throw new Error("Controles inesperados no prólogo Android: "+JSON.stringify(controls));
+ await evalJS('document.querySelector(\'button[aria-label="Pular apresentação e continuar"]\').click();true');
  await until(()=>has(".intro-shell .primary-button"),"introdução da origem");
  await evalJS('document.querySelector(".intro-shell .primary-button").click();true');
  await until(()=>has(".baixada-world[data-engine=native-2d]"),"motor independente Android");
