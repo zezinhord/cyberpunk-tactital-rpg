@@ -207,7 +207,7 @@ try {
   await poll(()=>has(".na-title-option"),"título após interromper cutscene");
   await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
   await poll(()=>has(".na-opening-screen"),"retomada de cutscene interrompida");
-  await evaluate('document.querySelector(".na-opening-top button[aria-label=\"Pular apresentação e continuar\"]").click();true');
+  await evaluate(`document.querySelector('button[aria-label="Pular apresentação e continuar"]').click();true`);
   await poll(()=>has(".intro-shell .primary-button"),"prólogo individual da origem");
   const cinematicSave=await evaluate(`(()=>{
     const save=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
