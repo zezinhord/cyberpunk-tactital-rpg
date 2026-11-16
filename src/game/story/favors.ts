@@ -7,7 +7,7 @@ export type FavorId="triagem"|"filtros"|"agua"|"rotas"|"patio"|"seguranca";
 export interface FavorReward{xp:number;credits:number;honor:number;item:ItemId;amount:number}
 export interface FavorQuest{
  id:FavorId;title:string;contact:string;contactId:string;taskId:string;objective:string;
- synopsis:string;minimumMission:number;needsDefeat?:boolean;reward:FavorReward;
+ synopsis:string;minimumMission:number;needsDefeat?:boolean;minimumHonor?:number;reward:FavorReward;
 }
 export const FAVORS:readonly FavorQuest[]=[
  {id:"triagem",title:"Arquivo de primeiros socorros",contact:"Dra. Amara",contactId:"dra-amara",
@@ -33,9 +33,9 @@ export const FAVORS:readonly FavorQuest[]=[
  {id:"seguranca",title:"Corredor protegido",contact:"Davi",contactId:"feira-corretor",
   taskId:"feira-ajuda",objective:"Combine o apoio com Marta e retorne a Davi.",
   synopsis:"Sem a sentinela V-09, moradores tentam reabrir rotas de suprimentos.",
-  minimumMission:3,needsDefeat:true,reward:{xp:46,credits:200,honor:2,item:"pistola_inducao",amount:1}},
+  minimumMission:3,needsDefeat:true,minimumHonor:2,reward:{xp:46,credits:200,honor:2,item:"pistola_inducao",amount:1}},
 ] as const;
-export type FavorContext={missionStep:number;v09Defeated:boolean};
+export type FavorContext={missionStep:number;v09Defeated:boolean;honor?:number};
 export interface PurchaseReceipt{id:number;item:ItemId;amount:number;cost:number}
 export interface FavorState{
  version:1;accepted:readonly FavorId[];ready:readonly FavorId[];claimed:readonly FavorId[];
@@ -78,7 +78,8 @@ export function saveFavors(ownerId:string,state:FavorState):boolean{
  }catch{return false;}
 }
 export function favorUnlocked(quest:FavorQuest,ctx:FavorContext):boolean{
- return ctx.missionStep>=quest.minimumMission&&(!quest.needsDefeat||ctx.v09Defeated);
+ return ctx.missionStep>=quest.minimumMission&&(!quest.needsDefeat||ctx.v09Defeated)&&
+   (ctx.honor??0)>=(quest.minimumHonor??0);
 }
 export function visibleFavors(ctx:FavorContext):readonly FavorQuest[]{
  return FAVORS.filter(quest=>favorUnlocked(quest,ctx));

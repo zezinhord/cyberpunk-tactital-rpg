@@ -11,7 +11,9 @@ const ctx3={missionStep:3,v09Defeated:false};
 assert.equal(visibleFavors(ctx0).length,0);
 assert.deepEqual(visibleFavors(ctx1).map(x=>x.id),["triagem","filtros"]);
 assert.ok(!visibleFavors(ctx3).some(x=>x.id==="seguranca"));
-assert.equal(visibleFavors({...ctx3,v09Defeated:true}).length,FAVORS.length);
+assert.equal(visibleFavors({...ctx3,v09Defeated:true}).length,FAVORS.length-1,
+ "Contrato de Davi requer reputação de Honra");
+assert.equal(visibleFavors({...ctx3,v09Defeated:true,honor:2}).length,FAVORS.length);
 let state={...INITIAL_FAVORS};
 assert.equal(acceptFavor(state,"seguranca",ctx1).ok,false);
 let acc=acceptFavor(state,"triagem",ctx1);

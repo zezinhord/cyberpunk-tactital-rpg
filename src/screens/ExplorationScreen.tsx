@@ -211,7 +211,7 @@ export default function ExplorationScreen({
         ...favorChoicesFor("dra-amara")]}:page));
   };
   const v09=readV09(character.id);
-  const favorContext={missionStep:mission.step,v09Defeated:v09.defeated};
+  const favorContext={missionStep:mission.step,v09Defeated:v09.defeated,honor:favors.honor};
   const unlockedFavors=visibleFavors(favorContext);
   const favorChoicesFor=(actor:string):ConversationOption[]=>unlockedFavors
     .filter(f=>f.contactId===actor&&!favors.claimed.includes(f.id))
@@ -571,7 +571,9 @@ export default function ExplorationScreen({
     if(isMarketActor(id)){
       const node=getMarketConversation(id,character.classId,market,v09.reported,character.originId);
       say([{speaker:node.speaker,role:node.role,portrait:node.portrait,
-        text:node.text,choices:[...node.choices,...favorChoicesFor(id)]}]);
+        text:node.text+(id==="feira-corretor"&&favors.honor>=2?
+          " Sua reputação de ajuda aos moradores já chegou ao Mercado.":""),
+        choices:[...node.choices,...favorChoicesFor(id)]}]);
       return;
     }
     if(isPatioCitizen(id)){
