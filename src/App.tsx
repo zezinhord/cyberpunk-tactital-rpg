@@ -42,6 +42,8 @@ import {combatProgression,grantUniqueExperience,purchaseAttribute,purchaseSkill,
   type StatId} from "./game/progression/tree";
 import {advanceTrialBattle,isTrialEncounter,readTrial,saveTrial,reconcileTrial} from "./game/story/field-test";
 import {isDistrictId} from "./game/districts/catalog";
+import {FAVORS,readFavors,saveFavors,claimFavor,buyFromNilo,syncFavorItems,
+  type FavorId,type FavorState} from "./game/story/favors";
 import {readDistrictProgress,saveDistrictProgress,advanceDistrict,
  districtCurrentStep} from "./game/districts/progress";
 
@@ -290,6 +292,56 @@ export default function App() {
       : "+"+amount+" XP · "+eventId.replaceAll("-"," ")+".");
     return true;
   };
+  /** Sincroniza recibos pendentes depois de uma suspensão/crash sem duplicar XP ou itens. */
+  const reconcileFavorRewards=(state:FavorState):boolean=>{
+    const active=characterRef.current;
+    if(!active)return false;
+    const stored=loadInventory(active.id);
+    const next=syncFavorItems(stored,state);
+    if(next!==stored){
+      if(!saveInventory(next))return false;
+      setInventory(next);
+    }
+    for(const id of state.claimed){
+      const quest=FAVORS.find(f=>f.id===id);
+      if(quest&&!grantTrialXp("favor-"+id,quest.reward.xp))return false;
+    }
+    return true;
+  };
+  const claimNpcFavor=(id:FavorId):{ok:boolean;message:string}=>{
+    const active=characterRef.current;
+    if(!active)return {ok:false,message:"Carregue um protagonista para receber o favor."};
+    const current=readFavors(active.id);
+    const result=claimFavor(current,id);
+    if(!result.ok)return {ok:false,message:result.message};
+    // Primeiro registrar o recibo e a moeda/honra no save próprio.
+    // A reconciliação de XP e inventário usa o ID gravado e é idempotente.
+    if(!saveFavors(active.id,result.state))
+      return {ok:false,message:"Sem espaço para salvar o favor; tente novamente."};
+    const synced=reconcileFavorRewards(result.state);
+    return {ok:true,message:result.message+(synced?"":" Recompensa registrada; o restante será sincronizado ao retomar o jogo.")};
+  };
+  const buyWorkshopItem=(item:ItemId):{ok:boolean;message:string}=>{
+    const active=characterRef.current;
+    if(!active)return {ok:false,message:"Nenhum protagonista ativo."};
+    const result=buyFromNilo(readFavors(active.id),item);
+    if(!result.ok)return {ok:false,message:result.message};
+    // A retirada em inventário é atrelada ao recibo e é retomável após falha.
+    if(!saveFavors(active.id,result.state))
+      return {ok:false,message:"Falha ao salvar compra. Nenhum crédito foi debitado."};
+    const synced=reconcileFavorRewards(result.state);
+    return {ok:true,message:result.message+(synced?"":" Item pendente de sincronização no inventário.")};
+  };
+  useEffect(()=>{
+    const active=characterRef.current;
+    if(screen!=="exploration"||!active)return;
+    const state=readFavors(active.id);
+    if(state.claimed.length||state.purchases.length)reconcileFavorRewards(state);
+    // A reconciliação deve rodar na entrada da exploração e troca de slot,
+    // nunca a cada animação de diálogo ou tick de combate.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[screen,character?.id]);
+
   const craftAtWorkshop=(id:RecipeId):string=>{
     if(!character||inventory.ownerId!==character.id)return "Nenhum personagem ativo para fabricar.";
     const result=craftRecipe(inventory,id);
@@ -572,6 +624,8 @@ export default function App() {
         onPurchaseAttribute={buyAttribute}
         onPurchaseSkill={buySkill}
         onQuestXp={grantTrialXp}
+        onClaimFavor={claimNpcFavor}
+        onBuyWithCredits={buyWorkshopItem}
         onOpenBattle={beginBattle}
         onTreatAtClinic={treatAtClinic}
         currentHp={healthValue}

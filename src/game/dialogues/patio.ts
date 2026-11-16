@@ -1,6 +1,6 @@
 import type { OriginId } from "../character/origins";
 
-export interface ConversationOption { id:string; label:string; reply:string; clue?:string; marketAction?:string }
+export interface ConversationOption { id:string; label:string; reply:string; clue?:string; marketAction?:string; favorAction?:string; shopAction?:string }
 export interface ConversationNode {
   speaker:string; role:string; portrait:string; text:string;
   choices: readonly ConversationOption[];
