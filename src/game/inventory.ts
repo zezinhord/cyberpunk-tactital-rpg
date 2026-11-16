@@ -21,6 +21,8 @@ export interface InventoryState {
   ownerId: string;
   quantities: Record<ItemId, number>;
   equipped: Record<EquipmentSlot, ItemId | null>;
+  /** Comprovantes de itens de favores/loja; mantém compatibilidade com saves v1. */
+  rewardReceipts?: readonly string[];
 }
 export const INVENTORY_KEY = "cyberpunk-tactical-rpg.inventory.v1.";
 export const ITEM_IDS: readonly ItemId[] = ["pistola_manutencao", "colete_reaproveitado", "curativo_campo", "conector_reuso", "residuo_metalico", "celula_energia", "colete_reforcado", "pistola_inducao"];
@@ -64,7 +66,7 @@ export function createStartingInventory(ownerId: string): InventoryState {
   return {
     version: 1, ownerId,
     quantities: { pistola_manutencao: 1, colete_reaproveitado: 1, curativo_campo: 2, conector_reuso: 0, residuo_metalico:0, celula_energia:0, colete_reforcado:0, pistola_inducao:0 },
-    equipped: { weapon: null, armor: null },
+    equipped: { weapon: null, armor: null }, rewardReceipts:[],
   };
 }
 export function loadInventory(ownerId: string): InventoryState {
@@ -91,7 +93,10 @@ export function loadInventory(ownerId: string): InventoryState {
         equipped[slot] = id;
       }
     }
-    return { ...fresh, quantities, equipped };
+    const rewardReceipts=Array.isArray(value.rewardReceipts)?
+      [...new Set(value.rewardReceipts.filter((x):x is string=>
+        typeof x==="string"&&x.length>0&&x.length<90))].slice(0,20000):[];
+    return { ...fresh, quantities, equipped, rewardReceipts };
   } catch { return fresh; }
 }
 export function saveInventory(inventory: InventoryState): boolean {
@@ -124,4 +129,13 @@ export function getEquipmentBonuses(state: InventoryState): { attackBonus: numbe
   const weapon = state.equipped.weapon ? ITEM_CATALOG[state.equipped.weapon] : null;
   const armor = state.equipped.armor ? ITEM_CATALOG[state.equipped.armor] : null;
   return { attackBonus: weapon?.attackBonus ?? 0, armorBonus: armor?.armorBonus ?? 0 };
+}
+
+/** Itens concedidos apenas uma vez, mesmo após reload e reconciliação de recibos. */
+export function grantRewardInventoryItem(state:InventoryState,id:ItemId,amount:number,receipt:string):InventoryState{
+ if(!receipt||receipt.length>90||(state.rewardReceipts??[]).includes(receipt)||
+    !Number.isSafeInteger(amount)||amount<1||amount>99)return state;
+ if(state.quantities[id]+amount>999)return state;
+ return {...state,quantities:{...state.quantities,[id]:state.quantities[id]+amount},
+  rewardReceipts:[...(state.rewardReceipts??[]),receipt]};
 }
