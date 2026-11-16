@@ -262,3 +262,35 @@
     background:linear-gradient(180deg,rgba(5,16,23,.24),transparent 14%,transparent 83%,rgba(5,16,23,.32));
   }
 }
+
+/* Hotfix 0.7.8: a clínica sempre permite tratamento, mesmo com missões fechadas.
+   Botão independente de .na-mission-details, que é ocultado por padrão. */
+.na-clinic-quick-treatment{
+ display:flex;flex-direction:column;align-items:flex-start;gap:5px;
+ padding:9px 11px;border:1px solid rgba(224,184,122,.78);border-radius:9px;
+ background:rgba(10,26,29,.95);box-shadow:0 8px 28px #0009;
+ color:#f1e7d4;
+}
+.na-clinic-quick-treatment>span{font:700 10px var(--mono);color:#e2b782}
+.na-clinic-quick-treatment>strong{font:700 13px var(--display)}
+.na-clinic-quick-treatment button{
+ display:block;min-height:48px;width:100%;padding:7px 10px;
+ border:1px solid #dfb16f;border-radius:7px;
+ background:#c79a64;color:#17252c;font:700 12px var(--display);
+ cursor:pointer;
+}
+.na-clinic-quick-treatment button:disabled{
+ opacity:.85;background:#223c41;color:#c1ddd5;border-color:#5c8c85;
+ cursor:default;
+}
+.na-clinic-quick-treatment button:focus-visible{outline:3px solid #00dff0;outline-offset:2px}
+@media (orientation:landscape){
+ .na-clinic-quick-treatment{
+  position:absolute;z-index:4;pointer-events:auto;
+  left:var(--na-safe-left);bottom:var(--na-safe-bottom);
+  width:min(265px,38vw);max-width:calc(100vw - 340px);
+ }
+}
+@media (orientation:portrait){
+ .na-clinic-quick-treatment{margin:10px;position:relative;z-index:2}
+}

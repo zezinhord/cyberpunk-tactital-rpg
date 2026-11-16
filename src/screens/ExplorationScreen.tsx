@@ -181,6 +181,29 @@ export default function ExplorationScreen({
   useEffect(()=>{saveMarket(character.id,market);},[character.id,market]);
 
   const say = (pages: DialoguePage[]) => setDialogue({ pages, index: 0 });
+  // O tratamento é uma ação médica do cenário, não uma recompensa de missão.
+  // A mesma ação atende o botão visível da clínica e a conversa com Amara.
+  const performClinicTreatment=():void=>{
+    if(interior!=="clinic")return;
+    const recovered=onTreatAtClinic();
+    say([{speaker:"Dra. Amara Solis",role:"ATENDIMENTO COMUNITÁRIO",portrait:"A",
+      text:recovered>0
+        ?"Seus ferimentos foram tratados. Vida restaurada em "+recovered+
+          " pontos. O atendimento não altera as pistas da investigação."
+        : currentHp>=maxHp
+          ?"Seu estado já está estabilizado. Nenhum tratamento adicional foi necessário."
+          :"Não foi possível registrar o tratamento. Confira o espaço de armazenamento e tente novamente."}]);
+  };
+  const sayClinic=(pages:DialoguePage[]):void=>{
+    // A escolha médica fica na última fala da médica em qualquer etapa V-09.
+    // Assim, conversar com Amara sempre oferece a cura sem alterar missões.
+    if(currentHp>=maxHp)return say(pages);
+    const last=pages.length-1;
+    say(pages.map((page,index)=>index===last?
+      {...page,choices:[...(page.choices??[]),{
+        id:"clinic-treatment",label:"Preciso de atendimento médico",
+        reply:"Vou cuidar desses ferimentos agora."}]}:page));
+  };
   const v09=readV09(character.id);
   const objective = mission.step<3 ? ((OBJECTIVES as readonly string[])[mission.step] ?? OBJECTIVES[0])
     : v09.reported ? (market.decisions.includes("mercado-publicar")
@@ -537,7 +560,7 @@ export default function ExplorationScreen({
     if (id === "dra-amara") {
       if (mission.step === 0) {
         setMission((current) => ({ ...current, step: 1 }));
-        say([
+        sayClinic([
           {
             speaker: "Dra. Amara Solis",
             role: "MÉDICA COMUNITÁRIA",
@@ -552,7 +575,7 @@ export default function ExplorationScreen({
           },
         ]);
       } else if (mission.step === 1) {
-        say([
+        sayClinic([
           {
             speaker: "Dra. Amara Solis",
             role: "MÉDICA COMUNITÁRIA",
@@ -562,7 +585,7 @@ export default function ExplorationScreen({
         ]);
       } else if (mission.step === 2) {
         setMission((current) => ({ ...current, step: 3 }));
-        say([
+        sayClinic([
           {
             speaker: "Dra. Amara Solis",
             role: "MÉDICA COMUNITÁRIA",
@@ -577,7 +600,7 @@ export default function ExplorationScreen({
           },
         ]);
       } else {
-        say([
+        sayClinic([
           {
             speaker: "Dra. Amara Solis",
             role: "MÉDICA COMUNITÁRIA",
@@ -718,6 +741,10 @@ export default function ExplorationScreen({
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    if(choice.id==="clinic-treatment"){
+      performClinicTreatment();
+      return;
+    }
     if(choice.marketAction){
       const result=applyMarketAction(market,choice.marketAction,character.classId,v09.reported,
         statRank(character,"influencia"));
@@ -853,6 +880,18 @@ export default function ExplorationScreen({
             {interior==="sewer-deep"?"← RETORNAR À GALERIA":"← RETORNAR À BAIXADA"}
           </button>
         )}
+        {interior==="clinic"&&<section className="na-clinic-quick-treatment"
+          aria-label="Atendimento médico da Clínica Comunitária">
+          <span>✚ CLÍNICA COMUNITÁRIA · TRIAGEM</span>
+          <strong>Vida atual: {currentHp}/{maxHp}</strong>
+          <button type="button" onClick={performClinicTreatment}
+            disabled={currentHp>=maxHp}
+            aria-label={currentHp>=maxHp?"Vida completa, tratamento indisponível":
+              "Receber tratamento e recuperar "+Math.max(0,maxHp-currentHp)+" pontos de Vida"}>
+            {currentHp>=maxHp?"✓ FERIMENTOS ESTABILIZADOS":
+              "✚ RECEBER TRATAMENTO · +"+Math.max(0,maxHp-currentHp)+" PV"}
+          </button>
+        </section>}
       </section>
       {(interior==="sewer-drain"||interior==="sewer-deep"||interior==="ferrugem"||isDistrictId(interior))&&<button type="button"
         className="na-sewer-objective-hint" onClick={()=>setHubOpen(true)}
@@ -1051,17 +1090,7 @@ export default function ExplorationScreen({
           </p>)}
         </details>}
       </section>
-      {interior==="clinic" && <div className="na-clinic-treatment">
-        <span>CLÍNICA COMUNITÁRIA · ESTABILIZAÇÃO DE FERIMENTOS</span>
-        <button type="button" disabled={currentHp>=maxHp}
-          onClick={()=>{
-            const recovered=onTreatAtClinic();
-            say([{speaker:"Dra. Amara Solis",role:"ATENDIMENTO COMUNITÁRIO",portrait:"A",
-              text:recovered>0 ? "Seus ferimentos foram tratados. Vida restaurada em "+recovered+" pontos. O atendimento não altera as pistas da investigação."
-                : "Seu estado já está estabilizado. Nenhum tratamento adicional foi necessário."}]);
-          }}>Receber tratamento ({Math.max(0,maxHp-currentHp)} PV)</button>
-      </div>}
-        </div>
+         </div>
       </aside>
       <div className="exploration-footer-actions single-action">
         <button type="button" className="explore-secondary" onClick={() => onOpenBattle("test")}>

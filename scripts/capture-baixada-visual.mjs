@@ -899,6 +899,53 @@ try {
     (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   console.log("QA diálogo cinematográfico: busto de Nilo, fala e navegação Android aprovados.");
 
+  // Regressão real: tratamento não pode ficar dentro do painel de missões,
+  // fechado por padrão no Android. Testar HP real (save + HUD + UI).
+  await evaluate(`(()=>{
+    const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    const shown=document.querySelector(".na-explore-health strong")?.textContent??"18/18";
+    const maxHp=Number(shown.split("/")[1])||18;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-area.v1."+hero.id,JSON.stringify("clinic"));
+    localStorage.setItem("cyberpunk-tactical-rpg.health.v1."+hero.id,
+      JSON.stringify({hp:5,maxHp}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"menu para teste da clínica");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-clinic-quick-treatment button"),"botão de atendimento na clínica");
+  const clinicBefore=await evaluate(`(()=>{
+    const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    const panel=document.querySelector(".na-clinic-quick-treatment");
+    const button=panel?.querySelector("button");
+    const r=button?.getBoundingClientRect();
+    const stored=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.health.v1."+hero.id));
+    return {hp:stored.hp,maxHp:stored.maxHp,
+      hubCollapsed:document.querySelector(".na-mission-hub")?.classList.contains("collapsed"),
+      buttonDisabled:button?.disabled,visible:!!r&&r.width>100&&r.height>=48&&r.top>=0&&
+        r.bottom<=innerHeight+2,enabled:button?getComputedStyle(button).display!=="none":false,
+      text:button?.textContent??""};
+  })()`);
+  if(clinicBefore.hp!==5||!clinicBefore.hubCollapsed||clinicBefore.buttonDisabled||
+     !clinicBefore.visible||!clinicBefore.enabled||!clinicBefore.text.includes("TRATAMENTO"))
+    throw new Error("Cura inacessível no hospital: "+JSON.stringify(clinicBefore));
+  await writeFile("qa/clinica-tratamento-antes-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".na-clinic-quick-treatment button").click();true');
+  await poll(()=>evaluate(`(()=>{
+    const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    const hp=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.health.v1."+hero.id));
+    return hp.hp===hp.maxHp&&
+      document.querySelector(".na-explore-health strong")?.textContent===hp.maxHp+"/"+hp.maxHp &&
+      document.querySelector(".na-clinic-quick-treatment button")?.disabled===true;
+  })()`),"Vida persistida e HUD atualizado após cura",45);
+  const dialogText=await evaluate('document.querySelector(".na-dialogue-spoken")?.getAttribute("aria-label")');
+  if(!dialogText?.includes("Seus ferimentos foram tratados"))
+    throw new Error("Dra. Amara não confirmou o tratamento: "+dialogText);
+  await writeFile("qa/clinica-tratamento-depois-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  console.log("QA clínica: botão sempre visível com missões fechadas; 5 PV recuperados até máximo e persistidos.");
+
   console.log("QA Android: ARTE ORIGINAL restaurada, "+androidPixels.artLoaded+
     " imagens (personagens e props), "+androidPixels.colors+
     " cores amostradas, 2D leve e HUD recolhido.");
