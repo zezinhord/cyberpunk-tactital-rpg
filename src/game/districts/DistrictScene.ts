@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import {drawDistrictSkyline,drawDistrictPavement,drawDistrictBuilding,drawDistrictInteractable} from "./art";
 import {isEconomyMode} from "../performance";
 import {audioDirector} from "../../audio/director";
 import {preloadCharacterSprites,createCharacterAnimations,
@@ -108,62 +109,21 @@ export class DistrictScene extends Phaser.Scene{
  }
  private buildStaticMap():void{
   const g=this.add.graphics(),s=this.spec;
-  g.fillStyle(s.sky,1);g.fillRect(0,0,W,H);
-  // Horizonte específico para cada distrito, gerado no build da cena.
-  for(let i=0;i<14;i++){
-   const x=48+i*104,high=70+((i*63+this.id.length*17)%135);
-   g.fillStyle(i%3===0?s.wall:s.roof,.48);
-   g.fillRect(x,138-high,75,high+18);
-   if(this.id==="aurea"||this.id==="prisma"){
-    for(let k=0;k<4;k++){
-     g.fillStyle(s.accent,i%3===0?.26:.12);
-     g.fillRect(x+8,145-high+k*15,50,2);
-    }
-   }else if(this.id==="subsolo"){
-    g.lineStyle(5,s.accent,.21);
-    g.beginPath();g.moveTo(x,131);g.lineTo(x+101,131);g.strokePath();
-   }else if(this.id==="periferia"){
-    g.fillStyle(s.accent,.18);g.fillEllipse(x+47,142,80,22);
-   }else{
-    g.lineStyle(1,s.accent,.4);
-    g.beginPath();g.moveTo(x-13,81);g.lineTo(x+90,81);g.strokePath();
-   }
-  }
+  drawDistrictSkyline(g,this.id,s,W,H);
   for(let y=0;y<DISTRICT_HEIGHT;y++)for(let x=0;x<DISTRICT_WIDTH;x++){
    const c=center({x,y}),road=y===10||x===11||x===19;
    const tone=road?s.lane:(x*3+y)%5===0?s.wall:s.ground;
    this.tileDiamond(g,c,tone,s.accent);
+   drawDistrictPavement(g,this.id,c,{x,y},road);
    if(road&&(x+y)%6===0){
     g.lineStyle(1.1,s.accent,.53);
     g.beginPath();g.moveTo(c.x-6,c.y+1);g.lineTo(c.x+7,c.y+1);g.strokePath();
    }
   }
-  for(const block of s.blocks){
-   const c=center({x:block.x+Math.floor(block.w/2),y:block.y+Math.floor(block.h/2)});
-   const width=block.w*25,height=block.h*19;
-   // 2D isométrico sem lotes de sprites pesados.
-   g.fillStyle(s.wall,1);
-   g.fillRoundedRect(c.x-width/2+10,c.y-height-6,width,height+12,3);
-   g.fillStyle(s.roof,1);
-   g.fillRoundedRect(c.x-width/2,c.y-height-28,width,height+10,3);
-   g.fillStyle(s.accent,.22);
-   g.fillRoundedRect(c.x-width/2+6,c.y-height-30,width-12,11,2);
-   for(let i=0;i<Math.floor(width/23);i++){
-    g.fillStyle(s.accent,.27+(i%2)*.16);
-    g.fillRect(c.x-width/2+10+i*23,c.y-height+2,10,4);
-   }
-   if(this.id==="setor-zero"){
-    g.lineStyle(2,s.accent,.74);
-    g.beginPath();g.moveTo(c.x-width/2,c.y-height-4);
-    g.lineTo(c.x+width/2,c.y-height-4);g.strokePath();
-   }else if(this.id==="prisma"){
-    g.lineStyle(3,s.accent,.78);
-    g.strokeRoundedRect(c.x-width/2,c.y-height-28,width,height+10,3);
-   }else if(this.id==="periferia"){
-    g.fillStyle(0xb7a17d,.3);g.fillEllipse(c.x,c.y-height-30,width/1.3,10);
-   }
-  }
-  const key="district-surface-"+this.id+"-v1";
+  // Fachadas/telhados por distrito, mesma malha de colisão e camadas de jogo.
+  for(const [i,block] of s.blocks.entries())
+   drawDistrictBuilding(g,this.id,s,block,center,i);
+  const key="district-surface-"+this.id+"-v2";
   if(this.textures.exists(key))this.textures.remove(key);
   g.generateTexture(key,W,H);
   g.destroy();
@@ -173,33 +133,17 @@ export class DistrictScene extends Phaser.Scene{
    color:"#fae4c3",backgroundColor:"#151e2be8",padding:{x:14,y:9},
   }).setDepth(1600).setOrigin(.5);
   this.add.text(W/2,89,s.subtitle,{
-   fontFamily:"IBM Plex Mono,monospace",fontSize:"11px",color:"#e4d2b7",
+   fontFamily:"IBM Plex Mono,monospace",fontSize:"12px",color:"#e4d2b7",
    backgroundColor:"#161d28dd",padding:{x:10,y:4},
   }).setDepth(1600).setOrigin(.5);
  }
  private buildInteractables():void{
   for(const slot of Object.keys(NODE_TILES) as NodeSlot[]){
    const c=center(NODE_TILES[slot]),g=this.add.graphics().setDepth(c.y+.5);
-   g.fillStyle(0x0c171f,.38);g.fillEllipse(c.x,c.y+4,39,11);
-   if(slot==="guide"||slot==="specialist"||slot==="community"){
-    g.fillStyle(this.spec.wall,1);g.fillRoundedRect(c.x-12,c.y-45,24,41,5);
-    g.fillStyle(0xe2aa83,1);g.fillCircle(c.x,c.y-52,10);
-    g.lineStyle(2,this.spec.accent,.7);
-    g.beginPath();g.moveTo(c.x-10,c.y-28);g.lineTo(c.x+10,c.y-28);g.strokePath();
-   }else if(slot==="exit"){
-    g.fillStyle(0x182c37,1);g.fillRoundedRect(c.x-18,c.y-55,36,56,4);
-    g.lineStyle(3,this.spec.accent);g.strokeRoundedRect(c.x-18,c.y-55,36,56,4);
-    g.fillStyle(this.spec.accent,.8);g.fillRect(c.x-10,c.y-21,20,4);
-   }else{
-    g.fillStyle(0x16252e,1);g.fillRoundedRect(c.x-15,c.y-37,30,35,3);
-    g.lineStyle(2,this.spec.accent,.94);
-    g.strokeRoundedRect(c.x-15,c.y-37,30,35,3);
-    g.fillStyle(this.spec.accent,.76);g.fillRect(c.x-10,c.y-32,20,15);
-    g.fillStyle(0x1c3036,.86);g.fillRect(c.x-6,c.y-29,12,3);
-   }
+   drawDistrictInteractable(g,this.id,slot,c,this.spec);
    const text=slot==="guide"?this.spec.guideName.toUpperCase():NODE_NAMES[slot].toUpperCase();
    this.add.text(c.x,c.y-76,text,{
-    fontFamily:"IBM Plex Mono,monospace",fontSize:"10px",color:"#f3e5ca",
+    fontFamily:"IBM Plex Mono,monospace",fontSize:"12px",color:"#f3e5ca",
     backgroundColor:"#0c1b25e3",padding:{x:5,y:3},
    }).setOrigin(.5).setDepth(c.y+130);
   }
