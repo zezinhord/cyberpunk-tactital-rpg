@@ -10,6 +10,7 @@ on:
       - feature/music-director-v072
       - feature/stability-tactical-combat-v073
       - feature/visual-audit-camera-ui-v074
+      - feature/district-art-identity-v075
   pull_request:
     branches:
       - main
@@ -106,6 +107,9 @@ jobs:
 
       - name: Testar Ferrugem, novo distrito industrial e campanha ramificada
         run: node --experimental-strip-types scripts/test-ferrugem.mjs
+
+      - name: Validar identidade artística e acessibilidade dos cinco distritos
+        run: node --experimental-strip-types scripts/test-district-art.mjs
 
       - name: Testar cinco distritos, 35 missões e dez desfechos
         run: node --experimental-strip-types scripts/test-districts.mjs
