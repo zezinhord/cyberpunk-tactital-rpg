@@ -45,4 +45,10 @@ assert.equal(readFavors("other").claimed.length,0);
 assert.equal(state2.credits,0);
 const a=acceptFavor(state2,"rotas",ctx3);assert.equal(a.ok,true);
 assert.equal(recordFavorActivity(a.state,"tomas").ready[0],"rotas");
+const patio=acceptFavor(INITIAL_FAVORS,"patio",ctx3);
+assert.equal(patio.ok,true);
+assert.deepEqual(recordFavorActivity(patio.state,"patio-console",false).ready,[],
+ "Console bloqueado não deve concluir favor");
+assert.equal(recordFavorActivity(patio.state,"patio-console",true).ready[0],"patio",
+ "Favor avança depois da autorização pela investigação V-09");
 console.log("Favores: desbloqueio progressivo, entrega ao NPC, 1x XP/itens, carteira, loja e saves isolados.");
