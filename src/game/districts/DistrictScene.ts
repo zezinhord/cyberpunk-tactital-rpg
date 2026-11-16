@@ -1,9 +1,10 @@
 import Phaser from "phaser";
-import {drawDistrictSkyline,drawDistrictPavement,drawDistrictBuilding,drawDistrictInteractable} from "./art";
+import {drawDistrictSkyline,drawDistrictPavement,drawDistrictBuilding,drawDistrictInteractable,DISTRICT_ART} from "./art";
+import {DISTRICT_GUIDE_TEXTURE} from "./guide-textures";
 import {isEconomyMode} from "../performance";
 import {audioDirector} from "../../audio/director";
 import {preloadCharacterSprites,createCharacterAnimations,
- ActorAnimationController,getPlayerTexture,frameForDirection,
+ ActorAnimationController,getPlayerTexture,frameForDirection,playIdle,
  type IsoDirection} from "../baixada/sprites";
 import type {OriginId} from "../character/origins";
 import type {TestAppearance} from "../test-arena/appearance";
@@ -40,6 +41,8 @@ export class DistrictScene extends Phaser.Scene{
  private queuedTarget:Tile|null=null;
  private queuedActor:NodeSlot|null=null;
  private footstep=0;
+ private buildingLayers:{image:Phaser.GameObjects.Image;x:number;y:number;w:number;h:number}[]=[];
+ private buildingTextureKeys:string[]=[];
  constructor(id:DistrictId,onInteract:(id:string)=>void,origin:OriginId,
   appearance:TestAppearance,objective:NodeSlot|null=null,start?:Tile,
   onMove?:(tile:Tile,settled?:boolean)=>void){
@@ -57,10 +60,11 @@ export class DistrictScene extends Phaser.Scene{
  setObjective(slot:NodeSlot|null):void{
   this.currentObjective=slot;this.updateObjectiveMarker();
  }
- preload():void{preloadCharacterSprites(this,this.origin,[]);}
+ preload():void{preloadCharacterSprites(this,this.origin,[DISTRICT_GUIDE_TEXTURE[this.id]]);}
  create():void{
   createCharacterAnimations(this);
   this.buildStaticMap();
+  this.buildBuildingLayers();
   this.buildInteractables();
   this.objective=this.add.text(0,0,"◆ OBJETIVO ATUAL",{
     fontFamily:"IBM Plex Mono,monospace",fontSize:"12px",fontStyle:"bold",
@@ -72,6 +76,9 @@ export class DistrictScene extends Phaser.Scene{
   this.player=this.add.sprite(p.x,p.y,texture,frameForDirection(texture,2))
     .setOrigin(.5,.95).setScale(.92).setDepth(p.y+120);
   this.anim=new ActorAnimationController(this.player,texture,2);
+  this.updateBuildingOcclusion();
+  this.game.canvas?.setAttribute("data-district-art","v076-"+this.id);
+  this.game.canvas?.setAttribute("data-district-guide",DISTRICT_GUIDE_TEXTURE[this.id]);
   this.marker=this.add.circle(p.x,p.y,8,0xffc684,.13)
     .setStrokeStyle(1.8,0xffdba9,.9).setDepth(p.y+.2).setVisible(false);
   const camera=this.cameras.main;
@@ -87,6 +94,9 @@ export class DistrictScene extends Phaser.Scene{
    this.input.off(Phaser.Input.Events.POINTER_DOWN,this.tap,this);
    this.input.keyboard?.off("keydown",this.keyDown,this);
    this.anim?.dispose();
+   for(const key of this.buildingTextureKeys)
+    if(this.textures.exists(key))this.textures.remove(key);
+   this.buildingTextureKeys=[];this.buildingLayers=[];
   });
  }
  private updateObjectiveMarker():void{
@@ -120,10 +130,8 @@ export class DistrictScene extends Phaser.Scene{
     g.beginPath();g.moveTo(c.x-6,c.y+1);g.lineTo(c.x+7,c.y+1);g.strokePath();
    }
   }
-  // Fachadas/telhados por distrito, mesma malha de colisão e camadas de jogo.
-  for(const [i,block] of s.blocks.entries())
-   drawDistrictBuilding(g,this.id,s,block,center,i);
-  const key="district-surface-"+this.id+"-v2";
+  // O fundo é exclusivo para piso e horizonte; edifícios têm profundidade própria.
+  const key="district-surface-"+this.id+"-v3";
   if(this.textures.exists(key))this.textures.remove(key);
   g.generateTexture(key,W,H);
   g.destroy();
@@ -137,10 +145,55 @@ export class DistrictScene extends Phaser.Scene{
    backgroundColor:"#161d28dd",padding:{x:10,y:4},
   }).setDepth(1600).setOrigin(.5);
  }
+  /** Texturas de 1 bloco por vez, recortadas e ordenadas pela face frontal.
+  * O motor evita redesenhar muitos polígonos em todos os frames Android.
+  */
+ private buildBuildingLayers():void{
+  for(const [i,block] of this.spec.blocks.entries()){
+   const v=[
+    center({x:block.x-.5,y:block.y-.5}),
+    center({x:block.x+block.w-.5,y:block.y-.5}),
+    center({x:block.x+block.w-.5,y:block.y+block.h-.5}),
+    center({x:block.x-.5,y:block.y+block.h-.5}),
+   ];
+   const left=Math.min(...v.map(q=>q.x)),right=Math.max(...v.map(q=>q.x));
+   const top=Math.min(...v.map(q=>q.y)),bottom=Math.max(...v.map(q=>q.y));
+   const x0=Math.floor(left-84),y0=Math.floor(top-DISTRICT_ART[this.id].roofRise-116);
+   const width=Math.ceil(right-x0+84),height=Math.ceil(bottom-y0+45);
+   const key="district-building-v076-"+this.id+"-"+i;
+   if(this.textures.exists(key))this.textures.remove(key);
+   const g=this.add.graphics();
+   const project=(tile:Tile):Point=>{
+    const q=center(tile);return {x:q.x-x0,y:q.y-y0};
+   };
+   drawDistrictBuilding(g,this.id,this.spec,block,project,i);
+   g.generateTexture(key,width,height);
+   g.destroy();
+   const foot=v[2]!;
+   const image=this.add.image(x0,y0,key).setOrigin(0).setDepth(foot.y+117);
+   this.buildingLayers.push({image,x:x0,y:y0,w:width,h:height});
+   this.buildingTextureKeys.push(key);
+  }
+ }
+ private updateBuildingOcclusion():void{
+  if(!this.player)return;
+  const x=this.player.x,y=this.player.y;
+  for(const l of this.buildingLayers){
+   const inFront=l.image.depth>this.player.depth;
+   const overlaps=x>l.x+12&&x<l.x+l.w-12&&
+    y>l.y+75&&y<l.y+l.h-22;
+   l.image.setAlpha(inFront&&overlaps?.66:1);
+  }
+ }
  private buildInteractables():void{
   for(const slot of Object.keys(NODE_TILES) as NodeSlot[]){
-   const c=center(NODE_TILES[slot]),g=this.add.graphics().setDepth(c.y+.5);
-   drawDistrictInteractable(g,this.id,slot,c,this.spec);
+   const c=center(NODE_TILES[slot]),g=this.add.graphics().setDepth(c.y+116);
+   if(slot==="guide"){
+    const texture=DISTRICT_GUIDE_TEXTURE[this.id];
+    const sprite=this.add.sprite(c.x,c.y,texture,frameForDirection(texture,2))
+      .setOrigin(.5,.95).setScale(.92).setDepth(c.y+120);
+    playIdle(sprite,texture,2);
+   }else drawDistrictInteractable(g,this.id,slot,c,this.spec);
    const text=slot==="guide"?this.spec.guideName.toUpperCase():NODE_NAMES[slot].toUpperCase();
    this.add.text(c.x,c.y-76,text,{
     fontFamily:"IBM Plex Mono,monospace",fontSize:"12px",color:"#f3e5ca",
@@ -223,7 +276,7 @@ export class DistrictScene extends Phaser.Scene{
    const p=center(next);this.tile={...next};
    this.tweens.add({targets:this.player,x:p.x,y:p.y,
     duration:next.x!==previous.x&&next.y!==previous.y?195:140,ease:"Linear",
-    onUpdate:()=>this.player.setDepth(this.player.y+120),
+    onUpdate:()=>{this.player.setDepth(this.player.y+120);this.updateBuildingOcclusion();},
     onComplete:()=>{
       if(++this.footstep%4===0)audioDirector.effect("step");
       this.onMove?.({...this.tile},false);
