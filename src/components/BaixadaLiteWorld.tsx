@@ -464,7 +464,10 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     event.preventDefault();
     const bounds=canvas.getBoundingClientRect();
     const point={x:event.clientX-bounds.left,y:event.clientY-bounds.top};
-    const v=getView(width,height,renderPosition);
+    // Hit testing MUST use the camera that rendered the last frame.
+    // The smoothed camera lags behind the avatar while walking; using
+    // renderPosition targets a different tile from the one the player taps.
+    const v=getView(width,height,cameraPosition);
     const nearest=ACTORS.map(a=>({a,p:project(v,center(a.tile))}))
       .filter(({p})=>Math.abs(point.x-p.x)<36&&point.y>p.y-76&&point.y<p.y+18)
       .sort((a,b)=>Math.abs(a.p.x-point.x)+Math.abs(a.p.y-28-point.y)-
