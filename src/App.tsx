@@ -44,6 +44,8 @@ import {advanceTrialBattle,isTrialEncounter,readTrial,saveTrial,reconcileTrial} 
 import {isDistrictId} from "./game/districts/catalog";
 import {FAVORS,readFavors,saveFavors,claimFavor,buyFromNilo,syncFavorItems,
   type FavorId,type FavorState} from "./game/story/favors";
+import {readMarket} from "./game/story/market";
+import {readReputation,syncFactionAids} from "./game/story/reputation";
 import {readDistrictProgress,saveDistrictProgress,advanceDistrict,
  districtCurrentStep} from "./game/districts/progress";
 
@@ -297,7 +299,7 @@ export default function App() {
     const active=characterRef.current;
     if(!active)return false;
     const stored=loadInventory(active.id);
-    const next=syncFavorItems(stored,state);
+    const next=syncFactionAids(syncFavorItems(stored,state),readMarket(active.id));
     if(next!==stored){
       if(!saveInventory(next))return false;
       setInventory(next);
@@ -324,7 +326,7 @@ export default function App() {
   const buyWorkshopItem=(item:ItemId):{ok:boolean;message:string}=>{
     const active=characterRef.current;
     if(!active)return {ok:false,message:"Nenhum protagonista ativo."};
-    const result=buyFromNilo(readFavors(active.id),item);
+    const result=buyFromNilo(readFavors(active.id),item,readReputation(active.id));
     if(!result.ok)return {ok:false,message:result.message};
     // A retirada em inventário é atrelada ao recibo e é retomável após falha.
     if(!saveFavors(active.id,result.state))
@@ -626,6 +628,10 @@ export default function App() {
         onQuestXp={grantTrialXp}
         onClaimFavor={claimNpcFavor}
         onBuyWithCredits={buyWorkshopItem}
+        onSyncFactionAids={()=>{
+          const active=characterRef.current;
+          return active?reconcileFavorRewards(readFavors(active.id)):false;
+        }}
         onOpenBattle={beginBattle}
         onTreatAtClinic={treatAtClinic}
         currentHp={healthValue}
