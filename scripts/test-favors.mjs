@@ -89,6 +89,15 @@ assert.equal(rewarded.quantities.curativo_campo,aidInventory.quantities.curativo
 assert.equal(syncFactionAids(rewarded,relief.state).quantities.curativo_campo,rewarded.quantities.curativo_campo);
 assert.ok(rewarded.rewardReceipts.includes("rede-rede-livre-apoio"));
 
+const openHelix=applyMarketAction(INITIAL_MARKET,"helix-proposta","nomade",true,0,noRep);
+assert.equal(openHelix.applied,true,"Proposta Helix disponível independentemente de classe após V-09");
+const freelance=calculateReputation({favors:INITIAL_FAVORS,market:openHelix.state});
+assert.equal(freelance.factions.helix,2);
+assert.equal(freelance.factions.movimento_livre,-2);
+assert.equal(getMarketConversation("feira-archive","nomade",openHelix.state,true,"baixada",freelance)
+  .choices.some(c=>c.id==="helix-autorizacao"),true);
+assert.equal(getMarketConversation("feira-ajuda","nomade",openHelix.state,true,"baixada",freelance)
+  .text.includes("cautela"),true);
 const helixState=applyMarketAction(INITIAL_MARKET,"corpo-credencial","corporativo",false,0,noRep);
 assert.equal(helixState.applied,true);
 const helixRep=calculateReputation({favors:INITIAL_FAVORS,market:helixState.state});
