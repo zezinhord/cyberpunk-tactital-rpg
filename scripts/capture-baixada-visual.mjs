@@ -899,6 +899,49 @@ try {
     (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   console.log("QA diálogo cinematográfico: busto de Nilo, fala e navegação Android aprovados.");
 
+  // Quadro progressivo: somente os favores conhecidos na etapa 1 aparecem.
+  // A tela não deve mostrar as campanhas futuras nem cobrir o cenário inteiro.
+  await evaluate('document.querySelector(".na-dialogue-close").click();true');
+  await evaluate(\`(()=>{
+    const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    localStorage.setItem("cyberpunk-tactical-rpg.mission.v1."+hero.id,
+      JSON.stringify({step:1,clues:[]}));
+    localStorage.setItem("cyberpunk-tactical-rpg.world-area.v1."+hero.id,"null");
+    return true;
+  })()\`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título para HUD progressivo");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-quest-hud"),"HUD compacto de missões",90);
+  if(await evaluate('document.querySelector(".na-quest-hud")?.classList.contains("collapsed")'))
+    await evaluate('document.querySelector(".na-quest-hud .na-hub-toggle").click();true');
+  await poll(()=>has(".na-quest-tabs [role=tab]"),"abas de missões e favores");
+  await evaluate('document.querySelectorAll(".na-quest-tabs [role=tab]")[1].click();true');
+  await poll(()=>has(".na-favor-row"),"favor liberado pela clínica");
+  const questBoard=await evaluate(\`(()=>{
+    const hub=document.querySelector(".na-quest-hud"),r=hub?.getBoundingClientRect();
+    const names=[...document.querySelectorAll(".na-favor-row>div>strong")].map(n=>n.textContent);
+    return {names,viewport:innerHeight,bottom:r?.bottom,width:r?.width,height:r?.height,
+      credits:document.querySelector(".na-favor-wallet")?.textContent,
+      tab:document.querySelectorAll(".na-quest-tabs [role=tab]")[1]?.getAttribute("aria-selected")};
+  })()\`);
+  if(questBoard.names.length!==2||
+    !questBoard.names.some(x=>x.includes("primeiros socorros"))||
+    !questBoard.names.some(x=>x.includes("Peças para o Canal"))||
+    questBoard.bottom>questBoard.viewport+2||questBoard.height>questBoard.viewport*.72||
+    questBoard.tab!=="true")
+    throw new Error("HUD progressivo com spoilers ou fora da tela: "+JSON.stringify(questBoard));
+  await writeFile("qa/favores-progressivos-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".na-favor-row button").click();true');
+  const acceptedFavor=await evaluate(\`(()=>{
+    const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    return JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.favors.v1."+hero.id));
+  })()\`);
+  if(!acceptedFavor?.accepted?.includes("triagem")||acceptedFavor.claimed?.length)
+    throw new Error("Favor não foi aceito e salvo pelo quadro: "+JSON.stringify(acceptedFavor));
+  console.log("QA favores: HUD compacto, 2 favores liberados, aceitação e save confirmados.");
+
   // Regressão real: tratamento não pode ficar dentro do painel de missões,
   // fechado por padrão no Android. Testar HP real (save + HUD + UI).
   await evaluate(`(()=>{
