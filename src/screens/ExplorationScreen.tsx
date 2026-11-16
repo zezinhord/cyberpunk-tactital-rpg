@@ -1099,7 +1099,7 @@ export default function ExplorationScreen({
 
       {currentDialogue && (
        <NpcDialoguePanel key={dialogue?.index} page={currentDialogue}
-        pageIndex={dialogue?.index??0} totalPages={dialogue?.pages.length??1}
+        pageIndex={dialogue?.index??0} totalPages={dialogue?.pages.length??1} pages={dialogue?.pages}
         onClose={()=>setDialogue(null)}
         onNext={()=>{
           setDialogue(current=>{

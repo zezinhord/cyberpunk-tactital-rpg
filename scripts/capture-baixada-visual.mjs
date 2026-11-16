@@ -131,6 +131,17 @@ try {
   await sleep(275);
   const progressAfter=await evaluate('document.querySelector(".na-opening-typed")?.textContent.length');
   if(progressAfter<=progressBefore)throw new Error("A cutscene não revelou texto dinamicamente.");
+  // 0.7.7: os oito quadros, parallax e autoplay devem existir desde o boot.
+  const cinematicUi=await evaluate(`(()=>{
+    const art=document.querySelector(".na-opening-art");
+    const bars=document.querySelectorAll(".na-opening-progress i");
+    const auto=document.querySelector(".na-opening-autoplay");
+    return {visual:art?.dataset.openingVisual,frames:bars.length,
+      auto:!!auto,autoplay:auto?.getAttribute("aria-pressed")};
+  })()`);
+  if(cinematicUi.visual!=="skyline"||cinematicUi.frames!==8||!cinematicUi.auto||
+     cinematicUi.autoplay!=="false")
+    throw new Error("Prólogo 0.7.7 não iniciou corretamente: "+JSON.stringify(cinematicUi));
   const firstVisual=await evaluate('document.querySelector(".na-opening-art")?.className');
   if(!firstVisual.includes("visual-skyline"))throw new Error("A arte da primeira cena não foi carregada.");
   await writeFile("qa/prologo-cinematografico-1600x720.png",Buffer.from(
@@ -165,7 +176,7 @@ try {
   await poll(()=>has(".na-title-option"),"título após interromper cutscene");
   await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
   await poll(()=>has(".na-opening-screen"),"retomada de cutscene interrompida");
-  await evaluate('document.querySelector(".na-opening-top button").click();true');
+  await evaluate('document.querySelector(".na-opening-top button[aria-label=\"Pular apresentação e continuar\"]").click();true');
   await poll(()=>has(".intro-shell .primary-button"),"prólogo individual da origem");
   const cinematicSave=await evaluate(`(()=>{
     const save=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
@@ -250,7 +261,7 @@ try {
   await poll(()=>evaluate('Boolean([...document.querySelectorAll(".na-title-modal button")].find(b=>b.textContent?.includes("Rever apresentação")))'),"opção de rever a cutscene");
   await evaluate('[...document.querySelectorAll(".na-title-modal button")].find(b=>b.textContent?.includes("Rever apresentação")).click();true');
   await poll(()=>has(".na-opening-screen"),"replay manual do prólogo");
-  await evaluate('document.querySelector(".na-opening-top button").click();true');
+  await evaluate('document.querySelector(".na-opening-top button[aria-label=\"Pular apresentação e continuar\"]").click();true');
   await poll(()=>has(".na-title-option"),"replay retorna ao menu");
   const replaySave=await evaluate(`(()=>{
     const c=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;

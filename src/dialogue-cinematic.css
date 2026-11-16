@@ -11,7 +11,7 @@
 .na-dialogue-top>span{font:600 10px var(--mono);color:#e2bc8b;letter-spacing:.05em}
 .na-dialogue-top b{font-weight:400;color:#8babb0}
 .na-dialogue-top>div{display:flex;gap:7px}
-.na-dialogue-top button{min-height:36px;min-width:70px;padding:2px 12px;
+.na-dialogue-top button{min-height:44px;min-width:70px;padding:2px 12px;
  border-radius:5px;border:1px solid #5a7174;background:#20323c;color:#d3e3e1;font:600 12px var(--display)}
 .na-dialogue-top .na-dialogue-close{min-width:42px;color:#f9dfc5}
 .na-dialogue-main{display:grid;grid-template-columns:clamp(140px,24vw,220px) minmax(0,1fr);gap:12px;
@@ -53,7 +53,7 @@
  .na-dialogue-main{grid-template-columns:clamp(140px,24vw,200px) minmax(0,1fr);padding:6px 8px;gap:8px}
  .na-dialogue-top{padding:2px 9px}
  .na-dialogue-top>span{font-size:9px}
- .na-dialogue-top button{min-height:34px}
+ .na-dialogue-top button{min-height:44px}
  .na-dialogue-choices{max-height:126px}
  .na-dialogue-presence small{font-size:9px}
  .na-narrative-panel .na-dialogue-spoken{max-height:87px}

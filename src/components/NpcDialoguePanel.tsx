@@ -5,7 +5,7 @@ export interface DialoguePageProps{
  speaker:string;role:string;portrait:string;text:string;choices?:readonly ConversationOption[];
 }
 interface Props{
- page:DialoguePageProps;pageIndex:number;totalPages:number;
+ page:DialoguePageProps;pageIndex:number;totalPages:number;pages?:readonly DialoguePageProps[];
  onClose:()=>void;onNext:()=>void;onAnswer:(choice:ConversationOption)=>void;children?:ReactNode;
 }
 function reducedMotion():boolean{
@@ -13,7 +13,7 @@ function reducedMotion():boolean{
    localStorage.getItem("cyberpunk-tactical-rpg.settings.reduce-motion.v1")==="true";
  }catch{return false;}
 }
-export default function NpcDialoguePanel({page,pageIndex,totalPages,onClose,onNext,onAnswer,children}:Props){
+export default function NpcDialoguePanel({page,pageIndex,totalPages,pages,onClose,onNext,onAnswer,children}:Props){
  const motionReduced=useRef(reducedMotion()).current;
  const [visible,setVisible]=useState(motionReduced?page.text.length:0);
  const [history,setHistory]=useState(false);
@@ -55,7 +55,9 @@ export default function NpcDialoguePanel({page,pageIndex,totalPages,onClose,onNe
       <div><span className="eyebrow">{page.role}</span><h2 id="dialogue-title">{page.speaker}</h2></div>
      </div>
      {history?<div className="na-dialogue-transcript" role="region" aria-label="Fala completa">
-       <strong>FALA {pageIndex+1} / {totalPages}</strong><p>{page.text}</p>
+       {(pages??[page]).slice(0,pageIndex+1).map((item,i)=>
+        <article key={i}><strong>{item.speaker} · FALA {i+1} / {totalPages}</strong>
+        <p>{item.text}</p></article>)}
       </div>:<p className="na-dialogue-spoken" aria-label={page.text}
        onClick={incomplete?()=>setVisible(page.text.length):undefined}>
        {page.text.slice(0,visible)}{incomplete&&<span className="na-dialogue-caret" aria-hidden="true">▍</span>}

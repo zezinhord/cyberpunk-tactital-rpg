@@ -49,3 +49,8 @@ Seja o diretor de arte e de game UI/UX de **Cyberpunk Tactical RPG: Nova Arcádi
 ## 5. Bloqueadores de aprovação
 
 Bloqueie ou sinalize como *parcialmente validado* quando: avatar de arena não é o da criação; arte vira silhueta; comandos críticos ficam fora da tela; cor é o único indicador; fachadas ou NPCs têm oclusão errada; mapa fica vazio/preto; a câmera prejudica caminhada; houve perda de identidade dos distritos; ou não há evidências de comparação quando solicitadas. A skill é um guia executável de decisões, **não** uma garantia automática de qualidade final.
+
+
+## 6. Compromisso de execução aprovado pelo usuário (16/11/2026)
+
+Para mudanças aprovadas em Nova Arcádia, implementar o código e os assets na branch apropriada, executar testes, abrir PR e fornecer evidências reais (commit, capturas quando visuais). Não substituir implementação por prompts, storyboards e listas. Ideias ainda exploratórias não são mudanças aprovadas. Se algo não puder ser concluído, distinguir claramente feito, pendente e não testado. Nunca marcar como entregue sem testes e preservar saves/main sem autorização explícita. Sem promessa de execução em segundo plano.
