@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+const world=readFileSync(new URL("../src/components/BaixadaLiteWorld.tsx",import.meta.url),"utf8");
+const art=readFileSync(new URL("../src/game/baixada/lite-city-art.ts",import.meta.url),"utf8");
+assert.match(world,/heroBuildingOverlap\(renderPosition,layer.building\)/);
+assert.match(world,/layer.depth>renderPosition.y/);
+assert.ok(art.includes("roofRibs"),"Distinct roof seams");
+assert.ok(art.includes("varanda de serviço"),"Balconies on building facades");
+assert.ok(art.includes("Calha"),"Roof drainage");
+console.log("Baixada visual QA: rooftops, facades and player locator protected.");
