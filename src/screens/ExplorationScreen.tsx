@@ -382,7 +382,11 @@ export default function ExplorationScreen({
   };
 
   const handleInteract = (id: string) => {
-    const activity=recordFavorActivity(favors,id);
+    // O console do Pátio pode ser consultado parcialmente antes do manifesto.
+    // A inspeção do favor só conta quando os registros de fato são acessíveis.
+    const taskAccessible=id!=="patio-console"||
+      (mission.step>=3&&(hasSewerEvidence(sewer)||v09.defeated));
+    const activity=recordFavorActivity(favors,id,taskAccessible);
     if(activity.ready.length){
       if(saveFavors(character.id,activity.state)){
         setFavors(activity.state);
