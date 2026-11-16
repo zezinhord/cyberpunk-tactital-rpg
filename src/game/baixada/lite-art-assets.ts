@@ -41,6 +41,7 @@ const ORIGINS:Readonly<Record<OriginId,Readonly<Record<TestAppearance,string>>>>
  pesquisador:{masculine:pesquisadorM,feminine:pesquisadorF},
  nomade:{masculine:nomadeM,feminine:nomadeF},
 };
+export function getPlayerLiteSpriteUrl(origin:OriginId,appearance:TestAppearance):string{return ORIGINS[origin][appearance];}
 // NPCs autorais: 12 spritesheets 4×4 (64×80 por quadro).
 // Somente a origem ativa e os NPCs realmente usados são decodificados.
 const NPCS:Readonly<Record<string,string>>={

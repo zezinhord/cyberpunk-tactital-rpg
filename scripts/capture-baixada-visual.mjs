@@ -131,6 +131,17 @@ try {
   await sleep(275);
   const progressAfter=await evaluate('document.querySelector(".na-opening-typed")?.textContent.length');
   if(progressAfter<=progressBefore)throw new Error("A cutscene não revelou texto dinamicamente.");
+  // 0.7.7: os oito quadros, parallax e autoplay devem existir desde o boot.
+  const cinematicUi=await evaluate(`(()=>{
+    const art=document.querySelector(".na-opening-art");
+    const bars=document.querySelectorAll(".na-opening-progress i");
+    const auto=document.querySelector(".na-opening-autoplay");
+    return {visual:art?.dataset.openingVisual,frames:bars.length,
+      auto:!!auto,autoplay:auto?.getAttribute("aria-pressed")};
+  })()`);
+  if(cinematicUi.visual!=="skyline"||cinematicUi.frames!==8||!cinematicUi.auto||
+     cinematicUi.autoplay!=="false")
+    throw new Error("Prólogo 0.7.7 não iniciou corretamente: "+JSON.stringify(cinematicUi));
   const firstVisual=await evaluate('document.querySelector(".na-opening-art")?.className');
   if(!firstVisual.includes("visual-skyline"))throw new Error("A arte da primeira cena não foi carregada.");
   await writeFile("qa/prologo-cinematografico-1600x720.png",Buffer.from(
@@ -156,6 +167,37 @@ try {
     throw new Error("Prólogo cortado em Android 914x411: "+JSON.stringify(openingMobile));
   await writeFile("qa/prologo-cinematografico-914x411.png",Buffer.from(
     (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  // Percorrer de verdade oito cenários antes de reiniciar o app no estado de intro.
+  const cinematicVisuals=["skyline","aurea","eden","baixada","records","operative","interference","canal"];
+  for(let i=0;i<cinematicVisuals.length;i++){
+    const visual=cinematicVisuals[i];
+    await poll(()=>evaluate('document.querySelector(".na-opening-art")?.dataset.openingVisual==='+JSON.stringify(visual)),
+      "cena cinematográfica "+visual);
+    if(visual==="operative"){
+      const playerArt=await evaluate(`(()=>{
+        const art=document.querySelector(".na-opening-character-sprite");
+        const url=getComputedStyle(art).backgroundImage;
+        return {exists:!!art,url};
+      })()`);
+      if(!playerArt.exists||!playerArt.url.includes("player-baixada-masculine"))
+        throw new Error("Protagonista visual não corresponde à criação: "+JSON.stringify(playerArt));
+    }
+    await writeFile("qa/prologo-v077-"+String(i+1).padStart(2,"0")+"-"+visual+"-914x411.png",
+      Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+    if(i+1<cinematicVisuals.length){
+      // Primeiro toque revela texto; segundo avança. Esperar React processar
+      // cada atualização evita falso avanço em WebView Android lento.
+      await evaluate('document.querySelector(".na-opening-next").click();true');
+      await sleep(80);
+      // A primeira ativação pode apenas revelar a fala OU já avançar.
+      const advanced=await evaluate('document.querySelector(".na-opening-art")?.dataset.openingVisual');
+      if(advanced===visual){
+        await evaluate('document.querySelector(".na-opening-next").click();true');
+        await sleep(80);
+      }
+    }
+  }
+
   await send("Emulation.setDeviceMetricsOverride",{
     width:1600,height:720,deviceScaleFactor:1,mobile:true,
     screenOrientation:{type:"landscapePrimary",angle:90},
@@ -165,7 +207,7 @@ try {
   await poll(()=>has(".na-title-option"),"título após interromper cutscene");
   await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
   await poll(()=>has(".na-opening-screen"),"retomada de cutscene interrompida");
-  await evaluate('document.querySelector(".na-opening-top button").click();true');
+  await evaluate(`document.querySelector('button[aria-label="Pular apresentação e continuar"]').click();true`);
   await poll(()=>has(".intro-shell .primary-button"),"prólogo individual da origem");
   const cinematicSave=await evaluate(`(()=>{
     const save=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
@@ -250,7 +292,7 @@ try {
   await poll(()=>evaluate('Boolean([...document.querySelectorAll(".na-title-modal button")].find(b=>b.textContent?.includes("Rever apresentação")))'),"opção de rever a cutscene");
   await evaluate('[...document.querySelectorAll(".na-title-modal button")].find(b=>b.textContent?.includes("Rever apresentação")).click();true');
   await poll(()=>has(".na-opening-screen"),"replay manual do prólogo");
-  await evaluate('document.querySelector(".na-opening-top button").click();true');
+  await evaluate(`document.querySelector('button[aria-label="Pular apresentação e continuar"]').click();true`);
   await poll(()=>has(".na-title-option"),"replay retorna ao menu");
   const replaySave=await evaluate(`(()=>{
     const c=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
@@ -583,9 +625,24 @@ try {
     throw new Error("Segunda saída mal conectada: "+emergency);
   await evaluate('document.querySelector(".na-sewer-quick-access").click();true');
   await poll(()=>has(".dialogue-panel"),"bloqueio narrativo da saída profunda");
-  const lockedMessage=await evaluate('document.querySelector(".dialogue-panel")?.textContent');
+  const lockedMessage=await evaluate('document.querySelector(".na-dialogue-spoken")?.getAttribute("aria-label")');
   if(!lockedMessage?.includes("bloqueada"))
     throw new Error("Saída profunda sem validação de progresso: "+lockedMessage);
+  const dialogMetrics=await evaluate(`(()=>{
+    const panel=document.querySelector(".dialogue-panel");
+    const portrait=panel?.querySelector(".na-portrait-scene");
+    const next=panel?.querySelector(".dialogue-continue");
+    const p=panel?.getBoundingClientRect(),b=next?.getBoundingClientRect();
+    return {ui:panel?.dataset.dialogueUi,portrait:portrait?.dataset.portraitId,
+      x:p?.x,y:p?.y,bottom:p?.bottom,viewport:innerHeight,
+      nextBottom:b?.bottom,nextHeight:b?.height};
+  })()`);
+  if(dialogMetrics.ui!=="v077"||dialogMetrics.portrait!=="terminal"||
+     dialogMetrics.y<-1||dialogMetrics.bottom>dialogMetrics.viewport+2||
+     dialogMetrics.nextBottom>dialogMetrics.viewport+2||dialogMetrics.nextHeight<44)
+    throw new Error("Painel narrativo Android fora da tela: "+JSON.stringify(dialogMetrics));
+  await writeFile("qa/dialogo-terminal-v077-914x411.png",
+    Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   // Reabre a campanha no checkpoint já concluído: a saída passa a ser alcançável.
   await evaluate(`(()=>{
     const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
@@ -795,6 +852,52 @@ try {
   if(await evaluate('!!document.querySelector(".baixada-world .na-world-startup")'))
     throw new Error("O mapa leve voltou à tela de carregamento durante a caminhada.");
   console.log("QA movimento Android: navegação do teclado e save funcional no motor nativo.");
+
+  // Conversa com um NPC humano real, sem mock nem injeção de estado React:
+  // a simulação Android posiciona o herói ao lado da banca do Nilo.
+  await evaluate(`(()=>{
+    const save=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+save.id,
+      JSON.stringify({x:4,y:7}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"menu para prova de conversa humana");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>evaluate('document.querySelector(".baixada-world[data-scene-state=ready] canvas")?.width>200'),
+    "protagonista na banca do Nilo",90);
+  await sleep(850);
+  const pressedNpc=await evaluate(`(()=>{
+    const canvas=document.querySelector(".baixada-world canvas");
+    const rect=canvas?.getBoundingClientRect();
+    if(!rect)return false;
+    const zoom=Math.max(.76,Math.min(1.22,Math.min(rect.width/930,rect.height/475)*1.08));
+    const pointX=rect.left+rect.width/2+24*zoom;
+    const pointY=rect.top+rect.height*.53-12*zoom-25;
+    return canvas.dispatchEvent(new PointerEvent("pointerdown",{
+      bubbles:true,cancelable:true,pointerType:"touch",isPrimary:true,
+      clientX:pointX,clientY:pointY}));
+  })()`);
+  if(pressedNpc===null)throw new Error("Toque simulado no Nilo não foi processado.");
+  await poll(()=>has(".na-narrative-panel"),"conversa com retrato próprio do Nilo",90);
+  const npcDialogue=await evaluate(`(()=>{
+    const panel=document.querySelector(".na-narrative-panel");
+    const img=panel?.querySelector(".na-portrait-scene");
+    const button=panel?.querySelector(".dialogue-continue");
+    const rect=panel?.getBoundingClientRect(),b=button?.getBoundingClientRect();
+    return {speaker:panel?.querySelector("#dialogue-title")?.textContent,
+      portrait:img?.dataset.portraitId,emotion:img?.dataset.emotion,
+      text:panel?.querySelector(".na-dialogue-spoken")?.getAttribute("aria-label"),
+      width:rect?.width,bottom:rect?.bottom,buttonBottom:b?.bottom,viewport:innerHeight};
+  })()`);
+  if(npcDialogue.speaker!=="Nilo"||npcDialogue.portrait!=="nilo"||
+     !npcDialogue.text?.includes("conector")||
+     npcDialogue.bottom>npcDialogue.viewport+2||
+     npcDialogue.buttonBottom>npcDialogue.viewport+2)
+    throw new Error("Diálogo NPC cortado ou sem retrato próprio: "+JSON.stringify(npcDialogue));
+  await writeFile("qa/dialogo-nilo-v077-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  console.log("QA diálogo cinematográfico: busto de Nilo, fala e navegação Android aprovados.");
 
   console.log("QA Android: ARTE ORIGINAL restaurada, "+androidPixels.artLoaded+
     " imagens (personagens e props), "+androidPixels.colors+

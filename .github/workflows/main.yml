@@ -12,6 +12,7 @@ on:
       - feature/visual-audit-camera-ui-v074
       - feature/district-art-identity-v075
       - feature/baixada-polish-npc-sprites-v076
+      - feature/cinematic-opening-expressive-dialogues-v077
   pull_request:
     branches:
       - main
@@ -91,6 +92,12 @@ jobs:
 
       - name: Testar prólogo cinematográfico e migração de salvamentos
         run: node --experimental-strip-types scripts/test-opening.mjs
+
+      - name: Validar a interface narrativa cinematografica e seus gatilhos
+        run: node scripts/test-narrative-ui.mjs
+
+      - name: Validar sintaxe JavaScript enviada ao Chromium antes da compilacao
+        run: node scripts/test-cdp-eval-syntax.mjs
 
       - name: Validar linha de tiro, cobertura, IA e movimento Android
         run: |

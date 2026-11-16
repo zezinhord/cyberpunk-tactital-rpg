@@ -1,0 +1,68 @@
+/* 0.7.7: interface de conversa expressiva (bustos locais, sem imagens remotas). */
+.na-narrative-scrim{z-index:1100;align-items:center;padding:max(8px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));background:rgba(2,8,15,.76)}
+.dialogue-panel.na-narrative-panel{display:flex;flex-direction:column;overflow:hidden;
+ width:min(950px,96vw);height:min(650px,calc(100dvh - 20px));max-height:calc(100dvh - 16px);
+ padding:0;border:1px solid #725e46;border-top:2px solid #e0b27e;border-radius:9px;
+ background:linear-gradient(135deg,#14242c,#0c161d 70%);box-shadow:0 20px 60px #0009}
+.na-narrative-panel.tone-eden{border-color:#7dffb3;background:linear-gradient(135deg,#0c2822,#07171b)}
+.na-narrative-panel.tone-hostile{border-color:#ff2e88}
+.na-dialogue-top{display:flex;justify-content:space-between;align-items:center;flex:none;gap:7px;
+ padding:5px 10px;background:#0b161c;border-bottom:1px solid #5167716b}
+.na-dialogue-top>span{font:600 10px var(--mono);color:#e2bc8b;letter-spacing:.05em}
+.na-dialogue-top b{font-weight:400;color:#8babb0}
+.na-dialogue-top>div{display:flex;gap:7px}
+.na-dialogue-top button{min-height:44px;min-width:70px;padding:2px 12px;
+ border-radius:5px;border:1px solid #5a7174;background:#20323c;color:#d3e3e1;font:600 12px var(--display)}
+.na-dialogue-top .na-dialogue-close{min-width:42px;color:#f9dfc5}
+.na-dialogue-main{display:grid;grid-template-columns:clamp(140px,24vw,220px) minmax(0,1fr);gap:12px;
+ flex:1 1 auto;min-height:0;padding:10px 12px}
+.na-dialogue-presence{display:flex;flex-direction:column;min-height:0;gap:4px;border:1px solid #6b676180;
+ background:#132127;overflow:hidden}
+.na-dialogue-presence small{color:#f1c88f;font:600 10px var(--mono);padding:3px;text-align:center}
+.na-portrait-scene{height:100%;min-height:0;position:relative;overflow:hidden}
+.na-portrait-scene svg{display:block;width:100%;height:100%;object-fit:contain}
+.na-portrait-scene.human{animation:na-portrait-enter .25s ease-out both}
+.na-portrait-scene .na-portrait-eyes{animation:na-narrative-blink 6s step-end infinite}
+@keyframes na-portrait-enter{from{transform:translateY(9px);opacity:.5}to{transform:none;opacity:1}}
+@keyframes na-narrative-blink{0%,96%,100%{opacity:1}97%,98%{opacity:0}}
+.na-dialogue-body{display:flex;flex-direction:column;min-width:0;min-height:0;gap:8px}
+.na-narrative-panel .dialogue-head{flex:none;border-bottom:1px solid #67777b50;padding-bottom:5px}
+.na-narrative-panel .dialogue-head h2{font-size:clamp(16px,2vw,23px)}
+.na-narrative-panel .dialogue-head .eyebrow{font-size:11px;color:#c49e75}
+.na-narrative-panel .na-dialogue-spoken{flex:1 1 auto;min-height:43px;max-height:145px;overflow:auto;
+ margin:0;font:500 clamp(13px,1.7vw,17px)/1.42 var(--body);color:#e7e7dd;white-space:pre-wrap}
+.na-dialogue-caret{color:#eebd83;animation:na-dialogue-blink .65s steps(1,end) infinite}
+@keyframes na-dialogue-blink{50%{opacity:0}}
+.na-dialogue-transcript{flex:1;min-height:0;overflow:auto;color:#d7e0dd}
+.na-dialogue-transcript strong{font:600 10px var(--mono);color:#e6b986}
+.na-dialogue-transcript p{font:500 14px/1.5 var(--body);margin:5px 0}
+.na-dialogue-choices{flex:none;max-height:150px;overflow-y:auto;overscroll-behavior:contain}
+.na-dialogue-choices .dialogue-choice-list,.na-dialogue-choices .na-ferrugem-choices{
+ display:grid;grid-template-columns:1fr;gap:5px;margin:0}
+.na-dialogue-choices .dialogue-choice-list button,.na-dialogue-choices .na-ferrugem-choices button{
+ display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 10px;border:1px solid #9f8059;
+ border-radius:5px;background:#253134;color:#f4dfc3;text-align:left;font:600 12px var(--display)}
+.na-dialogue-choices .dialogue-choice-list button span{color:#f1b87a;font:600 12px var(--mono)}
+.na-dialogue-choices button:focus-visible{outline:2px solid #ffd166;outline-offset:2px}
+.na-dialogue-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none;
+ padding:6px 10px;border-top:1px solid #556f7050;background:#0c181e}
+.na-dialogue-cue{font:500 11px var(--mono);color:#b7c8c3}
+.na-dialogue-footer .dialogue-continue{width:auto;min-width:155px;min-height:48px;font-size:13px;gap:14px}
+@media(orientation:landscape) and (max-height:440px){
+ .dialogue-panel.na-narrative-panel{height:calc(100dvh - 16px);width:min(950px,98vw)}
+ .na-dialogue-main{grid-template-columns:clamp(140px,24vw,200px) minmax(0,1fr);padding:6px 8px;gap:8px}
+ .na-dialogue-top{padding:2px 9px}
+ .na-dialogue-top>span{font-size:9px}
+ .na-dialogue-top button{min-height:44px}
+ .na-dialogue-choices{max-height:126px}
+ .na-dialogue-presence small{font-size:9px}
+ .na-narrative-panel .na-dialogue-spoken{max-height:87px}
+ .na-dialogue-footer{padding:4px 8px}
+}
+@media(max-width:650px) and (orientation:portrait){
+ .na-dialogue-main{grid-template-columns:110px minmax(0,1fr)}
+ .na-dialogue-cue,.na-dialogue-top b{display:none}
+}
+@media(prefers-reduced-motion:reduce){
+ .na-portrait-scene.human,.na-portrait-scene .na-portrait-eyes,.na-dialogue-caret{animation:none!important}
+}
