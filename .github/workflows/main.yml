@@ -96,6 +96,9 @@ jobs:
       - name: Validar a interface narrativa cinematografica e seus gatilhos
         run: node scripts/test-narrative-ui.mjs
 
+      - name: Validar sintaxe JavaScript enviada ao Chromium antes da compilacao
+        run: node scripts/test-cdp-eval-syntax.mjs
+
       - name: Validar linha de tiro, cobertura, IA e movimento Android
         run: |
           node --experimental-strip-types scripts/test-tactics.mjs
