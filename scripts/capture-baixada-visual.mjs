@@ -527,8 +527,13 @@ try {
   await writeFile("qa/vida-persistente-914x411.png",Buffer.from((await send("Page.captureScreenshot",{
     format:"png",captureBeyondViewport:false})).data,"base64"));
   console.log("QA Vida: ferimentos entre cenas 6 HP → curativo 11 HP → exploração 11 HP.");
-  // HUD minimizado: uma única instrução ocupa menos de 115px.
-  await poll(()=>has(".na-quest-hud .na-quest-peek"),"orientação de missão compacta");
+  // O Chrome de QA pode simular Android com userAgent desktop.
+  // O jogo começa expandido nesse caso. Forçar o estado recolhido
+  // por meio do botão real antes de validar a visão compacta.
+  await poll(()=>has(".na-quest-hud .na-hub-toggle"),"botão do diário compacto");
+  if(await evaluate('document.querySelector(".na-quest-hud")?.classList.contains("expanded")'))
+    await evaluate('document.querySelector(".na-quest-hud .na-hub-toggle").click();true');
+  await poll(()=>has(".na-quest-hud.collapsed .na-quest-peek"),"orientação de missão compacta");
   const missionLayout=await evaluate(`(()=>{
     const hub=document.querySelector(".na-quest-hud"),next=hub?.querySelector(".na-quest-peek"),
       r=hub?.getBoundingClientRect(),n=next?.getBoundingClientRect();
@@ -551,7 +556,10 @@ try {
   await send("Page.navigate",{url:URL});
   await poll(()=>has(".na-title-option"),"título para retomar missão antiga");
   await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
-  await poll(()=>has(".na-quest-peek"),"objetivo persistido após atualização");
+  await poll(()=>has(".na-quest-hud .na-hub-toggle"),"diário compacto após atualização");
+  if(await evaluate('document.querySelector(".na-quest-hud")?.classList.contains("expanded")'))
+    await evaluate('document.querySelector(".na-quest-hud .na-hub-toggle").click();true');
+  await poll(()=>has(".na-quest-hud.collapsed .na-quest-peek"),"objetivo persistido após atualização");
   const legacyNext=await evaluate('document.querySelector(".na-quest-peek")?.textContent');
   if(!legacyNext?.includes("Pátio"))
     throw new Error("Missão anterior não encaminha ao Pátio: "+legacyNext);
