@@ -43,6 +43,7 @@ export class DistrictScene extends Phaser.Scene{
  private footstep=0;
  private buildingLayers:{image:Phaser.GameObjects.Image;x:number;y:number;w:number;h:number}[]=[];
  private buildingTextureKeys:string[]=[];
+ private coverMarker?:Phaser.GameObjects.Arc;
  constructor(id:DistrictId,onInteract:(id:string)=>void,origin:OriginId,
   appearance:TestAppearance,objective:NodeSlot|null=null,start?:Tile,
   onMove?:(tile:Tile,settled?:boolean)=>void){
@@ -76,6 +77,8 @@ export class DistrictScene extends Phaser.Scene{
   this.player=this.add.sprite(p.x,p.y,texture,frameForDirection(texture,2))
     .setOrigin(.5,.95).setScale(.92).setDepth(p.y+120);
   this.anim=new ActorAnimationController(this.player,texture,2);
+  this.coverMarker=this.add.circle(p.x,p.y-47,6,0x00e5ff,.12)
+    .setStrokeStyle(2,0x00e5ff,.94).setDepth(1810).setVisible(false);
   this.updateBuildingOcclusion();
   this.game.canvas?.setAttribute("data-district-art","v076-"+this.id);
   this.game.canvas?.setAttribute("data-district-guide",DISTRICT_GUIDE_TEXTURE[this.id]);
@@ -178,12 +181,18 @@ export class DistrictScene extends Phaser.Scene{
  private updateBuildingOcclusion():void{
   if(!this.player)return;
   const x=this.player.x,y=this.player.y;
+  let covered=false;
   for(const l of this.buildingLayers){
-   const inFront=l.image.depth>this.player.depth;
-   const overlaps=x>l.x+12&&x<l.x+l.w-12&&
-    y>l.y+75&&y<l.y+l.h-22;
-   l.image.setAlpha(inFront&&overlaps?.66:1);
+   // Primeiro QA v076: alfa em prédios inteiros apagava a arquitetura.
+   // Deixar o volume opaco; não sacrificar a estética para exibir o herói.
+   l.image.setAlpha(1);
+   const depthGap=l.image.depth-this.player.depth;
+   const inFootprint=x>l.x+92&&x<l.x+l.w-92;
+   const nearWall=y>l.y+75&&y<l.y+l.h-30;
+   if(depthGap>0&&depthGap<80&&inFootprint&&nearWall)covered=true;
   }
+  // O marcador ciano indica a posição caso o avatar esteja encoberto.
+  this.coverMarker?.setPosition(x,y-47).setVisible(covered);
  }
  private buildInteractables():void{
   for(const slot of Object.keys(NODE_TILES) as NodeSlot[]){
