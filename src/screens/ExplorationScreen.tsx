@@ -15,6 +15,8 @@ import type { InteriorId } from "../game/baixada/InteriorScene";
 import type { TestAppearance } from "../game/test-arena/appearance";
 import { audioDirector } from "../audio/director";
 import {isAndroidDevice} from "../game/performance";
+import {FAVORS,NILO_SHOP,readFavors,saveFavors,acceptFavor,recordFavorActivity,
+  favorUnlocked,visibleFavors,favorStatus,type FavorId} from "../game/story/favors";
 import type {ClassId} from "../game/classes/registry";
 import type {EncounterId} from "../game/types";
 import {statRank,type StatId} from "../game/progression/tree";
@@ -48,6 +50,8 @@ interface Props {
   onPurchaseAttribute:(id:StatId)=>string;
   onPurchaseSkill:(id:string)=>string;
   onQuestXp:(eventId:string,amount:number)=>boolean;
+  onClaimFavor:(id:FavorId)=>{ok:boolean;message:string};
+  onBuyWithCredits:(item:ItemId)=>{ok:boolean;message:string};
   onOpenBattle: (mode?: EncounterId) => void;
   onTreatAtClinic: () => number;
   currentHp: number;
@@ -119,6 +123,8 @@ export default function ExplorationScreen({
   onPurchaseAttribute,
   onPurchaseSkill,
   onQuestXp,
+  onClaimFavor,
+  onBuyWithCredits,
   onOpenBattle,
   onTreatAtClinic,
   currentHp,
@@ -158,15 +164,16 @@ export default function ExplorationScreen({
     periferia:readDistrictProgress(character.id,"periferia"),
   }));
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
-  const [journalOpen, setJournalOpen] = useState(false);
-  const [missionOpen, setMissionOpen] = useState(true);
+  const [hubTab,setHubTab]=useState<"mission"|"favors">("mission");
   const [hubOpen, setHubOpen] = useState(()=>!isAndroidDevice());
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuStartSection,setMenuStartSection]=useState<"character"|"progression">("character");
+  const [menuStartSection,setMenuStartSection]=useState<"character"|"progression"|"journal">("character");
   const [dismissedLevelNotice,setDismissedLevelNotice]=useState("");
   const showLevelNotice=progressNotice.startsWith("SUBIU DE NÍVEL!")&&
     dismissedLevelNotice!==progressNotice;
   const [market,setMarket]=useState(()=>readMarket(character.id));
+  const [favors,setFavors]=useState(()=>readFavors(character.id));
+  const [favorNotice,setFavorNotice]=useState("");
   const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));
   const [trialNotice,setTrialNotice]=useState("");
   const [sectorId,setSectorId]=useState<SectorId>(()=>sectorAt(loadWorldLocation(character.id)));
@@ -195,16 +202,55 @@ export default function ExplorationScreen({
           :"Não foi possível registrar o tratamento. Confira o espaço de armazenamento e tente novamente."}]);
   };
   const sayClinic=(pages:DialoguePage[]):void=>{
-    // A escolha médica fica na última fala da médica em qualquer etapa V-09.
-    // Assim, conversar com Amara sempre oferece a cura sem alterar missões.
-    if(currentHp>=maxHp)return say(pages);
     const last=pages.length-1;
     say(pages.map((page,index)=>index===last?
-      {...page,choices:[...(page.choices??[]),{
-        id:"clinic-treatment",label:"Preciso de atendimento médico",
-        reply:"Vou cuidar desses ferimentos agora."}]}:page));
+      {...page,choices:[...(page.choices??[]),
+        ...(currentHp<maxHp?[{
+          id:"clinic-treatment",label:"Preciso de atendimento médico",
+          reply:"Vou cuidar desses ferimentos agora."}]:[]),
+        ...favorChoicesFor("dra-amara")]}:page));
   };
   const v09=readV09(character.id);
+  const favorContext={missionStep:mission.step,v09Defeated:v09.defeated};
+  const unlockedFavors=visibleFavors(favorContext);
+  const favorChoicesFor=(actor:string):ConversationOption[]=>unlockedFavors
+    .filter(f=>f.contactId===actor&&!favors.claimed.includes(f.id))
+    .flatMap(f=>{
+      const status=favorStatus(favors,f.id);
+      return status==="offered"?[{id:"favor-accept-"+f.id,
+        label:"Aceitar favor: "+f.title,reply:f.synopsis,
+        favorAction:"accept:"+f.id}]:
+        status==="ready"?[{id:"favor-claim-"+f.id,
+          label:"Entregar favor: "+f.title,reply:"Receber a recompensa combinada.",
+          favorAction:"claim:"+f.id}]:[];
+    });
+  const actOnFavor=(command:string):void=>{
+    const [action,id]=command.split(":");
+    const quest=FAVORS.find(f=>f.id===id);
+    if(!quest)return;
+    if(action==="accept"){
+      const result=acceptFavor(favors,quest.id,favorContext);
+      if(!result.ok){setFavorNotice(result.message);say([{speaker:quest.contact,role:"QUADRO DE FAVORES",
+       portrait:"◆",text:result.message}]);return;}
+      if(!saveFavors(character.id,result.state)){
+        say([{speaker:"QUADRO DE FAVORES",role:"ERRO DE ARMAZENAMENTO",portrait:"!",
+          text:"Não foi possível salvar o favor. Libere espaço e tente novamente."}]);return;
+      }
+      setFavors(result.state);setFavorNotice(result.message);
+      say([{speaker:quest.contact,role:"CONTATO COMUNITÁRIO",portrait:"◆",text:result.message}]);
+      return;
+    }
+    if(action==="claim"){
+      const result=onClaimFavor(quest.id);
+      if(result.ok)setFavors(readFavors(character.id));
+      setFavorNotice(result.message);
+      say([{speaker:quest.contact,role:"ENTREGA DE FAVORES",portrait:"◆",text:result.message}]);
+    }
+  };
+  const openQuestJournal=():void=>{
+    setMenuStartSection("journal");setMenuOpen(true);setHubOpen(false);
+  };
+
   const objective = mission.step<3 ? ((OBJECTIVES as readonly string[])[mission.step] ?? OBJECTIVES[0])
     : v09.reported ? (market.decisions.includes("mercado-publicar")
         ? "O dossiê comunitário foi publicado. Proteja as testemunhas da feira enquanto a Helix contesta a autoria."
@@ -336,6 +382,14 @@ export default function ExplorationScreen({
   };
 
   const handleInteract = (id: string) => {
+    const activity=recordFavorActivity(favors,id);
+    if(activity.ready.length){
+      if(saveFavors(character.id,activity.state)){
+        setFavors(activity.state);
+        const names=activity.ready.map(fid=>FAVORS.find(f=>f.id===fid)?.title).filter(Boolean);
+        setFavorNotice("Favor pronto para entregar: "+names.join(", ")+".");
+      }else setFavorNotice("Falha ao registrar o favor. Libere espaço e tente novamente.");
+    }
     const cityActor=actorFromId(id);
     if(cityActor){
       const {district,slot}=cityActor;
@@ -517,7 +571,7 @@ export default function ExplorationScreen({
     if(isMarketActor(id)){
       const node=getMarketConversation(id,character.classId,market,v09.reported,character.originId);
       say([{speaker:node.speaker,role:node.role,portrait:node.portrait,
-        text:node.text,choices:node.choices}]);
+        text:node.text,choices:[...node.choices,...favorChoicesFor(id)]}]);
       return;
     }
     if(isPatioCitizen(id)){
@@ -528,7 +582,7 @@ export default function ExplorationScreen({
         return;
       }
       const node=getPatioConversation(id,character.originId,v09.defeated);
-      say([{speaker:node.speaker,role:node.role,portrait:node.portrait,text:node.text,choices:node.choices}]);
+      say([{speaker:node.speaker,role:node.role,portrait:node.portrait,text:node.text,choices:[...node.choices,...favorChoicesFor(id)]}]);
       return;
     }
     if(id==="patio-console"){
@@ -659,7 +713,10 @@ export default function ExplorationScreen({
           speaker: "Nilo",
           role: "MECÂNICO / VENDEDOR",
           portrait: "N",
-          text: "Encontrei um conector com marcação de manutenção do canal. Pode ficar com a peça; talvez ajude a entender o que aconteceu. Não é equipamento de oficina comum.",
+          text: "Encontrei um conector com marcação de manutenção do canal. Pode ficar com a peça; talvez ajude a entender o que aconteceu. Não é equipamento de oficina comum. Saldo da oficina: "+favors.credits+" créditos.",
+          choices:[...favorChoicesFor("vendedor"),...NILO_SHOP.map(offer=>({
+            id:"nilo-buy-"+offer.item,label:"Comprar "+offer.label+" · "+offer.price+" créditos",
+            reply:"Pedido de compra da oficina.",shopAction:offer.item}))],
         },
       ]);
       return;
@@ -741,6 +798,14 @@ export default function ExplorationScreen({
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    if(choice.favorAction){actOnFavor(choice.favorAction);return;}
+    if(choice.shopAction){
+      const result=onBuyWithCredits(choice.shopAction as ItemId);
+      if(result.ok)setFavors(readFavors(character.id));
+      setFavorNotice(result.message);
+      say([{speaker:"Nilo",role:"COMÉRCIO DE PEÇAS",portrait:"N",text:result.message}]);
+      return;
+    }
     if(choice.id==="clinic-treatment"){
       performClinicTreatment();
       return;
