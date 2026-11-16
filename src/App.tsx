@@ -552,7 +552,7 @@ export default function App() {
     return <ResumeScreen character={character} onContinue={() => setScreen(nextStoryScreen(character))} onNew={startNewCharacter} />;
   }
   if (screen === "opening" && character) {
-    return <OpeningCutscene key={character.id} character={character}
+    return <OpeningCutscene key={character.id} character={character} appearance={appearance}
       onFinish={completeOpening} error={openingError}/>;
   }
   if (screen === "introduction" && character) {

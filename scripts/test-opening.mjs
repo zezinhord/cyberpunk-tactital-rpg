@@ -3,9 +3,9 @@ import {OPENING_PANELS,openingLines,nextStoryScreen,markOpeningSeen}
  from "../src/game/story/opening.ts";
 import {createPlayerCharacter} from "../src/game/character/storage.ts";
 
-assert.equal(OPENING_PANELS.length,6,"A cutscene deve conter exatamente seis cenas.");
-assert.equal(new Set(OPENING_PANELS.map(scene=>scene.id)).size,6,"Quadros precisam de IDs únicos.");
-assert.equal(new Set(OPENING_PANELS.map(scene=>scene.visual)).size,6,"Cada cena precisa de arte própria.");
+assert.equal(OPENING_PANELS.length,8,"A cutscene deve conter exatamente oito cenas.");
+assert.equal(new Set(OPENING_PANELS.map(scene=>scene.id)).size,8,"Quadros precisam de IDs únicos.");
+assert.equal(new Set(OPENING_PANELS.map(scene=>scene.visual)).size,8,"Cada cena precisa de arte própria.");
 for(const scene of OPENING_PANELS){
  assert.ok(scene.title.length>=8&&scene.title.length<=65,"Título legível: "+scene.id);
  assert.equal(scene.lines.length,2,"Texto em duas falas para telas pequenas: "+scene.id);
@@ -15,7 +15,7 @@ for(const scene of OPENING_PANELS){
 const created=createPlayerCharacter("Jogadora de QA","baixada","netrunner");
 assert.equal(created.openingSeen,false,"Novo protagonista deve começar pela cutscene");
 assert.equal(nextStoryScreen(created),"opening");
-const identityPanel=OPENING_PANELS[4];
+const identityPanel=OPENING_PANELS[5];
 assert.ok(openingLines(identityPanel,created).join(" ").includes(created.name));
 assert.ok(!openingLines(identityPanel,created).some(s=>s.includes("{")),
  "Todos os tokens narrativos devem ser substituídos.");
@@ -34,4 +34,4 @@ assert.equal(nextStoryScreen(legacy),"introduction",
  "Save legado anterior à cutscene não deve ser forçado a revê-la");
 assert.equal(nextStoryScreen({...legacy,introductionCompleted:true}),"exploration");
 assert.equal(nextStoryScreen(null),"introduction");
-console.log("Prólogo: 6 cenários, narrativa por origem, progressão nova e legado preservados.");
+console.log("Prólogo: 8 cenários, narrativa por origem, progressão nova e legado preservados.");
