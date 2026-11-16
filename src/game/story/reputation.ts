@@ -47,6 +47,7 @@ const MARKET_EFFECTS:Readonly<Record<string,Delta>>={
  "fixer-negocio":{mercado_cinzento:2,movimento_livre:1},
  "mercado-publicar":{movimento_livre:2,helix:-2},
  "mercado-proteger":{movimento_livre:1,mercado_cinzento:1},
+ "helix-proposta":{helix:2,movimento_livre:-2,mercado_cinzento:-1},
  "rede-livre-apoio":{movimento_livre:1},
  "cinzento-rotas":{mercado_cinzento:1},
  "helix-autorizacao":{helix:1,movimento_livre:-2},
