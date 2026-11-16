@@ -1,0 +1,164 @@
+name: Build Nova Arcadia iPhone IPA (unsigned)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/ios-unsigned-ipa-v077
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Preparar jogo offline para iOS
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar ferramentas de sprites e audio
+        run: |
+          python -m pip install -r tools/requirements-characters.txt
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          ffmpeg -hide_banner -encoders | grep libopus
+      - name: Instalar dependencias reproduciveis
+        run: npm ci --no-audit --no-fund
+      - name: Verificar motor, cutscene e dialogos
+        run: |
+          npx tsc -b
+          node --experimental-strip-types scripts/test-opening.mjs
+          node scripts/test-narrative-ui.mjs
+          node scripts/test-cdp-eval-syntax.mjs
+      - name: Recuperar 56 trilhas originais
+        uses: actions/cache@v4
+        with:
+          path: public/assets/soundscapes
+          key: nova-arcadia-original-score-v1-${{ hashFiles('tools/generate_soundscapes.py') }}
+      - name: Recuperar musicas licenciadas CC0
+        uses: actions/cache@v4
+        with:
+          path: public/assets/music
+          key: nova-arcadia-cc0-v1-${{ hashFiles('music/cc0-sources.json', 'tools/import_cc0_music.py') }}
+      - name: Importar musica offline com licenca verificada
+        run: |
+          python tools/import_cc0_music.py --check
+          python tools/import_cc0_music.py
+      - name: Compilar aplicacao Web offline
+        run: npm run build
+      - name: Verificar conteudo completo
+        run: |
+          test -s dist/index.html
+          node --experimental-strip-types scripts/test-soundscapes.mjs
+          node scripts/test-npc-sheets.mjs
+          echo "WEB_BYTES=$(du -sk dist | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Transferir bundle da aplicacao para compilacao nativa
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-iOS-Web-Dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  ios:
+    name: Compilar iPhone (sem assinatura Apple)
+    needs: web
+    runs-on: macos-15
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Recuperar jogo web compilado
+        uses: actions/download-artifact@v4
+        with:
+          name: NovaArcadia-iOS-Web-Dist
+          path: dist/
+      - name: Preparar Xcode
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          test -d dist
+          test -s dist/index.html
+      - name: Instalar Capacitor iOS 8
+        run: |
+          npm ci --no-audit --no-fund
+          npm install --no-save --package-lock=false '@capacitor/ios@^8.6.0' --no-audit --no-fund
+          npx cap --version
+      - name: Criar projeto iOS com Swift Package Manager
+        run: |
+          npx cap add ios --packagemanager SPM
+          npx cap sync ios
+          test -e ios/App/App.xcodeproj/project.pbxproj
+      - name: Fixar orientacao horizontal da interface
+        run: |
+          set -euo pipefail
+          INFO="ios/App/App/Info.plist"
+          test -f "$INFO"
+          plutil -replace UISupportedInterfaceOrientations -json '["UIInterfaceOrientationLandscapeLeft","UIInterfaceOrientationLandscapeRight"]' "$INFO"
+          plutil -replace 'UISupportedInterfaceOrientations~ipad' -json '["UIInterfaceOrientationLandscapeLeft","UIInterfaceOrientationLandscapeRight"]' "$INFO"
+          plutil -lint "$INFO"
+      - name: Compilar app nativo para dispositivo iPhone
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/NovaArcadiaDerivedData" \
+            -resolvePackageDependencies
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/NovaArcadiaDerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+      - name: Criar arquivo IPA unsigned
+        run: |
+          set -euo pipefail
+          APP="$RUNNER_TEMP/NovaArcadiaDerivedData/Build/Products/Release-iphoneos/App.app"
+          test -s "$APP/Info.plist"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")
+          test "$BUNDLE_ID" = "com.cyberpunk.tacticalrpg"
+          mkdir -p ios-output/Payload
+          cp -R "$APP" ios-output/Payload/App.app
+          rm -rf ios-output/Payload/App.app/_CodeSignature
+          rm -f ios-output/Payload/App.app/embedded.mobileprovision
+          (
+            cd ios-output
+            /usr/bin/zip -q -r -y -9 NovaArcadia-iPhone-v077-SEM-ASSINATURA.ipa Payload
+          )
+          test -s ios-output/NovaArcadia-iPhone-v077-SEM-ASSINATURA.ipa
+          unzip -tq ios-output/NovaArcadia-iPhone-v077-SEM-ASSINATURA.ipa
+          du -h ios-output/NovaArcadia-iPhone-v077-SEM-ASSINATURA.ipa
+          {
+            echo "## Nova Arcadia iPhone — IPA de teste produzido"
+            echo "Bundle: \`$BUNDLE_ID\`"
+            echo ""
+            echo "**SEM ASSINATURA APPLE:** este arquivo NAO instala diretamente pelo Safari ou app Arquivos do iPhone."
+            echo "A instalacao exige assinatura/provisionamento (Xcode, TestFlight ou assinatura em ferramenta apropriada)."
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Disponibilizar arquivo IPA para download
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-iPhone-IPA-UNSIGNED
+          path: ios-output/NovaArcadia-iPhone-v077-SEM-ASSINATURA.ipa
+          if-no-files-found: error
+          retention-days: 14
