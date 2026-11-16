@@ -16,7 +16,8 @@ import type { TestAppearance } from "../game/test-arena/appearance";
 import { audioDirector } from "../audio/director";
 import {isAndroidDevice} from "../game/performance";
 import {FAVORS,NILO_SHOP,readFavors,saveFavors,acceptFavor,recordFavorActivity,
-  visibleFavors,favorStatus,type FavorId} from "../game/story/favors";
+  visibleFavors,favorStatus,shopOfferUnlocked,type FavorId} from "../game/story/favors";
+import {calculateReputation,FACTION_NAMES,factionStanding} from "../game/story/reputation";
 import type {ClassId} from "../game/classes/registry";
 import type {EncounterId} from "../game/types";
 import {statRank,type StatId} from "../game/progression/tree";
@@ -52,6 +53,7 @@ interface Props {
   onQuestXp:(eventId:string,amount:number)=>boolean;
   onClaimFavor:(id:FavorId)=>{ok:boolean;message:string};
   onBuyWithCredits:(item:ItemId)=>{ok:boolean;message:string};
+  onSyncFactionAids:()=>boolean;
   onOpenBattle: (mode?: EncounterId) => void;
   onTreatAtClinic: () => number;
   currentHp: number;
@@ -125,6 +127,7 @@ export default function ExplorationScreen({
   onQuestXp,
   onClaimFavor,
   onBuyWithCredits,
+  onSyncFactionAids,
   onOpenBattle,
   onTreatAtClinic,
   currentHp,
@@ -211,6 +214,7 @@ export default function ExplorationScreen({
         ...favorChoicesFor("dra-amara")]}:page));
   };
   const v09=readV09(character.id);
+  const reputation=calculateReputation({favors,market,ferrugem,chapters:cityChapters});
   const favorContext={missionStep:mission.step,v09Defeated:v09.defeated,honor:favors.honor};
   const unlockedFavors=visibleFavors(favorContext);
   const favorChoicesFor=(actor:string):ConversationOption[]=>unlockedFavors
@@ -573,7 +577,7 @@ export default function ExplorationScreen({
     }
 
     if(isMarketActor(id)){
-      const node=getMarketConversation(id,character.classId,market,v09.reported,character.originId);
+      const node=getMarketConversation(id,character.classId,market,v09.reported,character.originId,reputation);
       say([{speaker:node.speaker,role:node.role,portrait:node.portrait,
         text:node.text+(id==="feira-corretor"&&favors.honor>=2?
           " Sua reputação de ajuda aos moradores já chegou ao Mercado.":""),
@@ -720,7 +724,8 @@ export default function ExplorationScreen({
           role: "MECÂNICO / VENDEDOR",
           portrait: "N",
           text: "Encontrei um conector com marcação de manutenção do canal. Pode ficar com a peça; talvez ajude a entender o que aconteceu. Não é equipamento de oficina comum. Saldo da oficina: "+favors.credits+" créditos.",
-          choices:[...favorChoicesFor("vendedor"),...NILO_SHOP.map(offer=>({
+          choices:[...favorChoicesFor("vendedor"),...NILO_SHOP.filter(offer=>
+            shopOfferUnlocked(offer,favors,reputation)).map(offer=>({
             id:"nilo-buy-"+offer.item,label:"Comprar "+offer.label+" · "+offer.price+" créditos",
             reply:"Pedido de compra da oficina.",shopAction:offer.item}))],
         },
@@ -818,10 +823,20 @@ export default function ExplorationScreen({
     }
     if(choice.marketAction){
       const result=applyMarketAction(market,choice.marketAction,character.classId,v09.reported,
-        statRank(character,"influencia"));
+        statRank(character,"influencia"),reputation);
       if(result.applied){
+        if(!saveMarket(character.id,result.state)){
+          say([{speaker:"REDE COMUNITÁRIA",role:"FALHA DE SALVAMENTO",portrait:"!",
+            text:"O acordo não pôde ser registrado. Libere espaço no aparelho e tente novamente."}]);
+          return;
+        }
         setMarket(result.state);
         if(result.clue)addClue(result.clue);
+        if(!onSyncFactionAids())setFavorNotice("Acordo registrado. O suprimento será entregue após sincronizar o inventário.");
+      }else{
+        say([{speaker:"REDE COMUNITÁRIA",role:"ACESSO INDISPONÍVEL",portrait:"!",
+          text:"As relações ou as provas necessárias para esse contato ainda não estão disponíveis."}]);
+        return;
       }
     }
     if(choice.clue)addClue(choice.clue);
@@ -1056,6 +1071,13 @@ export default function ExplorationScreen({
           </div>:<div className="na-quest-tab-content na-favor-board" role="tabpanel">
             <div className="na-favor-wallet"><span>CRÉDITOS <strong>{favors.credits}</strong></span>
               <span>HONRA <strong>{favors.honor}</strong></span></div>
+            <div className="na-faction-mini" aria-label="Relações com as facções">
+              {(["helix","movimento_livre","mercado_cinzento"] as const).map(id=>
+                <span key={id} title={FACTION_NAMES[id]+" · "+factionStanding(reputation.factions[id])}>
+                  {id==="helix"?"HELIX":id==="movimento_livre"?"LIVRE":"CINZENTO"}
+                  <strong>{reputation.factions[id]>0?"+":""}{reputation.factions[id]}</strong>
+                </span>)}
+            </div>
             <span className="na-quest-kicker">FAVORES DISPONÍVEIS AGORA · {unlockedFavors.length}</span>
             {unlockedFavors.filter(f=>favorStatus(favors,f.id)!=="claimed").length===0?
               <p className="na-favor-empty">Ainda não há pedidos pendentes. Conheça os moradores e avance na investigação.</p>:
@@ -1100,6 +1122,7 @@ export default function ExplorationScreen({
           missionObjective={objective}
           favors={favors}
           favorContext={favorContext}
+          reputation={reputation}
           sewerProgress={sewer}
           ferrugemProgress={ferrugem}
           clues={mission.clues.map((id) => ({ id, text: CLUE_LABELS[id] ?? "Pista registrada." }))}
