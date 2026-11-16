@@ -149,7 +149,8 @@ export function validateFavorBackup(raw:unknown):raw is FavorState{
  const valid=(x:unknown):x is FavorId[]=>Array.isArray(x)&&x.length<=FAVORS.length&&
    new Set(x).size===x.length&&x.every(v=>typeof v==="string"&&IDS.has(v as FavorId));
  if(!valid(s.accepted)||!valid(s.ready)||!valid(s.claimed))return false;
- if(!s.ready.every(x=>s.accepted.includes(x))||!s.claimed.every(x=>s.ready.includes(x)))return false;
+ const accepted=s.accepted as FavorId[],ready=s.ready as FavorId[],claimed=s.claimed as FavorId[];
+ if(!ready.every(x=>accepted.includes(x))||!claimed.every(x=>ready.includes(x)))return false;
  if(!Array.isArray(s.purchases)||s.purchases.length>10000)return false;
  const purchases=s.purchases as unknown[];
  for(let i=0;i<purchases.length;i++){
@@ -159,10 +160,10 @@ export function validateFavorBackup(raw:unknown):raw is FavorState{
   if(Object.keys(p).some(k=>!["id","item","amount","cost"].includes(k))||
     p.id!==i+1||p.amount!==1||!NILO_SHOP.some(n=>n.item===p.item&&n.price===p.cost))return false;
  }
- const credits=s.claimed.reduce((v:number,id:FavorId)=>
+ const credits=claimed.reduce((v:number,id:FavorId)=>
   v+(FAVORS.find(f=>f.id===id)?.reward.credits??0),0)-
   purchases.reduce((v:number,p)=>v+(p as PurchaseReceipt).cost,0);
- const honor=s.claimed.reduce((v:number,id:FavorId)=>
+ const honor=claimed.reduce((v:number,id:FavorId)=>
   v+(FAVORS.find(f=>f.id===id)?.reward.honor??0),0);
  return Number.isSafeInteger(s.credits)&&Number.isSafeInteger(s.honor)&&
    s.credits===credits&&s.honor===honor;
