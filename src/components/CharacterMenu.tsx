@@ -393,9 +393,9 @@ export default function CharacterMenu({
                 {missionStep>=3&&<section className="menu-list-panel">
                   <span className="menu-panel-kicker">ROTA SUBTERRÂNEA // {sewerStatus(sewerProgress)}</span>
                   <div className="menu-list-row"><span>{sewerProgress.traceFound?"✓":"○"}</span><strong>Rastros V-09</strong><small>GALERIA -01</small></div>
-                  <div className="menu-list-row"><span>{sewerProgress.pumpRestored?"✓":"○"}</span><strong>Bomba hidráulica</strong><small>GALERIA -01</small></div>
-                  <div className="menu-list-row"><span>{sewerProgress.gateOpened?"✓":"○"}</span><strong>Comporta 04</strong><small>DESCIDA -02</small></div>
-                  <div className="menu-list-row"><span>{sewerProgress.manifestRecovered?"✓":"○"}</span><strong>Manifesto V-09</strong><small>CÂMARA -02</small></div>
+                  {sewerProgress.traceFound&&<div className="menu-list-row"><span>{sewerProgress.pumpRestored?"✓":"○"}</span><strong>Bomba hidráulica</strong><small>GALERIA -01</small></div>}
+                  {sewerProgress.pumpRestored&&<div className="menu-list-row"><span>{sewerProgress.gateOpened?"✓":"○"}</span><strong>Comporta 04</strong><small>DESCIDA -02</small></div>}
+                  {sewerProgress.gateOpened&&<div className="menu-list-row"><span>{sewerProgress.manifestRecovered?"✓":"○"}</span><strong>Manifesto V-09</strong><small>CÂMARA -02</small></div>}
                 </section>}
                 {ferrugemProgress.started&&<section className="menu-list-panel">
                   <span className="menu-panel-kicker">CAPÍTULO FERRUGEM // {ferrugemProgress.completed?"CONCLUÍDO":ferrugemProgress.started?(ferrugemProgress.step+"/"+FERRUGEM_STEPS.length):"NÃO INICIADO"}</span>
