@@ -9,6 +9,7 @@ on:
       - feature/progression-audit-nova-arcadia-v071
       - feature/music-director-v072
       - feature/stability-tactical-combat-v073
+      - feature/visual-audit-camera-ui-v074
   pull_request:
     branches:
       - main
@@ -51,6 +52,12 @@ jobs:
         run: |
           python tools/import_cc0_music.py --check
           node --experimental-strip-types scripts/test-cc0-radio.mjs
+
+      - name: Verificar contrato de identidade visual Nova Arcádia
+        run: node .agents/skills/nova-arcadia-game-art-ui/scripts/check-visual-contract.mjs
+
+      - name: Verificar toque alinhado com câmera suavizada
+        run: node scripts/test-visual-camera-hit.mjs
 
       - name: Verificar TypeScript antes da geração pesada de recursos
         run: npx tsc -b
