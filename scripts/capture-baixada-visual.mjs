@@ -189,8 +189,12 @@ try {
       // cada atualização evita falso avanço em WebView Android lento.
       await evaluate('document.querySelector(".na-opening-next").click();true');
       await sleep(80);
-      await evaluate('document.querySelector(".na-opening-next").click();true');
-      await sleep(80);
+      // A primeira ativação pode apenas revelar a fala OU já avançar.
+      const advanced=await evaluate('document.querySelector(".na-opening-art")?.dataset.openingVisual');
+      if(advanced===visual){
+        await evaluate('document.querySelector(".na-opening-next").click();true');
+        await sleep(80);
+      }
     }
   }
 
@@ -848,6 +852,52 @@ try {
   if(await evaluate('!!document.querySelector(".baixada-world .na-world-startup")'))
     throw new Error("O mapa leve voltou à tela de carregamento durante a caminhada.");
   console.log("QA movimento Android: navegação do teclado e save funcional no motor nativo.");
+
+  // Conversa com um NPC humano real, sem mock nem injeção de estado React:
+  // a simulação Android posiciona o herói ao lado da banca do Nilo.
+  await evaluate(`(()=>{
+    const save=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-location.v068."+save.id,
+      JSON.stringify({x:4,y:7}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"menu para prova de conversa humana");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>evaluate('document.querySelector(".baixada-world[data-scene-state=ready] canvas")?.width>200'),
+    "protagonista na banca do Nilo",90);
+  await sleep(850);
+  const pressedNpc=await evaluate(`(()=>{
+    const canvas=document.querySelector(".baixada-world canvas");
+    const rect=canvas?.getBoundingClientRect();
+    if(!rect)return false;
+    const zoom=Math.max(.76,Math.min(1.22,Math.min(rect.width/930,rect.height/475)*1.08));
+    const pointX=rect.left+rect.width/2+24*zoom;
+    const pointY=rect.top+rect.height*.53-12*zoom-25;
+    return canvas.dispatchEvent(new PointerEvent("pointerdown",{
+      bubbles:true,cancelable:true,pointerType:"touch",isPrimary:true,
+      clientX:pointX,clientY:pointY}));
+  })()`);
+  if(pressedNpc===null)throw new Error("Toque simulado no Nilo não foi processado.");
+  await poll(()=>has(".na-narrative-panel"),"conversa com retrato próprio do Nilo",90);
+  const npcDialogue=await evaluate(`(()=>{
+    const panel=document.querySelector(".na-narrative-panel");
+    const img=panel?.querySelector(".na-portrait-scene");
+    const button=panel?.querySelector(".dialogue-continue");
+    const rect=panel?.getBoundingClientRect(),b=button?.getBoundingClientRect();
+    return {speaker:panel?.querySelector("#dialogue-title")?.textContent,
+      portrait:img?.dataset.portraitId,emotion:img?.dataset.emotion,
+      text:panel?.querySelector(".na-dialogue-spoken")?.getAttribute("aria-label"),
+      width:rect?.width,bottom:rect?.bottom,buttonBottom:b?.bottom,viewport:innerHeight};
+  })()`);
+  if(npcDialogue.speaker!=="Nilo"||npcDialogue.portrait!=="nilo"||
+     !npcDialogue.text?.includes("conector")||
+     npcDialogue.bottom>npcDialogue.viewport+2||
+     npcDialogue.buttonBottom>npcDialogue.viewport+2)
+    throw new Error("Diálogo NPC cortado ou sem retrato próprio: "+JSON.stringify(npcDialogue));
+  await writeFile("qa/dialogo-nilo-v077-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  console.log("QA diálogo cinematográfico: busto de Nilo, fala e navegação Android aprovados.");
 
   console.log("QA Android: ARTE ORIGINAL restaurada, "+androidPixels.artLoaded+
     " imagens (personagens e props), "+androidPixels.colors+
