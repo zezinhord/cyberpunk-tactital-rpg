@@ -167,6 +167,33 @@ try {
     throw new Error("Prólogo cortado em Android 914x411: "+JSON.stringify(openingMobile));
   await writeFile("qa/prologo-cinematografico-914x411.png",Buffer.from(
     (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  // Percorrer de verdade oito cenários antes de reiniciar o app no estado de intro.
+  const cinematicVisuals=["skyline","aurea","eden","baixada","records","operative","interference","canal"];
+  for(let i=0;i<cinematicVisuals.length;i++){
+    const visual=cinematicVisuals[i];
+    await poll(()=>evaluate('document.querySelector(".na-opening-art")?.dataset.openingVisual==='+JSON.stringify(visual)),
+      "cena cinematográfica "+visual);
+    if(visual==="operative"){
+      const playerArt=await evaluate(`(()=>{
+        const art=document.querySelector(".na-opening-character-sprite");
+        const url=getComputedStyle(art).backgroundImage;
+        return {exists:!!art,url};
+      })()`);
+      if(!playerArt.exists||!playerArt.url.includes("player-baixada-masculine"))
+        throw new Error("Protagonista visual não corresponde à criação: "+JSON.stringify(playerArt));
+    }
+    await writeFile("qa/prologo-v077-"+String(i+1).padStart(2,"0")+"-"+visual+"-914x411.png",
+      Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+    if(i+1<cinematicVisuals.length){
+      // Primeiro toque revela texto; segundo avança. Esperar React processar
+      // cada atualização evita falso avanço em WebView Android lento.
+      await evaluate('document.querySelector(".na-opening-next").click();true');
+      await sleep(80);
+      await evaluate('document.querySelector(".na-opening-next").click();true');
+      await sleep(80);
+    }
+  }
+
   await send("Emulation.setDeviceMetricsOverride",{
     width:1600,height:720,deviceScaleFactor:1,mobile:true,
     screenOrientation:{type:"landscapePrimary",angle:90},
@@ -594,9 +621,24 @@ try {
     throw new Error("Segunda saída mal conectada: "+emergency);
   await evaluate('document.querySelector(".na-sewer-quick-access").click();true');
   await poll(()=>has(".dialogue-panel"),"bloqueio narrativo da saída profunda");
-  const lockedMessage=await evaluate('document.querySelector(".dialogue-panel")?.textContent');
+  const lockedMessage=await evaluate('document.querySelector(".na-dialogue-spoken")?.getAttribute("aria-label")');
   if(!lockedMessage?.includes("bloqueada"))
     throw new Error("Saída profunda sem validação de progresso: "+lockedMessage);
+  const dialogMetrics=await evaluate(`(()=>{
+    const panel=document.querySelector(".dialogue-panel");
+    const portrait=panel?.querySelector(".na-portrait-scene");
+    const next=panel?.querySelector(".dialogue-continue");
+    const p=panel?.getBoundingClientRect(),b=next?.getBoundingClientRect();
+    return {ui:panel?.dataset.dialogueUi,portrait:portrait?.dataset.portraitId,
+      x:p?.x,y:p?.y,bottom:p?.bottom,viewport:innerHeight,
+      nextBottom:b?.bottom,nextHeight:b?.height};
+  })()`);
+  if(dialogMetrics.ui!=="v077"||dialogMetrics.portrait!=="terminal"||
+     dialogMetrics.y<-1||dialogMetrics.bottom>dialogMetrics.viewport+2||
+     dialogMetrics.nextBottom>dialogMetrics.viewport+2||dialogMetrics.nextHeight<44)
+    throw new Error("Painel narrativo Android fora da tela: "+JSON.stringify(dialogMetrics));
+  await writeFile("qa/dialogo-terminal-v077-914x411.png",
+    Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   // Reabre a campanha no checkpoint já concluído: a saída passa a ser alcançável.
   await evaluate(`(()=>{
     const id=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character.id;
