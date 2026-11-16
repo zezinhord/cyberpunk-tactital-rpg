@@ -292,7 +292,7 @@ try {
   await poll(()=>evaluate('Boolean([...document.querySelectorAll(".na-title-modal button")].find(b=>b.textContent?.includes("Rever apresentação")))'),"opção de rever a cutscene");
   await evaluate('[...document.querySelectorAll(".na-title-modal button")].find(b=>b.textContent?.includes("Rever apresentação")).click();true');
   await poll(()=>has(".na-opening-screen"),"replay manual do prólogo");
-  await evaluate('document.querySelector(".na-opening-top button[aria-label=\"Pular apresentação e continuar\"]").click();true');
+  await evaluate(`document.querySelector('button[aria-label="Pular apresentação e continuar"]').click();true`);
   await poll(()=>has(".na-title-option"),"replay retorna ao menu");
   const replaySave=await evaluate(`(()=>{
     const c=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
