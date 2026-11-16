@@ -52,6 +52,12 @@ export const MARKET_ACTIONS:readonly MarketAction[]=[
   {id:"mercado-proteger",actor:"feira-archive",label:"Guardar as provas em cópias comunitárias",
     reply:"As provas ficam em dispositivos independentes, distribuídos pela cooperativa e pela clínica. A rede oficial não recebe um alerta imediato, mas a denúncia pública será adiada até haver testemunhas protegidas.",
     clue:"market-sealed",trustDelta:1,heatDelta:-1,minClues:2,requiresV09Report:true,exclusiveGroup:"decisao-mural"},
+  // Uma proposta corporativa está aberta a qualquer classe após V-09.
+  // O custo é político: revelar metadados de moradores à Helix.
+  {id:"helix-proposta",actor:"feira-archive",
+    label:"Helix · Aceitar auditoria central (compartilhar metadados)",
+    reply:"Uma interface da Helix aceita o dossiê e concede uma credencial provisória. Os nomes não foram divulgados publicamente, mas horários e conexões da comunidade agora constam na infraestrutura corporativa. Marta recebe um alerta.",
+    clue:"market-helix-bargain",trustDelta:-2,heatDelta:-1,requiresV09Report:true},
   // Serviços de rede só aparecem quando o personagem conquistou acesso real.
   // Uma opção aceita grava sua própria decisão e um recibo de item idempotente.
   {id:"rede-livre-apoio",actor:"feira-ajuda",label:"Movimento Livre · Pedir apoio médico",
