@@ -345,6 +345,19 @@
  font:700 12px var(--display);text-align:center}
 .na-favor-row .na-favor-ready{color:#d3bb81}
 .na-favor-active{font:600 10px var(--mono);color:#c6d1c6}
+
+.na-faction-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:0 8px}
+.na-faction-mini span{border:1px solid rgba(126,157,159,.35);border-radius:5px;
+ background:#192d35;padding:5px 3px;color:#bed4d4;font:700 9px/1.4 var(--mono);
+ text-align:center;min-width:0}
+.na-faction-mini strong{display:block;font:700 15px/1.15 var(--display);color:#f4d3a0}
+.menu-faction-brief{border:1px solid rgba(186,162,111,.45)!important;border-radius:8px}
+.menu-faction-brief summary{cursor:pointer;list-style:revert;padding:10px 8px;
+ font:700 11px/1.4 var(--display);color:#f1d1a2}
+.menu-faction-brief[open] summary{border-bottom:1px solid rgba(186,162,111,.3)}
+.menu-faction-brief p{font-size:12px;line-height:1.5;padding:2px 8px}
+.menu-faction-brief .menu-list-row{margin:5px 0}
+
 @media (orientation:landscape){
  .na-mission-hub.na-quest-hud{
   position:absolute;z-index:5;right:var(--na-safe-right);
