@@ -1,5 +1,6 @@
 import type {ItemId,InventoryState} from "../inventory.ts";
 import {grantRewardInventoryItem} from "../inventory.ts";
+import type {Reputation} from "./reputation.ts";
 
 /** Encomendas locais: surgem por contato e avanço real da narrativa, não por pré-cadastro no HUD. */
 export const FAVORS_KEY="cyberpunk-tactical-rpg.favors.v1.";
@@ -42,12 +43,19 @@ export interface FavorState{
  credits:number;honor:number;purchases:readonly PurchaseReceipt[];
 }
 export const INITIAL_FAVORS:FavorState={version:1,accepted:[],ready:[],claimed:[],credits:0,honor:0,purchases:[]};
-export const NILO_SHOP:readonly {item:ItemId;amount:number;price:number;label:string}[]=[
+export interface ShopOffer{item:ItemId;amount:number;price:number;label:string;minHonor?:number;minLivre?:number}
+export const NILO_SHOP:readonly ShopOffer[]=[
  {item:"curativo_campo",amount:1,price:30,label:"Curativo de campo"},
  {item:"residuo_metalico",amount:1,price:45,label:"Liga reaproveitada"},
  {item:"conector_reuso",amount:1,price:55,label:"Conector reutilizável"},
  {item:"colete_reforcado",amount:1,price:240,label:"Colete reforçado"},
+ {item:"celula_energia",amount:1,price:90,label:"Célula solidária · rede comunitária",
+  minHonor:3,minLivre:2},
 ] as const;
+export function shopOfferUnlocked(offer:ShopOffer,state:FavorState,reputation?:Reputation):boolean{
+ return state.honor>=(offer.minHonor??0)&&
+  (reputation?.factions.movimento_livre??-99)>=(offer.minLivre??-99);
+}
 const IDS=new Set(FAVORS.map(f=>f.id));
 const ITEMS=new Set(NILO_SHOP.map(s=>s.item));
 const safeNumber=(x:unknown,max:number)=>Number.isSafeInteger(x)&&Number(x)>=0&&Number(x)<=max?Number(x):0;
@@ -121,9 +129,12 @@ export function claimFavor(state:FavorState,id:FavorId):
   message:"Favor concluído: "+quest.title+". +"+quest.reward.xp+" XP, +"+
     credits+" créditos, +"+honor+" Honra e item de recompensa."};
 }
-export function buyFromNilo(state:FavorState,item:ItemId):{ok:boolean;state:FavorState;message:string}{
+export function buyFromNilo(state:FavorState,item:ItemId,reputation?:Reputation):
+ {ok:boolean;state:FavorState;message:string}{
  const offer=NILO_SHOP.find(s=>s.item===item);
  if(!offer)return {ok:false,state,message:"Esse item não está disponível na oficina."};
+ if(!shopOfferUnlocked(offer,state,reputation))
+  return {ok:false,state,message:"A rede comunitária ainda não autorizou este suprimento."};
  if(state.credits<offer.price)return {ok:false,state,message:"Créditos insuficientes. Saldo: "+state.credits+"."};
  if(state.purchases.length>=10000)return {ok:false,state,message:"Limite de registros atingido; salve o personagem."};
  const nextId=(state.purchases.at(-1)?.id??0)+1;
