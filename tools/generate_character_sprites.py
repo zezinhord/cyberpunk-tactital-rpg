@@ -24,6 +24,18 @@ CHARS={
  'npc-joana': dict(skin='#9f684c', hair='#19151a', hair2='#3e2832', top='#655487', inner='#c68d65', pants='#263346', shoes='#181b29', accent='#d8a66f', detail='#9b7ab3', style='jacket', hair_style='braids', accessory='earring'),
  'npc-saira': dict(skin='#b77c59', hair='#211b1c', hair2='#55403a', top='#356a53', inner='#d6a15e', pants='#59453a', shoes='#24221b', accent='#e9c56c', detail='#8bb27c', style='market', hair_style='bun', accessory='plants'),
  'npc-teo': dict(skin='#c18a69', hair='#2a201d', hair2='#644737', top='#3d5269', inner='#e0a85d', pants='#303844', shoes='#191f28', accent='#63d5d0', detail='#8aa4b2', style='courier', hair_style='cap', accessory='bag'),
+ 'npc-lia': dict(skin='#a77c65', hair='#3b333c', hair2='#dbb27d', top='#b8c7c3', inner='#375b61', pants='#3b4747', shoes='#222a2c', accent='#dbb27d', detail='#375b61', style='coat', hair_style='side', accessory='visor'),
+ 'npc-ramon': dict(skin='#8d644f', hair='#23272b', hair2='#daa76c', top='#596657', inner='#bd9e76', pants='#374641', shoes='#222a2c', accent='#daa76c', detail='#bd9e76', style='armor', hair_style='short', accessory='shoulder'),
+ 'npc-duda': dict(skin='#ae8065', hair='#2a2431', hair2='#e9bb80', top='#a76f62', inner='#e3b589', pants='#334e54', shoes='#222a2c', accent='#e9bb80', detail='#e3b589', style='courier', hair_style='cap', accessory='bag'),
+ 'npc-iza': dict(skin='#a17256', hair='#3b2a26', hair2='#c9bb8a', top='#625864', inner='#c89a81', pants='#434b47', shoes='#222a2c', accent='#c9bb8a', detail='#c89a81', style='cloak', hair_style='long', accessory='goggles'),
+ 'npc-tomas': dict(skin='#87624d', hair='#22282b', hair2='#d4b47d', top='#55616b', inner='#c1a17b', pants='#485055', shoes='#222a2c', accent='#d4b47d', detail='#c1a17b', style='mechanic', hair_style='messy', accessory='wrench'),
+ 'npc-davi': dict(skin='#b48368', hair='#282730', hair2='#e2b777', top='#89735f', inner='#434952', pants='#374145', shoes='#222a2c', accent='#e2b777', detail='#434952', style='blazer', hair_style='neat', accessory='id'),
+ 'npc-marta': dict(skin='#986c53', hair='#302437', hair2='#e2b982', top='#715a72', inner='#caa482', pants='#413e4c', shoes='#222a2c', accent='#e2b982', detail='#caa482', style='jacket', hair_style='braids', accessory='earring'),
+ 'npc-celina': dict(skin='#af8064', hair='#292c3e', hair2='#9ed5e4', top='#d5dddd', inner='#455d6c', pants='#33444c', shoes='#222a2c', accent='#9ed5e4', detail='#455d6c', style='blazer', hair_style='bun', accessory='id'),
+ 'npc-mara': dict(skin='#976c50', hair='#252934', hair2='#e1b37f', top='#445158', inner='#937056', pants='#383a3f', shoes='#222a2c', accent='#e1b37f', detail='#937056', style='hood', hair_style='curls', accessory='bandana'),
+ 'npc-iuri': dict(skin='#ab7e63', hair='#454448', hair2='#e5b688', top='#808783', inner='#4a5b64', pants='#434a4b', shoes='#222a2c', accent='#e5b688', detail='#4a5b64', style='coat', hair_style='short', accessory='visor'),
+ 'npc-kai': dict(skin='#b78767', hair='#362742', hair2='#dba3cb', top='#794d77', inner='#384057', pants='#46384c', shoes='#222a2c', accent='#dba3cb', detail='#384057', style='street', hair_style='undercut', accessory='bag'),
+ 'npc-dara': dict(skin='#946f53', hair='#2b2724', hair2='#e4bf82', top='#8d7357', inner='#d5aa83', pants='#584f40', shoes='#222a2c', accent='#e4bf82', detail='#d5aa83', style='cloak', hair_style='long', accessory='toolbelt'),
 }
 
 def hx(c):
@@ -289,5 +301,20 @@ for row,(origin,(masc_hair,fem_hair)) in enumerate(ORIGINS.items()):
                 fill=(216,230,224),font=ImageFont.load_default())
         dc.text((start_x+4,192),"4 dir. / 5 estados",fill=(149,180,182))
 contact.save(QA/"character-matrix.png")
+# QA atlas of unique named NPCs, four directions and idle/walk poses.
+NPC_NAMES=["lia","ramon","duda","iza","tomas","davi","marta","celina","mara","iuri","kai","dara"]
+atlas=Image.new("RGB",(4*210,3*157),(14,25,32))
+labels=ImageDraw.Draw(atlas)
+for index,name in enumerate(NPC_NAMES):
+    sheet=Image.open(OUT/f"npc-{name}.png").convert("RGBA")
+    ox=(index%4)*210
+    oy=(index//4)*157
+    labels.text((ox+7,oy+9),name.upper(),fill=(235,221,199),font=ImageFont.load_default())
+    for j,row in enumerate((3,0,1)):
+        frame=sheet.crop((0,row*CH,CW,(row+1)*CH)).resize((72,90),Image.Resampling.NEAREST)
+        atlas.paste(frame,(ox+3+j*66,oy+33),frame)
+    labels.text((ox+7,oy+137),"4 direcoes",fill=(151,191,200),font=ImageFont.load_default())
+atlas.save(QA/"npc-matrix-v076.png")
+
 print("Gerados:",len(CHARS),"sprites legados +",
       len(ORIGINS)*2,"spritesheets direcionais 12x4; atlas de QA em qa/character-matrix.png.")

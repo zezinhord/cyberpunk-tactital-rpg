@@ -71,9 +71,22 @@ type DrawLayer=
  |{kind:"actor";depth:number;pos:Point;actor:(typeof ACTORS)[number]};
 const ACTOR_SKIN:Readonly<Record<string,string>>={
  vendedor:"nilo",moradora:"joana",saira:"saira",
- "patio-sentinel":"teo","feira-corretor":"nilo","feira-ajuda":"joana",
+ "patio-sentinel":"teo","feira-corretor":"davi","feira-ajuda":"marta",
  lia:"lia",ramon:"ramon",duda:"duda",iza:"iza",tomas:"tomas",
 };
+
+/** Detecta a silhueta da fachada para manter o marcador do herói visível.
+ * Não muda o bloqueio real nem desenha o sprite por cima do prédio.
+ */
+function heroBuildingOverlap(p:{x:number;y:number},b:BuildingSpec):boolean{
+ const v=[tileWorld({x:b.x,y:b.y}),
+  tileWorld({x:b.x+b.width,y:b.y}),
+  tileWorld({x:b.x+b.width,y:b.y+b.depth}),
+  tileWorld({x:b.x,y:b.y+b.depth})];
+ const left=Math.min(...v.map(q=>q.x)),right=Math.max(...v.map(q=>q.x));
+ const top=Math.min(...v.map(q=>q.y))-b.height,bottom=Math.max(...v.map(q=>q.y));
+ return p.x>left+4&&p.x<right-4&&p.y>top&&p.y<bottom;
+}
 
 /** A Baixada Android não cria Phaser.Game, WebGL, atlases nem texturas
  * 1960×1160. Usa somente um canvas com dimensões limitadas e renderização
@@ -374,6 +387,17 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
      else if(layer.kind==="actor")drawActor(layer.actor);
    }
    if(!heroDrawn)drawHero();
+   // O protagonista atrás de um telhado deve permanecer localizável,
+   // sem alterar a verdadeira ordem de oclusão dos sprites.
+   const occluded=visible.some(layer=>layer.kind==="building"&&
+     layer.depth>renderPosition.y&&heroBuildingOverlap(renderPosition,layer.building));
+   if(occluded){
+    ctx.strokeStyle="rgba(0,229,255,.93)";ctx.lineWidth=2.1;
+    ctx.beginPath();ctx.ellipse(renderPosition.x,renderPosition.y+2,14,6,0,0,Math.PI*2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(renderPosition.x-5,renderPosition.y-55);
+    ctx.lineTo(renderPosition.x,renderPosition.y-61);
+    ctx.lineTo(renderPosition.x+5,renderPosition.y-55);ctx.stroke();
+   }
    ctx.restore();
    if(!painted){painted=true;setStatus("ready");setError("");}
   };

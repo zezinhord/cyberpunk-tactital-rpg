@@ -714,9 +714,11 @@ try {
       const stored=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.city-chapters.v1."+hero.id)??"{}");
       return {width:rect?.width,height:rect?.height,
         title:document.querySelector(".district-brand h1")?.textContent,
+        art:canvas?.dataset.districtArt,guide:canvas?.dataset.districtGuide,
         active:stored["${id}"]?.started===true};
     })()`);
-    if(check.width<400||check.height<260||!check.active)
+    if(check.width<400||check.height<260||!check.active||
+       check.art!=="v076-"+id||!check.guide?.startsWith("npc-"))
       throw new Error("Novo distrito não inicializado: "+id+" "+JSON.stringify(check));
     await writeFile("qa/distrito-"+id+"-914x411.png",Buffer.from(
       (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));

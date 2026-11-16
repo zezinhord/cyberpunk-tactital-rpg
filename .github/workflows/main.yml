@@ -11,6 +11,7 @@ on:
       - feature/stability-tactical-combat-v073
       - feature/visual-audit-camera-ui-v074
       - feature/district-art-identity-v075
+      - feature/baixada-polish-npc-sprites-v076
   pull_request:
     branches:
       - main
@@ -111,6 +112,9 @@ jobs:
       - name: Validar identidade artística e acessibilidade dos cinco distritos
         run: node --experimental-strip-types scripts/test-district-art.mjs
 
+      - name: Verificar oclusao dos predios e sprites dos guias
+        run: node scripts/test-visual-depth.mjs
+
       - name: Testar cinco distritos, 35 missões e dez desfechos
         run: node --experimental-strip-types scripts/test-districts.mjs
 
@@ -154,6 +158,12 @@ jobs:
 
       - name: Verificar os 12 spritesheets direcionais
         run: node scripts/test-character-sheets.mjs
+
+      - name: Verificar NPCs proprios 4 direcoes e atlas visual
+        run: node scripts/test-npc-sheets.mjs
+
+      - name: Testar acabamento da Baixada
+        run: node scripts/test-baixada-art.mjs
 
       - name: Testar primeiro boot Android sem cache, Phaser ou WebGL
         run: node scripts/test-android-cold-boot.mjs

@@ -94,6 +94,19 @@ export function drawCityBuilding(ctx:CanvasRenderingContext2D,b:BuildingSpec):vo
  shape(ctx,[d,c,ct,dt],wall,"#132128",1.7);
  shape(ctx,[front1,c,ct,bt],shade(b.wall,.72),"#132128",1.7);
  shape(ctx,[at,bt,ct,dt],roof,rgba(b.accent,.78),1.8);
+ // Parapeitos, rufos e emendas acompanham o plano do teto isométrico.
+ // Detalhes de material, sem transformar a cobertura em nova colisão.
+ line(ctx,[{x:at.x,y:at.y-3},{x:bt.x,y:bt.y-3},{x:ct.x,y:ct.y-3}],
+   "rgba(211,190,162,.5)",1.8);
+ line(ctx,[{x:ct.x,y:ct.y-3},{x:dt.x,y:dt.y-3}],
+   "rgba(28,43,47,.72)",2.1);
+ const roofRibs=2+(b.id.length%3);
+ for(let i=1;i<roofRibs;i++){
+  const t=i/roofRibs;
+  line(ctx,[{x:lerp(at.x,dt.x,t),y:lerp(at.y,dt.y,t)},
+   {x:lerp(bt.x,ct.x,t),y:lerp(bt.y,ct.y,t)}],
+   i%2?"rgba(226,203,166,.24)":"rgba(14,35,39,.26)",.9);
+ }
  // Telhas e chapas reaproveitadas criam textura isométrica sem imagens grandes.
  // O brilho frio é material / reflexo; nunca um marcador de interação.
  for(let i=1;i<=3;i++){
@@ -136,6 +149,30 @@ export function drawCityBuilding(ctx:CanvasRenderingContext2D,b:BuildingSpec):vo
    ctx.strokeRect(px,py,5,5);
   }
  }
+ // Acabamento da Baixada: canos, trincas e uma varanda de serviço.
+ // Só ocupam a fachada do próprio prédio: a passagem segue legível.
+ if(b.style==="housing"||b.style==="canal"||b.style==="depot"||
+    b.style==="community"||b.style==="factory"){
+  const t=.78,px=lerp(d.x,c.x,t),py=lerp(d.y,c.y,t);
+  line(ctx,[{x:px,y:py-h+15},{x:px+2,y:py-25},{x:px-1,y:py-8}],
+   "rgba(31,52,56,.84)",2.8);
+  line(ctx,[{x:px+3,y:py-h+16},{x:px+4,y:py-22}],
+   "rgba(198,163,126,.38)",.9);
+  if(b.id.length%2===0){
+   const bx=lerp(d.x,c.x,.26),by=lerp(d.y,c.y,.26);
+   line(ctx,[{x:bx,y:by-19},{x:bx+4,y:by-25},
+    {x:bx+7,y:by-22}],"rgba(26,42,44,.48)",1);
+  }
+ }
+ if(b.style==="housing"&&b.height>=85){
+  const x=lerp(d.x,c.x,.63),y=lerp(d.y,c.y,.63)-h*.48;
+  shape(ctx,[{x:x-16,y},{x:x+12,y:y+11},
+   {x:x+9,y:y+15},{x:x-18,y:y+4}],
+   "rgba(74,86,77,.94)","rgba(226,203,164,.55)",.9);
+  for(let i=0;i<4;i++)
+   line(ctx,[{x:x-12+i*7,y:y-10+i*2.4},
+     {x:x-12+i*7,y:y+i*2.4}],"rgba(24,38,43,.82)",1.7);
+ }
  // Varais, cabos e tecido são parte da identidade da Baixada.
  // Tudo permanece contido na fachada do próprio prédio (sem bloquear ruas).
  if(paneled){
@@ -174,6 +211,15 @@ export function drawCityBuilding(ctx:CanvasRenderingContext2D,b:BuildingSpec):vo
  if(b.style==="canal"){
   line(ctx,[{x:d.x+15,y:d.y-9},{x:d.x+15,y:d.y-54},
     {x:d.x+33,y:d.y-54}],"#48616a",2.5);
+ }
+ // Calha e suportes de toldo seguem o plano da fachada, sem portal falso.
+ line(ctx,[{x:dt.x,y:dt.y+2},{x:ct.x,y:ct.y+2}],
+   "rgba(32,52,56,.79)",2.2);
+ if(b.style==="workshop"||b.style==="market"||b.style==="community"){
+  const ax=lerp(d.x,c.x,.46),ay=lerp(d.y,c.y,.46)-37;
+  for(let n=0;n<3;n++)
+   line(ctx,[{x:ax-23+n*13,y:ay+5+n*3},
+      {x:ax-19+n*13,y:ay+13+n*3}],"rgba(40,38,33,.45)",.9);
  }
  // Entrada escura, maçaneta âmbar; os atores interativos continuam no mapa.
  const doorX=(d.x+c.x)/2,doorY=(d.y+c.y)/2-26;
