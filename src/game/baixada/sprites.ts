@@ -16,6 +16,18 @@ import nilo from "../../assets/characters/npc-nilo.png";
 import joana from "../../assets/characters/npc-joana.png";
 import saira from "../../assets/characters/npc-saira.png";
 import teo from "../../assets/characters/npc-teo.png";
+import lia from "../../assets/characters/npc-lia.png";
+import ramon from "../../assets/characters/npc-ramon.png";
+import duda from "../../assets/characters/npc-duda.png";
+import iza from "../../assets/characters/npc-iza.png";
+import tomas from "../../assets/characters/npc-tomas.png";
+import davi from "../../assets/characters/npc-davi.png";
+import marta from "../../assets/characters/npc-marta.png";
+import celina from "../../assets/characters/npc-celina.png";
+import mara from "../../assets/characters/npc-mara.png";
+import iuri from "../../assets/characters/npc-iuri.png";
+import kai from "../../assets/characters/npc-kai.png";
+import dara from "../../assets/characters/npc-dara.png";
 import type { OriginId } from "../character/origins";
 import type { TestAppearance } from "../test-arena/appearance";
 
@@ -42,6 +54,18 @@ export function getPlayerSpriteUrl(origin: OriginId, appearance: TestAppearance)
 export const NPC_TEXTURES = {
   amara: "npc-amara", nilo: "npc-nilo", joana: "npc-joana",
   saira: "npc-saira", teo: "npc-teo",
+  lia: "npc-lia",
+  ramon: "npc-ramon",
+  duda: "npc-duda",
+  iza: "npc-iza",
+  tomas: "npc-tomas",
+  davi: "npc-davi",
+  marta: "npc-marta",
+  celina: "npc-celina",
+  mara: "npc-mara",
+  iuri: "npc-iuri",
+  kai: "npc-kai",
+  dara: "npc-dara",
 } as const;
 
 const SPRITES: Record<string, { url: string; columns: number }> = {};
@@ -52,7 +76,20 @@ for (const [origin, presentations] of Object.entries(PLAYER_SPRITES)) {
 }
 for (const [key, url] of Object.entries({ [NPC_TEXTURES.amara]: amara,
   [NPC_TEXTURES.nilo]: nilo,[NPC_TEXTURES.joana]: joana,
-  [NPC_TEXTURES.saira]: saira,[NPC_TEXTURES.teo]: teo })) {
+  [NPC_TEXTURES.saira]: saira,[NPC_TEXTURES.teo]: teo,
+  [NPC_TEXTURES.lia]: lia,
+  [NPC_TEXTURES.ramon]: ramon,
+  [NPC_TEXTURES.duda]: duda,
+  [NPC_TEXTURES.iza]: iza,
+  [NPC_TEXTURES.tomas]: tomas,
+  [NPC_TEXTURES.davi]: davi,
+  [NPC_TEXTURES.marta]: marta,
+  [NPC_TEXTURES.celina]: celina,
+  [NPC_TEXTURES.mara]: mara,
+  [NPC_TEXTURES.iuri]: iuri,
+  [NPC_TEXTURES.kai]: kai,
+  [NPC_TEXTURES.dara]: dara,
+})) {
   SPRITES[key] = { url, columns: NPC_COLUMNS };
 }
 

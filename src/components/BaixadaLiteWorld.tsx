@@ -71,7 +71,7 @@ type DrawLayer=
  |{kind:"actor";depth:number;pos:Point;actor:(typeof ACTORS)[number]};
 const ACTOR_SKIN:Readonly<Record<string,string>>={
  vendedor:"nilo",moradora:"joana",saira:"saira",
- "patio-sentinel":"teo","feira-corretor":"nilo","feira-ajuda":"joana",
+ "patio-sentinel":"teo","feira-corretor":"davi","feira-ajuda":"marta",
  lia:"lia",ramon:"ramon",duda:"duda",iza:"iza",tomas:"tomas",
 };
 

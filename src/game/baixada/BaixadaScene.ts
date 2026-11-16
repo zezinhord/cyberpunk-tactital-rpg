@@ -655,12 +655,13 @@ export class BaixadaScene extends Phaser.Scene {
       { id: "terminal-canal", name: "Terminal do Canal", kind: "terminal", tile: ACTOR_TILES["terminal-canal"], role: "SERVIÇOS DO DISTRITO" },
       { id: "patio-console", name: "Console V-09", kind: "terminal", tile: ACTOR_TILES["patio-console"], role: "PÁTIO DO REÚSO" },
       { id: "patio-sentinel", name: "Sentinela V-09", kind: "person", tile: ACTOR_TILES["patio-sentinel"], texture: NPC_TEXTURES.teo, role: "UNIDADE DE VIGILÂNCIA" },
-      { id: "feira-corretor", name: "Davi", kind:"person",tile:ACTOR_TILES["feira-corretor"],texture:NPC_TEXTURES.nilo,role:"INTERMEDIÁRIO DE ACESSOS" },
-      { id: "feira-ajuda", name: "Marta", kind:"person",tile:ACTOR_TILES["feira-ajuda"],texture:NPC_TEXTURES.joana,role:"ARTICULADORA COMUNITÁRIA" },
+      { id: "feira-corretor", name: "Davi", kind:"person",tile:ACTOR_TILES["feira-corretor"],texture:NPC_TEXTURES.davi,role:"INTERMEDIÁRIO DE ACESSOS" },
+      { id: "feira-ajuda", name: "Marta", kind:"person",tile:ACTOR_TILES["feira-ajuda"],texture:NPC_TEXTURES.marta,role:"ARTICULADORA COMUNITÁRIA" },
       { id: "feira-archive", name:"Mural de Boletins",kind:"terminal",tile:ACTOR_TILES["feira-archive"],role:"REDE COMUNITÁRIA" },
       ...ROAMING_NPCS.map((spec,index)=>({
         id:spec.id,name:spec.name,kind:"person" as const,tile:{...spec.route[0]},
-        texture:[NPC_TEXTURES.joana,NPC_TEXTURES.teo,NPC_TEXTURES.saira][index%3],
+        texture:NPC_TEXTURES[spec.id as keyof typeof NPC_TEXTURES]??
+           [NPC_TEXTURES.joana,NPC_TEXTURES.teo,NPC_TEXTURES.saira][index%3],
         role:spec.role,routine:new CitizenRoutine(spec),
       })),
     ];
@@ -668,7 +669,7 @@ export class BaixadaScene extends Phaser.Scene {
     for (const actor of this.actors) {
       const point = tileCenter(actor.tile);
       if (actor.kind === "person" && actor.texture) {
-        actor.visual = this.add.sprite(point.x, point.y, actor.texture, 12)
+        actor.visual = this.add.sprite(point.x, point.y, actor.texture, frameForDirection(actor.texture,2))
           .setOrigin(0.5, 0.95).setScale(0.86).setDepth(point.y + 0.2);
         playIdle(actor.visual, actor.texture, 2);
         if(actor.id === "patio-sentinel") actor.visual.setTint(0xff648f);

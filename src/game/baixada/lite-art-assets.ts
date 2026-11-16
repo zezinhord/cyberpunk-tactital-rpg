@@ -18,6 +18,18 @@ import nilo from "../../assets/characters/npc-nilo.png";
 import joana from "../../assets/characters/npc-joana.png";
 import saira from "../../assets/characters/npc-saira.png";
 import teo from "../../assets/characters/npc-teo.png";
+import lia from "../../assets/characters/npc-lia.png";
+import ramon from "../../assets/characters/npc-ramon.png";
+import duda from "../../assets/characters/npc-duda.png";
+import iza from "../../assets/characters/npc-iza.png";
+import tomas from "../../assets/characters/npc-tomas.png";
+import davi from "../../assets/characters/npc-davi.png";
+import marta from "../../assets/characters/npc-marta.png";
+import celina from "../../assets/characters/npc-celina.png";
+import mara from "../../assets/characters/npc-mara.png";
+import iuri from "../../assets/characters/npc-iuri.png";
+import kai from "../../assets/characters/npc-kai.png";
+import dara from "../../assets/characters/npc-dara.png";
 import type {OriginId} from "../character/origins";
 import type {TestAppearance} from "../test-arena/appearance";
 
@@ -29,19 +41,13 @@ const ORIGINS:Readonly<Record<OriginId,Readonly<Record<TestAppearance,string>>>>
  pesquisador:{masculine:pesquisadorM,feminine:pesquisadorF},
  nomade:{masculine:nomadeM,feminine:nomadeF},
 };
-// Habitantes nomeados têm silhuetas próprias sem gerar novas texturas.
-// Reaproveita os spritesheets direcionais originais já empacotados no APK.
+// NPCs autorais: 12 spritesheets 4×4 (64×80 por quadro).
+// Somente a origem ativa e os NPCs realmente usados são decodificados.
 const NPCS:Readonly<Record<string,string>>={
  nilo,joana,saira,teo,
- lia:pesquisadorF,
- ramon:militarM,
- duda:baixadaF,
- iza:nomadeF,
- tomas:gangueM,
+ lia,ramon,duda,iza,tomas,davi,marta,celina,mara,iuri,kai,dara,
 };
-export const LONG_NPC_SHEETS:ReadonlySet<string>=new Set([
- "lia","ramon","duda","iza","tomas",
-]);
+export const LONG_NPC_SHEETS:ReadonlySet<string>=new Set();
 const PUBLIC_DECOR:Readonly<Record<string,string>>={
  market:"/assets/baixada/market-stall.svg",
  palm:"/assets/baixada/palm-tree.svg",
