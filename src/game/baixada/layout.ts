@@ -36,6 +36,7 @@ export const ACTOR_TILES = {
   "feira-corretor": { x: 11, y: 24 },
   "feira-ajuda": { x: 6, y: 25 },
   "feira-archive": { x: 17, y: 29 },
+  "feira-memoria": { x: 20, y: 29 },
   "enter-sewer-drain": { x: 34, y: 20 },
   "enter-sewer-deep": { x: 35, y: 29 },
   "enter-ferrugem": { x: 37, y: 22 },
