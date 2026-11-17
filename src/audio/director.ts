@@ -297,7 +297,7 @@ class SynthDirector {
       if(this.beat%2===0)this.tone("ambient",this.current==="battle"?58:46,0.5,"sine",0.09);
     },score.speed);
   }
-  effect(kind:"step"|"door"|"terminal"|"interact"|"hit"|"tech"|"victory"):void {
+  effect(kind:"step"|"door"|"terminal"|"interact"|"hit"|"tech"|"victory"|"archive"|"machine"|"eden"):void {
     if(!this.ctx)return;
     const now=Date.now();
     if(kind==="step"&&now-this.previousStep<170)return;
@@ -309,10 +309,19 @@ class SynthDirector {
       terminal:[590,.22,"sine",.16],interact:[340,.11,"triangle",.11],
       hit:[114,.18,"sawtooth",.22],tech:[740,.26,"square",.09],
       victory:[440,.45,"sine",.23],
+      archive:[310,.28,"triangle",.16],machine:[78,.36,"sawtooth",.17],
+      eden:[216,.42,"sine",.18],
     };
     const [f,d,w,a]=defs[kind];
     this.tone("effects",f,d,w,a);
-    if(kind==="tech"||kind==="victory")this.tone("effects",f*1.5,d*.8,"sine",a*.65);
+    if(kind==="tech"||kind==="victory"||kind==="archive")
+      this.tone("effects",f*1.5,d*.8,"sine",a*.65);
+    if(kind==="machine")
+      this.tone("effects",f*.55,d*1.1,"triangle",a*.45);
+    if(kind==="eden"){
+      this.tone("effects",f*1.26,d*.73,"sine",a*.45);
+      this.tone("ambient",54,d*1.4,"triangle",.055);
+    }
   }
 }
 export const audioDirector=new SynthDirector();
