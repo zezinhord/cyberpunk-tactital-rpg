@@ -56,7 +56,7 @@ with zipfile.ZipFile(APK) as archive:
     if any(meta(n)!=(768,320) for n in player):
         raise SystemExit("A player origin sheet lost its 12 poses × 4 directions")
     metrics={
-      "version":"0.8.1-rc.1",
+      "version":"0.8.1-rc.2",
       "apkBytes":size,"targetBytes":MILESTONE,
       "ambientFiles":len(environmental),"ambientBytes":sum(entries[x].file_size for x in environmental),
       "originalSongs":len(original),"originalSongBytes":sum(entries[x].file_size for x in original),
