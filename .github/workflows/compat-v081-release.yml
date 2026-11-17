@@ -1,0 +1,398 @@
+name: Nova Arcadia 0.8.1 compatible with 0.7.9 installer
+
+on:
+  push:
+    branches:
+      - feature/progressive-quests-favors-v079
+    paths:
+      - .github/workflows/compat-v081-release.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  build-android:
+    name: Compile Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar versao 0.8.1 a partir da branch de expansao
+        uses: actions/checkout@v4
+        with:
+          ref: feature/nova-arcadia-expansion-v080
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # A branch 0.7.9 preserva no cache Actions seu proprio certificado.
+      # Se o cache sumiu, NUNCA gerar outra chave e fingir compatibilidade.
+      - name: Restaurar certificado original da 0.7.9
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: nova-arcadia-android-debug-key-v2
+
+      - name: Conferir certificado anterior antes de construir 291 MB
+        run: |
+          set -euo pipefail
+          KEY="$HOME/.android/debug.keystore"
+          test -s "$KEY" || { echo "ERRO: certificado v079 nao recuperado. Abortando sem chave rotacionada." >&2; exit 1; }
+          ACTUAL="$(keytool -exportcert -alias androiddebugkey             -keystore "$KEY" -storepass android 2>/dev/null | sha256sum | awk '{print $1}')"
+          EXPECTED="5dc2e19f679b68045c8da94e9a977e49f3e800ce824f4f726e1cf96c17bb5f38"
+          echo "Certificado recuperado: $ACTUAL"
+          [ "$ACTUAL" = "$EXPECTED" ] || {
+            echo "ERRO: chave de assinatura diferente da 0.7.9. Recusando APK incompativel." >&2
+            exit 1
+          }
+          echo "CI v0.8.1 usa o MESMO certificado do APK 0.7.9."
+
+      - name: Preparar gerador de personagens
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar recursos de geração gráfica
+        run: python -m pip install -r tools/requirements-characters.txt
+
+      - name: Instalar dependencias imutaveis
+        run: npm ci --no-audit --no-fund
+
+      - name: Verificar catálogo de direitos CC0 antes da compilação
+        run: |
+          python tools/import_cc0_music.py --check
+          node --experimental-strip-types scripts/test-cc0-radio.mjs
+
+      - name: Verificar contrato de identidade visual Nova Arcádia
+        run: node .agents/skills/nova-arcadia-game-art-ui/scripts/check-visual-contract.mjs
+
+      - name: Verificar toque alinhado com câmera suavizada
+        run: node scripts/test-visual-camera-hit.mjs
+
+      - name: Verificar TypeScript antes da geração pesada de recursos
+        run: npx tsc -b
+
+      - name: Testar sistema de habilidades
+        run: node --experimental-strip-types scripts/test-abilities.mjs
+
+      - name: Testar colisões físicas e portas da Baixada
+        run: node --experimental-strip-types scripts/test-baixada-collisions.mjs
+
+      - name: Testar cura na clinica e persistencia de Vida
+        run: node --experimental-strip-types scripts/test-clinic-healing.mjs
+
+      - name: Testar favores progressivos, carteira, honra e loja
+        run: node --experimental-strip-types scripts/test-favors.mjs
+
+      - name: Testar o arco pós-Circuito Fantasma, combates e decisões do Projeto Éden
+        run: node --experimental-strip-types scripts/test-eden-echoes.mjs
+
+      - name: Testar NPCs, dialogos e persistencia da campanha
+        run: |
+          node --experimental-strip-types scripts/test-npc-routines.mjs
+          node --experimental-strip-types scripts/test-patio-dialogues.mjs
+          node --experimental-strip-types scripts/test-story-v09.mjs
+          node --experimental-strip-types scripts/test-world-location.mjs
+          node --experimental-strip-types scripts/test-market-story.mjs
+          node --experimental-strip-types scripts/test-semiopen-world.mjs
+
+      - name: Verificar audio e regras de classes
+        run: |
+          node --experimental-strip-types scripts/test-audio.mjs
+          node --experimental-strip-types scripts/test-class-abilities.mjs
+          node --experimental-strip-types scripts/test-class-saves.mjs
+          node --experimental-strip-types scripts/test-save-slots.mjs
+
+      - name: Testar perfis gráficos e FPS Android
+        run: node --experimental-strip-types scripts/test-performance.mjs
+
+      - name: Testar prólogo cinematográfico e migração de salvamentos
+        run: node --experimental-strip-types scripts/test-opening.mjs
+
+      - name: Validar a interface narrativa cinematografica e seus gatilhos
+        run: node scripts/test-narrative-ui.mjs
+
+      - name: Validar sintaxe JavaScript enviada ao Chromium antes da compilacao
+        run: node scripts/test-cdp-eval-syntax.mjs
+
+      - name: Validar linha de tiro, cobertura, IA e movimento Android
+        run: |
+          node --experimental-strip-types scripts/test-tactics.mjs
+          node --experimental-strip-types scripts/test-movement.mjs
+
+      - name: Testar implantes, consumíveis e novos encontros Éden
+        run: node --experimental-strip-types scripts/test-expansion-combat.mjs
+
+      - name: Testar progressao, campanha e ondas de combate
+        run: |
+          node --experimental-strip-types scripts/test-progression.mjs
+          node --experimental-strip-types scripts/test-field-test.mjs
+          node --experimental-strip-types scripts/test-combat-waves.mjs
+
+      - name: Testar fabricação, materiais e equipamentos industriais
+        run: node --experimental-strip-types scripts/test-crafting.mjs
+
+      - name: Testar Ferrugem, novo distrito industrial e campanha ramificada
+        run: node --experimental-strip-types scripts/test-ferrugem.mjs
+
+      - name: Validar identidade artística e acessibilidade dos cinco distritos
+        run: node --experimental-strip-types scripts/test-district-art.mjs
+
+      - name: Verificar oclusao dos predios e sprites dos guias
+        run: node scripts/test-visual-depth.mjs
+
+      - name: Testar cinco distritos, 35 missões e dez desfechos
+        run: node --experimental-strip-types scripts/test-districts.mjs
+
+      - name: Validar caches reais e rotas dos seis territórios
+        run: node --experimental-strip-types scripts/test-world-cache.mjs
+
+      - name: Testar os sete interiores autorais, corredores e 21 recompensas
+        run: node --experimental-strip-types scripts/test-indoor-expansion.mjs
+
+      - name: Testar os dois esgotos e checkpoints da investigação
+        run: node --experimental-strip-types scripts/test-sewer-world.mjs
+
+      - name: Validar planta, colisões e rotas da Baixada
+        run: node --experimental-strip-types scripts/test-baixada-layout.mjs
+
+      - name: Restaurar trilhas originais entre builds
+        uses: actions/cache@v4
+        with:
+          path: public/assets/soundscapes
+          key: nova-arcadia-original-score-v1-${{ hashFiles('tools/generate_soundscapes.py') }}
+
+      # Cache de áudio é isolado por branch no GitHub. Reutilizamos as 56
+      # composições produzidas e validadas no APK 0.7.9, preservando hashes
+      # e a geração procedural como fallback quando o download não funciona.
+      - name: Reutilizar 56 trilhas originais de build validada
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -s public/assets/soundscapes/baixada/abertura.ogg ] &&
+             [ -s public/assets/soundscapes/periferia/revelacao.ogg ] &&
+             [ -s public/assets/soundscapes/catalog.json ]; then
+            echo "Trilhas originais já restauradas do cache desta branch."
+          else
+            echo "Tentando recuperar somente os áudios da build Android 0.7.9 validada."
+            if curl --connect-timeout 10 --max-time 120 --retry 2 -fsSL \
+               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+               -H "Accept: application/vnd.github+json" \
+               "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/14284261708/zip" \
+               -o /tmp/nova-arcadia-v079-artifact.zip &&
+               unzip -p /tmp/nova-arcadia-v079-artifact.zip app-debug.apk > /tmp/nova-arcadia-v079.apk &&
+               python tools/recover_soundscapes_from_apk.py /tmp/nova-arcadia-v079.apk; then
+              echo "Áudios restaurados sem síntese custosa; preservados no pacote final."
+            else
+              echo "Recuperação indisponível: o sintetizador local regenerará os arquivos faltantes."
+            fi
+          fi
+          rm -f /tmp/nova-arcadia-v079-artifact.zip /tmp/nova-arcadia-v079.apk
+
+      - name: Instalar e validar sintetizador de trilha original
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          command -v ffmpeg
+          command -v ffprobe
+          ffmpeg -hide_banner -encoders | grep 'libopus'
+
+      - name: Restaurar ambientes urbanos originais entre compilações
+        uses: actions/cache@v4
+        with:
+          path: public/assets/ambient
+          key: nova-arcadia-ambience-v081-${{ hashFiles('tools/generate_urban_ambience.py') }}
+
+      - name: Produzir 28 ambiências ambientais originais para 7 distritos
+        run: python tools/generate_urban_ambience.py
+
+      - name: Verificar duração, originalidade e integração das ambiências
+        run: node scripts/test-urban-ambience.mjs
+
+      - name: Restaurar musicas CC0 licenciadas entre compilações
+        uses: actions/cache@v4
+        with:
+          path: public/assets/music
+          key: nova-arcadia-cc0-v1-${{ hashFiles('music/cc0-sources.json', 'tools/import_cc0_music.py') }}
+
+      - name: Importar musicas reais CC0 para reproduzir sem internet
+        run: python tools/import_cc0_music.py
+
+      - name: Compilar aplicacao
+        run: npm run build
+
+      - name: Validar 56 trilhas originais e duração do conteúdo
+        run: node --experimental-strip-types scripts/test-soundscapes.mjs
+
+      - name: Verificar os 12 spritesheets direcionais
+        run: node scripts/test-character-sheets.mjs
+
+      - name: Verificar NPCs proprios 4 direcoes e atlas visual
+        run: node scripts/test-npc-sheets.mjs
+
+      - name: Testar acabamento da Baixada
+        run: node scripts/test-baixada-art.mjs
+
+      - name: Testar primeiro boot Android sem cache, Phaser ou WebGL
+        run: node scripts/test-android-cold-boot.mjs
+
+      - name: Capturar screenshot real da Baixada em Chromium
+        if: github.event_name == 'push'
+        # Falhas de UX ou erros em JS devem impedir uma entrega marcada
+        # como validada. O bloco abaixo já repete falhas transitórias do CDP.
+        run: |
+          # O Chromium do runner pode encerrar antes de abrir a porta CDP.
+          # Repetir o processo inteiro preserva a validação funcional e coleta
+          # exceções reais caso a falha seja de aplicativo, não de startup.
+          for attempt in 1 2 3; do
+            echo "QA visual: tentativa $attempt/3"
+            if node scripts/capture-baixada-visual.mjs; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "QA visual indisponível após três tentativas"
+          exit 1
+
+      - name: Publicar captura visual da Baixada
+        if: always() && github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Baixada-Visual-QA-1600x720
+          path: qa/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Criar projeto Android
+        if: github.event_name != 'pull_request'
+        run: npx cap add android
+
+      - name: Sincronizar Capacitor
+        if: github.event_name != 'pull_request'
+        run: npx cap sync android
+
+      - name: Aplicar orientacao horizontal
+        if: github.event_name != 'pull_request'
+        run: node scripts/lock-android-landscape.mjs
+
+      - name: Ativar tela imersiva Android
+        if: github.event_name != 'pull_request'
+        run: node scripts/enable-android-immersive.mjs
+
+      - name: Criar chave Android de teste se nao estiver em cache
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          if [ ! -s "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -noprompt \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Nova Arcadia Debug,O=Nova Arcadia,C=BR"
+          fi
+          test -s "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" \
+            -storepass android -alias androiddebugkey
+
+      - name: Vincular certificado persistente ao Gradle
+        if: github.event_name != 'pull_request'
+        run: node scripts/force-android-signing.mjs
+
+      - name: Gerar APK
+        if: github.event_name != 'pull_request'
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Validar marco de 250 MB e conteúdo REAL usado no APK
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          python tools/audit_apk_content.py android/app/build/outputs/apk/debug/app-debug.apk
+          BYTES="$(stat -c %s android/app/build/outputs/apk/debug/app-debug.apk)"
+          echo "APK_BYTES=$BYTES"
+          echo "MARCO_250_MB_BYTES=250000000"
+          {
+            echo "## Nova Arcádia 0.8.1-rc.1 — marco de armazenamento auditado"
+            echo "APK real: **$BYTES bytes**"
+            echo "Meta original: **250.000.000 bytes**"
+            echo "Sem limite máximo: arquivos devem estar ligados ao jogo."
+            echo "Manifesto verificou 56 músicas preservadas, 28 ambientes originais"
+            echo "e 29 folhas direcionais utilizadas em jogo (17 NPCs + 12 protagonistas)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validar assinatura real da APK
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          mkdir -p qa
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          APKSIGNER="$(find "$SDK/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs \
+            android/app/build/outputs/apk/debug/app-debug.apk \
+            | tee qa/assinatura-debug.txt
+          grep -q 'certificate SHA-256 digest' qa/assinatura-debug.txt
+          grep -q 'CN=Nova Arcadia Debug' qa/assinatura-debug.txt
+          ACTUAL="$(sed -n 's/^V2 Signer: certificate SHA-256 digest: //p' qa/assinatura-debug.txt | head -n 1)"
+          test "$ACTUAL" = "5dc2e19f679b68045c8da94e9a977e49f3e800ce824f4f726e1cf96c17bb5f38" || { echo 'ERRO: chave de compatibilidade nao foi utilizada'; exit 1; }
+          if [ "$GITHUB_REF" = "refs/heads/feature/landscape-mobile-v1" ]; then
+            EXPECTED="$(cat config/android-debug-cert.sha256)"
+            ACTUAL="$(sed -n 's/^V2 Signer: certificate SHA-256 digest: //p' qa/assinatura-debug.txt | head -n 1)"
+            if [ "$ACTUAL" != "$EXPECTED" ]; then
+              echo "ERRO: assinatura mudou. Não distribua APK incompatível. Esperado: $EXPECTED; atual: $ACTUAL" >&2
+              exit 1
+            fi
+            echo "Certificado Android estável confirmado: $ACTUAL"
+          fi
+
+      - name: Publicar identidade da assinatura
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Assinatura-Android-QA
+          path: qa/assinatura-debug.txt
+          retention-days: 30
+
+      - name: Disponibilizar APK
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-081-Compat079-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+      - name: Publicar APK compativel em link direto GitHub Release
+        if: github.ref == 'refs/heads/feature/progressive-quests-favors-v079'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="v0.8.1-rc.1-android-test"
+          DEST="NovaArcadia-0.8.1-Compat-079.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "$DEST"
+          test -s "$DEST"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$DEST" --clobber
+          else
+            gh release create "$TAG" "$DEST" \
+              --target feature/nova-arcadia-expansion-v080 \
+              --title "Nova Arcadia 0.8.1-rc.1 | Android QA, sem publicar" \
+              --notes "APK experimental direto, sem ZIP. Compat-079: certificado identico a 0.7.9 para atualizar SEM perder salvamentos. Validado por apksigner, checksum, 250MB e QA. A branch main permanece intocada; testes fisicos ainda pendentes." \
+              --prerelease
+          fi
+          echo "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${DEST}" >> "$GITHUB_STEP_SUMMARY"
