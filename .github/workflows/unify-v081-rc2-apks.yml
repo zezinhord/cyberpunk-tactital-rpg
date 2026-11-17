@@ -1,0 +1,29 @@
+name: Unificar APKs Android 0.8.1 rc.2 em uma pagina
+on:
+  push:
+    branches:
+      - feature/progressive-quests-favors-v079
+    paths:
+      - .github/workflows/unify-v081-rc2-apks.yml
+permissions:
+  contents: write
+jobs:
+  unify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reunir APK preservando a assinatura antiga
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/nova-arcadia
+          FILE=NovaArcadia-0.8.1-rc.2-Compat-079.apk
+          gh release download v0.8.1-rc.2-android-test --repo "$GITHUB_REPOSITORY" \
+            --pattern "$FILE" --dir /tmp/nova-arcadia
+          echo "5e7b9ff7a700ed4814682e57751356ce326925e13432a61f1416457c5ef19b9f  /tmp/nova-arcadia/$FILE" | sha256sum -c -
+          test "$(stat -c %s "/tmp/nova-arcadia/$FILE")" -eq 291116329
+          gh release upload v0.8.1-rc.2-android-hotfix "/tmp/nova-arcadia/$FILE" \
+            --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit v0.8.1-rc.2-android-hotfix --repo "$GITHUB_REPOSITORY" \
+            --notes "NOVA ARCÁDIA 0.8.1-rc.2 — HOTFIX DE DERROTA (APK de teste, não versão pública definitiva). Ambas as versões contêm as sete áreas interiores, 28 ambientes sonoros e todo o conteúdo da expansão 291 MB. Escolha apenas uma assinatura compatível com seu aparelho: Compat-079 atualiza 0.7.9; Compat-080 atualiza 0.8.0 e 0.8.1 com certificado cb8a. Correções: tela de derrota acessível, retentativa com 50% PV, evacuação à clínica 35% PV, proteção do Canvas Phaser contra context null, saves e missões preservados. Compilação #857 e testes de KO/retentativa/evacuação aprovados. Testes em aparelhos Android físicos pendentes. Não desinstale sem exportar backup."
+          echo "https://github.com/$GITHUB_REPOSITORY/releases/tag/v0.8.1-rc.2-android-hotfix" >> "$GITHUB_STEP_SUMMARY"
