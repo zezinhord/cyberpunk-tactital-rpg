@@ -46,6 +46,7 @@ import {FAVORS,readFavors,saveFavors,claimFavor,buyFromNilo,syncFavorItems,
   type FavorId,type FavorState} from "./game/story/favors";
 import {readMarket} from "./game/story/market";
 import {EDEN_STEPS,readEden,saveEden,advanceEdenBattle,syncEdenItems,type EdenEncounter} from "./game/story/eden-echoes.ts";
+import {claimDiscovery,DISCOVERY_AREAS,DISCOVERY_REWARDS} from "./game/story/discoveries.ts";
 import {readReputation,syncFactionAids} from "./game/story/reputation";
 import {readDistrictProgress,saveDistrictProgress,advanceDistrict,
  districtCurrentStep} from "./game/districts/progress";
@@ -309,6 +310,10 @@ export default function App() {
     for(const id of state.claimed){
       const quest=FAVORS.find(f=>f.id===id);
       if(quest&&!grantTrialXp("favor-"+id,quest.reward.xp))return false;
+    }
+    for(const area of DISCOVERY_AREAS){
+      if(next.rewardReceipts?.includes("discovery-"+area)&&
+          !grantTrialXp("discovery-"+area,DISCOVERY_REWARDS[area].xp))return false;
     }
     const narrative=readEden(active.id);
     for(const id of narrative.history){
@@ -665,13 +670,13 @@ export default function App() {
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
         onCraft={craftAtWorkshop}
-        onCollectDistrictCache={(area,item)=>{
+        onCollectDistrictCache={area=>{
           const active=characterRef.current;
           if(!active)return false;
           const owned=inventory.ownerId===active.id?inventory:loadInventory(active.id);
-          const next=grantRewardInventoryItem(owned,item,1,"discovery-"+area);
-          if(next===owned||!saveInventory(next))return false;
-          setInventory(next);
+          const result=claimDiscovery(owned,area);
+          if(!result.ok||!saveInventory(result.state))return false;
+          setInventory(result.state);
           return true;
         }}
         onGrantIndustrialItem={(id:ItemId)=>setInventory(current=>grantItem(current,id))}
