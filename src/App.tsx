@@ -26,7 +26,7 @@ import ExplorationScreen from "./screens/ExplorationScreen";
 import TitleScreen from "./screens/TitleScreen";
 import {
   createStartingInventory, loadInventory, saveInventory,
-  toggleEquipment, consumeItem, getEquipmentBonuses, grantItem, ITEM_CATALOG,
+  toggleEquipment, consumeItem, getEquipmentBonuses, grantItem, ITEM_CATALOG,ITEM_IDS,
 } from "./game/inventory";
 import type { ItemId, InventoryState } from "./game/inventory";
 import {craftRecipe,type RecipeId} from "./game/crafting";
@@ -232,7 +232,8 @@ export default function App() {
     if (character) saveTestAppearance(character.id, choice);
   };
   const [inventory, setInventory] = useState<InventoryState>(() => loadInventory(loadCharacter()?.id ?? ""));
-  const bonuses = useMemo(() => getEquipmentBonuses(inventory), [inventory.equipped.weapon, inventory.equipped.armor]);
+  const [selectedSupply,setSelectedSupply]=useState<ItemId>("curativo_campo");
+  const bonuses = useMemo(() => getEquipmentBonuses(inventory), [inventory.equipped.weapon, inventory.equipped.armor, inventory.equipped.implant]);
   useEffect(() => {
     if (character && inventory.ownerId === character.id) saveInventory(inventory);
   }, [character?.id, inventory]);
@@ -244,7 +245,7 @@ export default function App() {
 
   const originProfile = useMemo(() => character ? getOriginGameplay(character.originId) : undefined, [character?.originId]);
   const progressionBonuses=combatProgression(character);
-  const maximumHp=18+(originProfile?.maxHpBonus??0)+progressionBonuses.hp;
+  const maximumHp=18+(originProfile?.maxHpBonus??0)+progressionBonuses.hp+bonuses.hpBonus;
   const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
     currentHp:loadHealth(character?.id??"",maximumHp),
     progressionBonuses:combatProgression(character),encounterId:battleMode,weaponId:inventory.equipped.weapon }), [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
@@ -573,19 +574,24 @@ export default function App() {
   };
   const treatAtClinic=():number=>{
     if(!character)return 0;
-    const max=18+getOriginGameplay(character.originId).maxHpBonus+combatProgression(character).hp;
+    const max=18+getOriginGameplay(character.originId).maxHpBonus+combatProgression(character).hp+bonuses.hpBonus;
     const current=loadHealth(character.id,max);
     if(!healAtClinic(character.id,max))return 0;
     setHealthValue(max);
     return Math.max(0,max-current);
   };
 
-  const handleUseMedkit = () => {
-    if (inventory.quantities.curativo_campo < 1) return;
-    if (manager.useMedicalSupply(ITEM_CATALOG.curativo_campo.healAmount ?? 0)) {
-      setInventory((current) => consumeItem(current, "curativo_campo"));
-    }
+  const handleUseSupply = () => {
+    if (inventory.quantities[selectedSupply] < 1) return;
+    const item=ITEM_CATALOG[selectedSupply];
+    const used=item.healAmount?manager.useMedicalSupply(item.healAmount):
+      item.energyAmount?manager.useEnergySupply(item.energyAmount):false;
+    if(used)setInventory(current=>consumeItem(current,selectedSupply));
   };
+  const consumables=ITEM_IDS.filter(id=>ITEM_CATALOG[id].category==="consumable");
+  const supply=ITEM_CATALOG[selectedSupply];
+  const supplyUseful=Boolean(supply.healAmount&&player&&player.hp<player.maxHp||
+    supply.energyAmount&&state.energy<state.maxEnergy);
 
   if (screen === "title") {
     return <TitleScreen character={character} slots={slots} onLoadSlot={handleLoadSlot}
@@ -729,7 +735,13 @@ export default function App() {
             <ActionChip label="Bônus" ready={state.bonusActionAvailable} />
           </div>
           <div className="actions">
-            <button type="button" className="end-turn-button" disabled={state.activeSide !== "player" || state.combatComplete || !state.bonusActionAvailable || !player || player.hp >= player.maxHp || inventory.quantities.curativo_campo < 1} onClick={handleUseMedkit}>Curativo ({inventory.quantities.curativo_campo})</button>
+            <label className="na-supply-select">
+              <span>SUPRIMENTO</span>
+              <select value={selectedSupply} onChange={event=>setSelectedSupply(event.target.value as ItemId)} aria-label="Escolher suprimento de combate">
+                {consumables.map(id=><option key={id} value={id}>{ITEM_CATALOG[id].name} ({inventory.quantities[id]})</option>)}
+              </select>
+            </label>
+            <button type="button" className="end-turn-button" disabled={state.activeSide!=="player"||state.combatComplete||!state.bonusActionAvailable||!supplyUseful||inventory.quantities[selectedSupply]<1} onClick={handleUseSupply}>Usar suprimento</button>
             <button type="button" className="end-turn-button" onClick={() => { buzz(); manager.endPlayerTurn(); }} disabled={state.activeSide !== "player" || state.combatComplete}>Encerrar turno</button>
             <button type="button" className="attack-button" onClick={() => { buzz(20); manager.attack(); }}
               title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense}`:attackPreview.reason}
