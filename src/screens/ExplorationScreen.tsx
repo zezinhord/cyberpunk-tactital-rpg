@@ -18,6 +18,8 @@ import {isAndroidDevice} from "../game/performance";
 import {FAVORS,NILO_SHOP,readFavors,saveFavors,acceptFavor,recordFavorActivity,
   visibleFavors,knownFavors,discoverFavors,favorStatus,shopOfferUnlocked,type FavorId} from "../game/story/favors";
 import {calculateReputation,FACTION_NAMES,factionStanding} from "../game/story/reputation";
+import {readUrban,saveUrban,currentUrbanCase,decideUrban,urbanPressure} from "../game/story/urban-chronicles.ts";
+import type {RadioDistrict} from "../audio/soundscapes.ts";
 import {EDEN_STEPS,readEden,saveEden,startEden,currentEdenStep,edenObjective,advanceEden,type EdenEnding} from "../game/story/eden-echoes.ts";
 import {DISCOVERY_REWARDS,type DiscoveryArea} from "../game/story/discoveries.ts";
 import type {ClassId} from "../game/classes/registry";
@@ -43,6 +45,9 @@ import {readDistrictProgress,saveDistrictProgress,beginDistrict,
  districtCurrentStep,districtObjective,advanceDistrict,type ChapterProgress,
  type DistrictEnding} from "../game/districts/progress";
 
+const sceneLabel=(area:RadioDistrict)=>({baixada:"Baixada",ferrugem:"Ferrugem",
+ aurea:"Áurea",subsolo:"Subsolo","setor-zero":"Setor Zero",
+ prisma:"Prisma",periferia:"Periferia"} as const)[area];
 type MissionStep = 0 | 1 | 2 | 3;
 interface MissionProgress { step: MissionStep; clues: string[] }
 interface DialoguePage { speaker: string; role: string; portrait: string; text: string; choices?: readonly ConversationOption[] }
@@ -175,7 +180,9 @@ export default function ExplorationScreen({
     periferia:readDistrictProgress(character.id,"periferia"),
   }));
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
-  const [hubTab,setHubTab]=useState<"mission"|"favors">("mission");
+  const [hubTab,setHubTab]=useState<"mission"|"favors"|"city">("mission");
+  const [urban,setUrban]=useState(()=>readUrban(character.id));
+  const [urbanNotice,setUrbanNotice]=useState("");
   const [hubOpen, setHubOpen] = useState(()=>!isAndroidDevice());
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuStartSection,setMenuStartSection]=useState<"character"|"progression"|"journal">("character");
@@ -224,7 +231,28 @@ export default function ExplorationScreen({
         ...favorChoicesFor("dra-amara")]}:page));
   };
   const v09=readV09(character.id);
-  const reputation=calculateReputation({favors,market,ferrugem,eden,chapters:cityChapters});
+  const reputation=calculateReputation({favors,market,ferrugem,eden,chapters:cityChapters,urban});
+  const cityArea:RadioDistrict=isInnerId(interior)?
+    INNER_BLUEPRINTS[interior].parent??"baixada":
+    isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":"baixada";
+  const urbanCase=currentUrbanCase(urban,cityArea,v09.defeated);
+  useEffect(()=>{
+    audioDirector.setUrbanPressure(Math.min(3,urbanPressure(urban,cityArea)+Math.floor(market.heat/3)));
+  },[urban,cityArea,market.heat]);
+  const resolveUrban=(option:"a"|"b"):void=>{
+    if(!urbanCase)return;
+    const outcome=decideUrban(urban,cityArea,urbanCase.id,option,v09.defeated);
+    if(!outcome.ok||!outcome.incident||!outcome.choice)return;
+    if(!saveUrban(character.id,outcome.state)){
+      setUrbanNotice("Não foi possível salvar esta ocorrência. Libere armazenamento e tente novamente.");return;
+    }
+    setUrban(outcome.state);
+    onQuestXp("urban-"+outcome.incident.id,outcome.incident.xp);
+    setUrbanNotice(outcome.incident.title+" concluída · "+outcome.incident.xp+" XP.");
+    audioDirector.effect("archive");
+    say([{speaker:outcome.incident.contact,role:"CONSEQUÊNCIA REGIONAL · "+sceneLabel(cityArea),
+      portrait:"◆",text:outcome.choice.result}]);
+  };
   const favorContext={missionStep:mission.step,v09Defeated:v09.defeated,honor:favors.honor};
   const unlockedFavors=knownFavors(favors,favorContext);
   // Ao conversar com o próprio contato, a oferta aparece sem precisar abrir o quadro.
@@ -1202,6 +1230,8 @@ export default function ExplorationScreen({
               onClick={()=>setHubTab("mission")}>Principal</button>
             <button type="button" role="tab" aria-selected={hubTab==="favors"}
               onClick={()=>setHubTab("favors")}>Favores {favors.accepted.filter(id=>!favors.claimed.includes(id)).length}</button>
+            <button type="button" role="tab" aria-selected={hubTab==="city"}
+              onClick={()=>setHubTab("city")}>Cidade</button>
           </div>
           {hubTab==="mission"?<div className="na-quest-tab-content" role="tabpanel">
             <span className="na-quest-kicker">ETAPA ATUAL · SEM REVELAR PRÓXIMOS CAPÍTULOS</span>
@@ -1237,7 +1267,7 @@ export default function ExplorationScreen({
               <small key={text} className="na-quest-notice" role="status">{text}</small>)}
             <button className="na-quest-secondary" type="button" onClick={openQuestJournal}>
               Abrir diário completo ↗</button>
-          </div>:<div className="na-quest-tab-content na-favor-board" role="tabpanel">
+          </div>:hubTab==="favors"?<div className="na-quest-tab-content na-favor-board" role="tabpanel">
             <div className="na-favor-wallet"><span>CRÉDITOS <strong>{favors.credits}</strong></span>
               <span>HONRA <strong>{favors.honor}</strong></span></div>
             <div className="na-faction-mini" aria-label="Relações com as facções">
@@ -1266,6 +1296,18 @@ export default function ExplorationScreen({
             {favorNotice&&<small className="na-quest-notice" role="status">{favorNotice}</small>}
             <button className="na-quest-secondary" type="button" onClick={openQuestJournal}>
               Histórico e recompensas no diário ↗</button>
+          </div>:<div className="na-quest-tab-content na-favor-board na-urban-board" role="tabpanel">
+            <span className="na-quest-kicker">OCORRÊNCIAS LOCAIS · {sceneLabel(cityArea).toUpperCase()}</span>
+            {!v09.defeated?<p className="na-favor-empty">Investigue a sentinela V-09 para acessar as redes comunitárias de ocorrências.</p>:
+              urbanCase?<article className="na-favor-row na-urban-case">
+                <div><strong>{urbanCase.title}</strong><small>{urbanCase.contact}</small></div>
+                <p>{urbanCase.situation}</p>
+                <small>{urbanCase.xp} XP · relações políticas e vigilância afetadas</small>
+                {urbanCase.choices.map(option=><button type="button" key={option.id}
+                  onClick={()=>resolveUrban(option.id)}>{option.label}</button>)}
+              </article>:<p className="na-favor-empty">Ocorrências resolvidas nesta região. Outros distritos têm novos conflitos.</p>}
+            {urbanNotice&&<small role="status" className="na-quest-notice">{urbanNotice}</small>}
+            <small className="na-quest-kicker">DECISÕES REGISTRADAS: {Object.keys(urban.choices).length} / 21</small>
           </div>}
         </div>}
       </aside>

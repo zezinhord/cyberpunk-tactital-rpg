@@ -377,3 +377,11 @@
 @media (orientation:portrait){
  .na-mission-hub.na-quest-hud{margin:8px 10px;width:auto;max-height:55vh}
 }
+
+/* Ocorrências regionais: escolhas no painel existente; sem overlay sobre o mapa. */
+.na-urban-board .na-urban-case{display:flex;flex-direction:column;align-items:stretch;gap:6px}
+.na-urban-case>button{width:100%;min-height:48px;padding:8px 10px;
+ background:#273e47;color:#f8e7c5;border:1px solid #aa9368;
+ border-radius:6px;text-align:left;font:700 11px/1.35 var(--display)}
+.na-urban-case>button:focus-visible{outline:2px solid #00e5ff;outline-offset:2px}
+.na-urban-board .na-quest-kicker{font-size:10px;letter-spacing:.04em}
