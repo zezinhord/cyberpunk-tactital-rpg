@@ -296,6 +296,7 @@ export default function ExplorationScreen({
       return;
     }
     setFerrugem(result.progress);
+    audioDirector.effect("machine");
     if(result.progress.completed){
       // A resolução altera indicadores já usados nos diálogos do Mercado.
       // Publicar amplia o alerta da rede; proteger fortalece a confiança local.
@@ -431,6 +432,7 @@ export default function ExplorationScreen({
           return;
         }
         setEden(result.state);
+        audioDirector.effect("eden");
         onQuestXp("eden-"+result.step.id,result.step.xp);
         onSyncFactionAids();
         setCityNotice(result.step.title+" · +"+result.step.xp+" XP · próxima pista liberada.");
@@ -449,7 +451,7 @@ export default function ExplorationScreen({
       if(slot==="discovery"){
         const discovery=DISCOVERY_REWARDS[district];
         const collected=onCollectDistrictCache(district);
-        if(collected)onQuestXp("discovery-"+district,discovery.xp);
+        if(collected){audioDirector.effect("archive");onQuestXp("discovery-"+district,discovery.xp);}
         say([{speaker:getDistrict(district).name,role:"CAIXA DE SUPRIMENTOS · DESCOBERTA",
           portrait:"▤",text:collected?discovery.story+
             " Item recolhido e +"+discovery.xp+" XP.":
@@ -523,7 +525,7 @@ export default function ExplorationScreen({
     }
     if(id==="ferrugem-salvage"){
       const collected=onCollectDistrictCache("ferrugem");
-      if(collected)onQuestXp("discovery-ferrugem",12);
+      if(collected){audioDirector.effect("machine");onQuestXp("discovery-ferrugem",12);}
       say([{speaker:"ARQUIVO DE REFUGO",role:"RECUPERAÇÃO DA SIDERÚRGICA",
         portrait:"▤",text:collected?
           "Um microatuador da linha de montagem estava escondido na caixa lacrada. Material recuperado e +12 XP.":
@@ -639,7 +641,7 @@ export default function ExplorationScreen({
     if(id==="feira-memoria"){
       const discovery=DISCOVERY_REWARDS.baixada;
       const collected=onCollectDistrictCache("baixada");
-      if(collected)onQuestXp("discovery-baixada",discovery.xp);
+      if(collected){audioDirector.effect("archive");onQuestXp("discovery-baixada",discovery.xp);}
       say([{speaker:"ARQUIVO DE MEMÓRIAS",role:"REDE AUTÔNOMA · HISTÓRIAS DA BAIXADA",
         portrait:"▤",text:collected?
           discovery.story+" +"+discovery.xp+" XP e arquivo recuperado.":
@@ -892,6 +894,7 @@ export default function ExplorationScreen({
           text:"A decisão não foi salva. Libere espaço e tente novamente."}]);return;
       }
       setEden(result.state);
+      audioDirector.effect("eden");
       onQuestXp("eden-"+result.step.id,result.step.xp);
       onSyncFactionAids();
       say([{speaker:"MARTA · CASA COMUM",role:"CONSEQUÊNCIAS DO PROJETO ÉDEN",portrait:"M",
