@@ -665,6 +665,15 @@ export default function App() {
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
         onCraft={craftAtWorkshop}
+        onCollectDistrictCache={(area,item)=>{
+          const active=characterRef.current;
+          if(!active)return false;
+          const owned=inventory.ownerId===active.id?inventory:loadInventory(active.id);
+          const next=grantRewardInventoryItem(owned,item,1,"discovery-"+area);
+          if(next===owned||!saveInventory(next))return false;
+          setInventory(next);
+          return true;
+        }}
         onGrantIndustrialItem={(id:ItemId)=>setInventory(current=>grantItem(current,id))}
         onGrantQuestItem={(id:ItemId)=>setInventory(current=>grantRewardInventoryItem(current,id,1,"story-first-"+id))}
       />
