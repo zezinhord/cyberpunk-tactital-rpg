@@ -778,6 +778,8 @@ export default function App() {
             <span>COBERTURA DO ALVO: {attackPreview.cover==="partial"?"PARCIAL +2 DEF":
               attackPreview.cover==="full"?"TIRO BLOQUEADO":"SEM COBERTURA"}</span>
             <span>INTENÇÃO HOSTIL: {manager.getEnemyIntent()}</span>
+            {state.overwatchReady&&<span>VIGILÂNCIA PREPARADA · 2 EN INVESTIDOS</span>}
+            {state.suppressionTurns>0&&<span>SUPRESSÃO ATIVA · -2 CÉLULAS</span>}
             {!attackPreview.available&&state.activeSide==="player"&&!state.combatComplete&&
               <span className="na-tactic-disabled-reason">{attackPreview.reason}</span>}
           </div>
@@ -831,7 +833,12 @@ export default function App() {
               title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense}`:attackPreview.reason}
               disabled={!canAttack}>{attackPreview.mode==="ranged"?"Disparar":"Ataque corpo a corpo"}</button>
           </div>
-          <div className="secondary-actions">{battleMode==="test" && <button type="button" onClick={() => {setVictoryDetailsOpen(false);setDefeatNotice("");setBattleReset((value) => value + 1);}}>Reiniciar arena</button>}
+          <div className="secondary-actions">{attackPreview.range>1&&<button type="button"
+              className="end-turn-button na-overwatch-button"
+              disabled={state.activeSide!=="player"||state.combatComplete||!state.mainActionAvailable||state.energy<2}
+              title="Consome a ação principal e 2 EN; dispara antes da ação inimiga se houver linha de tiro."
+              onClick={()=>{buzz();manager.prepareOverwatch();}}>⌖ Vigiar rota · 2 EN</button>}
+            {battleMode==="test" && <button type="button" onClick={() => {setVictoryDetailsOpen(false);setDefeatNotice("");setBattleReset((value) => value + 1);}}>Reiniciar arena</button>}
             <button type="button" className="na-arena-exit-secondary"
               data-combat-exit="true" onClick={exitBattle}>
               {state.combatComplete?"✓ CONTINUAR EXPLORANDO":"← Voltar à exploração"}
