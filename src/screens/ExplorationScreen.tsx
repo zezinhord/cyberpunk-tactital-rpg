@@ -16,7 +16,7 @@ import type { TestAppearance } from "../game/test-arena/appearance";
 import { audioDirector } from "../audio/director";
 import {isAndroidDevice} from "../game/performance";
 import {FAVORS,NILO_SHOP,readFavors,saveFavors,acceptFavor,recordFavorActivity,
-  visibleFavors,favorStatus,shopOfferUnlocked,type FavorId} from "../game/story/favors";
+  visibleFavors,knownFavors,discoverFavors,favorStatus,shopOfferUnlocked,type FavorId} from "../game/story/favors";
 import {calculateReputation,FACTION_NAMES,factionStanding} from "../game/story/reputation";
 import type {ClassId} from "../game/classes/registry";
 import type {EncounterId} from "../game/types";
@@ -216,8 +216,9 @@ export default function ExplorationScreen({
   const v09=readV09(character.id);
   const reputation=calculateReputation({favors,market,ferrugem,chapters:cityChapters});
   const favorContext={missionStep:mission.step,v09Defeated:v09.defeated,honor:favors.honor};
-  const unlockedFavors=visibleFavors(favorContext);
-  const favorChoicesFor=(actor:string):ConversationOption[]=>unlockedFavors
+  const unlockedFavors=knownFavors(favors,favorContext);
+  // Ao conversar com o próprio contato, a oferta aparece sem precisar abrir o quadro.
+  const favorChoicesFor=(actor:string):ConversationOption[]=>visibleFavors(favorContext)
     .filter(f=>f.contactId===actor&&!favors.claimed.includes(f.id))
     .flatMap(f=>{
       const status=favorStatus(favors,f.id);
@@ -386,17 +387,21 @@ export default function ExplorationScreen({
   };
 
   const handleInteract = (id: string) => {
-    // O console do Pátio pode ser consultado parcialmente antes do manifesto.
-    // A inspeção do favor só conta quando os registros de fato são acessíveis.
-    const taskAccessible=id!=="patio-console"||
-      (mission.step>=3&&(hasSewerEvidence(sewer)||v09.defeated));
-    const activity=recordFavorActivity(favors,id,taskAccessible);
-    if(activity.ready.length){
+    const discovered=discoverFavors(favors,id,favorContext);
+    // A inspeção de um mapa regional só é válida após alcançar o distrito.
+    const regionalActor=actorFromId(id);
+    const taskAccessible=(id!=="patio-console"||
+      (mission.step>=3&&(hasSewerEvidence(sewer)||v09.defeated)))&&
+      (!regionalActor||cityChapters[regionalActor.district].started)&&
+      (!id.startsWith("ferrugem-")||ferrugem.started);
+    const activity=recordFavorActivity(discovered.state,id,taskAccessible);
+    if(activity.state!==favors){
       if(saveFavors(character.id,activity.state)){
         setFavors(activity.state);
-        const names=activity.ready.map(fid=>FAVORS.find(f=>f.id===fid)?.title).filter(Boolean);
-        setFavorNotice("Favor pronto para entregar: "+names.join(", ")+".");
-      }else setFavorNotice("Falha ao registrar o favor. Libere espaço e tente novamente.");
+        const readyNames=activity.ready.map(fid=>FAVORS.find(f=>f.id===fid)?.title).filter(Boolean);
+        setFavorNotice(readyNames.length?"Favor pronto para entregar: "+readyNames.join(", ")+"."
+          :discovered.revealed.length?"Novos pedidos conhecidos. Abra o Quadro de Favores.":"");
+      }else setFavorNotice("Falha ao registrar favor. Libere espaço no aparelho.");
     }
     const cityActor=actorFromId(id);
     if(cityActor){
@@ -741,6 +746,7 @@ export default function ExplorationScreen({
           role: "MORADORA DA BAIXADA",
           portrait: "J",
           text: "Teve gente perguntando por implantes usados e levando caixas sem identificação. Aconteceu perto da passagem do canal. Depois disso, ninguém quis falar sobre o assunto.",
+          choices:[...favorChoicesFor("moradora")],
         },
       ]);
       return;
@@ -780,6 +786,7 @@ export default function ExplorationScreen({
           role: "ENTREGADOR DO CANAL",
           portrait: "T",
           text: "Vi uma equipe atravessar o canal num horário que não aparecia nos avisos. O caminhão parou na Subestação Sul, do outro lado do Pátio. Há uma escada de manutenção ali; se ainda procura a rota V-09, comece por ela.",
+          choices:[...favorChoicesFor("teo")],
         },
       ]);
       return;
