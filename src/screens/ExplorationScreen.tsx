@@ -216,7 +216,7 @@ export default function ExplorationScreen({
         ...favorChoicesFor("dra-amara")]}:page));
   };
   const v09=readV09(character.id);
-  const reputation=calculateReputation({favors,market,ferrugem,chapters:cityChapters});
+  const reputation=calculateReputation({favors,market,ferrugem,eden,chapters:cityChapters});
   const favorContext={missionStep:mission.step,v09Defeated:v09.defeated,honor:favors.honor};
   const unlockedFavors=knownFavors(favors,favorContext);
   // Ao conversar com o próprio contato, a oferta aparece sem precisar abrir o quadro.
@@ -1133,6 +1133,7 @@ export default function ExplorationScreen({
               eden.started?edenObjective(eden):
               trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
               objective}</p>
+            {eden.started&&!eden.completed&&<small>Capítulo Éden · etapa {eden.step+1} de {EDEN_STEPS.length}</small>}
             {trial.started&&!trial.completed&&<small>
               Etapa {trial.step+1} de {TRIAL_STEPS.length} · {currentTrialStep(trial)?.sector}</small>}
             {trial.completed&&!eden.started&&v09.reported&&
