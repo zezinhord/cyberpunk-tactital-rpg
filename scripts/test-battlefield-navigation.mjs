@@ -15,7 +15,7 @@ assert.equal(BOARD_WIDTH*BOARD_HEIGHT,64);
 assert.equal(isBlocked({x:3,y:1}),true);
 for(const marker of ["data-battlefield-renderer=\"svg\"","viewBox=\"0 0 480 320\"",
  "manager.subscribe(","manager.movePlayerTo(","manager.interactWithTerminal(0,6)",
- "state.combatComplete","PLAYER", "player-", "sentinel.svg"])
+ "state.combatComplete","data-unit={unit.id}", "player-", "sentinel.svg"])
  assert.ok(ui.includes(marker),"Renderizador tático perdeu requisito: "+marker);
 assert.ok(!ui.includes('import Phaser from "phaser"'),
  "Arena não pode depender do contexto Canvas que falha no Android.");
