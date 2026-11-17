@@ -30,6 +30,7 @@ const ACTORS:ReadonlyArray<{id:string;tile:Tile;label:string;person:boolean}>= [
  {id:"feira-corretor",tile:ACTOR_TILES["feira-corretor"],label:"DAVI",person:true},
  {id:"feira-ajuda",tile:ACTOR_TILES["feira-ajuda"],label:"MARTA",person:true},
  {id:"feira-archive",tile:ACTOR_TILES["feira-archive"],label:"BOLETINS",person:false},
+ {id:"feira-memoria",tile:ACTOR_TILES["feira-memoria"],label:"MEMÓRIA",person:false},
  {id:"enter-sewer-drain",tile:ACTOR_TILES["enter-sewer-drain"],label:"ESGOTO -01",person:false},
  {id:"enter-sewer-deep",tile:ACTOR_TILES["enter-sewer-deep"],label:"ESGOTO -02",person:false},
  {id:"enter-ferrugem",tile:ACTOR_TILES["enter-ferrugem"],label:"FERRUGEM",person:false},
