@@ -636,6 +636,16 @@ export default function ExplorationScreen({
       return;
     }
 
+    if(id==="feira-memoria"){
+      const discovery=DISCOVERY_REWARDS.baixada;
+      const collected=onCollectDistrictCache("baixada");
+      if(collected)onQuestXp("discovery-baixada",discovery.xp);
+      say([{speaker:"ARQUIVO DE MEMÓRIAS",role:"REDE AUTÔNOMA · HISTÓRIAS DA BAIXADA",
+        portrait:"▤",text:collected?
+          discovery.story+" +"+discovery.xp+" XP e arquivo recuperado.":
+          "Os registros já foram recolhidos ou não foi possível gravar o inventário."}]);
+      return;
+    }
     if(isMarketActor(id)){
       const node=getMarketConversation(id,character.classId,market,v09.reported,character.originId,reputation);
       say([{speaker:node.speaker,role:node.role,portrait:node.portrait,
