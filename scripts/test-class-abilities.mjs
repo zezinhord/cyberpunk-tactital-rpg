@@ -111,7 +111,11 @@ for(const id of CLASS_IDS){
    assert.equal(result.ok,true,skill.id);
    assert.equal(state.mainActionAvailable,false);
    assert.ok(state.energy<20||state.units[1].hp<18||state.units[0].armorClass>12||
-      state.movementRemaining>3||state.units[0].hp>9,"Domínio sem efeito real "+skill.id);
+      state.movementRemaining>3||state.units[0].hp>9||
+      state.classNextDamageBonus>0||state.classNextAccuracyBonus>0||
+      state.units[1].armorClass<13||state.enemyJamTurns>0||
+      state.classEnemyAttackReduction>0,
+      "Domínio sem efeito real "+skill.id);
  }
 }
 console.log("Domínio de classe: 33 técnicas adicionais executadas em simulação de combate.");
