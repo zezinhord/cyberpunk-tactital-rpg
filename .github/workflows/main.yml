@@ -116,6 +116,9 @@ jobs:
           node --experimental-strip-types scripts/test-tactics.mjs
           node --experimental-strip-types scripts/test-movement.mjs
 
+      - name: Testar implantes, consumíveis e novos encontros Éden
+        run: node --experimental-strip-types scripts/test-expansion-combat.mjs
+
       - name: Testar progressao, campanha e ondas de combate
         run: |
           node --experimental-strip-types scripts/test-progression.mjs
