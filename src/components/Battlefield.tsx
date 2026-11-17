@@ -7,8 +7,10 @@ import type {OriginId} from "../game/character/origins";
 
 /** Campo tático SVG: dispensa WebGL/Canvas em Android, sem substituir a lógica
  * de turno, cobertura, IA ou as spritesheets das seis origens. */
-const SPRITES=import.meta.glob("../assets/characters/player-*.png",
- {query:"?url",import:"default",eager:true}) as Record<string,string>;
+const SPRITES=import.meta.glob([
+ "../assets/characters/player-*-masculine.png",
+ "../assets/characters/player-*-feminine.png",
+],{query:"?url",import:"default",eager:true}) as Record<string,string>;
 const BOARD=Array.from({length:BOARD_WIDTH*BOARD_HEIGHT},(_,i)=>{
  const x=i%BOARD_WIDTH,y=Math.floor(i/BOARD_WIDTH);
  return {x,y,blocked:isBlocked({x,y}),id:i};
