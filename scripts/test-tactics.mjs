@@ -97,7 +97,7 @@ console.log("Tática: LoS, obstrução, cobertura, arma de fogo, economia e IA a
  const suppressed=new TurnManager({encounterId:"district-setor-zero"});
  suppressed.state.wave=2;
  suppressed.state.units[0].x=1;suppressed.state.units[0].y=6;
- suppressed.state.units[1].x=1;suppressed.state.units[1].y=2;
+ suppressed.state.units[1].x=1;suppressed.state.units[1].y=4;
  const random=Math.random;Math.random=()=>0.99;
  try{suppressed.endPlayerTurn();}finally{Math.random=random;}
  assert.equal(enemyProfile("district-setor-zero",2).role,"suppressor");
@@ -107,7 +107,7 @@ console.log("Tática: LoS, obstrução, cobertura, arma de fogo, economia e IA a
  const drain=new TurnManager({encounterId:"district-subsolo"});
  drain.state.wave=2;drain.state.energy=7;
  drain.state.units[0].x=1;drain.state.units[0].y=6;
- drain.state.units[1].x=1;drain.state.units[1].y=2;
+ drain.state.units[1].x=1;drain.state.units[1].y=4;
  const random=Math.random;Math.random=()=>0.99;
  try{drain.endPlayerTurn();}finally{Math.random=random;}
  assert.equal(enemyProfile("district-subsolo",2).role,"saboteur");
