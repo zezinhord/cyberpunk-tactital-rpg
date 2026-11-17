@@ -287,6 +287,10 @@ jobs:
         if: github.event_name != 'pull_request'
         run: node scripts/lock-android-landscape.mjs
 
+      - name: Atualizar versao real no manifesto Android
+        if: github.event_name != 'pull_request'
+        run: node scripts/stamp-android-version.mjs
+
       - name: Ativar tela imersiva Android
         if: github.event_name != 'pull_request'
         run: node scripts/enable-android-immersive.mjs
