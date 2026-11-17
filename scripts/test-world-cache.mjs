@@ -4,6 +4,7 @@ import {DISCOVERY_AREAS,DISCOVERY_REWARDS,claimDiscovery} from "../src/game/stor
 import {DISTRICTS,DISTRICT_SPAWN,NODE_TILES,districtApproach,districtPath,DISTRICT_WIDTH,DISTRICT_HEIGHT}
  from "../src/game/districts/catalog.ts";
 import {FERRUGEM_START,FERRUGEM_ACTORS,ferrugemApproach} from "../src/game/ferrugem/layout.ts";
+import {ACTOR_TILES,PLAYER_START,isWalkable,findPath} from "../src/game/baixada/layout.ts";
 const data=new Map();
 globalThis.localStorage={
  getItem:key=>data.get(key)??null,
@@ -13,7 +14,7 @@ globalThis.localStorage={
 assert.equal(DISTRICT_WIDTH,30);assert.equal(DISTRICT_HEIGHT,22);
 assert.equal(DISCOVERY_AREAS.length,7);
 const ids=new Set(DISCOVERY_AREAS);
-assert.equal(ids.size,6);
+assert.equal(ids.size,7);
 for(const district of DISTRICTS){
  const point=NODE_TILES.discovery;
  assert.ok(districtApproach(district.id,DISTRICT_SPAWN,point)?.length,
@@ -21,6 +22,16 @@ for(const district of DISTRICTS){
  assert.ok(districtPath(district.id,DISTRICT_SPAWN,{x:28,y:19})?.length,
   "Rota periférica do mapa inacessível: "+district.id);
 }
+const baixadaCache=ACTOR_TILES["feira-memoria"];
+assert.ok(baixadaCache);
+const neighborhood=[
+ {x:baixadaCache.x+1,y:baixadaCache.y},
+ {x:baixadaCache.x-1,y:baixadaCache.y},
+ {x:baixadaCache.x,y:baixadaCache.y+1},
+ {x:baixadaCache.x,y:baixadaCache.y-1}
+];
+assert.ok(neighborhood.some(p=>isWalkable(p)&&findPath(PLAYER_START,p)?.length),
+ "O Arquivo de Memórias deve ser alcançável no mapa da Baixada");
 const salvage=FERRUGEM_ACTORS.find(n=>n.id==="ferrugem-salvage");
 assert.ok(salvage);
 assert.ok(ferrugemApproach(FERRUGEM_START,salvage.tile)?.length,
