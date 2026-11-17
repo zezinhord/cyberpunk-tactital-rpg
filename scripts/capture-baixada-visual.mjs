@@ -527,22 +527,25 @@ try {
   await writeFile("qa/vida-persistente-914x411.png",Buffer.from((await send("Page.captureScreenshot",{
     format:"png",captureBeyondViewport:false})).data,"base64"));
   console.log("QA Vida: ferimentos entre cenas 6 HP → curativo 11 HP → exploração 11 HP.");
-  // QA da nova campanha: início pelo jogador e persistência do primeiro objetivo.
-  await poll(()=>has(".na-mission-hub .na-next-step"),"orientação da missão acessível");
+  // O Chrome de QA pode simular Android com userAgent desktop.
+  // O jogo começa expandido nesse caso. Forçar o estado recolhido
+  // por meio do botão real antes de validar a visão compacta.
+  await poll(()=>has(".na-quest-hud .na-hub-toggle"),"botão do diário compacto");
+  if(await evaluate('document.querySelector(".na-quest-hud")?.classList.contains("expanded")'))
+    await evaluate('document.querySelector(".na-quest-hud .na-hub-toggle").click();true');
+  await poll(()=>has(".na-quest-hud.collapsed .na-quest-peek"),"orientação de missão compacta");
   const missionLayout=await evaluate(`(()=>{
-    const hub=document.querySelector(".na-mission-hub"),next=hub?.querySelector(".na-next-step"),
+    const hub=document.querySelector(".na-quest-hud"),next=hub?.querySelector(".na-quest-peek"),
       r=hub?.getBoundingClientRect(),n=next?.getBoundingClientRect();
-    return {top:r?.top,right:r?.right,bottom:r?.bottom,width:r?.width,viewportWidth:innerWidth,viewportHeight:innerHeight,
-      nextTop:n?.top,nextBottom:n?.bottom,visible:getComputedStyle(next).display!=="none",
-      title:next?.textContent};
+    return {top:r?.top,bottom:r?.bottom,right:r?.right,width:r?.width,height:r?.height,
+      nextTop:n?.top,title:next?.textContent,viewportWidth:innerWidth,viewportHeight:innerHeight,
+      collapsed:hub?.classList.contains("collapsed")};
   })()`);
-  if(!missionLayout.visible||missionLayout.top<0||missionLayout.bottom>missionLayout.viewportHeight+2||
+  if(missionLayout.top<0||missionLayout.bottom>missionLayout.viewportHeight+2||
      missionLayout.right>missionLayout.viewportWidth+2||missionLayout.nextTop<0||
-     !missionLayout.title.toLowerCase().includes("o nome que sumiu"))
-    throw new Error("Orientação de missão fora de tela: "+JSON.stringify(missionLayout));
-  await poll(()=>has(".na-trial-panel"),"Campanha de teste no mapa");
-  // Retomar personagem que já concluiu a primeira missão no APK anterior.
-  // A nova versão deve apontar para o Pátio sem reiniciar seu progresso.
+     !missionLayout.title?.includes("clínica")||missionLayout.height>116)
+    throw new Error("HUD compacto fora de tela: "+JSON.stringify(missionLayout));
+  // Retomar personagem que concluiu a clínica: a campanha volta ao Pátio.
   await evaluate(`(()=>{
     const raw=localStorage.getItem("cyberpunk-tactical-rpg.character.v1");
     const id=raw&&JSON.parse(raw).character?.id;
@@ -553,27 +556,37 @@ try {
   await send("Page.navigate",{url:URL});
   await poll(()=>has(".na-title-option"),"título para retomar missão antiga");
   await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
-  await poll(()=>has(".na-mission-hub .na-next-step"),"objetivo persistido após atualização");
-  const legacyNext=await evaluate('document.querySelector(".na-next-step")?.textContent');
+  await poll(()=>has(".na-quest-hud .na-hub-toggle"),"diário compacto após atualização");
+  if(await evaluate('document.querySelector(".na-quest-hud")?.classList.contains("expanded")'))
+    await evaluate('document.querySelector(".na-quest-hud .na-hub-toggle").click();true');
+  await poll(()=>has(".na-quest-hud.collapsed .na-quest-peek"),"objetivo persistido após atualização");
+  const legacyNext=await evaluate('document.querySelector(".na-quest-peek")?.textContent');
   if(!legacyNext?.includes("Pátio"))
-    throw new Error("Missão anterior concluída não encaminha ao Pátio: "+legacyNext);
-  await evaluate('document.querySelector(".na-hub-toggle").click();true');
-  const collapsed=await evaluate('getComputedStyle(document.querySelector(".na-mission-details")).display==="none"');
+    throw new Error("Missão anterior não encaminha ao Pátio: "+legacyNext);
+  // O painel começa recolhido no Android, e pode ser aberto e fechado.
+  if(await evaluate('document.querySelector(".na-quest-hud")?.classList.contains("collapsed")'))
+    await evaluate('document.querySelector(".na-quest-hud .na-hub-toggle").click();true');
+  await poll(()=>has(".na-quest-tabs"),"abrir diário compacto");
+  const opened=await evaluate('document.querySelector(".na-quest-hud")?.classList.contains("expanded")');
+  if(!opened)throw new Error("Quadro não abriu.");
+  await evaluate('document.querySelector(".na-quest-hud .na-hub-toggle").click();true');
+  const collapsed=await evaluate('document.querySelector(".na-quest-hud")?.classList.contains("collapsed")');
   if(!collapsed)throw new Error("HUD de missões não recolheu.");
-  await evaluate('document.querySelector(".na-hub-toggle").click();true');
-  const reopened=await evaluate('getComputedStyle(document.querySelector(".na-mission-details")).display!=="none"');
-  if(!reopened)throw new Error("HUD de missões não reabriu.");
+  await evaluate('document.querySelector(".na-quest-hud .na-hub-toggle").click();true');
+  await poll(()=>has(".na-quest-details"),"reabrir quadro");
   await writeFile("qa/proxima-missao-914x411.png",
     Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
-  const trialButton=await evaluate('document.querySelector(".na-trial-panel button")?.textContent');
-  if(!trialButton?.includes("Iniciar operação"))throw new Error("Campanha não pode ser iniciada: "+trialButton);
-  await evaluate('document.querySelector(".na-trial-panel button").click();true');
-  await poll(()=>has(".na-trial-objective"),"Primeiro objetivo de campanha");
-  const activeStage=await evaluate('document.querySelector(".na-trial-objective strong")?.textContent');
-  if(!activeStage?.includes("Dra. Amara"))throw new Error("Objetivo de campanha errado: "+activeStage);
+  const trialButton=await evaluate('document.querySelector(".na-quest-primary")?.textContent');
+  if(!trialButton?.includes("Iniciar Operação"))
+    throw new Error("Campanha de teste não foi liberada após a clínica: "+trialButton);
+  await evaluate('document.querySelector(".na-quest-primary").click();true');
+  await poll(()=>evaluate('document.querySelector(".na-quest-tab-content p")?.textContent?.includes("Dra. Amara")'),
+    "Primeiro objetivo da operação");
+  const activeStage=await evaluate('document.querySelector(".na-quest-tab-content p")?.textContent');
+  if(!activeStage?.includes("Dra. Amara"))throw new Error("Etapa incorreta: "+activeStage);
   await writeFile("qa/operacao-circuito-914x411.png",
     Buffer.from((await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
-  console.log("QA campanha: missão iniciada com etapa da Dra. Amara.");
+  console.log("QA campanha: missão progressiva e operação liberada após clínica.");
 
   // QA subterrâneo no viewport real Android: interações públicas, sem ganchos de teste.
   // A posição é salva no dispositivo como qualquer personagem que caminhou ao Pátio Sul.
@@ -661,13 +674,20 @@ try {
   const deepInfo=await evaluate(`(()=>{
     const c=document.querySelector(".interior-world.sewer-deep canvas");
     const r=c?.getBoundingClientRect();
-    return {width:r?.width,height:r?.height,title:document.querySelector(".district-brand h1")?.textContent,
-      progress:document.querySelector(".na-sewer-heading strong")?.textContent};
+    const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1"))?.character;
+    const saved=hero&&localStorage.getItem("cyberpunk-tactical-rpg.sewer-v09.v1."+hero.id);
+    const checkpoint=saved?JSON.parse(saved):null;
+    // O HUD 0.7.9 não apresenta mais .na-sewer-heading.
+    // Avaliar o estado real da investigação sem depender do painel retraído.
+    return {width:r?.width,height:r?.height,
+      title:document.querySelector(".district-brand h1")?.textContent,
+      checkpoint};
   })()`);
   if(deepInfo.width<400||deepInfo.height<260||
      !deepInfo.title?.includes("Câmara de Recalque")||
-     !deepInfo.progress?.includes("4 / 4"))
-    throw new Error("Mapa subterrâneo 2 inválido: "+JSON.stringify(deepInfo));
+     !deepInfo.checkpoint?.traceFound||!deepInfo.checkpoint?.pumpRestored||
+     !deepInfo.checkpoint?.gateOpened||!deepInfo.checkpoint?.manifestRecovered)
+    throw new Error("Mapa subterrâneo 2 ou checkpoint inválido: "+JSON.stringify(deepInfo));
   await writeFile("qa/esgoto-camara-recalque-914x411.png",Buffer.from(
     (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   await evaluate('document.querySelector(".area-return").click();true');
@@ -898,6 +918,49 @@ try {
   await writeFile("qa/dialogo-nilo-v077-914x411.png",Buffer.from(
     (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   console.log("QA diálogo cinematográfico: busto de Nilo, fala e navegação Android aprovados.");
+
+  // Quadro progressivo: somente os favores conhecidos na etapa 1 aparecem.
+  // A tela não deve mostrar as campanhas futuras nem cobrir o cenário inteiro.
+  await evaluate('document.querySelector(".na-dialogue-close").click();true');
+  await evaluate(`(()=>{
+    const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    localStorage.setItem("cyberpunk-tactical-rpg.mission.v1."+hero.id,
+      JSON.stringify({step:1,clues:[]}));
+    localStorage.setItem("cyberpunk-tactical-rpg.world-area.v1."+hero.id,"null");
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"título para HUD progressivo");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".na-quest-hud"),"HUD compacto de missões",90);
+  if(await evaluate('document.querySelector(".na-quest-hud")?.classList.contains("collapsed")'))
+    await evaluate('document.querySelector(".na-quest-hud .na-hub-toggle").click();true');
+  await poll(()=>has(".na-quest-tabs [role=tab]"),"abas de missões e favores");
+  await evaluate('document.querySelectorAll(".na-quest-tabs [role=tab]")[1].click();true');
+  await poll(()=>has(".na-favor-row"),"favor liberado pela clínica");
+  const questBoard=await evaluate(`(()=>{
+    const hub=document.querySelector(".na-quest-hud"),r=hub?.getBoundingClientRect();
+    const names=[...document.querySelectorAll(".na-favor-row>div>strong")].map(n=>n.textContent);
+    return {names,viewport:innerHeight,bottom:r?.bottom,width:r?.width,height:r?.height,
+      credits:document.querySelector(".na-favor-wallet")?.textContent,
+      tab:document.querySelectorAll(".na-quest-tabs [role=tab]")[1]?.getAttribute("aria-selected")};
+  })()`);
+  if(questBoard.names.length!==2||
+    !questBoard.names.some(x=>x.includes("primeiros socorros"))||
+    !questBoard.names.some(x=>x.includes("Peças para o Canal"))||
+    questBoard.bottom>questBoard.viewport+2||questBoard.height>questBoard.viewport*.72||
+    questBoard.tab!=="true")
+    throw new Error("HUD progressivo com spoilers ou fora da tela: "+JSON.stringify(questBoard));
+  await writeFile("qa/favores-progressivos-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".na-favor-row button").click();true');
+  const acceptedFavor=await evaluate(`(()=>{
+    const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    return JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.favors.v1."+hero.id));
+  })()`);
+  if(!acceptedFavor?.accepted?.includes("triagem")||acceptedFavor.claimed?.length)
+    throw new Error("Favor não foi aceito e salvo pelo quadro: "+JSON.stringify(acceptedFavor));
+  console.log("QA favores: HUD compacto, 2 favores liberados, aceitação e save confirmados.");
 
   // Regressão real: tratamento não pode ficar dentro do painel de missões,
   // fechado por padrão no Android. Testar HP real (save + HUD + UI).

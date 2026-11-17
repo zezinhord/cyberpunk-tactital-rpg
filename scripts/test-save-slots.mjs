@@ -12,6 +12,7 @@ import {FERRUGEM_SAVE_PREFIX,readFerrugem,saveFerrugem,startFerrugem,advanceFerr
 import {WORLD_AREA_KEY,loadWorldArea,saveWorldArea} from "../src/game/baixada/world-area.ts";
 import {readDistrictProgress,saveDistrictProgress,DISTRICT_SAVE_KEY,beginDistrict,FRESH_CHAPTER} from "../src/game/districts/progress.ts";
 import {DISTRICT_POSITIONS_KEY,saveDistrictPosition,loadDistrictPosition} from "../src/game/districts/positions.ts";
+import {FAVORS_KEY,INITIAL_FAVORS,saveFavors,readFavors,acceptFavor,recordFavorActivity,claimFavor} from "../src/game/story/favors.ts";
 
 let db=new Map();
 globalThis.localStorage={
@@ -75,6 +76,12 @@ assert.equal(saveWorldArea(a.id,"ferrugem"),true);
 const newChapter=beginDistrict(FRESH_CHAPTER);
 assert.equal(saveDistrictProgress(a.id,"aurea",newChapter),true);
 assert.equal(saveDistrictPosition(a.id,"aurea",{x:5,y:10}),true);
+const favorAccepted=acceptFavor({...INITIAL_FAVORS},"triagem",{missionStep:1,v09Defeated:false});
+assert.equal(favorAccepted.ok,true);
+const favorReady=recordFavorActivity(favorAccepted.state,"terminal-clinica").state;
+const favorComplete=claimFavor(favorReady,"triagem");
+assert.equal(favorComplete.ok,true);
+assert.equal(saveFavors(a.id,favorComplete.state),true);
 const exported=exportCharacterBackup(a.id);
 assert.equal(loadCharacter()?.id,previouslyActive,"Exportar slot inativo não deve trocar protagonista");
 const parsed=JSON.parse(exported);
@@ -86,6 +93,7 @@ assert.ok(parsed.data.ferrugem,"Backup inclui investigação industrial");
 assert.ok(parsed.data.area,"Backup inclui área ativa de Ferrugem");
 assert.ok(parsed.data.city,"Backup inclui campanhas de novos distritos");
 assert.ok(parsed.data.districtPositions,"Backup inclui posição em cada distrito");
+assert.ok(parsed.data.favors,"Backup inclui favores, créditos e Honra");
 const beforeCount=listCharacterSlots().length;
 assert.equal(importCharacterBackup(exported).ok,false,"Mesmo ID exige confirmação");
 assert.equal(listCharacterSlots().length,beforeCount);
@@ -109,6 +117,9 @@ assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.dat
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,sewer:JSON.stringify({traceFound:"sim"})}})).ok,false,"Backup rejeita estado do esgoto malformado");
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,ferrugem:JSON.stringify({started:true,completed:true,step:999,history:[],ending:"publicar"})}})).ok,false,"Importação rejeita capítulo Ferrugem adulterado");
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,area:JSON.stringify("../../foo")}})).ok,false,"Backup rejeita área maliciosa");
+assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,
+ favors:JSON.stringify({...favorComplete.state,credits:999999})}})).ok,false,
+ "Backup não aceita créditos falsificados");
 assert.equal(importCharacterBackup(exported.padEnd(1_000_002," ")).ok,false);
 // Recriar armazenamento de outro aparelho e importar backup exportado.
 db=new Map();
@@ -119,6 +130,9 @@ assert.equal(readTrial(a.id).step,1,"Progresso da campanha deve sobreviver a exp
 assert.equal(readSewer(a.id).traceFound,true,"Pistas da Galeria sobrevivem a importação");
 assert.equal(readFerrugem(a.id).step,1,"Missão Ferrugem preservada no backup");
 assert.equal(loadWorldArea(a.id),"ferrugem","Backup retoma distrito correto");
+assert.equal(readFavors(a.id).credits,60,"Créditos sobrevivem ao backup");
+assert.equal(readFavors(a.id).honor,1,"Honra sobrevive ao backup");
+assert.deepEqual(readFavors(a.id).claimed,["triagem"]);
 assert.equal(readDistrictProgress(a.id,"aurea").started,true,"Áurea permanece iniciada após restauração");
 assert.deepEqual(loadDistrictPosition(a.id,"aurea"),{x:5,y:10},"Posição isométrica preservada");
 assert.equal(db.get("cyberpunk-tactical-rpg.world-location.v068."+id),JSON.stringify({x:12,y:26}));
@@ -134,6 +148,7 @@ assert.equal(db.get(FERRUGEM_SAVE_PREFIX+a.id),undefined,"Exclusão remove capí
 assert.equal(db.get(WORLD_AREA_KEY+a.id),undefined,"Exclusão remove o mapa ativo do slot");
 assert.equal(db.get(DISTRICT_SAVE_KEY+a.id),undefined,"Remoção limpa as cinco campanhas");
 assert.equal(db.get(DISTRICT_POSITIONS_KEY+a.id),undefined,"Remoção limpa posições dos distritos");
+assert.equal(db.get(FAVORS_KEY+a.id),undefined,"Exclusão limpa os favores do slot");
 assert.equal(loadCharacter(),null);
 assert.equal(listCharacterSlots().length,0);
 // Migração a partir da chave única v1 sem índice.

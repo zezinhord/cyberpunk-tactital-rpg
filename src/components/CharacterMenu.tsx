@@ -11,6 +11,8 @@ import { getPlayerSpriteUrl } from "../game/baixada/sprites";
 import ClassSelection from "./ClassSelection";
 import ProgressionTree from "./ProgressionTree";
 import {SEWER_MAPS} from "../game/baixada/sewer-layout";
+import {favorStatus,visibleFavors,type FavorContext,type FavorState} from "../game/story/favors";
+import {FACTION_NAMES,factionStanding,type Reputation} from "../game/story/reputation";
 import {sewerStatus,type SewerProgress} from "../game/story/sewer-v09";
 import {FERRUGEM_STEPS,ferrugemObjective,type FerrugemProgress} from "../game/ferrugem/story";
 import type {StatId} from "../game/progression/tree";
@@ -24,7 +26,7 @@ interface JournalClue {
 }
 
 interface Props {
-  initialSection?:"character"|"progression";
+  initialSection?:"character"|"progression"|"journal";
   character: PlayerCharacter;
   appearance: TestAppearance;
   onChangeAppearance: (appearance: TestAppearance) => void;
@@ -36,6 +38,9 @@ interface Props {
   originProfile: OriginGameplayProfile;
   missionStep: 0 | 1 | 2 | 3;
   missionObjective: string;
+  favors:FavorState;
+  favorContext:FavorContext;
+  reputation:Reputation;
   sewerProgress:SewerProgress;
   ferrugemProgress:FerrugemProgress;
   clues: JournalClue[];
@@ -95,6 +100,9 @@ export default function CharacterMenu({
   originProfile,
   missionStep,
   missionObjective,
+  favors,
+  favorContext,
+  reputation,
   sewerProgress,
   ferrugemProgress,
   clues,
@@ -385,20 +393,52 @@ export default function CharacterMenu({
                   <small>{progress} / 3 etapas da clínica concluídas</small>
                   <div className="menu-objective"><span>OBJETIVO ATUAL</span><strong>{missionObjective}</strong></div>
                 </section>
-                <section className="menu-list-panel">
+                {missionStep>=3&&<section className="menu-list-panel">
                   <span className="menu-panel-kicker">ROTA SUBTERRÂNEA // {sewerStatus(sewerProgress)}</span>
                   <div className="menu-list-row"><span>{sewerProgress.traceFound?"✓":"○"}</span><strong>Rastros V-09</strong><small>GALERIA -01</small></div>
-                  <div className="menu-list-row"><span>{sewerProgress.pumpRestored?"✓":"○"}</span><strong>Bomba hidráulica</strong><small>GALERIA -01</small></div>
-                  <div className="menu-list-row"><span>{sewerProgress.gateOpened?"✓":"○"}</span><strong>Comporta 04</strong><small>DESCIDA -02</small></div>
-                  <div className="menu-list-row"><span>{sewerProgress.manifestRecovered?"✓":"○"}</span><strong>Manifesto V-09</strong><small>CÂMARA -02</small></div>
-                </section>
-                <section className="menu-list-panel">
+                  {sewerProgress.traceFound&&<div className="menu-list-row"><span>{sewerProgress.pumpRestored?"✓":"○"}</span><strong>Bomba hidráulica</strong><small>GALERIA -01</small></div>}
+                  {sewerProgress.pumpRestored&&<div className="menu-list-row"><span>{sewerProgress.gateOpened?"✓":"○"}</span><strong>Comporta 04</strong><small>DESCIDA -02</small></div>}
+                  {sewerProgress.gateOpened&&<div className="menu-list-row"><span>{sewerProgress.manifestRecovered?"✓":"○"}</span><strong>Manifesto V-09</strong><small>CÂMARA -02</small></div>}
+                </section>}
+                {ferrugemProgress.started&&<section className="menu-list-panel">
                   <span className="menu-panel-kicker">CAPÍTULO FERRUGEM // {ferrugemProgress.completed?"CONCLUÍDO":ferrugemProgress.started?(ferrugemProgress.step+"/"+FERRUGEM_STEPS.length):"NÃO INICIADO"}</span>
                   <p>{ferrugemObjective(ferrugemProgress)}</p>
                   {ferrugemProgress.started&&<div className="menu-list-row current">
                     <span>◈</span><strong>{ferrugemProgress.completed?"Destino das provas":FERRUGEM_STEPS[ferrugemProgress.step]?.title}</strong>
                     <small>{ferrugemProgress.ending==="publicar"?"PUBLICAÇÃO":ferrugemProgress.ending==="proteger"?"PROTEÇÃO COMUNITÁRIA":"EM INVESTIGAÇÃO"}</small>
                   </div>}
+                </section>}
+                <details className="menu-list-panel menu-faction-brief">
+                  <summary>RELAÇÕES E REPUTAÇÃO · {reputation.honor} HONRA · {reputation.community}/10 CONFIANÇA LOCAL</summary>
+                  <p>A Honra reconhece ajuda entregue; cada facção mantém sua própria relação.
+                    Escolhas de divulgação, sigilo e credenciais têm consequências distintas.</p>
+                  {(["helix","movimento_livre","mercado_cinzento"] as const).map(id=>
+                    <div className="menu-list-row" key={id}>
+                      <span aria-hidden="true">{reputation.factions[id]<0?"!":reputation.factions[id]>=4?"✦":"○"}</span>
+                      <strong>{FACTION_NAMES[id]}</strong>
+                      <small>{factionStanding(reputation.factions[id])} ·
+                        {" "}{reputation.factions[id]>0?"+":""}{reputation.factions[id]}</small>
+                    </div>)}
+                  <p>Ajuda médica de Marta: 3 Honra e +2 no Movimento Livre.
+                    Contatos de Davi: +2 no Mercado Cinzento e dossiê V-09 entregue.
+                    Acesso Helix: +2 na corporação e dossiê entregue.
+                    Os acordos podem conceder suprimentos únicos, mas deixam registros e alteram relações.</p>
+                </details>
+                <section className="menu-list-panel" aria-label="Histórico dos favores">
+                  <span className="menu-panel-kicker">REDE DE FAVORES · {favors.credits} CRÉDITOS · {favors.honor} HONRA</span>
+                  {visibleFavors(favorContext).length===0?
+                    <p className="menu-empty-copy">Nenhum favor conhecido. Avance na clínica e converse com os moradores.</p>:
+                    visibleFavors(favorContext).filter(f=>favors.accepted.includes(f.id)).length===0?
+                      <p className="menu-empty-copy">Existem pedidos disponíveis no quadro de favores; aceite os que quiser realizar.</p>:
+                      visibleFavors(favorContext).filter(f=>favors.accepted.includes(f.id)).map(f=>
+                        <div className="menu-list-row" key={f.id}>
+                          <span>{favorStatus(favors,f.id)==="claimed"?"✓":favorStatus(favors,f.id)==="ready"?"◆":"○"}</span>
+                          <strong>{f.title} · {f.contact}</strong>
+                          <small>{favorStatus(favors,f.id)==="claimed"?"CONCLUÍDO":
+                            favorStatus(favors,f.id)==="ready"?"ENTREGAR AO CONTATO":"EM ANDAMENTO"}</small>
+                          <p>{f.objective}</p>
+                          <small>+{f.reward.xp} XP · {f.reward.credits} créditos · {f.reward.honor} Honra</small>
+                        </div>)}
                 </section>
                 <section className="menu-list-panel">
                   <span className="menu-panel-kicker">PISTAS E REGISTROS // {clues.length}</span>

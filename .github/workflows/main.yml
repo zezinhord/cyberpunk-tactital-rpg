@@ -14,6 +14,7 @@ on:
       - feature/baixada-polish-npc-sprites-v076
       - feature/cinematic-opening-expressive-dialogues-v077
       - feature/clinic-healing-hotfix-v078
+      - feature/progressive-quests-favors-v079
   pull_request:
     branches:
       - main
@@ -74,6 +75,9 @@ jobs:
 
       - name: Testar cura na clinica e persistencia de Vida
         run: node --experimental-strip-types scripts/test-clinic-healing.mjs
+
+      - name: Testar favores progressivos, carteira, honra e loja
+        run: node --experimental-strip-types scripts/test-favors.mjs
 
       - name: Testar NPCs, dialogos e persistencia da campanha
         run: |

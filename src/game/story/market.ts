@@ -1,5 +1,6 @@
 import type {ClassId} from "../classes/registry.ts";
 import type {OriginId} from "../character/origins.ts";
+import type {Reputation,FactionId} from "./reputation.ts";
 
 export type MarketActorId="feira-corretor"|"feira-ajuda"|"feira-archive"|"iza"|"tomas";
 export interface MarketState {
@@ -14,6 +15,7 @@ export interface MarketAction {
   readonly classId?:ClassId; readonly clue:string;
   readonly trustDelta:number;readonly heatDelta:number;
   readonly minClues?:number;readonly requiresV09Report?:boolean;readonly exclusiveGroup?:string;
+  readonly minHonor?:number; readonly faction?:FactionId; readonly minStanding?:number;
 }
 export interface MarketConversation {
   readonly speaker:string;readonly role:string;readonly portrait:string;readonly text:string;
@@ -50,6 +52,26 @@ export const MARKET_ACTIONS:readonly MarketAction[]=[
   {id:"mercado-proteger",actor:"feira-archive",label:"Guardar as provas em cópias comunitárias",
     reply:"As provas ficam em dispositivos independentes, distribuídos pela cooperativa e pela clínica. A rede oficial não recebe um alerta imediato, mas a denúncia pública será adiada até haver testemunhas protegidas.",
     clue:"market-sealed",trustDelta:1,heatDelta:-1,minClues:2,requiresV09Report:true,exclusiveGroup:"decisao-mural"},
+  // Uma proposta corporativa está aberta a qualquer classe após V-09.
+  // O custo é político: revelar metadados de moradores à Helix.
+  {id:"helix-proposta",actor:"feira-archive",
+    label:"Helix · Aceitar auditoria central (compartilhar metadados)",
+    reply:"Uma interface da Helix aceita o dossiê e concede uma credencial provisória. Os nomes não foram divulgados publicamente, mas horários e conexões da comunidade agora constam na infraestrutura corporativa. Marta recebe um alerta.",
+    clue:"market-helix-bargain",trustDelta:-2,heatDelta:-1,requiresV09Report:true},
+  // Serviços de rede só aparecem quando o personagem conquistou acesso real.
+  // Uma opção aceita grava sua própria decisão e um recibo de item idempotente.
+  {id:"rede-livre-apoio",actor:"feira-ajuda",label:"Movimento Livre · Pedir apoio médico",
+    reply:"A Casa Comum aciona uma equipe de cuidados sem rastrear os pacientes. Dois curativos foram separados para você; os moradores podem voltar a confiar na distribuição.",
+    clue:"market-free-aid",trustDelta:1,heatDelta:-1,
+    minHonor:3,faction:"movimento_livre",minStanding:2},
+  {id:"cinzento-rotas",actor:"feira-corretor",label:"Mercado Cinzento · Solicitar rota discreta",
+    reply:"Davi apresenta uma rota de transporte sem rastreio central. Dois conectores da rede informal acompanham o mapa; o desvio reduz as rondas perto do entreposto.",
+    clue:"market-grey-route",trustDelta:0,heatDelta:-2,
+    requiresV09Report:true,faction:"mercado_cinzento",minStanding:2},
+  {id:"helix-autorizacao",actor:"feira-archive",label:"Helix · Liberar acesso usando a credencial",
+    reply:"O acesso corporativo abre uma remessa com uma célula de energia. A contrapartida é registrada: a Helix recebe metadados sobre os contatos locais. Marta não aprovará esta troca.",
+    clue:"market-helix-access",trustDelta:-2,heatDelta:-2,
+    requiresV09Report:true,faction:"helix",minStanding:2},
 ] as const;
 const ACTORS:Readonly<Record<MarketActorId,{speaker:string;role:string;portrait:string;text:string}>>={
  "feira-corretor":{speaker:"Davi",role:"INTERMEDIÁRIO DE ACESSOS",portrait:"D",text:"Não existe mercado livre se metade das rotas passa por uma chave corporativa. Eu vendo contatos, mas também sei quando dizer não."},
@@ -63,7 +85,8 @@ export const MARKET_CLUE_TEXT:Readonly<Record<string,string>>=Object.fromEntries
 );
 export function isMarketActor(id:string):id is MarketActorId{return Object.prototype.hasOwnProperty.call(ACTORS,id);}
 export function getMarketConversation(actor:MarketActorId,classId:ClassId|null,
-  state:MarketState,reported:boolean,originId:OriginId):MarketConversation{
+  state:MarketState,reported:boolean,originId:OriginId,
+  reputation?:Reputation):MarketConversation{
  const base=ACTORS[actor];
  const text=base.text
    +(reported?" Após a queda da sentinela V-09, circulam novas informações de quem controlava as transferências.":"")
@@ -71,23 +94,34 @@ export function getMarketConversation(actor:MarketActorId,classId:ClassId|null,
    +(state.heat>=3?" A vigilância municipal aumentou as rondas depois das consultas à rede; os comerciantes baixam o tom de voz.":"")
    +(state.trust>=2?" Os trabalhadores conhecem seus atos em favor da comunidade e compartilham informações com mais confiança.":"")
    +(state.decisions.includes("mercado-publicar")?" O dossiê agora circula publicamente.":"")
-   +(state.decisions.includes("mercado-proteger")?" As provas foram repartidas em arquivos independentes.":"");
+   +(state.decisions.includes("mercado-proteger")?" As provas foram repartidas em arquivos independentes.":"")
+   +(actor==="feira-ajuda"&&(reputation?.factions.movimento_livre??0)<0
+      ?" A Casa Comum observa seus contatos corporativos com cautela: os moradores temem que novos nomes cheguem à Helix.":"")
+   +(actor==="feira-corretor"&&(reputation?.factions.mercado_cinzento??0)<=-2
+      ?" Meus contatos não confiam na segurança das suas últimas rotas. Primeiro será preciso reconstruir a relação.":"")
+   +(actor==="feira-archive"&&(reputation?.factions.helix??0)>=2
+      ?" O terminal reconhece uma credencial corporativa e oferece acessos de risco.":"");
  return {...base,text,choices:MARKET_ACTIONS.filter(action=>
    action.actor===actor
    && (!action.classId||action.classId===classId)
    && !state.decisions.includes(action.id)
    && (!action.requiresV09Report||reported)
    && state.clues.length >= (action.minClues??0)
+   && (action.minHonor===undefined||(reputation?.honor??-1)>=action.minHonor)
+   && (!action.faction||(reputation?.factions[action.faction]??-99)>=(action.minStanding??0))
    && (!action.exclusiveGroup||!state.decisions.some(id=>
        MARKET_ACTIONS.some(previous=>previous.id===id&&previous.exclusiveGroup===action.exclusiveGroup))))
    .map(action=>({id:action.id,label:action.label,reply:action.reply,marketAction:action.id}))};
 }
-export function applyMarketAction(state:MarketState,actionId:string,classId:ClassId|null,reported=false,influence=0):
+export function applyMarketAction(state:MarketState,actionId:string,classId:ClassId|null,
+  reported=false,influence=0,reputation?:Reputation):
   {state:MarketState;applied:boolean;clue?:string}{
  const action=MARKET_ACTIONS.find(a=>a.id===actionId);
  if(!action||state.decisions.includes(action.id)||action.classId&&action.classId!==classId
    ||action.requiresV09Report&&!reported
    ||state.clues.length < (action.minClues??0)
+   ||action.minHonor!==undefined&&(reputation?.honor??-1)<action.minHonor
+   ||action.faction&&(reputation?.factions[action.faction]??-99)<(action.minStanding??0)
    ||action.exclusiveGroup&&state.decisions.some(id=>
        MARKET_ACTIONS.some(previous=>previous.id===id&&previous.exclusiveGroup===action.exclusiveGroup)))
    return {state,applied:false};

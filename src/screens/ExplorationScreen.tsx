@@ -15,10 +15,13 @@ import type { InteriorId } from "../game/baixada/InteriorScene";
 import type { TestAppearance } from "../game/test-arena/appearance";
 import { audioDirector } from "../audio/director";
 import {isAndroidDevice} from "../game/performance";
+import {FAVORS,NILO_SHOP,readFavors,saveFavors,acceptFavor,recordFavorActivity,
+  visibleFavors,favorStatus,shopOfferUnlocked,type FavorId} from "../game/story/favors";
+import {calculateReputation,FACTION_NAMES,factionStanding} from "../game/story/reputation";
 import type {ClassId} from "../game/classes/registry";
 import type {EncounterId} from "../game/types";
 import {statRank,type StatId} from "../game/progression/tree";
-import {ESTIMATED_MINUTES,TRIAL_STEPS,readTrial,saveTrial,startTrial,
+import {TRIAL_STEPS,readTrial,saveTrial,startTrial,
  currentTrialStep,trialCombatForActor,advanceTrial,reconcileTrial} from "../game/story/field-test";
 import { isPatioCitizen, getPatioConversation, type ConversationOption } from "../game/dialogues/patio";
 import { readV09,markV09Reported } from "../game/story/v09";
@@ -29,10 +32,10 @@ import {loadWorldArea,saveWorldArea} from "../game/baixada/world-area";
 import {readSewer,saveSewer,sewerNextObjective,sewerStatus,applySewerEvent,
  hasSewerEvidence,type SewerEvent} from "../game/story/sewer-v09";
 import {FERRUGEM_ACTORS,isFerrugemActor} from "../game/ferrugem/layout";
-import {FERRUGEM_STEPS,readFerrugem,saveFerrugem,startFerrugem,advanceFerrugem,
+import {readFerrugem,saveFerrugem,startFerrugem,advanceFerrugem,
  currentFerrugemStep,ferrugemObjective,type FerrugemEnding} from "../game/ferrugem/story";
 import {DISTRICTS,isDistrictId,getDistrict,actorFromId,type DistrictId} from "../game/districts/catalog";
-import {CHAPTERS,readDistrictProgress,saveDistrictProgress,beginDistrict,
+import {readDistrictProgress,saveDistrictProgress,beginDistrict,
  districtCurrentStep,districtObjective,advanceDistrict,type ChapterProgress,
  type DistrictEnding} from "../game/districts/progress";
 
@@ -48,6 +51,9 @@ interface Props {
   onPurchaseAttribute:(id:StatId)=>string;
   onPurchaseSkill:(id:string)=>string;
   onQuestXp:(eventId:string,amount:number)=>boolean;
+  onClaimFavor:(id:FavorId)=>{ok:boolean;message:string};
+  onBuyWithCredits:(item:ItemId)=>{ok:boolean;message:string};
+  onSyncFactionAids:()=>boolean;
   onOpenBattle: (mode?: EncounterId) => void;
   onTreatAtClinic: () => number;
   currentHp: number;
@@ -119,6 +125,9 @@ export default function ExplorationScreen({
   onPurchaseAttribute,
   onPurchaseSkill,
   onQuestXp,
+  onClaimFavor,
+  onBuyWithCredits,
+  onSyncFactionAids,
   onOpenBattle,
   onTreatAtClinic,
   currentHp,
@@ -158,15 +167,16 @@ export default function ExplorationScreen({
     periferia:readDistrictProgress(character.id,"periferia"),
   }));
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
-  const [journalOpen, setJournalOpen] = useState(false);
-  const [missionOpen, setMissionOpen] = useState(true);
+  const [hubTab,setHubTab]=useState<"mission"|"favors">("mission");
   const [hubOpen, setHubOpen] = useState(()=>!isAndroidDevice());
   const [menuOpen, setMenuOpen] = useState(false);
-  const [menuStartSection,setMenuStartSection]=useState<"character"|"progression">("character");
+  const [menuStartSection,setMenuStartSection]=useState<"character"|"progression"|"journal">("character");
   const [dismissedLevelNotice,setDismissedLevelNotice]=useState("");
   const showLevelNotice=progressNotice.startsWith("SUBIU DE NÍVEL!")&&
     dismissedLevelNotice!==progressNotice;
   const [market,setMarket]=useState(()=>readMarket(character.id));
+  const [favors,setFavors]=useState(()=>readFavors(character.id));
+  const [favorNotice,setFavorNotice]=useState("");
   const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));
   const [trialNotice,setTrialNotice]=useState("");
   const [sectorId,setSectorId]=useState<SectorId>(()=>sectorAt(loadWorldLocation(character.id)));
@@ -195,16 +205,56 @@ export default function ExplorationScreen({
           :"Não foi possível registrar o tratamento. Confira o espaço de armazenamento e tente novamente."}]);
   };
   const sayClinic=(pages:DialoguePage[]):void=>{
-    // A escolha médica fica na última fala da médica em qualquer etapa V-09.
-    // Assim, conversar com Amara sempre oferece a cura sem alterar missões.
-    if(currentHp>=maxHp)return say(pages);
     const last=pages.length-1;
     say(pages.map((page,index)=>index===last?
-      {...page,choices:[...(page.choices??[]),{
-        id:"clinic-treatment",label:"Preciso de atendimento médico",
-        reply:"Vou cuidar desses ferimentos agora."}]}:page));
+      {...page,choices:[...(page.choices??[]),
+        ...(currentHp<maxHp?[{
+          id:"clinic-treatment",label:"Preciso de atendimento médico",
+          reply:"Vou cuidar desses ferimentos agora."}]:[]),
+        ...favorChoicesFor("dra-amara")]}:page));
   };
   const v09=readV09(character.id);
+  const reputation=calculateReputation({favors,market,ferrugem,chapters:cityChapters});
+  const favorContext={missionStep:mission.step,v09Defeated:v09.defeated,honor:favors.honor};
+  const unlockedFavors=visibleFavors(favorContext);
+  const favorChoicesFor=(actor:string):ConversationOption[]=>unlockedFavors
+    .filter(f=>f.contactId===actor&&!favors.claimed.includes(f.id))
+    .flatMap(f=>{
+      const status=favorStatus(favors,f.id);
+      return status==="offered"?[{id:"favor-accept-"+f.id,
+        label:"Aceitar favor: "+f.title,reply:f.synopsis,
+        favorAction:"accept:"+f.id}]:
+        status==="ready"?[{id:"favor-claim-"+f.id,
+          label:"Entregar favor: "+f.title,reply:"Receber a recompensa combinada.",
+          favorAction:"claim:"+f.id}]:[];
+    });
+  const actOnFavor=(command:string):void=>{
+    const [action,id]=command.split(":");
+    const quest=FAVORS.find(f=>f.id===id);
+    if(!quest)return;
+    if(action==="accept"){
+      const result=acceptFavor(favors,quest.id,favorContext);
+      if(!result.ok){setFavorNotice(result.message);say([{speaker:quest.contact,role:"QUADRO DE FAVORES",
+       portrait:"◆",text:result.message}]);return;}
+      if(!saveFavors(character.id,result.state)){
+        say([{speaker:"QUADRO DE FAVORES",role:"ERRO DE ARMAZENAMENTO",portrait:"!",
+          text:"Não foi possível salvar o favor. Libere espaço e tente novamente."}]);return;
+      }
+      setFavors(result.state);setFavorNotice(result.message);
+      say([{speaker:quest.contact,role:"CONTATO COMUNITÁRIO",portrait:"◆",text:result.message}]);
+      return;
+    }
+    if(action==="claim"){
+      const result=onClaimFavor(quest.id);
+      if(result.ok)setFavors(readFavors(character.id));
+      setFavorNotice(result.message);
+      say([{speaker:quest.contact,role:"ENTREGA DE FAVORES",portrait:"◆",text:result.message}]);
+    }
+  };
+  const openQuestJournal=():void=>{
+    setMenuStartSection("journal");setMenuOpen(true);setHubOpen(false);
+  };
+
   const objective = mission.step<3 ? ((OBJECTIVES as readonly string[])[mission.step] ?? OBJECTIVES[0])
     : v09.reported ? (market.decisions.includes("mercado-publicar")
         ? "O dossiê comunitário foi publicado. Proteja as testemunhas da feira enquanto a Helix contesta a autoria."
@@ -336,6 +386,18 @@ export default function ExplorationScreen({
   };
 
   const handleInteract = (id: string) => {
+    // O console do Pátio pode ser consultado parcialmente antes do manifesto.
+    // A inspeção do favor só conta quando os registros de fato são acessíveis.
+    const taskAccessible=id!=="patio-console"||
+      (mission.step>=3&&(hasSewerEvidence(sewer)||v09.defeated));
+    const activity=recordFavorActivity(favors,id,taskAccessible);
+    if(activity.ready.length){
+      if(saveFavors(character.id,activity.state)){
+        setFavors(activity.state);
+        const names=activity.ready.map(fid=>FAVORS.find(f=>f.id===fid)?.title).filter(Boolean);
+        setFavorNotice("Favor pronto para entregar: "+names.join(", ")+".");
+      }else setFavorNotice("Falha ao registrar o favor. Libere espaço e tente novamente.");
+    }
     const cityActor=actorFromId(id);
     if(cityActor){
       const {district,slot}=cityActor;
@@ -515,9 +577,11 @@ export default function ExplorationScreen({
     }
 
     if(isMarketActor(id)){
-      const node=getMarketConversation(id,character.classId,market,v09.reported,character.originId);
+      const node=getMarketConversation(id,character.classId,market,v09.reported,character.originId,reputation);
       say([{speaker:node.speaker,role:node.role,portrait:node.portrait,
-        text:node.text,choices:node.choices}]);
+        text:node.text+(id==="feira-corretor"&&favors.honor>=2?
+          " Sua reputação de ajuda aos moradores já chegou ao Mercado.":""),
+        choices:[...node.choices,...favorChoicesFor(id)]}]);
       return;
     }
     if(isPatioCitizen(id)){
@@ -528,7 +592,7 @@ export default function ExplorationScreen({
         return;
       }
       const node=getPatioConversation(id,character.originId,v09.defeated);
-      say([{speaker:node.speaker,role:node.role,portrait:node.portrait,text:node.text,choices:node.choices}]);
+      say([{speaker:node.speaker,role:node.role,portrait:node.portrait,text:node.text,choices:[...node.choices,...favorChoicesFor(id)]}]);
       return;
     }
     if(id==="patio-console"){
@@ -659,7 +723,11 @@ export default function ExplorationScreen({
           speaker: "Nilo",
           role: "MECÂNICO / VENDEDOR",
           portrait: "N",
-          text: "Encontrei um conector com marcação de manutenção do canal. Pode ficar com a peça; talvez ajude a entender o que aconteceu. Não é equipamento de oficina comum.",
+          text: "Encontrei um conector com marcação de manutenção do canal. Pode ficar com a peça; talvez ajude a entender o que aconteceu. Não é equipamento de oficina comum. Saldo da oficina: "+favors.credits+" créditos.",
+          choices:[...favorChoicesFor("vendedor"),...NILO_SHOP.filter(offer=>
+            shopOfferUnlocked(offer,favors,reputation)).map(offer=>({
+            id:"nilo-buy-"+offer.item,label:"Comprar "+offer.label+" · "+offer.price+" créditos",
+            reply:"Pedido de compra da oficina.",shopAction:offer.item}))],
         },
       ]);
       return;
@@ -741,16 +809,34 @@ export default function ExplorationScreen({
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    if(choice.favorAction){actOnFavor(choice.favorAction);return;}
+    if(choice.shopAction){
+      const result=onBuyWithCredits(choice.shopAction as ItemId);
+      if(result.ok)setFavors(readFavors(character.id));
+      setFavorNotice(result.message);
+      say([{speaker:"Nilo",role:"COMÉRCIO DE PEÇAS",portrait:"N",text:result.message}]);
+      return;
+    }
     if(choice.id==="clinic-treatment"){
       performClinicTreatment();
       return;
     }
     if(choice.marketAction){
       const result=applyMarketAction(market,choice.marketAction,character.classId,v09.reported,
-        statRank(character,"influencia"));
+        statRank(character,"influencia"),reputation);
       if(result.applied){
+        if(!saveMarket(character.id,result.state)){
+          say([{speaker:"REDE COMUNITÁRIA",role:"FALHA DE SALVAMENTO",portrait:"!",
+            text:"O acordo não pôde ser registrado. Libere espaço no aparelho e tente novamente."}]);
+          return;
+        }
         setMarket(result.state);
         if(result.clue)addClue(result.clue);
+        if(!onSyncFactionAids())setFavorNotice("Acordo registrado. O suprimento será entregue após sincronizar o inventário.");
+      }else{
+        say([{speaker:"REDE COMUNITÁRIA",role:"ACESSO INDISPONÍVEL",portrait:"!",
+          text:"As relações ou as provas necessárias para esse contato ainda não estão disponíveis."}]);
+        return;
       }
     }
     if(choice.clue)addClue(choice.clue);
@@ -935,162 +1021,84 @@ export default function ExplorationScreen({
           {cityNotice&&<small role="status">{cityNotice}</small>}
         </section>
       </div>}
-      <aside className={"na-mission-hub"+(hubOpen?"":" collapsed")} aria-label="Próximas missões e objetivos">
+      <aside className={"na-mission-hub na-quest-hud"+(hubOpen?" expanded":" collapsed")}
+        aria-label="Objetivo ativo e quadro de favores">
         <button className="na-hub-toggle" type="button" onClick={()=>setHubOpen(open=>!open)}
           aria-expanded={hubOpen} aria-controls="na-mission-details">
-          {hubOpen?"Ocultar objetivos ×":"Ver missões e objetivos +"}
+          <span aria-hidden="true">◈</span>
+          <strong>{hubOpen?"MISSÕES · NOVA ARCÁDIA":"OBJETIVO ATIVO"}</strong>
+          <span aria-hidden="true">{hubOpen?"×":"+"}</span>
         </button>
-        <div id="na-mission-details" className="na-mission-details">
-        <div className="na-next-step" role="status">
-          <span>PRÓXIMO PASSO · {isDistrictId(interior)?"CAMPANHA "+getDistrict(interior).name.toUpperCase():interior==="ferrugem"?"ECOS DE FERRUGEM":trial.started&&!trial.completed?"OPERAÇÃO CIRCUITO FANTASMA":mission.step<3?"O NOME QUE SUMIU":!v09.reported?"INVESTIGAÇÃO V-09":"NOVO CAPÍTULO"}</span>
-          <strong>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):interior==="ferrugem"?ferrugemObjective(ferrugem):trial.started&&!trial.completed
-            ? currentTrialStep(trial)?.objective
-            : mission.step<3 ? objective
-            : !v09.reported ? objective
-            : trial.completed ? "Operação concluída. Continue explorando Nova Arcádia."
-            : "Inicie a Operação Circuito Fantasma no painel abaixo."}</strong>
-          {trial.started&&!trial.completed&&<small>Etapa {trial.step+1} de {TRIAL_STEPS.length} · {currentTrialStep(trial)?.sector}</small>}
-        </div>
-      <button type="button" className="na-objective-toggle" onClick={() => setMissionOpen((value) => !value)} aria-expanded={missionOpen}>
-        <span>◈ {mission.step===3?"CONSULTAR INVESTIGAÇÃO":"INVESTIGAÇÃO INICIAL"}</span><span aria-hidden="true">{missionOpen ? "−" : "+"}</span>
-      </button>
-      {missionOpen && <section className="mission-card" aria-label="Missão atual">
-        <div className="mission-card-top">
-          <div>
-            <span className="eyebrow">MISSÃO PRINCIPAL · BAIXADA</span>
-            <h2>O nome que sumiu</h2>
+        {!hubOpen&&<div className="na-quest-peek">
+          <strong>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
+            interior==="ferrugem"?ferrugemObjective(ferrugem):
+            trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
+            objective}</strong>
+          {favors.ready.some(id=>!favors.claimed.includes(id))&&
+            <small>◆ Favor concluído · procure o contato</small>}
+        </div>}
+        {hubOpen&&<div id="na-mission-details" className="na-mission-details na-quest-details">
+          <div className="na-quest-tabs" role="tablist" aria-label="Aba de missões">
+            <button type="button" role="tab" aria-selected={hubTab==="mission"}
+              onClick={()=>setHubTab("mission")}>Principal</button>
+            <button type="button" role="tab" aria-selected={hubTab==="favors"}
+              onClick={()=>setHubTab("favors")}>Favores {favors.accepted.filter(id=>!favors.claimed.includes(id)).length}</button>
           </div>
-          <span className={mission.step === 3 ? "mission-status complete" : "mission-status"}>
-            {v09.reported ? "CAPÍTULO 02" : mission.step===3
-              ? hasSewerEvidence(sewer)?"ESGOTO INVESTIGADO":"ROTA SUBTERRÂNEA"
-              : "EM ANDAMENTO"}
-          </span>
-        </div>
-        <p className="market-state-strip">COMUNIDADE {market.trust}/5 · ALERTA DA REDE {market.heat}/5 · PISTAS DO MERCADO {market.clues.length}</p>
-        <p className="mission-summary">
-          Uma pessoa desapareceu depois de procurar atendimento por causa de um implante defeituoso. O registro oficial foi apagado, mas a clínica preservou uma cópia local.
-        </p>
-        <div className="objective-row">
-          <span className="objective-index">
-            {mission.step === 3 ? "04" : String(mission.step + 1).padStart(2, "0")}
-          </span>
-          <strong>
-            {objective}
-          </strong>
-        </div>
-        <div className="quest-progress" aria-label={mission.step + " de 3 etapas concluídas"}>
-          {([0, 1, 2] as const).map((index) => (
-            <i key={index} className={mission.step > index ? "done" : undefined} />
-          ))}
-        </div>
-        <button
-          type="button"
-          className="journal-toggle"
-          onClick={() => setJournalOpen((open) => !open)}
-          aria-expanded={journalOpen}
-        >
-          Registro da investigação <span>{mission.clues.length}</span>
-        </button>
-        {journalOpen && (
-          <div className="mission-journal">
-            <p><b>Etapas:</b> {mission.step} de 3 concluídas.</p>
-            <p><b>Referência central:</b> ocorrência V-09.</p>
-            {mission.clues.length === 0
-              ? <p>Nenhuma pista adicional registrada. Converse com os moradores e examine os terminais.</p>
-              : mission.clues.map((clue) => (
-                  <p key={clue}><b>•</b> {CLUE_LABELS[clue]}</p>
-                ))}
-          </div>
-        )}
-      </section>}
-
-      <section className="na-sewer-panel" aria-label="Investigação dos esgotos">
-        <div className="na-sewer-heading">
-          <span>◈ ROTA V-09 · EXPANSÃO SUBTERRÂNEA</span>
-          <strong>{sewerStatus(sewer)}</strong>
-        </div>
-        <p>{mission.step<3?"Conclua a investigação na clínica para rastrear a transferência V-09.":
-          v09.defeated?"O manifesto foi associado ao dossiê do Pátio.":
-          sewerNextObjective(sewer)}</p>
-        <div className="na-sewer-checkpoints" role="list" aria-label="Evidências da rota">
-          {([
-            ["Rastros",sewer.traceFound],
-            ["Bombas",sewer.pumpRestored],
-            ["Comporta",sewer.gateOpened],
-            ["Manifesto",sewer.manifestRecovered],
-          ] as const).map(([label,done])=>
-            <span key={label} role="listitem" className={done?"complete":""}>{done?"✓":"○"} {label}</span>)}
-        </div>
-        {sewer.sampleRecovered&&<small>Prova opcional: implante adulterado recuperado.</small>}
-        {sewerNotice&&<small role="status">{sewerNotice}</small>}
-      </section>
-      <section className="na-ferrugem-panel" aria-label="Capítulos adicionais">
-        <div className="na-ferrugem-heading">
-          <span>◈ CINCO NOVOS DISTRITOS · INVESTIGAÇÕES</span>
-          <strong>{DISTRICTS.filter(d=>cityChapters[d.id].completed).length}/5 CONCLUÍDOS</strong>
-        </div>
-        {isDistrictId(interior)&&<p>{districtObjective(interior,cityChapters[interior])}</p>}
-        <details>
-          <summary>Consultar campanhas e locais da cidade</summary>
-          {CHAPTERS.map(ch=><p key={ch.id}>
-            {cityChapters[ch.id].completed?"✓":cityChapters[ch.id].started?"▶":"○"}
-            {" "}{ch.title} · {getDistrict(ch.id).name} ·
-            {" "}{cityChapters[ch.id].step}/{ch.steps.length} objetivos
-          </p>)}
-        </details>
-        {cityNotice&&<small role="status">{cityNotice}</small>}
-      </section>
-      <section className="na-ferrugem-panel" aria-label="Capítulo Ferrugem">
-        <div className="na-ferrugem-heading">
-          <span>◈ CAPÍTULO 03 · ECOS DE FERRUGEM</span>
-          <strong>{ferrugem.completed?"CONCLUÍDO":ferrugem.started?
-            (ferrugem.step+1)+"/"+FERRUGEM_STEPS.length:"BLOQUEADO"}</strong>
-        </div>
-        <p>{ferrugemObjective(ferrugem)}</p>
-        <small>{ferrugem.started?"A investigação começa com Rosa e atravessa os galpões da Ferrugem.":
-          "Recupere o manifesto V-09 no esgoto para utilizar o transporte do Pátio Sul."}</small>
-        {ferrugemNotice&&<small role="status">{ferrugemNotice}</small>}
-        {ferrugem.started&&<details>
-          <summary>Consultar etapas de Ferrugem</summary>
-          {FERRUGEM_STEPS.map((step,index)=>
-            <p key={step.id}>{index<ferrugem.step?"✓":index===ferrugem.step?"▶":"○"} {index+1}. {step.title}</p>)}
-        </details>}
-      </section>
-      <section className="na-trial-panel" aria-label="Operação Circuito Fantasma">
-        <div className="na-trial-heading">
-          <div><span className="eyebrow">PRÓXIMA OPERAÇÃO · PROJETO ÉDEN</span>
-            <h2>Operação Circuito Fantasma</h2></div>
-          <strong>{trial.completed?"CONCLUÍDA":trial.started?"ETAPA "+Math.min(trial.step+1,TRIAL_STEPS.length)+"/"+TRIAL_STEPS.length:"NOVA · "+ESTIMATED_MINUTES+" MIN EST."}</strong>
-        </div>
-        {!trial.started ? <>
-          <p>Uma sequência com {TRIAL_STEPS.length} objetivos e três confrontos de múltiplas ondas,
-            conectando clínica, Canal, Pátio e Mercado. Investigue a manipulação dos serviços e teste combate,
-            exploração, itens, diálogos e sua árvore de evolução. Duração estimada de {ESTIMATED_MINUTES} minutos,
-            variável conforme sua exploração e a dificuldade.</p>
-          <button type="button" onClick={()=>{
-            const started=startTrial(trial);
-            if(saveTrial(character.id,started)){
-              setTrial(started);setTrialNotice("Missão iniciada. Dirija-se à clínica comunitária.");
-            }else setTrialNotice("Não foi possível salvar o início da campanha.");
-          }}>Iniciar operação de testes</button>
-        </> : trial.completed ? <p>Relatório entregue. A comunidade preservou as provas da triagem;
-            seu progresso, XP e novas técnicas permanecem no salvamento. A investigação sobre a autoria do sistema continua.</p>
-        : <div className="na-trial-objective">
-            <p><b>CAPÍTULO {currentTrialStep(trial)?.chapter} · {currentTrialStep(trial)?.title}</b>
-             {" — "}{currentTrialStep(trial)?.sector}</p>
-            <strong>{currentTrialStep(trial)?.objective}</strong>
-            <small>{currentTrialStep(trial)?.detail}</small>
-            <span>{trial.step} de {TRIAL_STEPS.length} etapas concluídas.
-              {" "}Recompensa da próxima: {currentTrialStep(trial)?.xp} XP.</span>
+          {hubTab==="mission"?<div className="na-quest-tab-content" role="tabpanel">
+            <span className="na-quest-kicker">ETAPA ATUAL · SEM REVELAR PRÓXIMOS CAPÍTULOS</span>
+            <h3>{isDistrictId(interior)?getDistrict(interior).name:
+              interior==="ferrugem"?"Ecos de Ferrugem":
+              trial.started&&!trial.completed?"Operação Circuito Fantasma":
+              mission.step<3?"O nome que sumiu":
+              !v09.reported?"Investigação V-09":"Rastros do Éden"}</h3>
+            <p>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
+              interior==="ferrugem"?ferrugemObjective(ferrugem):
+              trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
+              objective}</p>
+            {trial.started&&!trial.completed&&<small>
+              Etapa {trial.step+1} de {TRIAL_STEPS.length} · {currentTrialStep(trial)?.sector}</small>}
+            {mission.step>=3&&!trial.started&&!trial.completed&&
+              <button className="na-quest-primary" type="button" onClick={()=>{
+                const started=startTrial(trial);
+                if(saveTrial(character.id,started)){
+                  setTrial(started);setTrialNotice("Operação iniciada. Dirija-se à clínica.");
+                }else setTrialNotice("Não foi possível salvar a operação.");
+              }}>Iniciar Operação Circuito Fantasma</button>}
+            {[trialNotice,sewerNotice,cityNotice,ferrugemNotice].filter(Boolean).slice(-1).map(text=>
+              <small key={text} className="na-quest-notice" role="status">{text}</small>)}
+            <button className="na-quest-secondary" type="button" onClick={openQuestJournal}>
+              Abrir diário completo ↗</button>
+          </div>:<div className="na-quest-tab-content na-favor-board" role="tabpanel">
+            <div className="na-favor-wallet"><span>CRÉDITOS <strong>{favors.credits}</strong></span>
+              <span>HONRA <strong>{favors.honor}</strong></span></div>
+            <div className="na-faction-mini" aria-label="Relações com as facções">
+              {(["helix","movimento_livre","mercado_cinzento"] as const).map(id=>
+                <span key={id} title={FACTION_NAMES[id]+" · "+factionStanding(reputation.factions[id])}>
+                  {id==="helix"?"HELIX":id==="movimento_livre"?"LIVRE":"CINZENTO"}
+                  <strong>{reputation.factions[id]>0?"+":""}{reputation.factions[id]}</strong>
+                </span>)}
+            </div>
+            <span className="na-quest-kicker">FAVORES DISPONÍVEIS AGORA · {unlockedFavors.length}</span>
+            {unlockedFavors.filter(f=>favorStatus(favors,f.id)!=="claimed").length===0?
+              <p className="na-favor-empty">Ainda não há pedidos pendentes. Conheça os moradores e avance na investigação.</p>:
+              unlockedFavors.filter(f=>favorStatus(favors,f.id)!=="claimed").map(f=>{
+                const status=favorStatus(favors,f.id);
+                return <article className="na-favor-row" key={f.id}>
+                  <div><strong>{f.title}</strong><small>{f.contact}</small></div>
+                  <p>{status==="offered"?f.synopsis:f.objective}</p>
+                  <small>+{f.reward.xp} XP · {f.reward.credits} créditos ·
+                    {" "}{f.reward.honor} Honra · {f.reward.amount} item(ns)</small>
+                  {status==="offered"?<button type="button" onClick={()=>actOnFavor("accept:"+f.id)}>
+                    Aceitar favor</button>:status==="ready"?
+                    <strong className="na-favor-ready">✓ Pronto · entregar a {f.contact}</strong>:
+                    <span className="na-favor-active">Em andamento</span>}
+                </article>;
+              })}
+            {favorNotice&&<small className="na-quest-notice" role="status">{favorNotice}</small>}
+            <button className="na-quest-secondary" type="button" onClick={openQuestJournal}>
+              Histórico e recompensas no diário ↗</button>
           </div>}
-        {trialNotice&&<p className="na-trial-feedback" role="status">{trialNotice}</p>}
-        {trial.started&&<details className="na-trial-history"><summary>Consultar etapas da operação</summary>
-          {TRIAL_STEPS.map((stage,index)=><p key={stage.id}>
-            {index<trial.step?"✓":index===trial.step?"▶":"○"} {index+1}. {stage.title} · {stage.sector}
-          </p>)}
-        </details>}
-      </section>
-         </div>
+        </div>}
       </aside>
       <div className="exploration-footer-actions single-action">
         <button type="button" className="explore-secondary" onClick={() => onOpenBattle("test")}>
@@ -1112,6 +1120,9 @@ export default function ExplorationScreen({
           originProfile={getOriginGameplay(character.originId)}
           missionStep={mission.step}
           missionObjective={objective}
+          favors={favors}
+          favorContext={favorContext}
+          reputation={reputation}
           sewerProgress={sewer}
           ferrugemProgress={ferrugem}
           clues={mission.clues.map((id) => ({ id, text: CLUE_LABELS[id] ?? "Pista registrada." }))}

@@ -17,7 +17,7 @@ assert.deepEqual(JSON.parse(records.get(HEALTH_KEY+"player-1")),{hp:27,maxHp:27}
 const screen=readFileSync(new URL("../src/screens/ExplorationScreen.tsx",import.meta.url),"utf8");
 const css=readFileSync(new URL("../src/immersive-ui.css",import.meta.url),"utf8");
 const start=screen.indexOf('className="na-clinic-quick-treatment"');
-const end=screen.indexOf('className={"na-mission-hub"',start);
+const end=screen.indexOf('<aside className={"na-mission-hub',start);
 assert.ok(start>0&&end>start,"O botão médico deve estar fora do painel de missões");
 assert.ok(screen.includes('onClick={performClinicTreatment}'),"Botão não dispara tratamento");
 assert.ok(screen.includes('if(choice.id==="clinic-treatment")'),"Diálogo não permite cura");
