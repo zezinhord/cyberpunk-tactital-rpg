@@ -9,6 +9,7 @@ import {validateDistrictBackup} from "../districts/progress.ts";
 import {validateDistrictPositions} from "../districts/positions.ts";
 import {FAVORS_KEY,validateFavorBackup} from "../story/favors.ts";
 import {EDEN_KEY,validateEdenBackup} from "../story/eden-echoes.ts";
+import {URBAN_KEY,validateUrbanBackup} from "../story/urban-chronicles.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
  */
@@ -28,6 +29,7 @@ export const CHARACTER_BACKUP_KEYS={
  districtPositions:"cyberpunk-tactical-rpg.district-positions.v1.",
  favors:FAVORS_KEY,
  eden:EDEN_KEY,
+ urban:URBAN_KEY,
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
 export interface CharacterBackup{
@@ -78,6 +80,8 @@ export function importCharacterBackup(text:string,overwrite=false):
        return {ok:false,message:"Coordenadas dos distritos inválidas."};
      if(field==="favors"&&!validateFavorBackup(decoded))
        return {ok:false,message:"Quadro de favores e carteira inválidos."};
+     if(field==="urban"&&!validateUrbanBackup(decoded))
+       return {ok:false,message:"Ocorrências urbanas inválidas no backup."};
      if(field==="eden"&&!validateEdenBackup(decoded))
        return {ok:false,message:"Campanha Éden inválida no backup."};
      if(field==="area"&&!isSavedWorldArea(decoded))

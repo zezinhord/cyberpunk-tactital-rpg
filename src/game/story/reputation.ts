@@ -4,6 +4,7 @@
  */
 import {readFavors,type FavorId,type FavorState} from "./favors.ts";
 import {readMarket,type MarketState} from "./market.ts";
+import {readUrban,urbanFactionEffects,type UrbanState} from "./urban-chronicles.ts";
 import {readFerrugem,type FerrugemProgress} from "../ferrugem/story.ts";
 import {readEden,type EdenProgress} from "./eden-echoes.ts";
 import {readDistrictProgress,type ChapterProgress} from "../districts/progress.ts";
@@ -24,7 +25,7 @@ export interface Reputation{
 }
 export interface ReputationSource{
  favors:FavorState;market:MarketState;
- ferrugem?:FerrugemProgress;eden?:EdenProgress;
+ ferrugem?:FerrugemProgress;eden?:EdenProgress;urban?:UrbanState;
  chapters?:Partial<Record<DistrictId,ChapterProgress>>;
 }
 type Delta=Partial<Record<FactionId,number>>;
@@ -83,6 +84,7 @@ export function calculateReputation(source:ReputationSource):Reputation{
  };
  for(const id of new Set(source.favors.claimed))apply(FAVOR_EFFECTS[id]);
  for(const decision of new Set(source.market.decisions))apply(MARKET_EFFECTS[decision]);
+ if(source.urban)for(const delta of urbanFactionEffects(source.urban))apply(delta);
  if(source.eden?.completed){
   apply(source.eden.ending==="publicar"
    ?{movimento_livre:2,helix:-2,mercado_cinzento:-1}:
@@ -107,7 +109,7 @@ export function calculateReputation(source:ReputationSource):Reputation{
 }
 export function readReputation(characterId:string):Reputation{
  return calculateReputation({
-  favors:readFavors(characterId),market:readMarket(characterId),
+  favors:readFavors(characterId),market:readMarket(characterId),urban:readUrban(characterId),
   ferrugem:readFerrugem(characterId),eden:readEden(characterId),
   chapters:Object.fromEntries(DISTRICTS.map(d=>[d.id,readDistrictProgress(characterId,d.id)])),
  });

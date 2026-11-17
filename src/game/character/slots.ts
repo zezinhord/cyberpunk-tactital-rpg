@@ -18,6 +18,7 @@ const OWNED_DATA_KEYS=[
  "cyberpunk-tactical-rpg.city-chapters.v1.",
  "cyberpunk-tactical-rpg.district-positions.v1.",
  "cyberpunk-tactical-rpg.favors.v1.",
+ "cyberpunk-tactical-rpg.urban-cases.v1.",
 ] as const;
 /** Descobre e preserva automaticamente o slot único de versões anteriores. */
 export function listCharacterSlots():PlayerCharacter[]{

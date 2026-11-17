@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {CLASS_IDS,ADVANCED_CLASS_SKILLS,ALL_CLASS_SKILLS,
  getClassSkills,getClassBranches,getStartingClassAbilities} from "../src/game/classes/registry.ts";
-import {BRANCH_CLASS_SKILLS} from "../src/game/classes/branches.ts";
+import {BRANCH_CLASS_SKILLS,MASTER_BRANCH_SKILLS} from "../src/game/classes/branches.ts";
 import {createPlayerCharacter,loadCharacter,saveCharacter,parseCharacterSave} from "../src/game/character/storage.ts";
 import {gainExperience,grantUniqueExperience,levelAtXp,purchaseAttribute,purchaseSkill,
  availableAttributePoints,availableSkillPoints,combatProgression,statBreakdown,getSkillRank,
@@ -22,7 +22,8 @@ assert.equal(LEVEL_XP.length,MAX_LEVEL);
 assert.equal(STAT_IDS.length,5);
 assert.equal(Object.keys(ADVANCED_CLASS_SKILLS).length,22);
 assert.equal(Object.keys(BRANCH_CLASS_SKILLS).length,33);
-assert.equal(Object.keys(ALL_CLASS_SKILLS).length,66);
+assert.equal(Object.keys(MASTER_BRANCH_SKILLS).length,33);
+assert.equal(Object.keys(ALL_CLASS_SKILLS).length,99);
 const signatures=new Set;
 for(const classId of CLASS_IDS){
  clearSlots();
@@ -37,14 +38,16 @@ for(const classId of CLASS_IDS){
  const roots=getClassBranches(classId);
  assert.equal(roots.length,3,classId+" precisa três especializações");
  assert.equal(new Set(roots.map(x=>x.id)).size,3);
- assert.equal(getClassSkills(classId).length,6,classId+" precisa seis nós reais");
- assert.equal(new Set(roots.flatMap(x=>x.skillIds)).size,6);
+ assert.equal(getClassSkills(classId).length,9,classId+" precisa nove nós reais");
+ assert.equal(new Set(roots.flatMap(x=>x.skillIds)).size,9);
  signatures.add(roots.map(x=>x.name).join("|"));
  for(const path of roots){
-   assert.equal(path.skillIds.length,2);
+   assert.equal(path.skillIds.length,3);
    assert.ok(getClassSkills(classId).some(s=>s.id===path.skillIds[0]));
    assert.ok(getClassSkills(classId).some(s=>s.id===path.skillIds[1]));
    assert.equal(skillPrerequisite(path.skillIds[1]),path.skillIds[0]);
+   assert.equal(skillPrerequisite(path.skillIds[2]),path.skillIds[1]);
+   assert.equal(ALL_CLASS_SKILLS[path.skillIds[2]].minimumLevel>=7,true);
  }
  const root=roots[0].skillIds[0],child=roots[0].skillIds[1];
  assert.equal(getSkillRank(a,root),1,"Grau inicial gratuito");
@@ -148,4 +151,4 @@ for(const classId of CLASS_IDS){
 }
 assert.equal(signatures.size,11,"Todas as classes precisam de ramos temáticos diferentes");
 assert.equal(gainExperience(createPlayerCharacter("X","baixada","solo"),-3).levelsGained,0);
-console.log("Progressão: 11 classes, 33 ramos, 66 técnicas, ranks em combate, XP idempotente, atributos e saves aprovados.");
+console.log("Progressão: 11 classes, 33 ramos, 99 técnicas, habilidades de domínio, ranks, XP e saves aprovados.");

@@ -379,18 +379,39 @@ try {
   }
   // Executa habilidade exclusiva e observa a alteração real de energia e
   // Defesa do personagem. Não aceita animação ou mensagem sem mutação de regras.
-  const arenaTexture=await evaluate('document.querySelector(".battlefield-canvas canvas")?.getAttribute("data-player-texture")');
+  const arenaTexture=await evaluate(`(()=>{
+    const host=document.querySelector('[data-battlefield-renderer="svg"]');
+    const board=host?.querySelector("svg");
+    const sprite=host?.querySelector('[data-unit="runner"] image');
+    const player=host?.querySelector('[data-unit="runner"]');
+    const enemy=host?.querySelector('[data-unit="drone"]');
+    const exit=document.querySelector(".na-arena-exit-quick");
+    const boardBox=board?.getBoundingClientRect();
+    const exitBox=exit?.getBoundingClientRect();
+    return {engine:host?.getAttribute("data-battlefield-renderer"),
+      player:!!player,enemy:!!enemy,spriteUrl:sprite?.getAttribute("href"),
+      tiles:board?.querySelectorAll("polygon").length,
+      boardWidth:boardBox?.width,boardHeight:boardBox?.height,
+      exitLabel:exit?.textContent,exitTop:exitBox?.top,
+      exitBottom:exitBox?.bottom,exitHeight:exitBox?.height};
+  })()`);
   const skillLauncher=await evaluate(`(()=>{
     const b=document.querySelector(".na-abilities-open"),r=b?.getBoundingClientRect();
     return {label:b?.textContent,height:r?.height,top:r?.top,bottom:r?.bottom};
   })()`);
-  if(arenaTexture!=="player-baixada-feminine" || !skillLauncher.label?.includes("HABILIDADES") ||
+  if(arenaTexture.engine!=="svg"||!arenaTexture.player||!arenaTexture.enemy||
+     !arenaTexture.spriteUrl||arenaTexture.tiles<64||
+     arenaTexture.boardWidth<160||arenaTexture.boardHeight<100||
+     arenaTexture.exitHeight<44||arenaTexture.exitTop<0||
+     arenaTexture.exitBottom>arenaLayout.windowHeight||
+     !arenaTexture.exitLabel?.includes("SAIR DO COMBATE")||
+     !skillLauncher.label?.includes("HABILIDADES") ||
      !skillLauncher.label?.includes("1 da classe") || skillLauncher.height<44 ||
-     skillLauncher.bottom>arenaLayout.windowHeight) {
-    throw new Error("Arena não preservou sprite/seletor: "+JSON.stringify({arenaTexture,skillLauncher}));
+     skillLauncher.bottom>arenaLayout.windowHeight){
+    throw new Error("Arena SVG, avatar, inimigo ou saída não estão visíveis: "+JSON.stringify({arenaTexture,skillLauncher}));
   }
   await writeFile("qa/arena-identidade-e-poderes.json",JSON.stringify({arenaTexture,skillLauncher},null,2));
-  console.log("QA combate: sprite Baixada feminino e seletor de habilidades sempre acessível.");
+  console.log("QA combate: tabuleiro SVG, avatar, hostil, saída visível e seletor de habilidades aprovados.");
 
   const classButton=await evaluate(`(()=>{
     const button=document.querySelector(".arena-special.class-exclusive");
@@ -439,6 +460,14 @@ try {
   await writeFile("qa/arena-comandos-fixos-1600x720.png", arenaPng);
   await writeFile("qa/arena-comandos-metricas.json",JSON.stringify(arenaLayout,null,2));
   console.log("QA arena: comandos sempre visíveis:",JSON.stringify(arenaLayout));
+
+  // Regressão real: abandonar um combate ainda ativo deve retornar ao mundo,
+  // sem modal bloqueante, e preservar o mapa e os controles de missão.
+  await evaluate('document.querySelector(".na-arena-exit-quick").click();true');
+  await poll(()=>has(".baixada-world canvas"),"retorno ao mapa após abandonar a arena");
+  if(await evaluate('Boolean(document.querySelector(".arena-v030"))'))
+    throw new Error("O combate permaneceu aberto após pressionar Sair do combate.");
+  console.log("QA retorno: botão superior abandonou o combate e restaurou a Baixada.");
 
   // Regressão Android de entrada: slot carregável e controles de toque em 914x411.
   await send("Emulation.setDeviceMetricsOverride",{
