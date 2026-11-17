@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {
  DISTRICTS,DISTRICT_SPAWN,DISTRICT_WIDTH,DISTRICT_HEIGHT,
  NODE_TILES,actorFromId,districtActorId,isDistrictId,getDistrict,
- cellKey,districtWalkable,districtCanStep,districtPath,districtApproach,
+ cellKey,districtWalkable,districtCanStep,districtPath,districtApproach,districtRoad,
 } from "../src/game/districts/catalog.ts";
 import {
  CHAPTERS,FRESH_CHAPTER,DISTRICT_SAVE_KEY,
@@ -20,6 +20,16 @@ assert.equal(DISTRICT_WIDTH,30);assert.equal(DISTRICT_HEIGHT,22);
 const ids=new Set(DISTRICTS.map(x=>x.id));assert.equal(ids.size,5);
 assert.equal(isDistrictId("setor-zero"),true);
 assert.equal(isDistrictId("ferrugem"),false);
+// QA de identidade: nenhuma região secundária pode reutilizar a mesma planta.
+const distinctBlocks=new Set(DISTRICTS.map(d=>JSON.stringify(d.blocks)));
+assert.equal(distinctBlocks.size,5,"Distritos precisam de geometrias próprias");
+const distinctRoads=new Set(DISTRICTS.map(d=>{
+ const roads=[];
+ for(let y=1;y<DISTRICT_HEIGHT-1;y++)for(let x=1;x<DISTRICT_WIDTH-1;x++)
+  if(districtRoad(d.id,{x,y}))roads.push(cellKey({x,y}));
+ return roads.join("|");
+}));
+assert.equal(distinctRoads.size,5,"Distritos não podem repetir exatamente a malha viária");
 const visited=new Set();
 const storage=new Map();
 globalThis.localStorage={
@@ -30,7 +40,7 @@ globalThis.localStorage={
 for(const d of DISTRICTS){
  assert.ok(d.intro.length>30,"Um distrito precisa de contexto narrativo");
  assert.equal(getDistrict(d.id).name,d.name);
- assert.ok(d.blocks.length>=5);
+ assert.ok(d.blocks.length>=8,"Mapas secundários devem ter zonas construtivas próprias");
  assert.ok(districtWalkable(d.id,DISTRICT_SPAWN));
  const traversed=new Set([cellKey(DISTRICT_SPAWN)]),queue=[DISTRICT_SPAWN];
  for(let n=0;n<queue.length;n++){
