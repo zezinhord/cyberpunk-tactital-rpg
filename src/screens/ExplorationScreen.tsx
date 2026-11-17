@@ -1089,15 +1089,13 @@ export default function ExplorationScreen({
           </button>
         </section>}
       </section>
-      {(interior==="sewer-drain"||interior==="sewer-deep"||interior==="ferrugem"||isDistrictId(interior))&&<button type="button"
+      {/* Um único HUD de objetivo por área: o painel principal já cobre os
+          seis distritos; o lembrete extra existe apenas no esgoto labiríntico. */}
+      {(interior==="sewer-drain"||interior==="sewer-deep")&&<button type="button"
         className="na-sewer-objective-hint" onClick={()=>setHubOpen(true)}
-        aria-label={isDistrictId(interior)?"Abrir objetivos de "+getDistrict(interior).name:
-          interior==="ferrugem"?"Abrir objetivos da missão Ferrugem":"Abrir objetivos da investigação subterrânea"}>
-        <span>{isDistrictId(interior)?"◈ "+getDistrict(interior).name.toUpperCase()+" · MISSÃO ATIVA":
-          interior==="ferrugem"?"◈ MISSÃO EM FERRUGEM · TOQUE PARA DETALHES":
-          "◈ OBJETIVO SUBTERRÂNEO · TOQUE PARA DETALHES"}</span>
-        <strong>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
-          interior==="ferrugem"?ferrugemObjective(ferrugem):sewerNextObjective(sewer)}</strong>
+        aria-label="Abrir objetivos da investigação subterrânea">
+        <span>◈ OBJETIVO SUBTERRÂNEO · TOQUE PARA DETALHES</span>
+        <strong>{sewerNextObjective(sewer)}</strong>
       </button>}
       {!interior&&nearSewerAccess&&<button type="button"
         className="na-sewer-quick-access"
