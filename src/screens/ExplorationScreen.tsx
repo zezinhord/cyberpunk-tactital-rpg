@@ -18,6 +18,7 @@ import {isAndroidDevice} from "../game/performance";
 import {FAVORS,NILO_SHOP,readFavors,saveFavors,acceptFavor,recordFavorActivity,
   visibleFavors,knownFavors,discoverFavors,favorStatus,shopOfferUnlocked,type FavorId} from "../game/story/favors";
 import {calculateReputation,FACTION_NAMES,factionStanding} from "../game/story/reputation";
+import {EDEN_STEPS,readEden,saveEden,startEden,currentEdenStep,edenObjective,advanceEden,type EdenEnding} from "../game/story/eden-echoes.ts";
 import type {ClassId} from "../game/classes/registry";
 import type {EncounterId} from "../game/types";
 import {statRank,type StatId} from "../game/progression/tree";
@@ -178,6 +179,7 @@ export default function ExplorationScreen({
   const [favors,setFavors]=useState(()=>readFavors(character.id));
   const [favorNotice,setFavorNotice]=useState("");
   const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));
+  const [eden,setEden]=useState(()=>readEden(character.id));
   const [trialNotice,setTrialNotice]=useState("");
   const [sectorId,setSectorId]=useState<SectorId>(()=>sectorAt(loadWorldLocation(character.id)));
   useEffect(()=>{
@@ -402,6 +404,37 @@ export default function ExplorationScreen({
         setFavorNotice(readyNames.length?"Favor pronto para entregar: "+readyNames.join(", ")+"."
           :discovered.revealed.length?"Novos pedidos conhecidos. Abra o Quadro de Favores.":"");
       }else setFavorNotice("Falha ao registrar favor. Libere espaço no aparelho.");
+    }
+    const storyStage=currentEdenStep(eden);
+    if(storyStage?.actor===id){
+      if(storyStage.kind==="combat"){
+        onOpenBattle(storyStage.encounter);
+        return;
+      }
+      if(storyStage.kind==="decision"){
+        say([{speaker:"MURAL DE BOLETINS",role:"DECISÃO COLETIVA · PROJETO ÉDEN",
+          portrait:"▤",text:storyStage.message,
+          choices:[
+            {id:"eden-publicar",label:"Divulgar os dados agora",reply:"Os documentos serão publicados."},
+            {id:"eden-resguardar",label:"Proteger testemunhas e preparar auditoria",reply:"Os arquivos serão preservados."}
+          ]}]);
+        return;
+      }
+      const result=advanceEden(eden,id);
+      if(result.advanced&&result.step){
+        if(!saveEden(character.id,result.state)){
+          say([{speaker:"REGISTRO LOCAL",role:"FALHA DE SALVAMENTO",portrait:"!",
+            text:"Não foi possível registrar o capítulo Éden. Libere espaço e repita a interação."}]);
+          return;
+        }
+        setEden(result.state);
+        onQuestXp("eden-"+result.step.id,result.step.xp);
+        onSyncFactionAids();
+        setCityNotice(result.step.title+" · +"+result.step.xp+" XP · próxima pista liberada.");
+        say([{speaker:storyStage.sector,role:"RASTROS DO PROJETO ÉDEN",
+          portrait:"▤",text:result.message}]);
+        return;
+      }
     }
     const cityActor=actorFromId(id);
     if(cityActor){
@@ -818,6 +851,23 @@ export default function ExplorationScreen({
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    if(choice.id==="eden-publicar"||choice.id==="eden-resguardar"){
+      const ending:EdenEnding=choice.id==="eden-publicar"?"publicar":"resguardar";
+      const result=advanceEden(eden,"feira-archive",ending);
+      if(!result.advanced||!result.step)return;
+      if(!saveEden(character.id,result.state)){
+        say([{speaker:"REGISTRO LOCAL",role:"FALHA DE SALVAMENTO",portrait:"!",
+          text:"A decisão não foi salva. Libere espaço e tente novamente."}]);return;
+      }
+      setEden(result.state);
+      onQuestXp("eden-"+result.step.id,result.step.xp);
+      onSyncFactionAids();
+      say([{speaker:"MARTA · CASA COMUM",role:"CONSEQUÊNCIAS DO PROJETO ÉDEN",portrait:"M",
+        text:result.message+(ending==="publicar"
+          ?" A Helix foi notificada e a comunidade começa a preparar proteção para as fontes."
+          :" Os nomes permanecem protegidos enquanto se constrói uma auditoria independente.")}]);
+      return;
+    }
     if(choice.id.startsWith("nilo-open-")){
       const category=choice.id.slice("nilo-open-".length);
       const offers=NILO_SHOP.filter(offer=>{
@@ -1057,6 +1107,7 @@ export default function ExplorationScreen({
         {!hubOpen&&<div className="na-quest-peek">
           <strong>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
             interior==="ferrugem"?ferrugemObjective(ferrugem):
+            eden.started?edenObjective(eden):
             trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
             objective}</strong>
           {favors.ready.some(id=>!favors.claimed.includes(id))&&
@@ -1073,15 +1124,24 @@ export default function ExplorationScreen({
             <span className="na-quest-kicker">ETAPA ATUAL · SEM REVELAR PRÓXIMOS CAPÍTULOS</span>
             <h3>{isDistrictId(interior)?getDistrict(interior).name:
               interior==="ferrugem"?"Ecos de Ferrugem":
+              eden.started?"Ecos da Cidade · Projeto Éden":
               trial.started&&!trial.completed?"Operação Circuito Fantasma":
               mission.step<3?"O nome que sumiu":
               !v09.reported?"Investigação V-09":"Rastros do Éden"}</h3>
             <p>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
               interior==="ferrugem"?ferrugemObjective(ferrugem):
+              eden.started?edenObjective(eden):
               trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
               objective}</p>
             {trial.started&&!trial.completed&&<small>
               Etapa {trial.step+1} de {TRIAL_STEPS.length} · {currentTrialStep(trial)?.sector}</small>}
+            {trial.completed&&!eden.started&&v09.reported&&
+              <button className="na-quest-primary" type="button" onClick={()=>{
+                const opened=startEden(eden,trial.completed,v09.reported);
+                if(saveEden(character.id,opened)){
+                  setEden(opened);setCityNotice("Novo capítulo liberado: Ecos da Cidade.");
+                }else setCityNotice("Não foi possível registrar o capítulo Éden.");
+              }}>Iniciar Ecos da Cidade · Projeto Éden</button>}
             {mission.step>=3&&!trial.started&&!trial.completed&&
               <button className="na-quest-primary" type="button" onClick={()=>{
                 const started=startTrial(trial);
@@ -1148,6 +1208,7 @@ export default function ExplorationScreen({
           favors={favors}
           favorContext={favorContext}
           reputation={reputation}
+          edenProgress={eden}
           sewerProgress={sewer}
           ferrugemProgress={ferrugem}
           clues={mission.clues.map((id) => ({ id, text: CLUE_LABELS[id] ?? "Pista registrada." }))}
