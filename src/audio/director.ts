@@ -5,6 +5,7 @@
  */
 import {getSong,isRadioDistrict,isRadioMood,type RadioDistrict,
  type RadioMood} from "./soundscapes.ts";
+import {cityAudioPhase,expandedAmbiencePath,originalAmbienceFallback} from "./expanded-ambience.ts";
 import {chooseWithoutRepetition,curatedCandidates,isRadioStyle,
  type RadioStyle} from "./curated.ts";
 export type SoundScene="menu"|"exploration"|"interior"|"battle"|"story";
@@ -50,6 +51,9 @@ class SynthDirector {
   private ambience:HTMLAudioElement|null=null;
   private ambienceURL="";
   private ambienceRain=false;
+  private ambienceCycle=0;
+  private urbanPressure=0;
+  private expandedAmbienceFailed=false;
   private soundtrackBlocked=false;
   private district:RadioDistrict="baixada";
   private radioMode:RadioMode=savedRadioValue("mode")==="manual"?"manual":"auto";
@@ -180,10 +184,17 @@ class SynthDirector {
     this.switchTrack();
     this.updateAmbience();
   }
+  /** Pressão política deriva de eventos persistidos; sem buffers adicionais. */
+  setUrbanPressure(value:number):void{
+    const next=Math.min(3,Math.max(0,Math.floor(Number.isFinite(value)?value:0)));
+    if(next===this.urbanPressure)return;
+    this.urbanPressure=next;this.updateAmbience();
+  }
   setDistrict(district:RadioDistrict):void{
     if(this.district===district)return;
     this.district=district;
     this.ambienceRain=false;
+    this.ambienceCycle++;
     this.updateAmbience();
     if(this.radioMode==="auto"){
       this.rotation++;
@@ -299,10 +310,19 @@ class SynthDirector {
       stream.volume=this.volumes.ambient*0.42;
       stream.onended=()=>{
         if(this.current==="exploration")this.ambienceRain=!this.ambienceRain;
+        this.ambienceCycle++;
         this.ambienceURL="";
         this.updateAmbience();
       };
-      stream.onerror=()=>{stream.pause();this.ambienceURL="";};
+      stream.onerror=()=>{
+        const mode=this.current==="battle"?"alert":
+          this.current==="interior"?"interior":this.ambienceRain?"rain":"street";
+        const fallback=originalAmbienceFallback(this.district,mode);
+        if(this.ambienceURL===fallback){stream.pause();return;}
+        this.expandedAmbienceFailed=true;
+        stream.pause();stream.src=fallback;this.ambienceURL=fallback;
+        try{const started=stream.play();if(started)void started.catch(()=>{});}catch{}
+      };
       this.ambience=stream;
     }catch{this.ambience=null;}
   }
@@ -317,7 +337,10 @@ class SynthDirector {
     const mode=this.current==="battle"?"alert":
        this.current==="interior"?"interior":
        this.ambienceRain?"rain":"street";
-    const path="/assets/ambient/"+this.district+"/"+mode+".ogg";
+    const phase=cityAudioPhase(this.ambienceCycle,this.urbanPressure);
+    const path=this.expandedAmbienceFailed?
+      originalAmbienceFallback(this.district,mode):
+      expandedAmbiencePath(this.district,mode,phase);
     if(this.ambienceURL!==path){
       stream.pause();
       stream.src=path;this.ambienceURL=path;
