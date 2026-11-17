@@ -26,7 +26,7 @@ import ExplorationScreen from "./screens/ExplorationScreen";
 import TitleScreen from "./screens/TitleScreen";
 import {
   createStartingInventory, loadInventory, saveInventory,
-  toggleEquipment, consumeItem, getEquipmentBonuses, grantItem, ITEM_CATALOG,ITEM_IDS,
+  toggleEquipment, consumeItem, getEquipmentBonuses, grantItem, grantRewardInventoryItem, ITEM_CATALOG,ITEM_IDS,
 } from "./game/inventory";
 import type { ItemId, InventoryState } from "./game/inventory";
 import {craftRecipe,type RecipeId} from "./game/crafting";
@@ -648,7 +648,7 @@ export default function App() {
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
         onCraft={craftAtWorkshop}
         onGrantIndustrialItem={(id:ItemId)=>setInventory(current=>grantItem(current,id))}
-        onGrantQuestItem={(id: ItemId) => setInventory((current) => current.quantities[id] > 0 ? current : grantItem(current, id))}
+        onGrantQuestItem={(id:ItemId)=>setInventory(current=>grantRewardInventoryItem(current,id,1,"story-first-"+id))}
       />
     );
   }
