@@ -13,6 +13,12 @@ permissions:
   contents: write
   actions: read
 
+# Apenas o build mais recente da branch ativa pode promover o APK.
+# Impede CI antigo terminar depois e substituir uma atualização nova.
+concurrency:
+  group: nova-arcadia-android-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-android:
     name: Compile Android APK
