@@ -185,3 +185,16 @@
 .na-scene-recovery small{font-size:10px;color:#d2c5b1}
 .na-scene-recovery button{min-height:48px;padding:9px 14px;background:#294853;
  border:1px solid #e6ba8a;color:#fff0d8;border-radius:6px;font-weight:700}
+
+/* v0.8: seletor de consumível com alvo de toque acessível e sem expandir painel. */
+.na-supply-select{min-width:0;display:flex;align-items:center;gap:5px;
+ border:1px solid #53616b;border-radius:8px;padding:5px 6px;background:#1b2b36}
+.na-supply-select span{color:#e6cb97;font:700 9px var(--mono)}
+.na-supply-select select{max-width:160px;min-width:0;width:100%;min-height:40px;
+ border-radius:5px;border:1px solid #536f78;background:#17232d;color:#e9e5d6;
+ font:600 11px var(--body)}
+@media (orientation:landscape){
+ .arena-v030 .actions{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+ .arena-v030 .na-supply-select{grid-column:1/-1;min-height:40px}
+ .arena-v030 .na-supply-select select{max-width:none;flex:1}
+}
