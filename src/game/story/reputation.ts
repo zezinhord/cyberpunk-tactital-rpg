@@ -31,6 +31,11 @@ const FAVOR_EFFECTS:Readonly<Record<FavorId,Delta>>={
  triagem:{movimento_livre:1},filtros:{mercado_cinzento:1},
  agua:{movimento_livre:2},rotas:{mercado_cinzento:2},
  patio:{movimento_livre:1},seguranca:{movimento_livre:1,mercado_cinzento:1},
+ forja:{movimento_livre:1},auditoria:{mercado_cinzento:1},
+ abrigos:{movimento_livre:2},quarentena:{movimento_livre:1},
+ palco:{mercado_cinzento:2},caravana:{movimento_livre:1},
+ farol:{mercado_cinzento:1},conexao:{movimento_livre:2},
+ neon:{mercado_cinzento:1},
 };
 const MARKET_EFFECTS:Readonly<Record<string,Delta>>={
  converse:{mercado_cinzento:1},mutirao:{movimento_livre:1},
