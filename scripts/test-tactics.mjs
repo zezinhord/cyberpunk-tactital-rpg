@@ -115,3 +115,11 @@ console.log("Tática: LoS, obstrução, cobertura, arma de fogo, economia e IA a
 }
 assert.equal(enemyProfile("district-prisma",1).role,"sniper");
 console.log("Novas táticas: vigilância, supressão, sabotagem e atirador aprovados.");
+
+// Repercussão mecânica de escolhas urbanas na mesma arena, sem duplicar saves.
+const {urbanCombatSupport}=await import("../src/game/story/urban-chronicles.ts");
+const supported=new TurnManager({encounterId:"district-aurea",districtSupport:
+ urbanCombatSupport({version:1,choices:{"au-crachas":"a"}},"district-aurea")});
+const unsupported=new TurnManager({encounterId:"district-aurea"});
+assert.equal(supported.getState().units[0].attackBonus,unsupported.getState().units[0].attackBonus+1);
+assert.ok(supported.getDistrictSupportDescription().includes("trabalhadores"));
