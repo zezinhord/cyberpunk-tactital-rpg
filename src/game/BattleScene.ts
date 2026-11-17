@@ -79,7 +79,17 @@ export class BattleScene extends Phaser.Scene {
     }
     this.lastCue = this.manager.getState().cue?.sequence ?? 0;
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handleBoardTap, this);
-    this.unsubscribe = this.manager.subscribe((state) => this.renderState(state));
+    this.unsubscribe = this.manager.subscribe((state) => {
+      try{
+        this.renderState(state);
+      }catch(error){
+        // A renderização é acessória. Jamais permitir que uma falha do Canvas
+        // interrompa EventBus.emit antes de notificar o App do KO/resultado.
+        console.warn("[BATTLE_RENDER_RECOVERY] Canvas indisponível; HUD permanece ativo.",error);
+        this.unsubscribe?.();
+        this.unsubscribe=undefined;
+      }
+    });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.movementTicket++;
       this.playerMoving=false;
