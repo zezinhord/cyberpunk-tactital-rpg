@@ -121,6 +121,9 @@ jobs:
       - name: Testar implantes, consumíveis e novos encontros Éden
         run: node --experimental-strip-types scripts/test-expansion-combat.mjs
 
+      - name: Verificar campo SVG e retorno ao mapa após vitória
+        run: node --experimental-strip-types scripts/test-battlefield-navigation.mjs
+
       - name: Reproduzir morte a 0 PV e validar evacuação, retentativa e salvamentos
         run: node --experimental-strip-types scripts/test-combat-defeat.mjs
 
@@ -372,8 +375,8 @@ jobs:
           mkdir -p qa
           "$AAPT" dump badging "$APK" | tee qa/apk-badging.txt
           grep -Fq "name='com.cyberpunk.tacticalrpg'" qa/apk-badging.txt
-          grep -Fq "versionCode='90001'" qa/apk-badging.txt
-          grep -Fq "versionName='0.9.0-rc.1'" qa/apk-badging.txt
+          grep -Fq "versionCode='90002'" qa/apk-badging.txt
+          grep -Fq "versionName='0.9.0-rc.2'" qa/apk-badging.txt
           echo "APK Android gerado: pacote, versionCode e versionName conferidos."
 
 
@@ -386,7 +389,7 @@ jobs:
           echo "APK_BYTES=$BYTES"
           echo "MARCO_1_GB_BYTES=1000000000"
           {
-            echo "## Nova Arcádia 0.9.0-rc.1 — marco de 1 GB auditado"
+            echo "## Nova Arcádia 0.9.0-rc.2 — marco de 1 GB auditado"
             echo "APK real: **$BYTES bytes**"
             echo "Meta atual: **1.000.000.000 bytes**"
             echo "Sem limite máximo: arquivos devem estar ligados ao jogo."
@@ -435,23 +438,23 @@ jobs:
 
 
       # Pré-lançamento isolado: APK puro sem afetar o canal permanente v080.
-      - name: Publicar o APK 0.9.0-rc.1 de QA para download direto
+      - name: Publicar o APK 0.9.0-rc.2 de QA para download direto
         if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="nova-arcadia-v090-qa"
-          ASSET="NovaArcadia-0.9.0-rc.1-QA.apk"
+          TAG="nova-arcadia-v090-rc2-qa"
+          ASSET="NovaArcadia-0.9.0-rc.2-QA.apk"
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           test "$(stat -c %s "$APK")" -ge 1000000000
           cp "$APK" "$ASSET"
           SHA256="$(sha256sum "$ASSET" | cut -d " " -f 1)"
           SIZE="$(stat -c %s "$ASSET")"
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Nova Arcádia 0.9.0-rc.1 — QA Android" --notes "Candidata experimental; testes físicos pendentes. Exporte backup antes de instalar." --prerelease
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Nova Arcádia 0.9.0-rc.2 — QA Android" --notes "Candidata experimental; testes físicos pendentes. Exporte backup antes de instalar." --prerelease
           gh release upload "$TAG" "$ASSET" --repo "$GITHUB_REPOSITORY" --clobber
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Nova Arcádia 0.9.0-rc.1 — QA Android" --notes "APK direto de teste, sem ZIP. Build #$GITHUB_RUN_NUMBER, commit $GITHUB_SHA, $SIZE bytes, SHA-256 $SHA256. Validar Galaxy A07 e Redmi Note 12S antes de publicação. Preservar saves." --prerelease
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Nova Arcádia 0.9.0-rc.2 — QA Android" --notes "APK direto de teste, sem ZIP. Build #$GITHUB_RUN_NUMBER, commit $GITHUB_SHA, $SIZE bytes, SHA-256 $SHA256. Validar Galaxy A07 e Redmi Note 12S antes de publicação. Preservar saves." --prerelease
           echo "APK direto QA: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publicar somente o APK atual no canal permanente de testes

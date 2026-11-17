@@ -1,3 +1,53 @@
+/* Arena Android: saída e renderização estáveis em SVG, sem contexto WebGL/Canvas.
+ * Controles permanecem visíveis em landscape com área de toque >=48 px. */
+.na-svg-battlefield{position:relative;display:flex;align-items:stretch;
+  justify-content:center;flex:1 1 auto;min-height:0;overflow:hidden;
+  background:#0d1220}
+.na-battlefield-svg{display:block;width:100%;height:100%;min-height:0;
+  touch-action:manipulation;user-select:none}
+.na-iso-actionable{cursor:pointer;outline:none}
+.na-iso-actionable:focus-visible polygon:first-child{stroke:#ffd166;stroke-width:3}
+.arena-v030 .arena-head{display:flex;align-items:center;gap:8px}
+.arena-v030 .arena-head .mission{flex:1 1 auto;min-width:0}
+.arena-v030 .arena-head .mission h1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.arena-v030 .na-arena-exit-quick{flex:none;order:2;min-height:48px;
+  padding:7px 12px;border:2px solid #ffd166;border-radius:8px;
+  background:#254250;color:#f8ecce;font:800 12px var(--display);cursor:pointer}
+.arena-v030 .na-arena-exit-quick:focus-visible,
+.arena-v030 .na-arena-exit-secondary:focus-visible{outline:3px solid #00e5ff;outline-offset:2px}
+.arena-v030 .arena-head .turn{flex:none;order:3}
+.arena-v030 .na-arena-exit-secondary{font-weight:800;
+  color:#f0e3c1;background:#233f4a;border:2px solid #cfa66e}
+.na-victory-backdrop{position:fixed;inset:0;z-index:10050;
+ display:flex;align-items:center;justify-content:center;
+ padding:max(8px,env(safe-area-inset-top,0px))
+ max(10px,env(safe-area-inset-right,0px))
+ max(8px,env(safe-area-inset-bottom,0px))
+ max(10px,env(safe-area-inset-left,0px));
+ background:rgba(4,10,19,.9);overflow-y:auto}
+.na-victory-dialog{display:flex;flex-direction:column;gap:10px;
+ width:min(580px,100%);max-height:calc(100dvh - 16px);
+ overflow-y:auto;padding:clamp(12px,2.4vw,20px);
+ background:#142630;color:#ebf4f2;border:2px solid #00e5ff;
+ border-radius:12px;box-shadow:0 15px 44px #000a}
+.na-victory-dialog h2{margin:0;color:#ffe0a2;font:800 24px var(--display)}
+.na-victory-dialog p{margin:0;font:500 12px/1.4 var(--body)}
+.na-victory-eyebrow{font:700 10px var(--mono);color:#80dbe4;letter-spacing:.1em}
+.na-victory-save-note{color:#adbec5}
+.na-victory-dialog button{min-height:48px;border-radius:8px;
+ padding:9px 13px;font:800 13px var(--display);cursor:pointer}
+.na-victory-continue{background:#00e5ff;border:2px solid #00e5ff;color:#0c242b}
+.na-victory-report{background:#243944;border:1px solid #8797a5;color:#e6edf0}
+@media (orientation:landscape) and (max-width:980px){
+ .arena-v030 .na-arena-exit-quick{font-size:10px;padding:5px 8px;min-height:46px}
+ .arena-v030 .arena-head .turn{font-size:10px}
+ .arena-v030 .na-victory-dialog{gap:6px;padding:10px 14px}
+}
+@media (orientation:landscape) and (max-height:390px){
+ .arena-v030 .na-arena-exit-quick{min-height:40px}
+ .na-victory-dialog h2{font-size:19px}
+}
+
 /* Módulo 0.3.0 — Arena de personagens/habilidades (sem alterar o layout da cidade). */
 @media (orientation: landscape) {
  .game-shell.arena-v030 {

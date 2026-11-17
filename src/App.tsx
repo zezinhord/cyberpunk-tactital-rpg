@@ -231,6 +231,7 @@ export default function App() {
   const [battleMode, setBattleMode] = useState<EncounterId>("test");
   const [defeatNotice,setDefeatNotice]=useState("");
   const [abilityPickerOpen,setAbilityPickerOpen] = useState(false);
+  const [victoryDetailsOpen,setVictoryDetailsOpen] = useState(false);
   useEffect(()=>{audioDirector.setScene(screen==="battle"?"battle":screen==="exploration"?"exploration":screen==="title"?"menu":"story");},[screen]);
   const [appearance, setAppearance] = useState<TestAppearance>(() => loadTestAppearance(loadCharacter()?.id ?? ""));
   const chooseAppearance = (choice: TestAppearance) => {
@@ -280,6 +281,7 @@ export default function App() {
   }, [manager,screen,character?.id]);
 
   const beginBattle = (mode: EncounterId = "test") => {
+    setVictoryDetailsOpen(false);
     setDefeatNotice("");
     setAbilityPickerOpen(false);
     setBattleMode(mode);
@@ -621,6 +623,16 @@ export default function App() {
   /** Recuperação após 0 PV: sem alterar missão, facções ou experiência.
    * O modal independe de scroll e sempre oferece saída no Android landscape.
    */
+  /** Saída de combate sempre presente na barra principal.
+   * Abandonar uma missão em andamento não registra vitória nem recompensas.
+   * A vitória real continua sendo tratada pelo efeito de persistência anterior.
+   */
+  const exitBattle=():void=>{
+    setAbilityPickerOpen(false);
+    setDefeatNotice("");
+    setVictoryDetailsOpen(false);
+    setScreen("exploration");
+  };
   const handleDefeatChoice=(choice:DefeatChoice):void=>{
     if(!character||!defeated)return;
     const result=recoverFromDefeat(character.id,maximumHp,choice);
@@ -731,6 +743,12 @@ export default function App() {
             isTrialEncounter(battleMode)?"CAMPANHA TÁTICA · "+state.wave+" / "+state.totalWaves+" ONDAS":
             "Operativo de Campo // módulo experimental 0.3.0"}</p>
         </div>
+        <button type="button" className="na-arena-exit-quick"
+          data-combat-exit="true" onClick={exitBattle}
+          aria-label={state.combatComplete?"Continuar explorando após o combate":
+            "Abandonar confronto e voltar ao mapa sem concluir a missão"}>
+          {state.combatComplete?"✓ CONTINUAR NO MAPA":"← SAIR DO COMBATE"}
+        </button>
         <div className="turn">
           <span className="turn-pill" data-side={state.activeSide}>
             {state.combatComplete ? (victory ? "Vitória" : "Derrota") : state.activeSide === "player" ? "Seu turno" : "Turno hostil"}
@@ -813,10 +831,31 @@ export default function App() {
               title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense}`:attackPreview.reason}
               disabled={!canAttack}>{attackPreview.mode==="ranged"?"Disparar":"Ataque corpo a corpo"}</button>
           </div>
-          <div className="secondary-actions">{battleMode==="test" && <button type="button" onClick={() => {setDefeatNotice("");setBattleReset((value) => value + 1);}}>Reiniciar arena</button>}<button type="button" onClick={() => {setDefeatNotice("");setScreen("exploration");}} >Voltar à exploração</button></div>
+          <div className="secondary-actions">{battleMode==="test" && <button type="button" onClick={() => {setVictoryDetailsOpen(false);setDefeatNotice("");setBattleReset((value) => value + 1);}}>Reiniciar arena</button>}
+            <button type="button" className="na-arena-exit-secondary"
+              data-combat-exit="true" onClick={exitBattle}>
+              {state.combatComplete?"✓ CONTINUAR EXPLORANDO":"← Voltar à exploração"}
+            </button></div>
         </section>
 
       </aside>
+      {victory&&!victoryDetailsOpen&&<div className="na-victory-backdrop"
+         data-combat-victory="true">
+        <section className="na-victory-dialog" role="dialog" aria-modal="true"
+          aria-labelledby="na-victory-title">
+          <span className="na-victory-eyebrow">NOVA ARCÁDIA · RELATÓRIO TÁTICO</span>
+          <h2 id="na-victory-title">Vitória confirmada</h2>
+          <p>{battleMode==="v09"?"Unidade V-09 neutralizada. A investigação continua no mapa da Baixada.":
+            battleMode.startsWith("district-")?"Segurança Helix neutralizada. A investigação distrital continua.":
+            "Hostis neutralizados. Retorne à exploração para seguir as missões."}</p>
+          <p className="na-victory-save-note">Recompensas, XP e eventos da missão são registrados
+            pelo sistema de progresso do personagem.</p>
+          <button type="button" className="na-victory-continue"
+            data-combat-exit="true" onClick={exitBattle}>✓ CONTINUAR EXPLORANDO</button>
+          <button type="button" className="na-victory-report"
+            onClick={()=>setVictoryDetailsOpen(true)}>Ver relatório e campo de batalha</button>
+        </section>
+      </div>}
       {defeated&&<div className="na-defeat-backdrop" data-combat-defeat="true">
         <section className="na-defeat-dialog" role="dialog" aria-modal="true"
           aria-labelledby="na-defeat-title" aria-describedby="na-defeat-description">
