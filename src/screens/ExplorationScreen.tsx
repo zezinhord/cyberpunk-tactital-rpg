@@ -19,6 +19,7 @@ import {FAVORS,NILO_SHOP,readFavors,saveFavors,acceptFavor,recordFavorActivity,
   visibleFavors,knownFavors,discoverFavors,favorStatus,shopOfferUnlocked,type FavorId} from "../game/story/favors";
 import {calculateReputation,FACTION_NAMES,factionStanding} from "../game/story/reputation";
 import {EDEN_STEPS,readEden,saveEden,startEden,currentEdenStep,edenObjective,advanceEden,type EdenEnding} from "../game/story/eden-echoes.ts";
+import {DISCOVERY_REWARDS,type DiscoveryArea} from "../game/story/discoveries.ts";
 import type {ClassId} from "../game/classes/registry";
 import type {EncounterId} from "../game/types";
 import {statRank,type StatId} from "../game/progression/tree";
@@ -65,7 +66,7 @@ interface Props {
   onToggleEquipment: (id: ItemId) => void;
   onGrantQuestItem: (id: ItemId) => void;
   onGrantIndustrialItem:(id:ItemId)=>void;
-  onCollectDistrictCache:(area:string,item:ItemId)=>boolean;
+  onCollectDistrictCache:(area:DiscoveryArea)=>boolean;
   onCraft:(id:RecipeId)=>string;
 }
 
@@ -446,25 +447,15 @@ export default function ExplorationScreen({
         setInterior(null);return;
       }
       if(slot==="discovery"){
-        const loot:Record<DistrictId,ItemId>={
-          aurea:"dados_criptografados",subsolo:"tecido_tecnico",
-          "setor-zero":"reagente_bio",prisma:"fibra_optica",periferia:"microatuador",
-        };
-        const context:Record<DistrictId,string>={
-          aurea:"Uma cópia do protocolo de auditoria sobreviveu na caixa de serviço de Áurea.",
-          subsolo:"Um abrigo esqueceu um rolo de tecido técnico no depósito desativado.",
-          "setor-zero":"A quarentena deixou um reagente isolado do sistema sanitário central.",
-          prisma:"Os artistas guardaram fibra óptica no retransmissor de emergência.",
-          periferia:"As caravanas esconderam um microatuador para reparar o farol da estrada.",
-        };
-        const collected=onCollectDistrictCache(district,loot[district]);
-        if(collected)onQuestXp("discovery-"+district,12);
+        const discovery=DISCOVERY_REWARDS[district];
+        const collected=onCollectDistrictCache(district);
+        if(collected)onQuestXp("discovery-"+district,discovery.xp);
         say([{speaker:getDistrict(district).name,role:"CAIXA DE SUPRIMENTOS · DESCOBERTA",
-          portrait:"▤",text:collected?context[district]+" Item recolhido e +12 XP.":
+          portrait:"▤",text:collected?discovery.story+
+            " Item recolhido e +"+discovery.xp+" XP.":
           "Esta caixa já foi recolhida ou o inventário não pôde ser salvo."}]);
         return;
       }
-
       const state=cityChapters[district];
       const stage=districtCurrentStep(district,state);
       if(stage?.id==="escolha"&&stage.slot===slot){
@@ -531,7 +522,7 @@ export default function ExplorationScreen({
       return;
     }
     if(id==="ferrugem-salvage"){
-      const collected=onCollectDistrictCache("ferrugem","microatuador");
+      const collected=onCollectDistrictCache("ferrugem");
       if(collected)onQuestXp("discovery-ferrugem",12);
       say([{speaker:"ARQUIVO DE REFUGO",role:"RECUPERAÇÃO DA SIDERÚRGICA",
         portrait:"▤",text:collected?
