@@ -103,7 +103,8 @@ export class TurnManager {
       classEnemyAttackReduction:0,classEnemyAttackTurns:0,
       energy: maxEnergy, maxEnergy,
       cooldowns: { "pulse-emp": 0, barrier: 0, regeneration: 0 },
-      barrierTurns: 0, enemyJamTurns: 0, terminalUsed: false, cue: null,
+      barrierTurns: 0, enemyJamTurns: 0, overwatchReady:false,suppressionTurns:0,
+       terminalUsed: false, cue: null,
       round: 1,
       movementRemaining: movementPerTurn,
       movementPerTurn,
@@ -297,6 +298,21 @@ export class TurnManager {
     return true;
   }
 
+  /** Vigilância consome a ação principal e 2 EN para preparar uma reação.
+   * A linha de tiro é reavaliada após o movimento do inimigo. */
+  prepareOverwatch():boolean{
+    if(this.state.activeSide!=="player"||this.state.combatComplete||
+       !livingUnit(this.state.units,"runner")||!livingUnit(this.state.units,"drone"))return false;
+    if(!this.state.mainActionAvailable){this.setMessage("Ação principal já utilizada.");return false;}
+    if(this.weaponRange<2){this.setMessage("Vigilância exige arma de fogo equipada.");return false;}
+    if(this.state.energy<2){this.setMessage("Vigilância exige 2 pontos de energia.");return false;}
+    this.state.energy-=2;this.state.mainActionAvailable=false;
+    this.state.overwatchReady=true;
+    this.state.message="Vigilância armada. Encerre o turno para reagir antes do ataque hostil.";
+    this.addLog("[VIGILÂNCIA] Preparação: -2 EN, ação principal consumida.");
+    this.setCue("shield","player");this.publish();return true;
+  }
+
   /** Recarga única com ação bônus, alimentada por item real do inventário. */
   useEnergySupply(amount:number):boolean{
     if(this.state.combatComplete||this.state.activeSide!=="player"||
@@ -377,12 +393,30 @@ export class TurnManager {
       this.setCue("emp", "enemy");
     }
     const profile=enemyProfile(this.state.encounterId,this.state.wave);
+    const pendingOverwatch=this.state.overwatchReady;
+    this.state.overwatchReady=false;
     if(!jammed){
       const plan=planEnemyTurn(enemy,player,this.state.units,profile);
       if(plan.action==="advance"||plan.action==="reposition"){
         enemy.x=plan.target.x;
         enemy.y=plan.target.y;
         this.addLog("[IA TÁTICA] "+profile.name+" · "+plan.intent+".");
+      }
+      if(pendingOverwatch){
+        if(withinShot(player,enemy,this.weaponRange)){
+          const defense=enemy.armorClass+coverArmorBonus(player,enemy);
+          const reactionRoll=rollDie(20);
+          if(reactionRoll===20||reactionRoll+player.attackBonus>=defense){
+            const damage=rollDie(6)+2+(this.weaponRange===5?1:0);
+            enemy.hp=Math.max(0,enemy.hp-damage);
+            this.setCue("hit","enemy",damage);
+            this.addLog("[VIGILÂNCIA] Reação acertou "+profile.name+": "+damage+" dano.");
+          }else{
+            this.setCue("miss","enemy");
+            this.addLog("[VIGILÂNCIA] Reação falhou contra defesa "+defense+".");
+          }
+        }else this.addLog("[VIGILÂNCIA] Sem linha de tiro: reação consumida.");
+        if(enemy.hp<=0){this.resolveEnemyDown();this.publish();return;}
       }
       if(withinShot(enemy,player,profile.range)){
         const cover=profile.range>1?coverArmorBonus(enemy,player):0;
@@ -393,6 +427,15 @@ export class TurnManager {
           player.hp=Math.max(0,player.hp-damage);
           this.setCue("hit","player",damage);
           this.addLog(`[INIMIGO] ${profile.range>1?"Disparo":"Golpe"}: d20 ${roll} + ${enemy.attackBonus} vs ${defense}. ${damage} dano.`);
+          if(profile.role==="suppressor"){
+            this.state.suppressionTurns=1;
+            this.addLog("[SUPRESSÃO] Próximo deslocamento reduzido em 2 células.");
+          }
+          if(profile.role==="saboteur"){
+            const drained=Math.min(2,this.state.energy);
+            this.state.energy-=drained;
+            this.addLog("[SABOTAGEM] Interferência em baterias: -"+drained+" EN.");
+          }
         }else{
           this.setCue("miss","player");
           this.addLog(`[INIMIGO] Ataque não atingiu o protagonista (defesa ${defense}).`);
@@ -401,6 +444,7 @@ export class TurnManager {
         this.addLog("[IA TÁTICA] "+profile.name+" aguarda abertura na linha de tiro.");
       }
     }
+    if(jammed&&pendingOverwatch)this.addLog("[VIGILÂNCIA] EMP bloqueou ação inimiga; reação consumida.");
     advanceBarrierAfterEnemyAction(this.state);
     advanceClassGuard(this.state);
     advanceClassEnemyDebuffs(this.state);
@@ -436,10 +480,13 @@ export class TurnManager {
       this.state.movementPerTurn-=this.state.classExtraMovement;
       this.state.classExtraMovement=0;
     }
-    this.state.movementRemaining = this.state.movementPerTurn;
+    const slowdown=this.state.suppressionTurns>0?2:0;
+    this.state.movementRemaining = Math.max(1,this.state.movementPerTurn-slowdown);
+    this.state.suppressionTurns=0;
     this.state.mainActionAvailable = true;
     this.state.bonusActionAvailable = true;
-    this.state.message = "Seu turno. Utilize cobertura, alcance e posicionamento para agir.";
+    this.state.message = slowdown?"Sob supressão: deslocamento reduzido em 2 células neste turno.":
+      "Seu turno. Utilize cobertura, alcance e posicionamento para agir.";
     this.addLog(`[TURNO] Rodada ${this.state.round}. Seu turno começou.`);
     this.publish();
   }
@@ -463,7 +510,7 @@ export class TurnManager {
       enemy.hp=hp;enemy.maxHp=hp;enemy.armorClass=13+this.state.wave-1;
       enemy.attackBonus=4+this.state.wave-1;
       enemy.x=6;enemy.y=1;
-      enemy.name=(eden?"Guardião do Éden":district?"Agente Helix":"Drone de Interceptação")+" · "+this.state.wave;
+      enemy.name=enemyProfile(this.state.encounterId,this.state.wave).name+" · "+this.state.wave;
       this.state.combatComplete=false;
       this.state.mainActionAvailable=true;
       this.state.bonusActionAvailable=true;
@@ -471,6 +518,7 @@ export class TurnManager {
       this.state.energy=Math.min(this.state.maxEnergy,this.state.energy+3);
       this.state.movementRemaining=this.state.movementPerTurn;
       this.state.enemyJamTurns=0;
+      this.state.overwatchReady=false;this.state.suppressionTurns=0;
       this.state.classEnemyArmorTurns=0;
       this.state.classEnemyArmorReduction=0;
       this.state.classEnemyAttackTurns=0;
