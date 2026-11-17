@@ -433,7 +433,7 @@ export default function CharacterMenu({
                   <summary>RELAÇÕES E REPUTAÇÃO · {reputation.honor} HONRA · {reputation.community}/10 CONFIANÇA LOCAL</summary>
                   <p>A Honra reconhece ajuda entregue; cada facção mantém sua própria relação.
                     Escolhas de divulgação, sigilo e credenciais têm consequências distintas.</p>
-                  {(["helix","movimento_livre","mercado_cinzento"] as const).map(id=>
+                  {(["helix","movimento_livre","mercado_cinzento","consorcio_civico"] as const).map(id=>
                     <div className="menu-list-row" key={id}>
                       <span aria-hidden="true">{reputation.factions[id]<0?"!":reputation.factions[id]>=4?"✦":"○"}</span>
                       <strong>{FACTION_NAMES[id]}</strong>
@@ -443,7 +443,8 @@ export default function CharacterMenu({
                   <p>Ajuda médica de Marta: 3 Honra e +2 no Movimento Livre.
                     Contatos de Davi: +2 no Mercado Cinzento e dossiê V-09 entregue.
                     Acesso Helix: +2 na corporação e dossiê entregue.
-                    Os acordos podem conceder suprimentos únicos, mas deixam registros e alteram relações.</p>
+                    Consórcio Cívico: denúncia oficial ou audiência independente após duas provas e V-09.
+                    O protocolo pode liberar reagentes, mas registra contatos; os acordos alteram relações.</p>
                 </details>
                 <section className="menu-list-panel" aria-label="Histórico dos favores">
                   <span className="menu-panel-kicker">REDE DE FAVORES · {favors.credits} CRÉDITOS · {favors.honor} HONRA</span>

@@ -10,11 +10,12 @@ import {readDistrictProgress,type ChapterProgress} from "../districts/progress.t
 import {DISTRICTS,type DistrictId} from "../districts/catalog.ts";
 import {grantRewardInventoryItem,type ItemId,type InventoryState} from "../inventory.ts";
 
-export type FactionId="helix"|"movimento_livre"|"mercado_cinzento";
+export type FactionId="helix"|"movimento_livre"|"mercado_cinzento"|"consorcio_civico";
 export const FACTION_NAMES:Readonly<Record<FactionId,string>>={
  helix:"Helix Corporation",
  movimento_livre:"Movimento Livre",
  mercado_cinzento:"Mercado Cinzento",
+ consorcio_civico:"Consórcio Cívico",
 };
 export interface Reputation{
  honor:number;
@@ -31,37 +32,40 @@ const FAVOR_EFFECTS:Readonly<Record<FavorId,Delta>>={
  triagem:{movimento_livre:1},filtros:{mercado_cinzento:1},
  agua:{movimento_livre:2},rotas:{mercado_cinzento:2},
  patio:{movimento_livre:1},seguranca:{movimento_livre:1,mercado_cinzento:1},
- forja:{movimento_livre:1},auditoria:{mercado_cinzento:1},
- abrigos:{movimento_livre:2},quarentena:{movimento_livre:1},
+ forja:{movimento_livre:1},auditoria:{mercado_cinzento:1,consorcio_civico:1},
+ abrigos:{movimento_livre:2},quarentena:{movimento_livre:1,consorcio_civico:1},
  palco:{mercado_cinzento:2},caravana:{movimento_livre:1},
  farol:{mercado_cinzento:1},conexao:{movimento_livre:2},
  neon:{mercado_cinzento:1},
 };
 const MARKET_EFFECTS:Readonly<Record<string,Delta>>={
  converse:{mercado_cinzento:1},mutirao:{movimento_livre:1},
- boletim:{},entrega:{mercado_cinzento:1},caminho:{mercado_cinzento:1},
+ boletim:{consorcio_civico:1},entrega:{mercado_cinzento:1},caminho:{mercado_cinzento:1},
  "solo-guarda":{movimento_livre:1,helix:-1},
  "netrunner-eco":{movimento_livre:1},
  "tech-bombas":{movimento_livre:1},
  "medtech-ajuda":{movimento_livre:1},
  "rockerboy-reuniao":{movimento_livre:2,helix:-1},
  "media-fonte":{movimento_livre:1,helix:-1},
- "corpo-credencial":{helix:2,movimento_livre:-1},
- "lawman-protocolo":{movimento_livre:1,helix:-1},
+ "corpo-credencial":{helix:2,movimento_livre:-1,consorcio_civico:1},
+ "lawman-protocolo":{movimento_livre:1,helix:-1,consorcio_civico:1},
  "nomad-desvio":{mercado_cinzento:1},
  "street-atalho":{mercado_cinzento:2},
  "fixer-negocio":{mercado_cinzento:2,movimento_livre:1},
- "mercado-publicar":{movimento_livre:2,helix:-2},
+ "mercado-publicar":{movimento_livre:2,helix:-2,consorcio_civico:-1},
  "mercado-proteger":{movimento_livre:1,mercado_cinzento:1},
- "helix-proposta":{helix:2,movimento_livre:-2,mercado_cinzento:-1},
+ "helix-proposta":{helix:2,movimento_livre:-2,mercado_cinzento:-1,consorcio_civico:1},
  "rede-livre-apoio":{movimento_livre:1},
  "cinzento-rotas":{mercado_cinzento:1},
  "helix-autorizacao":{helix:1,movimento_livre:-2},
+ "civico-protocolo":{consorcio_civico:3,movimento_livre:-1,mercado_cinzento:-1},
+ "civico-contestacao":{consorcio_civico:-2,movimento_livre:2},
+ "civico-suprimentos":{consorcio_civico:1},
 };
 const DISTRICT_EFFECTS:Readonly<Record<DistrictId,Readonly<Record<"divulgar"|"resguardar",Delta>>>>={
- aurea:{divulgar:{movimento_livre:2,helix:-2},resguardar:{movimento_livre:1,helix:1}},
+ aurea:{divulgar:{movimento_livre:2,helix:-2,consorcio_civico:-1},resguardar:{movimento_livre:1,helix:1,consorcio_civico:1}},
  subsolo:{divulgar:{movimento_livre:1,mercado_cinzento:-2},resguardar:{movimento_livre:1,mercado_cinzento:2}},
- "setor-zero":{divulgar:{movimento_livre:2,helix:-2},resguardar:{movimento_livre:1,mercado_cinzento:1}},
+ "setor-zero":{divulgar:{movimento_livre:2,helix:-2,consorcio_civico:-1},resguardar:{movimento_livre:1,mercado_cinzento:1,consorcio_civico:1}},
  prisma:{divulgar:{movimento_livre:2,helix:-1},resguardar:{movimento_livre:1,mercado_cinzento:1}},
  periferia:{divulgar:{movimento_livre:2,helix:-2},resguardar:{movimento_livre:1,mercado_cinzento:1}},
 };
@@ -73,7 +77,7 @@ export function factionStanding(score:number):string{
  return "Aliada";
 }
 export function calculateReputation(source:ReputationSource):Reputation{
- const scores:Record<FactionId,number>={helix:0,movimento_livre:0,mercado_cinzento:0};
+ const scores:Record<FactionId,number>={helix:0,movimento_livre:0,mercado_cinzento:0,consorcio_civico:0};
  const apply=(delta:Delta|undefined)=>{if(!delta)return;
   for(const key of Object.keys(scores) as FactionId[])scores[key]+=delta[key]??0;
  };
@@ -113,6 +117,7 @@ export const FACTION_AIDS:readonly {action:string;item:ItemId;amount:number}[]=[
  {action:"rede-livre-apoio",item:"curativo_campo",amount:2},
  {action:"cinzento-rotas",item:"conector_reuso",amount:2},
  {action:"helix-autorizacao",item:"celula_energia",amount:1},
+ {action:"civico-suprimentos",item:"reagente_bio",amount:2},
 ];
 export function syncFactionAids(inventory:InventoryState,market:MarketState):InventoryState{
  let next=inventory;

@@ -1,7 +1,7 @@
 {
   "name": "cyberpunk-tactical-rpg",
   "private": true,
-  "version": "0.8.1-rc.2",
+  "version": "0.8.2-rc.1",
   "type": "module",
   "engines": {
     "node": ">=22.12.0"

@@ -346,7 +346,7 @@
 .na-favor-row .na-favor-ready{color:#d3bb81}
 .na-favor-active{font:600 10px var(--mono);color:#c6d1c6}
 
-.na-faction-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:0 8px}
+.na-faction-mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:0 8px}
 .na-faction-mini span{border:1px solid rgba(126,157,159,.35);border-radius:5px;
  background:#192d35;padding:5px 3px;color:#bed4d4;font:700 9px/1.4 var(--mono);
  text-align:center;min-width:0}

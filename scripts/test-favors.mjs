@@ -3,7 +3,7 @@ import {createStartingInventory,loadInventory,saveInventory} from "../src/game/i
 import {FAVORS,INITIAL_FAVORS,acceptFavor,recordFavorActivity,
  claimFavor,buyFromNilo,syncFavorItems,visibleFavors,knownFavors,discoverFavors,validateFavorBackup,readFavors,saveFavors,
  favorStatus,buyFromNilo as buyForTest,NILO_SHOP,shopOfferUnlocked} from "../src/game/story/favors.ts";
-import {INITIAL_MARKET,applyMarketAction,getMarketConversation} from "../src/game/story/market.ts";
+import {INITIAL_MARKET,applyMarketAction,getMarketConversation,readMarket,saveMarket} from "../src/game/story/market.ts";
 import {calculateReputation,factionStanding,syncFactionAids,readReputation} from "../src/game/story/reputation.ts";
 const data=new Map();
 globalThis.localStorage={getItem:k=>data.get(k)??null,setItem:(k,v)=>data.set(k,v),removeItem:k=>data.delete(k)};
@@ -56,7 +56,7 @@ assert.equal(recordFavorActivity(patio.state,"patio-console",true).ready[0],"pat
  "Favor avança depois da autorização pela investigação V-09");
 // Reputação derivada de ações já salvas: não existe uma segunda carteira falsificável.
 const noRep=calculateReputation({favors:INITIAL_FAVORS,market:INITIAL_MARKET});
-assert.deepEqual(noRep.factions,{helix:0,movimento_livre:0,mercado_cinzento:0});
+assert.deepEqual(noRep.factions,{helix:0,movimento_livre:0,mercado_cinzento:0,consorcio_civico:0});
 assert.equal(factionStanding(-3),"Hostil");
 assert.equal(factionStanding(4),"Aliada");
 let community=INITIAL_FAVORS;
@@ -165,3 +165,36 @@ let oldBackup={...regional};
 delete oldBackup.discovered;
 assert.equal(validateFavorBackup(oldBackup),true,"Backups da 0.7.9 sem descobertas continuam válidos");
 console.log("Favores: 15 atividades, nove descobertas narrativas, execução regional e recompensas únicas.");
+
+
+// Nova quarta facção: elegibilidade, ramificações exclusivas, salvamento e recompensa única.
+const provas={...INITIAL_MARKET,clues:["market-receipts","market-water"]};
+assert.ok(!getMarketConversation("feira-archive","solo",provas,false,"baixada",noRep).choices.some(c=>c.id==="civico-protocolo"));
+assert.equal(applyMarketAction(provas,"civico-protocolo","solo",false,0,noRep).applied,false);
+const opcoes=getMarketConversation("feira-archive","solo",provas,true,"baixada",noRep).choices;
+assert.ok(opcoes.some(c=>c.id==="civico-protocolo")&&opcoes.some(c=>c.id==="civico-contestacao"));
+const protocolo=applyMarketAction(provas,"civico-protocolo","solo",true,0,noRep);
+assert.equal(protocolo.applied,true);
+assert.equal(applyMarketAction(protocolo.state,"civico-contestacao","solo",true,0,noRep).applied,false);
+const civico=calculateReputation({favors:INITIAL_FAVORS,market:protocolo.state});
+assert.equal(civico.factions.consorcio_civico,3);
+assert.equal(civico.factions.movimento_livre,-1);
+assert.equal(civico.honor,0);
+assert.ok(getMarketConversation("feira-ajuda","solo",protocolo.state,true,"baixada",civico).text.includes("cadastro central"));
+const suprimento=applyMarketAction(protocolo.state,"civico-suprimentos","solo",true,0,civico);
+assert.equal(suprimento.applied,true);
+assert.equal(applyMarketAction(suprimento.state,"civico-suprimentos","solo",true,0,civico).applied,false);
+const inicial=createStartingInventory("consorcio-v082");
+const entregue=syncFactionAids(inicial,suprimento.state);
+assert.equal(entregue.quantities.reagente_bio,inicial.quantities.reagente_bio+2);
+assert.equal(syncFactionAids(entregue,suprimento.state).quantities.reagente_bio,entregue.quantities.reagente_bio);
+const audiencia=applyMarketAction(provas,"civico-contestacao","solo",true,0,noRep);
+assert.equal(audiencia.applied,true);
+const comunitaria=calculateReputation({favors:INITIAL_FAVORS,market:audiencia.state});
+assert.equal(comunitaria.factions.consorcio_civico,-2);
+assert.equal(comunitaria.factions.movimento_livre,2);
+assert.equal(applyMarketAction(audiencia.state,"civico-protocolo","solo",true,0,noRep).applied,false);
+assert.equal(saveMarket("consorcio-v082",suprimento.state),true);
+assert.ok(readMarket("consorcio-v082").decisions.includes("civico-suprimentos"));
+assert.equal(readReputation("consorcio-v082").factions.consorcio_civico,4);
+console.log("Consórcio Cívico: quatro facções, decisões divergentes, reagentes únicos e persistência aprovados.");
