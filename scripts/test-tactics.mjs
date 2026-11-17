@@ -77,3 +77,41 @@ assert.equal(coverPlan.cover,"partial");
 
 assert.ok(enemyProfile("district-setor-zero",3).range>=3);
 console.log("Tática: LoS, obstrução, cobertura, arma de fogo, economia e IA aprovados.");
+
+// Cobertura de mecânicas reais: reação armada e efeitos de arquétipos.
+{
+ const guard=new TurnManager({encounterId:"v09",weaponId:"pistola_inducao"});
+ guard.state.units[0].x=1;guard.state.units[0].y=2;
+ guard.state.units[1].x=1;guard.state.units[1].y=0;
+ const before=guard.state.energy;
+ assert.equal(guard.prepareOverwatch(),true);
+ assert.equal(guard.state.energy,before-2);
+ assert.equal(guard.prepareOverwatch(),false);
+ const hpBefore=guard.state.units[1].hp;
+ const random=Math.random;Math.random=()=>0.99;
+ try{guard.endPlayerTurn();}finally{Math.random=random;}
+ assert.ok(guard.state.units[1].hp<hpBefore,"Vigilância causa dano antes do inimigo agir");
+ assert.equal(guard.state.overwatchReady,false);
+}
+{
+ const suppressed=new TurnManager({encounterId:"district-setor-zero"});
+ suppressed.state.wave=2;
+ suppressed.state.units[0].x=1;suppressed.state.units[0].y=6;
+ suppressed.state.units[1].x=1;suppressed.state.units[1].y=2;
+ const random=Math.random;Math.random=()=>0.99;
+ try{suppressed.endPlayerTurn();}finally{Math.random=random;}
+ assert.equal(enemyProfile("district-setor-zero",2).role,"suppressor");
+ assert.equal(suppressed.state.movementRemaining,suppressed.state.movementPerTurn-2);
+}
+{
+ const drain=new TurnManager({encounterId:"district-subsolo"});
+ drain.state.wave=2;drain.state.energy=7;
+ drain.state.units[0].x=1;drain.state.units[0].y=6;
+ drain.state.units[1].x=1;drain.state.units[1].y=2;
+ const random=Math.random;Math.random=()=>0.99;
+ try{drain.endPlayerTurn();}finally{Math.random=random;}
+ assert.equal(enemyProfile("district-subsolo",2).role,"saboteur");
+ assert.equal(drain.state.energy,5);
+}
+assert.equal(enemyProfile("district-prisma",1).role,"sniper");
+console.log("Novas táticas: vigilância, supressão, sabotagem e atirador aprovados.");
