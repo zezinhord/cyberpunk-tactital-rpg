@@ -1070,7 +1070,7 @@ try {
   const lose=async()=>{
     for(let round=0;round<24;round++){
       if(await has(".na-defeat-backdrop [role=dialog]"))return true;
-      await evaluate('(()=>{const b=document.querySelector(".actions .end-turn-button:last-of-type");if(!b||b.disabled)return false;b.click();return true})()');
+      await evaluate('(()=>{const b=document.querySelectorAll(".actions .end-turn-button")[1];if(!b||b.disabled)return false;b.click();return true})()');
       await sleep(35);
     }
     return has(".na-defeat-backdrop [role=dialog]");
