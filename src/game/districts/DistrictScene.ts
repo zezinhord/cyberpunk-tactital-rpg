@@ -9,7 +9,7 @@ import {preloadCharacterSprites,createCharacterAnimations,
 import type {OriginId} from "../character/origins";
 import type {TestAppearance} from "../test-arena/appearance";
 import {DISTRICT_WIDTH,DISTRICT_HEIGHT,DISTRICT_SPAWN,NODE_TILES,NODE_NAMES,
- getDistrict,districtActorId,districtWalkable,districtPath,districtApproach,
+ getDistrict,districtActorId,districtWalkable,districtPath,districtApproach,districtRoad,
  type Tile,type NodeSlot,type DistrictId,type DistrictSpec} from "./catalog";
 const W=1660,H=1040,TW=54,TH=28,OX=815,OY=164;
 type Point={x:number;y:number};
@@ -124,9 +124,7 @@ export class DistrictScene extends Phaser.Scene{
   const g=this.add.graphics(),s=this.spec;
   drawDistrictSkyline(g,this.id,s,W,H);
   for(let y=0;y<DISTRICT_HEIGHT;y++)for(let x=0;x<DISTRICT_WIDTH;x++){
-   const c=center({x,y}),road=y===10||x===11||x===19||
-     (y===6&&x>=3&&x<=27)||(y===18&&x>=11&&x<=28)||
-     (x===27&&y>=10&&y<=19);
+   const c=center({x,y}),road=districtRoad(this.id,{x,y});
    const tone=road?s.lane:(x*3+y)%5===0?s.wall:s.ground;
    this.tileDiamond(g,c,tone,s.accent);
    drawDistrictPavement(g,this.id,c,{x,y},road);

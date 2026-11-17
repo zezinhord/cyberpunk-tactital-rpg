@@ -83,8 +83,9 @@ with zipfile.ZipFile(APK) as archive:
         raise SystemExit("An NPC sheet no longer contains 12 poses × 4 directions")
     if any(meta(n)!=(768,320) for n in player):
         raise SystemExit("A player origin sheet lost its 12 poses × 4 directions")
+    package=json.loads(Path("package.json").read_text(encoding="utf8"))
     metrics={
-      "version":"0.9.0-rc.2",
+      "version":package["version"],
       "apkBytes":size,"targetBytes":MILESTONE,
       "ambientFiles":len(environmental),"ambientBytes":sum(entries[x].file_size for x in environmental),
       "expandedAmbientFiles":len(expanded),"expandedAmbientBytes":total_expanded,

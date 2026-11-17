@@ -17,6 +17,8 @@ export interface UrbanCase{
 }
 export interface UrbanState{
  version:1;choices:Readonly<Record<string,UrbanChoiceId>>;evidence?:readonly string[];
+ /** A segunda pista está ausente dos saves anteriores, que permanecem válidos. */
+ followups?:readonly string[];
 }
 export const INITIAL_URBAN:UrbanState={version:1,choices:{}};
 const choice=(id:UrbanChoiceId,label:string,result:string,
@@ -149,12 +151,43 @@ export const URBAN_ACTORS:Readonly<Record<string,{id:string;objective:string}>>=
 export function urbanActor(incident:UrbanCase):{id:string;objective:string}{
  return URBAN_ACTORS[incident.id]!;
 }
+/** Uma segunda visita física conecta o contato inicial às provas ambientais. */
+export function urbanFollowupActor(incident:UrbanCase):{id:string;objective:string}{
+ const local:Readonly<Record<string,{id:string;objective:string}>>={
+  "ba-agua":{id:"feira-archive",objective:"Confronte os registros no mural de abastecimento"},
+  "ba-vigilancia":{id:"terminal-canal",objective:"Inspecione os sinais do terminal do canal"},
+  "ba-clinica":{id:"terminal-clinica",objective:"Recupere a cópia no terminal da clínica"},
+  "fe-fornos":{id:"ferrugem-cabinet",objective:"Confira o painel de consumo dos fornos"},
+  "fe-filtros":{id:"ferrugem-pump",objective:"Examine a válvula da rede de ventilação"},
+  "fe-sindicato":{id:"ferrugem-shelter",objective:"Ouça os trabalhadores no posto comunitário"},
+ };
+ if(local[incident.id])return local[incident.id]!;
+ const first=urbanActor(incident).id;
+ const next=first.endsWith("-terminal")?"cache":
+   first.endsWith("-specialist")?"relay":"terminal";
+ return {id:"district-"+incident.district+"-"+next,
+  objective:next==="cache"?"Inspecione o depósito de evidências do distrito":
+   next==="relay"?"Confira o repetidor regional de dados":
+   "Consulte o terminal público de "+incident.district};
+}
+export function urbanFollowupNeeded(state:UrbanState,incident:UrbanCase):boolean{
+ return !!state.evidence?.includes(incident.id)&&
+   state.followups!==undefined&&!state.followups.includes(incident.id);
+}
+export function recordUrbanFollowup(state:UrbanState,district:RadioDistrict,
+ actorId:string,unlocked:boolean):{ok:boolean;state:UrbanState;incident?:UrbanCase}{
+ const current=currentUrbanCase(state,district,unlocked);
+ if(!current||!urbanFollowupNeeded(state,current)||
+    urbanFollowupActor(current).id!==actorId)return {ok:false,state};
+ return {ok:true,state:{...state,followups:[...(state.followups??[]),current.id]},incident:current};
+}
 export function recordUrbanEvidence(state:UrbanState,district:RadioDistrict,
  actorId:string,unlocked:boolean):{ok:boolean;state:UrbanState;incident?:UrbanCase}{
  const current=currentUrbanCase(state,district,unlocked);
  if(!current||urbanActor(current).id!==actorId||
     state.evidence?.includes(current.id))return {ok:false,state};
- return {ok:true,state:{...state,evidence:[...(state.evidence??[]),current.id]},incident:current};
+ return {ok:true,state:{...state,evidence:[...(state.evidence??[]),current.id],
+   followups:state.followups??[]},incident:current};
 }
 const CASE_IDS=new Set(URBAN_CASES.map(e=>e.id));
 export function normalizeUrban(input:unknown):UrbanState{
@@ -168,19 +201,25 @@ export function normalizeUrban(input:unknown):UrbanState{
  }
  const evidence=Array.isArray(value.evidence)?
   [...new Set(value.evidence.filter((id):id is string=>typeof id==="string"&&CASE_IDS.has(id)))]:[];
- return {version:1,choices:safe,evidence};
+ const followups=Array.isArray(value.followups)?
+   [...new Set(value.followups.filter((id):id is string=>typeof id==="string"&&CASE_IDS.has(id)))]:undefined;
+ return {version:1,choices:safe,evidence,...(followups===undefined?{}:{followups})};
 }
 export function validateUrbanBackup(input:unknown):boolean{
  if(!input||typeof input!=="object"||Array.isArray(input))return false;
  const value=input as Record<string,unknown>;
- if(Object.keys(value).some(key=>key!=="version"&&key!=="choices"&&key!=="evidence")||value.version!==1||
+ if(Object.keys(value).some(key=>key!=="version"&&key!=="choices"&&key!=="evidence"&&key!=="followups")||value.version!==1||
     !value.choices||typeof value.choices!=="object"||Array.isArray(value.choices))return false;
  return Object.entries(value.choices).every(([key,option])=>
    CASE_IDS.has(key)&&(option==="a"||option==="b"))&&
   (value.evidence===undefined||
    Array.isArray(value.evidence)&&value.evidence.length<=21&&
    value.evidence.every((id:unknown)=>typeof id==="string"&&CASE_IDS.has(id))&&
-   new Set(value.evidence).size===value.evidence.length);
+   new Set(value.evidence).size===value.evidence.length)&&
+   (value.followups===undefined||Array.isArray(value.followups)&&
+    value.followups.length<=21&&value.followups.every((id:unknown)=>
+      typeof id==="string"&&CASE_IDS.has(id)&&Array.isArray(value.evidence)&&value.evidence.includes(id))&&
+    new Set(value.followups).size===value.followups.length);
 }
 export function readUrban(characterId:string):UrbanState{
  if(!characterId)return {...INITIAL_URBAN,choices:{}};
@@ -202,10 +241,11 @@ export function decideUrban(state:UrbanState,district:RadioDistrict,
  id:string,optionId:UrbanChoiceId,unlocked:boolean):
  {ok:boolean;state:UrbanState;incident?:UrbanCase;choice?:UrbanChoice}{
  const incident=currentUrbanCase(state,district,unlocked);
- if(!incident||incident.id!==id||!state.evidence?.includes(id))return {ok:false,state};
+ if(!incident||incident.id!==id||!state.evidence?.includes(id)||
+    urbanFollowupNeeded(state,incident))return {ok:false,state};
  const selected=incident.choices.find(c=>c.id===optionId);
  if(!selected)return {ok:false,state};
- return {ok:true,state:{version:1,choices:{...state.choices,[id]:optionId},evidence:state.evidence},
+ return {ok:true,state:{...state,choices:{...state.choices,[id]:optionId}},
   incident,choice:selected};
 }
 export function urbanFactionEffects(state:UrbanState):readonly UrbanDelta[]{
@@ -221,4 +261,41 @@ export function urbanPressure(state:UrbanState,district:RadioDistrict):number{
   pressure+=option?.pressure??0;
  }
  return Math.max(0,Math.min(3,1+pressure));
+}
+
+/** Apoios de infraestrutura desbloqueados por decisões persistidas.
+ * Sem novos campos no save: recalculado ao iniciar cada encontro regional. */
+export interface UrbanCombatSupport{
+ label:string;attack?:number;armor?:number;energy?:number;movement?:number;
+}
+const REGIONAL_COMBAT_CASE={
+ "district-aurea":"au-crachas",
+ "district-subsolo":"su-rotas",
+ "district-setor-zero":"sz-lacres",
+ "district-prisma":"pr-sinal",
+ "district-periferia":"pe-agua",
+} as const;
+const COMBAT_BRANCHES:Readonly<Record<keyof typeof REGIONAL_COMBAT_CASE,
+ Readonly<Record<UrbanChoiceId,UrbanCombatSupport>>>>={
+ "district-aurea":{
+  a:{label:"Rede de trabalhadores: informações de mira",attack:1},
+  b:{label:"Credencial cívica: proteção validada",armor:1}},
+ "district-subsolo":{
+  a:{label:"Rotas clandestinas: mobilidade ampliada",movement:1},
+  b:{label:"Acordo com operadores: bateria de emergência",energy:2}},
+ "district-setor-zero":{
+  a:{label:"Corredor livre: reserva de energia",energy:2},
+  b:{label:"Protocolos periciais: blindagem auxiliar",armor:1}},
+ "district-prisma":{
+  a:{label:"Rede de artistas: alvos expostos",attack:1},
+  b:{label:"Transmissor alternativo: energia auxiliar",energy:2}},
+ "district-periferia":{
+  a:{label:"Apoio das caravanas: deslocamento ampliado",movement:1},
+  b:{label:"Escolta oficial: proteção regional",armor:1}},
+};
+export function urbanCombatSupport(state:UrbanState,encounter:string):UrbanCombatSupport|null{
+ if(!Object.prototype.hasOwnProperty.call(REGIONAL_COMBAT_CASE,encounter))return null;
+ const key=encounter as keyof typeof REGIONAL_COMBAT_CASE;
+ const choice=state.choices[REGIONAL_COMBAT_CASE[key]];
+ return choice?COMBAT_BRANCHES[key][choice]:null;
 }

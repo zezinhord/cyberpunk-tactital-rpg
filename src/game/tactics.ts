@@ -5,7 +5,7 @@ import {BOARD_HEIGHT,BOARD_WIDTH,coverArmorBonus,coverBetween,findPath,
   hasLineOfSight,isBlocked} from "./map.ts";
 import type {EncounterId,Position,Unit} from "./types.ts";
 
-export type EnemyRole="sentinel"|"drone"|"helix"|"hunter";
+export type EnemyRole="sentinel"|"drone"|"helix"|"hunter"|"suppressor"|"saboteur"|"sniper";
 export interface EnemyProfile{
  role:EnemyRole;name:string;range:number;mobility:number;preferredDistance:number;
 }
@@ -17,14 +17,24 @@ export type EnemyPlan={
 export function enemyProfile(encounter:EncounterId,wave:number):EnemyProfile{
  if(encounter==="test")return {role:"sentinel",name:"Sentinela",range:1,mobility:2,preferredDistance:1};
  if(encounter==="v09")return {role:"hunter",name:"Vigilância V-09",range:3,mobility:2,preferredDistance:2};
- if(encounter==="eden-relay")return {role:"drone",name:"Interceptador de Prisma",range:4,mobility:3,preferredDistance:3};
+ if(encounter==="eden-relay")return {role:"suppressor",name:"Interceptador de supressão",range:4,mobility:2,preferredDistance:3};
  if(encounter==="eden-core")return wave>=2
   ?{role:"hunter",name:"Guardião do Éden",range:4,mobility:3,preferredDistance:3}
   :{role:"helix",name:"Escolta autônoma",range:3,mobility:2,preferredDistance:2};
  if(encounter.startsWith("district-")){
-   return wave>=3?{role:"hunter",name:"Caçador Helix",range:4,mobility:3,preferredDistance:3}:
-     {role:"helix",name:"Segurança Helix",range:3,mobility:2,preferredDistance:2};
+   if(wave>=3)return {role:"hunter",name:"Caçador Helix",range:4,mobility:3,preferredDistance:3};
+   if(wave===1&&(encounter==="district-aurea"||encounter==="district-prisma"))
+     return {role:"sniper",name:"Atirador de cobertura",range:5,mobility:1,preferredDistance:4};
+   if(wave===2&&encounter==="district-subsolo")
+     return {role:"saboteur",name:"Sabotador de rede",range:3,mobility:3,preferredDistance:2};
+   if(wave===2&&(encounter==="district-setor-zero"||encounter==="district-periferia"))
+     return {role:"suppressor",name:"Agente de supressão",range:4,mobility:2,preferredDistance:3};
+   return {role:"helix",name:"Segurança Helix",range:3,mobility:2,preferredDistance:2};
  }
+ if(encounter==="trial-2"&&wave>=2)
+   return {role:"saboteur",name:"Drone sabotador",range:3,mobility:3,preferredDistance:2};
+ if(encounter==="trial-3"&&wave>=2)
+   return {role:"suppressor",name:"Drone de supressão",range:4,mobility:2,preferredDistance:3};
  return wave>=2?{role:"drone",name:"Drone de supressão",range:3,mobility:2,preferredDistance:2}:
    {role:"drone",name:"Drone de interceptação",range:2,mobility:2,preferredDistance:1};
 }
@@ -39,6 +49,20 @@ export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
  profile:EnemyProfile):EnemyPlan{
  const shot=(pos:Position)=>withinShot(pos,player,profile.range);
  if(shot(enemy)){
+   // Atiradores de precisão tentam manter distância após aproximação do jogador.
+   if(profile.role==="sniper"&&manhattan(enemy,player)<profile.preferredDistance){
+     const retreats:{pos:Position;distance:number;steps:number}[]=[];
+     for(let y=0;y<BOARD_HEIGHT;y++)for(let x=0;x<BOARD_WIDTH;x++){
+       const pos={x,y};if(isBlocked(pos)||!shot(pos))continue;
+       const path=findPath(enemy,pos,units,enemy.id);
+       if(path&&path.length>1&&path.length-1<=profile.mobility)
+         retreats.push({pos,distance:manhattan(pos,player),steps:path.length-1});
+     }
+     retreats.sort((a,b)=>b.distance-a.distance||a.steps-b.steps||a.pos.y-b.pos.y||a.pos.x-b.pos.x);
+     if(retreats.length&&retreats[0]!.distance>manhattan(enemy,player))
+       return {action:"reposition",target:retreats[0]!.pos,mode:"ranged",
+         cover:coverBetween(player,retreats[0]!.pos),intent:"Recuar para disparo de precisão"};
+   }
    // Seguranças corporativos e caçadores preferem um ângulo protegido de tiro
    // quando a rota cabe no deslocamento do turno. Drones de assalto não recuam.
    if((profile.role==="helix"||profile.role==="hunter")&&
@@ -62,7 +86,10 @@ export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
    // Drones corpo a corpo continuam pressionando o jogador a curta distância.
    return {action:"attack",target:{x:enemy.x,y:enemy.y},
      mode:manhattan(enemy,player)<=1?"melee":"ranged",
-     cover:"none",intent:profile.range===1?"Ataque corpo a corpo":"Disparo hostil"};
+     cover:"none",intent:profile.role==="suppressor"?"Rajada de supressão: reduz deslocamento":
+       profile.role==="saboteur"?"Pulso sabotador: drena energia":
+       profile.role==="sniper"?"Disparo de precisão de longo alcance":
+       profile.range===1?"Ataque corpo a corpo":"Disparo hostil"};
  }
  const candidates:{pos:Position;cost:number;score:number}[]=[];
  const currentDistance=manhattan(enemy,player);
@@ -75,6 +102,7 @@ export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
    // Distância ideal e cobertura entram na estratégia, evitando IA que
    // apenas se aproxima em linha reta ou gira aleatoriamente.
    const score=(canFire?75:0)+
+     (profile.role==="sniper"?(dist>=profile.preferredDistance?12:-18):0)+
      (canFire?Math.max(0,15-Math.abs(dist-profile.preferredDistance)*5):0)+
      (canFire?coverArmorBonus(player,pos)*4:0)-
      Math.max(0,dist-profile.range)*5-
@@ -90,5 +118,8 @@ export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
  return {action:canAttack?"reposition":"advance",target:best.pos,
    mode:manhattan(best.pos,player)<=1?"melee":"ranged",
    cover:coverBetween(player,best.pos),
-   intent:canAttack?"Flanquear e disparar":profile.role==="sentinel"?"Aproximação hostil":"Buscar linha de tiro"};
+   intent:canAttack?(profile.role==="suppressor"?"Preparar rajada de supressão":
+     profile.role==="saboteur"?"Aproximar pulso de sabotagem":
+     profile.role==="sniper"?"Mirar de longe":"Flanquear e disparar"):
+     profile.role==="sentinel"?"Aproximação hostil":"Buscar linha de tiro"};
 }

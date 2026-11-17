@@ -14,7 +14,7 @@ assert.equal(ITEM_CATALOG.bioespuma.healAmount,7);
 assert.equal(ITEM_CATALOG.bateria_portatil.energyAmount,5);
 assert.equal(enemyProfile("eden-core",1).role,"helix");
 assert.equal(enemyProfile("eden-core",2).role,"hunter");
-assert.equal(enemyProfile("eden-relay",1).role,"drone");
+assert.equal(enemyProfile("eden-relay",1).role,"suppressor");
 assert.equal(enemyProfile("eden-relay",1).range,4);
 const manager=readFileSync(new URL("../src/game/TurnManager.ts",import.meta.url),"utf8");
 for(const required of ["useEnergySupply(amount:number)","this.weaponRange=options.weaponId?",

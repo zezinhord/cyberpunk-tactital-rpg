@@ -50,6 +50,7 @@ import {EDEN_STEPS,readEden,saveEden,advanceEdenBattle,syncEdenItems,type EdenEn
 import {claimDiscovery,DISCOVERY_AREAS,DISCOVERY_REWARDS} from "./game/story/discoveries.ts";
 import {collectInnerProp,reconcileInnerExperience} from "./game/story/indoor-rewards.ts";
 import {readReputation,syncFactionAids} from "./game/story/reputation";
+import {readUrban,urbanCombatSupport} from "./game/story/urban-chronicles.ts";
 import {readDistrictProgress,saveDistrictProgress,advanceDistrict,
  districtCurrentStep} from "./game/districts/progress";
 
@@ -255,7 +256,8 @@ export default function App() {
   const maximumHp=18+(originProfile?.maxHpBonus??0)+progressionBonuses.hp+bonuses.hpBonus;
   const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
     currentHp:loadHealth(character?.id??"",maximumHp),
-    progressionBonuses:combatProgression(character),encounterId:battleMode,weaponId:inventory.equipped.weapon }), [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
+    progressionBonuses:combatProgression(character),encounterId:battleMode,weaponId:inventory.equipped.weapon,
+     districtSupport:character?urbanCombatSupport(readUrban(character.id),battleMode):null }), [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
   const [state, setState] = useState<GameState>(() => manager.getState());
   const player = getUnit(state, "runner");
   const enemy = getUnit(state, "drone");
@@ -778,6 +780,9 @@ export default function App() {
             <span>COBERTURA DO ALVO: {attackPreview.cover==="partial"?"PARCIAL +2 DEF":
               attackPreview.cover==="full"?"TIRO BLOQUEADO":"SEM COBERTURA"}</span>
             <span>INTENÇÃO HOSTIL: {manager.getEnemyIntent()}</span>
+            {manager.getDistrictSupportDescription()&&<span>APOIO REGIONAL: {manager.getDistrictSupportDescription()}</span>}
+            {state.overwatchReady&&<span>VIGILÂNCIA PREPARADA · 2 EN INVESTIDOS</span>}
+            {state.suppressionTurns>0&&<span>SUPRESSÃO ATIVA · -2 CÉLULAS</span>}
             {!attackPreview.available&&state.activeSide==="player"&&!state.combatComplete&&
               <span className="na-tactic-disabled-reason">{attackPreview.reason}</span>}
           </div>
@@ -831,7 +836,12 @@ export default function App() {
               title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense}`:attackPreview.reason}
               disabled={!canAttack}>{attackPreview.mode==="ranged"?"Disparar":"Ataque corpo a corpo"}</button>
           </div>
-          <div className="secondary-actions">{battleMode==="test" && <button type="button" onClick={() => {setVictoryDetailsOpen(false);setDefeatNotice("");setBattleReset((value) => value + 1);}}>Reiniciar arena</button>}
+          <div className="secondary-actions">{attackPreview.range>1&&<button type="button"
+              className="end-turn-button na-overwatch-button"
+              disabled={state.activeSide!=="player"||state.combatComplete||!state.mainActionAvailable||state.energy<2}
+              title="Consome a ação principal e 2 EN; dispara antes da ação inimiga se houver linha de tiro."
+              onClick={()=>{buzz();manager.prepareOverwatch();}}>⌖ Vigiar · 2 EN</button>}
+            {battleMode==="test" && <button type="button" onClick={() => {setVictoryDetailsOpen(false);setDefeatNotice("");setBattleReset((value) => value + 1);}}>Reiniciar arena</button>}
             <button type="button" className="na-arena-exit-secondary"
               data-combat-exit="true" onClick={exitBattle}>
               {state.combatComplete?"✓ CONTINUAR EXPLORANDO":"← Voltar à exploração"}
