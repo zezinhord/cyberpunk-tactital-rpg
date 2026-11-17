@@ -116,7 +116,17 @@ export class BattleScene extends Phaser.Scene {
     graphics.closePath();
   }
 
+  private hasLiveCanvas():boolean{
+    // Em React StrictMode/retentativa rápida, Phaser pode entregar eventos
+    // enquanto o renderer antigo já perdeu seu CanvasRenderingContext2D.
+    // Não criar Phaser.Text nem desenhar sobre canvas destruído.
+    const renderer=this.sys?.game?.renderer as unknown as
+      {context?:CanvasRenderingContext2D|null}|undefined;
+    return Boolean(this.sys?.isActive() && renderer?.context &&
+      this.graphics?.active && this.bars?.active);
+  }
   private renderState(state: GameState): void {
+    if(!this.hasLiveCanvas())return;
     const player = state.units.find((unit) => unit.id === "runner");
     const enemy = state.units.find((unit) => unit.id === "drone");
     const moveCue = state.cue?.visual === "move" && state.cue.sequence !== this.lastCue;
@@ -169,6 +179,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private showEffect(cue: NonNullable<GameState["cue"]>): void {
+    if(!this.hasLiveCanvas())return;
     const entity = cue.target === "enemy" ? this.enemyImage : this.playerImage;
     const base = cue.target === "terminal" ? { x: 0, y: 6 }
       : cue.target === "enemy" ? this.manager.getState().units.find((u) => u.id === "drone")
