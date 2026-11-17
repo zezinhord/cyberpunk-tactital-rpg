@@ -37,6 +37,8 @@ import {FERRUGEM_ACTORS,isFerrugemActor} from "../game/ferrugem/layout";
 import {readFerrugem,saveFerrugem,startFerrugem,advanceFerrugem,
  currentFerrugemStep,ferrugemObjective,type FerrugemEnding} from "../game/ferrugem/story";
 import {DISTRICTS,isDistrictId,getDistrict,actorFromId,type DistrictId} from "../game/districts/catalog";
+import {isInnerId,isInnerInteract,INNER_BLUEPRINTS,INNER_IDS,type InnerId} from "../game/districts/interiors.ts";
+import {innerReceipt} from "../game/story/indoor-rewards.ts";
 import {readDistrictProgress,saveDistrictProgress,beginDistrict,
  districtCurrentStep,districtObjective,advanceDistrict,type ChapterProgress,
  type DistrictEnding} from "../game/districts/progress";
@@ -67,6 +69,7 @@ interface Props {
   onGrantQuestItem: (id: ItemId) => void;
   onGrantIndustrialItem:(id:ItemId)=>void;
   onCollectDistrictCache:(area:DiscoveryArea)=>boolean;
+  onCollectInteriorProp:(area:InnerId,propId:string)=>boolean;
   onCraft:(id:RecipeId)=>string;
 }
 
@@ -142,6 +145,7 @@ export default function ExplorationScreen({
   onGrantQuestItem,
   onGrantIndustrialItem,
   onCollectDistrictCache,
+  onCollectInteriorProp,
   onCraft,
 }: Props) {
   const origin = getOriginById(character.originId);
@@ -186,7 +190,8 @@ export default function ExplorationScreen({
   const [trialNotice,setTrialNotice]=useState("");
   const [sectorId,setSectorId]=useState<SectorId>(()=>sectorAt(loadWorldLocation(character.id)));
   useEffect(()=>{
-    audioDirector.setDistrict(isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":"baixada");
+    audioDirector.setDistrict(isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":
+      isInnerId(interior)?INNER_BLUEPRINTS[interior].parent??"baixada":"baixada");
     audioDirector.setScene(interior?"interior":"exploration");
   },[interior]);
 
@@ -393,6 +398,40 @@ export default function ExplorationScreen({
   };
 
   const handleInteract = (id: string) => {
+    // Conteúdo realmente explorável: cenas internas carregadas uma por vez.
+    if(id==="feira-casa-comum"){
+      setHubOpen(false);setInterior("baixada-community");audioDirector.effect("door");return;
+    }
+    if(id==="ferrugem-foundry-access"){
+      setHubOpen(false);setInterior("ferrugem-foundry");audioDirector.effect("door");return;
+    }
+    if(isInnerId(interior)){
+      const blueprint=INNER_BLUEPRINTS[interior];
+      if(id==="interior-"+interior+"-exit"){
+        setInterior(blueprint.parent);audioDirector.effect("door");return;
+      }
+      if(id==="interior-"+interior+"-guide"){
+        const favor= blueprint.parent==="subsolo"?"movimento_livre":
+          blueprint.parent==="aurea"?"helix":"movimento_livre";
+        say([{speaker:blueprint.guide,role:"CONTATO LOCAL · "+blueprint.title,portrait:"◆",
+          text:blueprint.guideWords+(reputation.factions[favor]>=2
+            ?" Sua ajuda anterior foi reconhecida pela rede local."
+            :" A confiança é conquistada pelas decisões que realmente ajudam o bairro.")}]);
+        return;
+      }
+      const found=isInnerInteract(id);
+      if(found?.area===interior){
+        const claimed=onCollectInteriorProp(found.area,found.prop.id);
+        if(claimed){
+          audioDirector.effect(found.prop.kind==="machine"?"machine":"archive");
+          onQuestXp(innerReceipt(found.area,found.prop),found.prop.xp);
+        }
+        say([{speaker:blueprint.title,role:"DESCOBERTA · "+found.prop.title,portrait:"▤",
+          text:claimed?found.prop.detail+" +"+found.prop.xp+" XP; "+found.prop.item.replaceAll("_"," ")+" recolhido."
+           :"Este recurso já foi coletado ou o inventário não pôde ser salvo."}]);
+        return;
+      }
+    }
     const discovered=discoverFavors(favors,id,favorContext);
     // A inspeção de um mapa regional só é válida após alcançar o distrito.
     const regionalActor=actorFromId(id);
@@ -447,6 +486,10 @@ export default function ExplorationScreen({
       if(slot==="exit"){
         setCityDecision(null);saveWorldLocation(character.id,{x:36,y:26});
         setInterior(null);return;
+      }
+      if(slot==="interior"){
+        const inner=INNER_IDS.find(area=>INNER_BLUEPRINTS[area].parent===district);
+        if(inner){audioDirector.effect("door");setInterior(inner);}return;
       }
       if(slot==="discovery"){
         const discovery=DISCOVERY_REWARDS[district];
@@ -956,7 +999,8 @@ export default function ExplorationScreen({
     say([{speaker:current.speaker,role:current.role,portrait:current.portrait,text:choice.reply}]);
   };
   const currentDialogue = dialogue?.pages[dialogue.index] ?? null;
-  const sceneTitle = isDistrictId(interior) ? getDistrict(interior).name+" · Nova Arcádia"
+  const sceneTitle = isInnerId(interior)?INNER_BLUEPRINTS[interior].title+" · Nova Arcádia"
+    : isDistrictId(interior) ? getDistrict(interior).name+" · Nova Arcádia"
     : interior === "ferrugem" ? "Ferrugem · Distrito Industrial"
     : interior === "sewer-drain" ? "Galeria de Drenagem Sul"
     : interior === "sewer-deep" ? "Câmara de Recalque 04"
@@ -967,7 +1011,8 @@ export default function ExplorationScreen({
       : interior === "canal"
         ? "Galeria do Canal"
         : getSectorById(sectorId).name;
-  const sceneSubtitle = isDistrictId(interior) ? getDistrict(interior).subtitle
+  const sceneSubtitle = isInnerId(interior)?INNER_BLUEPRINTS[interior].subtitle
+    : isDistrictId(interior) ? getDistrict(interior).subtitle
     : interior === "ferrugem" ? "SIDERÚRGICA · REDE INDUSTRIAL · PROJETO ÉDEN"
     : interior === "sewer-drain" ? "NÍVEL -01 · GALERIA HIDRÁULICA"
     : interior === "sewer-deep" ? "NÍVEL -02 · ESGOTO PROFUNDO"
@@ -1021,7 +1066,8 @@ export default function ExplorationScreen({
         <div className="explorer-character-data">
           <span className="eyebrow">PROTAGONISTA · NÍVEL {character.level}</span>
           <strong>{character.name}</strong>
-          <small>{origin.name} · {isDistrictId(interior)?getDistrict(interior).name:interior==="ferrugem"?"Ferrugem":getSectorById(sectorId).name}</small>
+          <small>{origin.name} · {isInnerId(interior)?INNER_BLUEPRINTS[interior].title:
+            isDistrictId(interior)?getDistrict(interior).name:interior==="ferrugem"?"Ferrugem":getSectorById(sectorId).name}</small>
         </div>
         <div className="district-clock">
           <span>18:40</span>
@@ -1031,7 +1077,7 @@ export default function ExplorationScreen({
 
       <section className="district-scene-section">
         <div className="district-scene-heading">
-          <span>{isDistrictId(interior)?"DISTRITO EXPLORÁVEL":interior==="ferrugem"?"DISTRITO INDUSTRIAL":interior?"ÁREA INTERNA":"EXPLORAÇÃO ISOMÉTRICA"}</span>
+          <span>{isInnerId(interior)?"INTERIOR EXPLORÁVEL · "+INNER_BLUEPRINTS[interior].title.toUpperCase():isDistrictId(interior)?"DISTRITO EXPLORÁVEL":interior==="ferrugem"?"DISTRITO INDUSTRIAL":interior?"ÁREA INTERNA":"EXPLORAÇÃO ISOMÉTRICA"}</span>
           <span>TOQUE PARA SE MOVER</span>
         </div>
         {interior ? (
@@ -1068,12 +1114,16 @@ export default function ExplorationScreen({
               setReturnFromDeep(true);setInterior("sewer-drain");
             }else{
               if(isDistrictId(interior))saveWorldLocation(character.id,{x:36,y:26});
+              if(isInnerId(interior)){
+                audioDirector.effect("door");setInterior(INNER_BLUEPRINTS[interior].parent);return;
+              }
               if(interior==="ferrugem")saveWorldLocation(character.id,{x:36,y:22});
               if(interior==="sewer-drain")saveWorldLocation(character.id,{x:33,y:20});
               setReturnFromDeep(false);setInterior(null);
             }
           }}>
-            {interior==="sewer-deep"?"← RETORNAR À GALERIA":"← RETORNAR À BAIXADA"}
+            {interior==="sewer-deep"?"← RETORNAR À GALERIA":isInnerId(interior)?
+              "← RETORNAR AO DISTRITO":"← RETORNAR À BAIXADA"}
           </button>
         )}
         {interior==="clinic"&&<section className="na-clinic-quick-treatment"
