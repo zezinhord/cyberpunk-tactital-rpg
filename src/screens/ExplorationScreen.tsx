@@ -65,6 +65,7 @@ interface Props {
   onToggleEquipment: (id: ItemId) => void;
   onGrantQuestItem: (id: ItemId) => void;
   onGrantIndustrialItem:(id:ItemId)=>void;
+  onCollectDistrictCache:(area:string,item:ItemId)=>boolean;
   onCraft:(id:RecipeId)=>string;
 }
 
@@ -139,6 +140,7 @@ export default function ExplorationScreen({
   onToggleEquipment,
   onGrantQuestItem,
   onGrantIndustrialItem,
+  onCollectDistrictCache,
   onCraft,
 }: Props) {
   const origin = getOriginById(character.originId);
@@ -443,6 +445,26 @@ export default function ExplorationScreen({
         setCityDecision(null);saveWorldLocation(character.id,{x:36,y:26});
         setInterior(null);return;
       }
+      if(slot==="discovery"){
+        const loot:Record<DistrictId,ItemId>={
+          aurea:"dados_criptografados",subsolo:"tecido_tecnico",
+          "setor-zero":"reagente_bio",prisma:"fibra_optica",periferia:"microatuador",
+        };
+        const context:Record<DistrictId,string>={
+          aurea:"Uma cópia do protocolo de auditoria sobreviveu na caixa de serviço de Áurea.",
+          subsolo:"Um abrigo esqueceu um rolo de tecido técnico no depósito desativado.",
+          "setor-zero":"A quarentena deixou um reagente isolado do sistema sanitário central.",
+          prisma:"Os artistas guardaram fibra óptica no retransmissor de emergência.",
+          periferia:"As caravanas esconderam um microatuador para reparar o farol da estrada.",
+        };
+        const collected=onCollectDistrictCache(district,loot[district]);
+        if(collected)onQuestXp("discovery-"+district,12);
+        say([{speaker:getDistrict(district).name,role:"CAIXA DE SUPRIMENTOS · DESCOBERTA",
+          portrait:"▤",text:collected?context[district]+" Item recolhido e +12 XP.":
+          "Esta caixa já foi recolhida ou o inventário não pôde ser salvo."}]);
+        return;
+      }
+
       const state=cityChapters[district];
       const stage=districtCurrentStep(district,state);
       if(stage?.id==="escolha"&&stage.slot===slot){
@@ -506,6 +528,15 @@ export default function ExplorationScreen({
       saveWorldLocation(character.id,{x:36,y:22});
       setFerrugemDecisionPending(false);
       setInterior(null);
+      return;
+    }
+    if(id==="ferrugem-salvage"){
+      const collected=onCollectDistrictCache("ferrugem","microatuador");
+      if(collected)onQuestXp("discovery-ferrugem",12);
+      say([{speaker:"ARQUIVO DE REFUGO",role:"RECUPERAÇÃO DA SIDERÚRGICA",
+        portrait:"▤",text:collected?
+          "Um microatuador da linha de montagem estava escondido na caixa lacrada. Material recuperado e +12 XP.":
+          "A caixa já foi esvaziada ou o inventário não pôde ser salvo."}]);
       return;
     }
     if(isFerrugemActor(id)){
