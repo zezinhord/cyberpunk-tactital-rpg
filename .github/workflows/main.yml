@@ -342,6 +342,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.android"
+          if [ "$GITHUB_REF" = "refs/heads/feature/nova-arcadia-1gb-expansion-v090" ]; then
+            test -s "$HOME/.android/debug.keystore" || {
+              echo "ERRO: chave Android persistente ausente. Bloqueando nova assinatura incompatível." >&2
+              exit 1
+            }
+          fi
           if [ ! -s "$HOME/.android/debug.keystore" ]; then
             keytool -genkeypair -noprompt \
               -keystore "$HOME/.android/debug.keystore" \
@@ -410,8 +416,16 @@ jobs:
             | tee qa/assinatura-debug.txt
           grep -q 'certificate SHA-256 digest' qa/assinatura-debug.txt
           grep -q 'CN=Nova Arcadia Debug' qa/assinatura-debug.txt
+          if [ "$GITHUB_REF" = "refs/heads/feature/nova-arcadia-1gb-expansion-v090" ]; then
+            EXPECTED="$(cat config/android-qa-v090-cert.sha256)"
+            ACTUAL="$(sed -n 's/^V2 Signer: certificate SHA-256 digest: //p' qa/assinatura-debug.txt | head -n 1)"
+            if [ "$ACTUAL" != "$EXPECTED" ]; then
+              echo "ERRO: certificado Android mudou. Atualização seria incompatível." >&2
+              exit 1
+            fi
+            echo "Assinatura 0.9 estável verificada: $ACTUAL"
+          fi
           if [ "$GITHUB_REF" = "refs/heads/feature/landscape-mobile-v1" ]; then
-            EXPECTED="$(cat config/android-debug-cert.sha256)"
             ACTUAL="$(sed -n 's/^V2 Signer: certificate SHA-256 digest: //p' qa/assinatura-debug.txt | head -n 1)"
             if [ "$ACTUAL" != "$EXPECTED" ]; then
               echo "ERRO: assinatura mudou. Não distribua APK incompatível. Esperado: $EXPECTED; atual: $ACTUAL" >&2
@@ -456,6 +470,58 @@ jobs:
           gh release upload "$TAG" "$ASSET" --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Nova Arcádia 0.9.0-rc.2 — QA Android" --notes "APK direto de teste, sem ZIP. Build #$GITHUB_RUN_NUMBER, commit $GITHUB_SHA, $SIZE bytes, SHA-256 $SHA256. Validar Galaxy A07 e Redmi Note 12S antes de publicação. Preservar saves." --prerelease
           echo "APK direto QA: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET" >> "$GITHUB_STEP_SUMMARY"
+
+
+      # Compatibilidade: APK em namespace separado evita colisão com certificado
+      # de versões antigas, sem apagar saves. 112 ambientes extras usam fallback.
+      - name: Preparar APK Compat Android independente
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090'
+        run: |
+          set -euo pipefail
+          rm -rf dist/assets/ambient-expanded
+          test ! -e dist/assets/ambient-expanded
+          npx cap sync android
+          node scripts/prepare-android-compat.mjs
+          (cd android && ./gradlew :app:assembleDebug --rerun-tasks)
+          mkdir -p qa
+          cp android/app/build/outputs/apk/debug/app-debug.apk qa/NovaArcadia-0.9.0-rc.2-Compat-Lite.apk
+
+      - name: Auditar pacote e assinatura da variante Compat
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090'
+        run: |
+          set -euo pipefail
+          APK="qa/NovaArcadia-0.9.0-rc.2-Compat-Lite.apk"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          SIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          test -s "$APK"
+          "$AAPT" dump badging "$APK" > qa/compat-badging.txt
+          grep -Fq "name='com.cyberpunk.tacticalrpg.qa'" qa/compat-badging.txt
+          grep -Fq "versionCode='90002'" qa/compat-badging.txt
+          "$SIGNER" verify --verbose --print-certs "$APK" > qa/compat-signature.txt
+          grep -Fq "$(cat config/android-qa-v090-cert.sha256)" qa/compat-signature.txt
+          python tools/audit_android_compat.py "$APK"
+
+      - name: Publicar variante Compat para instalacao lado a lado
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="nova-arcadia-v090-compat-qa"
+          ASSET="NovaArcadia-0.9.0-rc.2-Compat-Lite.apk"
+          APK="qa/$ASSET"
+          SIZE="$(stat -c %s "$APK")"
+          SHA="$(sha256sum "$APK" | cut -d ' ' -f 1)"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "Nova Arcádia — Android Compat QA (instala ao lado)" \
+              --notes "Instalação independente do aplicativo antigo. Salvos não são compartilhados automaticamente. Contém campanha e combate; os 112 ambientes de áudio estendidos são omitidos para reduzir o instalador. NÃO desinstale o jogo original sem backup." \
+              --prerelease
+          gh release upload "$TAG" "$APK" --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --title "Nova Arcádia — Android Compat QA (instala ao lado)" \
+            --notes "APK de compatibilidade. com.cyberpunk.tacticalrpg.qa; $SIZE bytes; SHA-256 $SHA; commit $GITHUB_SHA. Não substitui a instalação antiga; preserva o app antigo e seus dados. Armazenamento separado, importar backup manualmente se disponível. Sem 112 áudios expandidos para diagnóstico de aparelhos Android." --prerelease
+          echo "Compat APK: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publicar somente o APK atual no canal permanente de testes
         if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-expansion-v080'
