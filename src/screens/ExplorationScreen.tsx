@@ -18,7 +18,8 @@ import {isAndroidDevice} from "../game/performance";
 import {FAVORS,NILO_SHOP,readFavors,saveFavors,acceptFavor,recordFavorActivity,
   visibleFavors,knownFavors,discoverFavors,favorStatus,shopOfferUnlocked,type FavorId} from "../game/story/favors";
 import {calculateReputation,FACTION_NAMES,factionStanding} from "../game/story/reputation";
-import {readUrban,saveUrban,currentUrbanCase,decideUrban,recordUrbanEvidence,urbanActor,urbanPressure} from "../game/story/urban-chronicles.ts";
+import {readUrban,saveUrban,currentUrbanCase,decideUrban,recordUrbanEvidence,recordUrbanFollowup,
+  urbanActor,urbanFollowupActor,urbanFollowupNeeded,URBAN_CASES,urbanPressure} from "../game/story/urban-chronicles.ts";
 import type {RadioDistrict} from "../audio/soundscapes.ts";
 import {EDEN_STEPS,readEden,saveEden,startEden,currentEdenStep,edenObjective,advanceEden,type EdenEnding} from "../game/story/eden-echoes.ts";
 import {DISCOVERY_REWARDS,type DiscoveryArea} from "../game/story/discoveries.ts";
@@ -432,8 +433,16 @@ export default function ExplorationScreen({
     if(evidence.ok&&evidence.incident){
       if(saveUrban(character.id,evidence.state)){
         setUrban(evidence.state);
-        setUrbanNotice(evidence.incident.title+" · prova registrada. Abra a aba Cidade para decidir.");
+        setUrbanNotice(evidence.incident.title+" · pista inicial registrada. Investigue a segunda prova na aba Cidade.");
       }else setUrbanNotice("Espaço insuficiente: não foi possível registrar a prova.");
+    }
+    const followup=recordUrbanFollowup(urban,cityArea,id,v09.defeated);
+    if(followup.ok&&followup.incident){
+      if(saveUrban(character.id,followup.state)){
+        setUrban(followup.state);
+        setUrbanNotice(followup.incident.title+" · segunda prova confirmada. Decisão disponível na aba Cidade.");
+        audioDirector.effect("archive");
+      }else setUrbanNotice("Não foi possível salvar a segunda prova. Tente novamente.");
     }
     // Conteúdo realmente explorável: cenas internas carregadas uma por vez.
     if(id==="feira-casa-comum"){
@@ -1313,12 +1322,28 @@ export default function ExplorationScreen({
                 <p>{urbanCase.situation}</p>
                 <small>{urbanCase.xp} XP · relações políticas e vigilância afetadas</small>
                 {!urban.evidence?.includes(urbanCase.id)?
-                  <p className="na-favor-active">Pista ainda não investigada: {urbanActor(urbanCase).objective}. Toque no personagem ou terminal antes de decidir.</p>:
+                  <p className="na-favor-active">ETAPA 1/2 · {urbanActor(urbanCase).objective}. Toque no personagem ou terminal.</p>:
+                  urbanFollowupNeeded(urban,urbanCase)?
+                    <p className="na-favor-active">ETAPA 2/2 · {urbanFollowupActor(urbanCase).objective}. Volte ao mapa, confirme a prova e decida.</p>:
                   urbanCase.choices.map(option=><button type="button" key={option.id}
                     onClick={()=>resolveUrban(option.id)}>{option.label}</button>)}
               </article>:<p className="na-favor-empty">Ocorrências resolvidas nesta região. Outros distritos têm novos conflitos.</p>}
             {urbanNotice&&<small role="status" className="na-quest-notice">{urbanNotice}</small>}
-            <small className="na-quest-kicker">DECISÕES REGISTRADAS: {Object.keys(urban.choices).length} / 21</small>
+            {URBAN_CASES.some(e=>e.district===cityArea&&urban.choices[e.id])&&
+               <details className="na-urban-repercussions">
+                 <summary>Repercussões locais · mudanças registradas</summary>
+                 {URBAN_CASES.filter(e=>e.district===cityArea&&urban.choices[e.id]).map(e=>{
+                   const selected=e.choices.find(c=>c.id===urban.choices[e.id]);
+                   return <article key={e.id} className="na-favor-row">
+                     <strong>{e.title}</strong>
+                     <p>{selected?.result}</p>
+                     <small>{selected?.pressure&&selected.pressure>0?"Vigilância regional intensificada":
+                       selected?.pressure&&selected.pressure<0?"Vigilância regional reduzida":
+                       "Tensão regional mantida"} · reputação e apoios aplicados</small>
+                   </article>;
+                 })}
+               </details>}
+             <small className="na-quest-kicker">DECISÕES REGISTRADAS: {Object.keys(urban.choices).length} / 21</small>
           </div>}
         </div>}
       </aside>
