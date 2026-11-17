@@ -55,6 +55,10 @@ export interface GameState {
   cooldowns: Record<SpecialId, number>;
   barrierTurns: number;
   enemyJamTurns: number;
+  /** Ação principal preparada para disparar antes da ação inimiga. */
+  overwatchReady:boolean;
+  /** Redução de movimento aplicada no próximo turno do jogador. */
+  suppressionTurns:number;
   terminalUsed: boolean;
   cue: CombatCue | null;
   activeSide: Side;
