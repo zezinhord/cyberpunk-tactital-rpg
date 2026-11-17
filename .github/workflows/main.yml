@@ -80,6 +80,9 @@ jobs:
       - name: Testar favores progressivos, carteira, honra e loja
         run: node --experimental-strip-types scripts/test-favors.mjs
 
+      - name: Testar o arco pós-Circuito Fantasma, combates e decisões do Projeto Éden
+        run: node --experimental-strip-types scripts/test-eden-echoes.mjs
+
       - name: Testar NPCs, dialogos e persistencia da campanha
         run: |
           node --experimental-strip-types scripts/test-npc-routines.mjs
