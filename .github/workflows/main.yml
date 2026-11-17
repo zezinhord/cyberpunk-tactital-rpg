@@ -332,8 +332,8 @@ jobs:
           mkdir -p qa
           "$AAPT" dump badging "$APK" | tee qa/apk-badging.txt
           grep -Fq "name='com.cyberpunk.tacticalrpg'" qa/apk-badging.txt
-          grep -Fq "versionCode='80101'" qa/apk-badging.txt
-          grep -Fq "versionName='0.8.1-rc.1'" qa/apk-badging.txt
+          grep -Fq "versionCode='80102'" qa/apk-badging.txt
+          grep -Fq "versionName='0.8.1-rc.2'" qa/apk-badging.txt
           echo "APK Android gerado: pacote, versionCode e versionName conferidos."
 
 
@@ -346,7 +346,7 @@ jobs:
           echo "APK_BYTES=$BYTES"
           echo "MARCO_250_MB_BYTES=250000000"
           {
-            echo "## Nova Arcádia 0.8.1-rc.1 — marco de armazenamento auditado"
+            echo "## Nova Arcádia 0.8.1-rc.2 — marco de armazenamento auditado"
             echo "APK real: **$BYTES bytes**"
             echo "Meta original: **250.000.000 bytes**"
             echo "Sem limite máximo: arquivos devem estar ligados ao jogo."
