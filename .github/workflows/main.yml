@@ -198,6 +198,18 @@ jobs:
           command -v ffprobe
           ffmpeg -hide_banner -encoders | grep 'libopus'
 
+      - name: Restaurar ambientes urbanos originais entre compilações
+        uses: actions/cache@v4
+        with:
+          path: public/assets/ambient
+          key: nova-arcadia-ambience-v081-${{ hashFiles('tools/generate_urban_ambience.py') }}
+
+      - name: Produzir 28 ambiências ambientais originais para 7 distritos
+        run: python tools/generate_urban_ambience.py
+
+      - name: Verificar duração, originalidade e integração das ambiências
+        run: node scripts/test-urban-ambience.mjs
+
       - name: Restaurar musicas CC0 licenciadas entre compilações
         uses: actions/cache@v4
         with:
