@@ -58,10 +58,11 @@ export class TurnManager {
     const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0)+(options.equipmentBonuses?.hpBonus??0);
     const maxEnergy=10+(bonus?.energy??0)+(options.equipmentBonuses?.energyBonus??0);
     const trial=options.encounterId?.startsWith("trial-")??false;
+    const eden=options.encounterId?.startsWith("eden-")??false;
     const district=options.encounterId?.startsWith("district-")??false;
     const trialWaveCount=options.encounterId==="trial-3"||
-      options.encounterId==="district-setor-zero"?3:trial||district?2:1;
-    const encounterHp=options.encounterId==="v09"?16:district?17:trial?14:12;
+      options.encounterId==="district-setor-zero"||options.encounterId==="eden-core"?3:trial||district||eden?2:1;
+    const encounterHp=options.encounterId==="eden-core"?24:options.encounterId==="eden-relay"?19:options.encounterId==="v09"?16:district?17:trial?14:12;
     this.state = {
       units: [
         {
@@ -79,7 +80,8 @@ export class TurnManager {
         },
         {
           id: "drone",
-          name: options.encounterId==="v09" ? "Unidade de Vigilância V-09"
+          name: eden?(options.encounterId==="eden-core"?"Guardião do Éden":"Interceptador de Prisma"):
+            options.encounterId==="v09" ? "Unidade de Vigilância V-09"
              : district ? "Agente de Segurança Helix" : trial ? "Drone de Interceptação" : "Sentinela-07",
           side: "enemy",
           x: 6,
@@ -453,14 +455,15 @@ export class TurnManager {
     this.state.defeatedEnemyCount++;
     const trial=this.state.encounterId.startsWith("trial-");
     const district=this.state.encounterId.startsWith("district-");
-    const waves=trial||district;
+    const eden=this.state.encounterId.startsWith("eden-");
+    const waves=trial||district||eden;
     if(waves&&this.state.wave<this.state.totalWaves){
       this.state.wave+=1;
-      const hp=(district?17:14)+3*(this.state.wave-1);
+      const hp=(eden?(this.state.encounterId==="eden-core"?24:19):district?17:14)+3*(this.state.wave-1);
       enemy.hp=hp;enemy.maxHp=hp;enemy.armorClass=13+this.state.wave-1;
       enemy.attackBonus=4+this.state.wave-1;
       enemy.x=6;enemy.y=1;
-      enemy.name=(district?"Agente Helix":"Drone de Interceptação")+" · "+this.state.wave;
+      enemy.name=(eden?"Guardião do Éden":district?"Agente Helix":"Drone de Interceptação")+" · "+this.state.wave;
       this.state.combatComplete=false;
       this.state.mainActionAvailable=true;
       this.state.bonusActionAvailable=true;
