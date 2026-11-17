@@ -746,7 +746,10 @@ try {
   await evaluate('[...document.querySelectorAll(".character-menu-nav button")].find(b=>b.textContent?.includes("Inventário")).click();true');
   await poll(()=>has(".na-crafting-panel"),"oficina de fabricação no inventário");
   const recipes=await evaluate('document.querySelectorAll(".na-crafting-recipe").length');
-  if(recipes!==2)throw new Error("Receitas não aparecem no inventário: "+recipes);
+  if(recipes<25)throw new Error("Expansão de fabricação incompleta: "+recipes);
+  await evaluate('document.querySelector(".na-crafting-panel summary")?.click();true');
+  await poll(()=>evaluate('document.querySelector(".na-crafting-panel")?.open===true'),
+    "catálogo expandido de receitas de fabricação");
   await writeFile("qa/ferrugem-fabricacao-914x411.png",Buffer.from(
     (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   await evaluate('document.querySelector(".menu-close-button").click();true');
