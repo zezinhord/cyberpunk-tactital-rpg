@@ -14,40 +14,69 @@ export interface DistrictSpec{
 }
 export const DISTRICT_WIDTH=30,DISTRICT_HEIGHT=22;
 export const DISTRICT_SPAWN:Tile={x:4,y:10};
-const ringA:readonly CityBlock[]=[
- {x:4,y:1,w:5,h:4},{x:13,y:2,w:5,h:3},{x:20,y:1,w:5,h:4},
- {x:5,y:12,w:5,h:4},{x:14,y:12,w:4,h:4},{x:21,y:12,w:4,h:4},
+/** Plantas distintas, compatíveis com os acessos e a navegação isométrica.
+ * As massas novas fazem parte da colisão REAL, não são cenografia atravessável. */
+const aureaBlocks:readonly CityBlock[]=[
+ {x:3,y:1,w:5,h:4},{x:12,y:1,w:6,h:4},{x:21,y:1,w:6,h:4},
+ {x:3,y:13,w:5,h:3},{x:15,y:13,w:3,h:4},{x:21,y:13,w:5,h:4},
+ {x:2,y:17,w:3,h:3},{x:15,y:5,w:2,h:2},{x:22,y:6,w:3,h:2},
 ];
-const ringB:readonly CityBlock[]=[
- {x:3,y:1,w:6,h:4},{x:12,y:1,w:6,h:4},{x:21,y:2,w:4,h:3},
- {x:4,y:13,w:6,h:3},{x:13,y:12,w:5,h:4},{x:21,y:13,w:4,h:3},
+const subsoloBlocks:readonly CityBlock[]=[
+ {x:3,y:2,w:6,h:3},{x:12,y:2,w:5,h:3},{x:21,y:2,w:4,h:3},
+ {x:4,y:13,w:5,h:3},{x:13,y:13,w:5,h:3},{x:21,y:13,w:5,h:3},
+ {x:2,y:6,w:3,h:2},{x:24,y:5,w:3,h:2},{x:18,y:17,w:3,h:2},
 ];
-const ringC:readonly CityBlock[]=[
- {x:4,y:2,w:5,h:3},{x:13,y:1,w:5,h:4},{x:20,y:2,w:5,h:3},
- {x:5,y:13,w:5,h:3},{x:14,y:12,w:4,h:4},{x:20,y:12,w:5,h:4},
+const zeroBlocks:readonly CityBlock[]=[
+ {x:4,y:1,w:5,h:4},{x:14,y:1,w:4,h:4},{x:21,y:1,w:5,h:4},
+ {x:4,y:13,w:6,h:3},{x:15,y:12,w:3,h:4},{x:22,y:12,w:4,h:4},
+ {x:2,y:16,w:2,h:3},{x:26,y:14,w:2,h:3},{x:22,y:6,w:3,h:2},
+];
+const prismaBlocks:readonly CityBlock[]=[
+ {x:3,y:2,w:5,h:3},{x:13,y:1,w:6,h:3},{x:22,y:2,w:5,h:3},
+ {x:4,y:13,w:5,h:4},{x:14,y:13,w:5,h:4},{x:21,y:13,w:5,h:4},
+ {x:8,y:5,w:2,h:2},{x:23,y:6,w:2,h:1},{x:2,y:16,w:2,h:2},
+];
+const periferiaBlocks:readonly CityBlock[]=[
+ {x:3,y:2,w:4,h:3},{x:13,y:2,w:4,h:3},{x:22,y:1,w:4,h:3},
+ {x:3,y:13,w:5,h:3},{x:14,y:13,w:4,h:3},{x:21,y:13,w:5,h:3},
+ {x:8,y:3,w:2,h:2},{x:25,y:5,w:2,h:2},{x:2,y:17,w:3,h:2},
+ {x:18,y:18,w:3,h:2},{x:26,y:14,w:2,h:2},
 ];
 export const DISTRICTS:readonly DistrictSpec[]=[
  {id:"aurea",name:"Áurea",subtitle:"TORRES / HELIX / VIGILÂNCIA DE DADOS",
  intro:"Arranha-céus espelhados escondem auditorias eliminadas por sistemas de triagem.",
  guideName:"Celina",sky:0x18253b,ground:0x324354,lane:0x506272,
- wall:0x496779,roof:0x729bb3,accent:0xb6d7e1,blocks:ringA},
+ wall:0x496779,roof:0x729bb3,accent:0xb6d7e1,blocks:aureaBlocks},
  {id:"subsolo",name:"Subsolo",subtitle:"TÚNEIS / MERCADO CINZENTO / ABRIGOS",
  intro:"As passagens esquecidas protegem sobreviventes e negociações que a cidade não registra.",
  guideName:"Mara",sky:0x101a29,ground:0x293542,lane:0x3b4d56,
- wall:0x394f60,roof:0x526b75,accent:0xdfb77c,blocks:ringB},
+ wall:0x394f60,roof:0x526b75,accent:0xdfb77c,blocks:subsoloBlocks},
  {id:"setor-zero",name:"Setor Zero",subtitle:"ZONA INTERDITADA / MEMÓRIA APAGADA",
  intro:"A quarentena interrompeu as ruas, mas algumas máquinas continuam respondendo a ordens.",
  guideName:"Iuri",sky:0x1b1a28,ground:0x302d3d,lane:0x454351,
- wall:0x53465d,roof:0x706477,accent:0xeea06e,blocks:ringC},
+ wall:0x53465d,roof:0x706477,accent:0xeea06e,blocks:zeroBlocks},
  {id:"prisma",name:"Prisma",subtitle:"NEON / CULTURA / TRANSMISSÕES PIRATAS",
  intro:"Boates e palcos digitais competem pela mesma atenção que os protestos procuram mobilizar.",
  guideName:"Kai",sky:0x25152e,ground:0x352a46,lane:0x594563,
- wall:0x65366a,roof:0x915389,accent:0xf08cbf,blocks:ringA},
+ wall:0x65366a,roof:0x915389,accent:0xf08cbf,blocks:prismaBlocks},
  {id:"periferia",name:"Periferia",subtitle:"CARAVANAS / JARDINS / ROTAS LIVRES",
  intro:"Comunidades móveis cruzam estradas fora do mapa corporativo, transportando notícias e água.",
  guideName:"Dara",sky:0x30232b,ground:0x564539,lane:0x685d4f,
- wall:0x705f53,roof:0x957b61,accent:0xe9c18a,blocks:ringB},
+ wall:0x705f53,roof:0x957b61,accent:0xe9c18a,blocks:periferiaBlocks},
 ] as const;
+/** Malha viária pintada adaptada ao uso social do distrito.
+ * Não modifica pathfinding; só colore terreno efetivamente caminhável. */
+export function districtRoad(id:DistrictId,t:Tile):boolean{
+ const {x,y}=t;
+ if(y===10||x===11||x===19)return true;
+ switch(id){
+  case "aurea":return y===6&&x>=3&&x<=27||y===18&&x>=11&&x<=28;
+  case "subsolo":return y===7&&x>=3&&x<=27||y===17&&x>=4&&x<=28;
+  case "setor-zero":return y===6&&x>=3&&x<=25||x===26&&y>=10&&y<=20;
+  case "prisma":return y===6&&x>=3&&x<=27||y===18&&x>=3&&x<=27;
+  case "periferia":return y===7&&x>=3&&x<=27||y===18&&x>=3&&x<=27;
+ }
+}
 export function isDistrictId(input:unknown):input is DistrictId{
  return typeof input==="string"&&DISTRICTS.some(d=>d.id===input);
 }
