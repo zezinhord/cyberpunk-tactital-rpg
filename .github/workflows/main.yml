@@ -120,6 +120,9 @@ jobs:
       - name: Testar implantes, consumíveis e novos encontros Éden
         run: node --experimental-strip-types scripts/test-expansion-combat.mjs
 
+      - name: Reproduzir morte a 0 PV e validar evacuação, retentativa e salvamentos
+        run: node --experimental-strip-types scripts/test-combat-defeat.mjs
+
       - name: Testar progressao, campanha e ondas de combate
         run: |
           node --experimental-strip-types scripts/test-progression.mjs
