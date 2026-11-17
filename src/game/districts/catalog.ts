@@ -2,7 +2,7 @@
  * entre renderer Phaser e testes de regressão: sem colisão ilusória.
  */
 export type DistrictId="aurea"|"subsolo"|"setor-zero"|"prisma"|"periferia";
-export type NodeSlot="exit"|"guide"|"terminal"|"cache"|"specialist"|"relay"|"community";
+export type NodeSlot="exit"|"guide"|"terminal"|"cache"|"specialist"|"relay"|"community"|"discovery";
 export interface Tile{readonly x:number;readonly y:number}
 export interface CityBlock{readonly x:number;readonly y:number;readonly w:number;readonly h:number}
 export interface DistrictSpec{
@@ -12,7 +12,7 @@ export interface DistrictSpec{
  readonly roof:number;readonly accent:number;
  readonly blocks:readonly CityBlock[];
 }
-export const DISTRICT_WIDTH=28,DISTRICT_HEIGHT=20;
+export const DISTRICT_WIDTH=30,DISTRICT_HEIGHT=22;
 export const DISTRICT_SPAWN:Tile={x:4,y:10};
 const ringA:readonly CityBlock[]=[
  {x:4,y:1,w:5,h:4},{x:13,y:2,w:5,h:3},{x:20,y:1,w:5,h:4},
@@ -57,12 +57,13 @@ export function getDistrict(id:DistrictId):DistrictSpec{
 export const NODE_TILES:Readonly<Record<NodeSlot,Tile>>={
  exit:{x:2,y:10},guide:{x:6,y:8},terminal:{x:12,y:7},
  cache:{x:7,y:17},specialist:{x:18,y:9},
- relay:{x:24,y:8},community:{x:12,y:17},
+ relay:{x:24,y:8},community:{x:12,y:17},discovery:{x:27,y:19},
 };
 export const NODE_NAMES:Readonly<Record<NodeSlot,string>>={
  exit:"Transporte de retorno",guide:"Contato local",terminal:"Console público",
  cache:"Depósito oculto",specialist:"Operador de campo",
  relay:"Repetidor clandestino",community:"Assembleia da região",
+ discovery:"Arquivo recuperável",
 };
 export function districtActorId(id:DistrictId,slot:NodeSlot):string{
  return "district-"+id+"-"+slot;
