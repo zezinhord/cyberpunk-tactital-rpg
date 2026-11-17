@@ -325,6 +325,22 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
        ctx.beginPath();ctx.moveTo(x-15,y-13);ctx.lineTo(x+15,y-13);
        ctx.stroke();
        ctx.fillStyle="#e0b47a";ctx.fillRect(x-11,y-36,22,3);
+     }else if(actor.id==="feira-memoria"){
+       // Totem comunitário de gravações offline, com moldura em madeira
+       // reaproveitada e luz âmbar (verde fica exclusivo do Éden).
+       ctx.fillStyle="#1a2d33";ctx.fillRect(x-18,y-44,36,40);
+       ctx.fillStyle="#845d47";ctx.fillRect(x-19,y-47,38,6);
+       ctx.strokeStyle="#d7a56f";ctx.lineWidth=2;
+       ctx.strokeRect(x-18,y-44,36,40);
+       ctx.fillStyle="#344d53";ctx.fillRect(x-14,y-36,28,22);
+       ctx.fillStyle="#9cbaae";ctx.fillRect(x-11,y-33,22,16);
+       ctx.fillStyle="#273b43";ctx.fillRect(x-9,y-31,18,12);
+       ctx.strokeStyle="#e6b977";ctx.lineWidth=1.8;
+       ctx.beginPath();ctx.arc(x,y-25,5,Math.PI*.2,Math.PI*1.8);ctx.stroke();
+       ctx.fillStyle="#f5d1a2";ctx.font="bold 6px monospace";
+       ctx.textAlign="center";ctx.fillText("MEM",x,y-10);
+       ctx.fillStyle="#394c4c";ctx.fillRect(x-22,y-4,44,6);
+       ctx.textAlign="start";
      }else if(actor.id==="feira-archive"){
        // Painel de boletins comunitários no Mercado dos Cabos.
        ctx.fillStyle="#1a3036";ctx.fillRect(x-20,y-42,40,38);
