@@ -12,17 +12,17 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Aguardar APK final auditado do workflow 848
+      - name: Aguardar APK final auditado do workflow 851
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          RUN_ID=44009501074
+          RUN_ID=44010028467
           for attempt in $(seq 1 40); do
             JSON="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}")"
             STATUS="$(echo "$JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")"
             RESULT="$(echo "$JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('conclusion'))")"
-            echo "Build final #848: $STATUS / $RESULT (checagem $attempt)"
+            echo "Build final #851: $STATUS / $RESULT (checagem $attempt)"
             if [ "$STATUS" = "completed" ]; then
               [ "$RESULT" = "success" ] || exit 1
               break
@@ -37,7 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/standard-apk
-          gh run download 44009501074 --repo "$GITHUB_REPOSITORY" \
+          gh run download 44010028467 --repo "$GITHUB_REPOSITORY" \
             -n Cyberpunk-Tactical-RPG-APK -D /tmp/standard-apk
           test -s /tmp/standard-apk/app-debug.apk
           cp /tmp/standard-apk/app-debug.apk NovaArcadia-0.8.1-rc.2-Compat-080.apk
