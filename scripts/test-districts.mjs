@@ -16,7 +16,7 @@ import {
 
 assert.equal(DISTRICTS.length,5);
 assert.equal(CHAPTERS.length,5);
-assert.equal(DISTRICT_WIDTH,28);assert.equal(DISTRICT_HEIGHT,20);
+assert.equal(DISTRICT_WIDTH,30);assert.equal(DISTRICT_HEIGHT,22);
 const ids=new Set(DISTRICTS.map(x=>x.id));assert.equal(ids.size,5);
 assert.equal(isDistrictId("setor-zero"),true);
 assert.equal(isDistrictId("ferrugem"),false);
@@ -63,6 +63,7 @@ for(const d of DISTRICTS){
  }
  assert.equal(districtPath(d.id,DISTRICT_SPAWN,d.blocks[0]),null);
  assert.equal(districtCanStep(d.id,{x:4,y:10},{x:6,y:10}),false);
+ assert.ok(districtApproach(d.id,DISTRICT_SPAWN,NODE_TILES.discovery)?.length,"Nova área explorável inacessível: "+d.id);
  const chapter=CHAPTERS.find(c=>c.id===d.id);
  assert.ok(chapter&&chapter.steps.length===7,"São sete etapas por distrito");
  let progress=beginDistrict(FRESH_CHAPTER);
