@@ -1089,8 +1089,8 @@ try {
   })()`);
   if(defeatGeometry.buttons.length!==2||
      !defeatGeometry.main?.includes("incapacitado")||
-     defeatGeometry.modal.top<0||defeatGeometry.modal.bottom>innerHeight+2||
-     defeatGeometry.buttons.some(b=>b.top<0||b.bottom>innerHeight+2||b.height<48||b.disabled))
+     defeatGeometry.modal.top<0||defeatGeometry.modal.bottom>defeatGeometry.viewport.h+2||
+     defeatGeometry.buttons.some(b=>b.top<0||b.bottom>defeatGeometry.viewport.h+2||b.height<48||b.disabled))
     throw new Error("Tela de derrota não cabe na viewport móvel: "+
       JSON.stringify(defeatGeometry));
   await writeFile("qa/derrota-recuperacao-914x411.png",Buffer.from(
