@@ -18,6 +18,8 @@ export const DISCOVERY_REWARDS:Readonly<Record<DiscoveryArea,{item:ItemId;xp:num
   story:"As caravanas esconderam um microatuador para reparar o farol."},
  ferrugem:{item:"microatuador",xp:12,
   story:"Um microatuador da linha de montagem estava escondido na caixa lacrada."},
+ baixada:{item:"dados_criptografados",xp:12,
+  story:"Os moradores preservaram um pacote de depoimentos sobre a V-09 e a primeira decisão da rede Éden, longe dos servidores corporativos."},
 };
 export const DISCOVERY_AREAS=Object.keys(DISCOVERY_REWARDS) as DiscoveryArea[];
 export function claimDiscovery(state:InventoryState,area:DiscoveryArea):
