@@ -5,6 +5,7 @@ import {ACTOR_TILES,BUILDINGS,GRID_HEIGHT,GRID_WIDTH,PLAYER_START,PROPS,ROAMING_
 import {paintCityBackground,drawCityBuilding,drawCityProp,tileWorld,
   type PropKind,type Point} from "../game/baixada/lite-city-art";
 import {createLiteArtAssets,drawLiteSprite,LONG_NPC_SHEETS,type LiteArtAssets} from "../game/baixada/lite-art-assets";
+import {CitizenRoutine} from "../game/baixada/npc-routines.ts";
 import {canStand,route,approachRoute} from "../game/baixada/navigation";
 import {smoothCamera,interpolateWalk} from "../game/baixada/motion";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
@@ -123,6 +124,22 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
   let view=getView(900,440,cameraPosition);
   let marker:Tile|null=null;
   const actorById=new Map(ACTORS.map(a=>[a.id,a]));
+  // Residentes usam as rotas/collisions do Phaser, mas são simulados uma vez
+  // por segundo no Android Canvas. Nenhuma IA ou cena fica fora da tela.
+  const residents=new Map(ROAMING_NPCS.map(spec=>[spec.id,{
+    tile:{...spec.route[0]},from:{...spec.route[0]},movedAt:0,
+    routine:new CitizenRoutine(spec),lockUntil:0,
+  }]));
+  const actorTile=(id:string):Tile=>residents.get(id)?.tile??
+     actorById.get(id)?.tile??motion.position;
+  const actorWorld=(id:string):{x:number;y:number}=>{
+    const resident=residents.get(id);
+    if(!resident)return tileWorld(actorTile(id));
+    const elapsed=performance.now()-resident.movedAt;
+    const a=tileWorld(resident.from),b=tileWorld(resident.tile);
+    const factor=Math.max(0,Math.min(1,elapsed/620));
+    return {x:a.x+(b.x-a.x)*factor,y:a.y+(b.y-a.y)*factor};
+  };
   let art:LiteArtAssets|null=null;
   let facing:0|1|2|3=2;
   const layers:DrawLayer[]=[
@@ -240,7 +257,9 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
    // Renderização Canvas 2D da mesma arquitetura, sprites e props Phaser.
    // A câmera e a projeção compartilham a geometria do mapa original;
    // não há textura única gigantesca nem carregamento de sprites ociosos.
-   const visible=layers.filter(layer=>{
+   const visible=layers.map(layer=>layer.kind==="actor"&&residents.has(layer.actor.id)?
+      {...layer,pos:actorWorld(layer.actor.id),depth:actorWorld(layer.actor.id).y+.2}:layer)
+     .sort((a,b)=>a.depth-b.depth).filter(layer=>{
      const p=project(view,layer.pos);
      return p.x>=-205&&p.x<=width+205&&p.y>=-245&&p.y<=height+215;
    });
@@ -265,13 +284,20 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
      ctx.beginPath();ctx.ellipse(x,y+2,17,8,0,0,Math.PI*2);ctx.stroke();
    };
    const drawActor=(actor:(typeof ACTORS)[number])=>{
-     const p=tileWorld(actor.tile),x=p.x,y=p.y;
+     const p=actorWorld(actor.id),x=p.x,y=p.y;
      ctx.fillStyle="rgba(4,13,19,.5)";
      ctx.beginPath();ctx.ellipse(x,y+2,14,4,0,0,Math.PI*2);ctx.fill();
      const skin=ACTOR_SKIN[actor.id];
      if(actor.person){
+       const resident=residents.get(actor.id);
+       const walking=resident&&performance.now()-resident.movedAt<620;
+       const frame=walking?Math.floor(performance.now()/150)%4:
+         (Math.floor(performance.now()/900)%2)*2;
+       const dir:0|1|2|3=resident?
+         resident.tile.y<resident.from.y?0:resident.tile.x>resident.from.x?1:
+         resident.tile.y>resident.from.y?2:3:2;
        const drawn=drawLiteSprite(ctx,skin?art?.npc(skin)??null:null,x,y,
-         {scale:.86,direction:2,frame:0,
+         {scale:.86,direction:dir,frame,
           columns:skin&&LONG_NPC_SHEETS.has(skin)?12:4});
        if(!drawn){
          ctx.fillStyle=actor.id==="patio-sentinel"?"#9b4a67":"#59838c";
@@ -390,7 +416,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
        ctx.fillStyle="#ac805a";ctx.fillRect(x-16,y-42,32,6);
        ctx.strokeStyle="#e4b273";ctx.strokeRect(x-16,y-42,32,6);
      }
-     if(distance(motion.position,actor.tile)<=3){
+     if(distance(motion.position,actorTile(actor.id))<=3){
        const label=actor.label;
        ctx.font="bold 10px monospace";
        const labelWidth=ctx.measureText(label).width;
@@ -443,7 +469,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
       notify(motion.position,true);
       const actor=motion.pendingActor;
       motion.pendingActor=null;
-      if(actor&&distance(motion.position,actorById.get(actor)?.tile??motion.position)<=1)
+      if(actor&&distance(motion.position,actorTile(actor))<=1)
         callbacks.current.onInteract(actor);
       return;
     }
@@ -483,11 +509,13 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
       return;
      }
     }
-    if(motion.step||cameraMoving)schedule();
+    if(motion.step||cameraMoving||[...residents.values()].some(n=>now-n.movedAt<640))schedule();
   };
   const go=(destination:Tile,actor?:string)=>{
     const start=motion.step?.to??motion.position;
-    const target=actor?actorById.get(actor)?.tile:null;
+    const target=actor?actorTile(actor):null;
+    const resident=actor?residents.get(actor):undefined;
+    if(resident)resident.lockUntil=performance.now()+Math.max(4000,motion.steps.length*190+2800);
     const path=target?approachRoute(start,target):route(start,destination);
     if(!path)return;
     motion.steps=path.slice(1);
@@ -523,7 +551,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     // The smoothed camera lags behind the avatar while walking; using
     // renderPosition targets a different tile from the one the player taps.
     const v=getView(width,height,cameraPosition);
-    const nearest=ACTORS.map(a=>({a,p:project(v,center(a.tile))}))
+    const nearest=ACTORS.map(a=>({a,p:project(v,actorWorld(a.id))}))
       .filter(({p})=>Math.abs(point.x-p.x)<36&&point.y>p.y-76&&point.y<p.y+18)
       .sort((a,b)=>Math.abs(a.p.x-point.x)+Math.abs(a.p.y-28-point.y)-
          Math.abs(b.p.x-point.x)-Math.abs(b.p.y-28-point.y))[0];
@@ -549,6 +577,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     if(canStand(target))go(target);
   };
   let observer:ResizeObserver|null=null;
+  let residentTimer:number|null=null;
   const visibility=()=>{
     if(document.hidden){
       suspendedAt=performance.now();
@@ -577,6 +606,23 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
       observer=new ResizeObserver(sizing);observer.observe(host);
     }else window.addEventListener("resize",sizing);
     scene.current={go,frame:schedule};
+    residentTimer=window.setInterval(()=>{
+      if(disposed||document.hidden)return;
+      const occupied=new Set([...residents.values()].map(r=>r.tile.x+","+r.tile.y));
+      occupied.add(motion.position.x+","+motion.position.y);
+      let moved=false;
+      for(const npc of residents.values()){
+        if(performance.now()<npc.lockUntil)continue;
+        occupied.delete(npc.tile.x+","+npc.tile.y);
+        const result=npc.routine.tick(npc.tile,occupied);
+        if(result.moved){
+          npc.from=npc.tile;npc.tile=result.tile;
+          npc.movedAt=performance.now();moved=true;
+        }
+        occupied.add(npc.tile.x+","+npc.tile.y);
+      }
+      if(moved)schedule();
+    },1350);
     art=createLiteArtAssets(originId,()=>{
       if(disposed)return;
       host.dataset.artLoaded=String(art?.loaded()??0);
@@ -594,6 +640,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     disposed=true;
     if(frameId)cancelAnimationFrame(frameId);
     clearTimeout(watchdog);
+    if(residentTimer!==null)clearInterval(residentTimer);
     observer?.disconnect();
     window.removeEventListener("resize",sizing);
     canvas.removeEventListener("pointerdown",pointer);
