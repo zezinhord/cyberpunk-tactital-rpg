@@ -4,7 +4,7 @@
  */
 import type {DistrictId} from "../districts/catalog.ts";
 import {grantRewardInventoryItem,type InventoryState,type ItemId} from "../inventory.ts";
-export type DiscoveryArea=DistrictId|"ferrugem";
+export type DiscoveryArea=DistrictId|"ferrugem"|"baixada";
 export const DISCOVERY_REWARDS:Readonly<Record<DiscoveryArea,{item:ItemId;xp:number;story:string}>>={
  aurea:{item:"dados_criptografados",xp:12,
   story:"Uma cópia da auditoria sobreviveu na caixa de serviço de Áurea."},
