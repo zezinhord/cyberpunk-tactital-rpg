@@ -126,10 +126,11 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
   const actorById=new Map(ACTORS.map(a=>[a.id,a]));
   // Residentes usam as rotas/collisions do Phaser, mas são simulados uma vez
   // por segundo no Android Canvas. Nenhuma IA ou cena fica fora da tela.
-  const residents=new Map(ROAMING_NPCS.map(spec=>[spec.id,{
+  const residents:Map<string,{tile:Tile;from:Tile;movedAt:number;
+    routine:CitizenRoutine;lockUntil:number}>=new Map(ROAMING_NPCS.map(spec=>[spec.id,{
     tile:{...spec.route[0]},from:{...spec.route[0]},movedAt:0,
     routine:new CitizenRoutine(spec),lockUntil:0,
-  }]));
+  }] as const));
   const actorTile=(id:string):Tile=>residents.get(id)?.tile??
      actorById.get(id)?.tile??motion.position;
   const actorWorld=(id:string):{x:number;y:number}=>{
