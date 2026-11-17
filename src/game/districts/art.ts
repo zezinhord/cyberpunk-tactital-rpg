@@ -234,6 +234,41 @@ export function drawDistrictInteractable(g:G,id:DistrictId,slot:NodeSlot,c:Point
     {x:c.x,y:c.y-50},{x:c.x-7,y:c.y-56}],0xffd166);
    return;
  }
+ if(slot==="interior"){
+  // Cinco fachadas de entrada, cada uma ligada à sala interior real:
+  // escritórios selados, arco do abrigo, isolamento, bastidores e cisterna.
+  const face:Record<Architecture,number>={
+   corporate:0x4c667a,nightlife:0x7d4b79,underground:0x3d5257,
+   quarantine:0x686176,community:0x82705c,
+  };
+  const edge=type==="nightlife"?0xf3a9cc:type==="corporate"?0xa5d0e7:
+   type==="quarantine"?0xe9a07a:0xe7bf87;
+  rect(g,c.x-25,c.y-72,50,64,dim(face[type],.62),.99);
+  rect(g,c.x-21,c.y-69,42,58,face[type],1);
+  g.lineStyle(3,edge,.88);g.strokeRoundedRect(c.x-25,c.y-72,50,64,4);
+  rect(g,c.x-15,c.y-54,30,41,dim(face[type],.35),.96);
+  if(type==="underground"){
+   ellipse(g,c.x,c.y-69,43,17,dim(s.wall,.65));
+   line(g,{x:c.x-21,y:c.y-52},{x:c.x+21,y:c.y-52},edge,3);
+  }else if(type==="community"){
+   for(let i=0;i<4;i++)rect(g,c.x-21+i*13,c.y-71,4,8,0xe8bd89,.82);
+   rect(g,c.x-15,c.y-40,30,6,0x8fa18a,.87);
+  }else if(type==="nightlife"){
+   for(let i=0;i<4;i++)rect(g,c.x-19+i*12,c.y-67,6,3,i%2?0xe7a3cd:0x95b3d0,.95);
+   rect(g,c.x-9,c.y-62,18,5,0xd2adc4,.73);
+  }else if(type==="quarantine"){
+   for(let i=0;i<4;i++)line(g,{x:c.x-20+i*12,y:c.y-57},
+    {x:c.x-13+i*12,y:c.y-50},0xe5a56f,2,.83);
+   rect(g,c.x-12,c.y-34,24,3,0xcd9378,.79);
+  }else{
+   rect(g,c.x-14,c.y-62,28,7,0x8ab6c4,.84);
+   for(let i=0;i<3;i++)rect(g,c.x-10+i*8,c.y-43,5,4,0xbed7da,.74);
+  }
+  rect(g,c.x-3,c.y-23,6,3,edge,.94);
+  polygon(g,[{x:c.x,y:c.y-96},{x:c.x+7,y:c.y-88},
+   {x:c.x,y:c.y-80},{x:c.x-7,y:c.y-88}],0xffd166,0x101923);
+  return;
+ }
  const npc=slot==="guide"||slot==="specialist"||slot==="community";
  if(npc){
   const suits:Record<Architecture,number>={corporate:0x334d61,nightlife:0x694267,
