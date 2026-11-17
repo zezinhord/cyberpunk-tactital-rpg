@@ -28,6 +28,8 @@ jobs:
         run: node --experimental-strip-types scripts/test-tactics.mjs
       - name: Testar ocorrencias e consequencias persistentes
         run: node --experimental-strip-types scripts/test-urban-chronicles.mjs
+      - name: Verificar caminhos, colisões e missões nos cinco distritos
+        run: node --experimental-strip-types scripts/test-districts.mjs
       - name: Testar classes e habilidades
         run: node --experimental-strip-types scripts/test-class-abilities.mjs
       - name: Validar contrato visual
