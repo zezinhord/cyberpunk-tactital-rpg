@@ -194,6 +194,22 @@ export function drawCityBuilding(ctx:CanvasRenderingContext2D,b:BuildingSpec):vo
      "rgba(13,30,34,.47)",.6);
   }
  }
+ if(b.style==="community"){
+  // Pintura comunitária na fachada, fiel à malha isométrica e à paleta tropical.
+  const mx=lerp(d.x,c.x,.40),my=lerp(d.y,c.y,.40)-h*.48;
+  shape(ctx,[{x:mx-19,y:my-9},{x:mx+17,y:my+3},
+    {x:mx+17,y:my+20},{x:mx-19,y:my+8}],
+    "rgba(44,75,81,.87)","rgba(232,184,114,.74)",1.2);
+  ellipse(ctx,mx,my+1,6,6,"rgba(242,189,110,.95)");
+  line(ctx,[{x:mx-12,y:my+5},{x:mx-3,y:my+11},{x:mx,y:my+9},
+    {x:mx+4,y:my+13},{x:mx+13,y:my+9}],"rgba(203,217,205,.9)",2.1);
+  for(let i=0;i<5;i++){
+   const angle=-Math.PI*.75+i*Math.PI/6;
+   line(ctx,[{x:mx+Math.cos(angle)*9,y:my+1+Math.sin(angle)*8},
+     {x:mx+Math.cos(angle)*13,y:my+1+Math.sin(angle)*11}],
+     "rgba(238,178,103,.83)",1.2);
+  }
+ }
  if(b.style==="clinic"){
   line(ctx,[{x:lerp(bt.x,ct.x,.1),y:lerp(bt.y,ct.y,.5)+20},
     {x:lerp(bt.x,ct.x,.9),y:lerp(bt.y,ct.y,.5)+38}],
