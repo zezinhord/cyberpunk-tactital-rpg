@@ -8,7 +8,7 @@ import BaixadaWorld from "../components/BaixadaWorld";
 import SceneRecovery from "../components/SceneRecovery";
 import { getOriginById, getOriginGameplay } from "../game/character";
 import CharacterMenu from "../components/CharacterMenu";
-import type { InventoryState, ItemId } from "../game/inventory";
+import {ITEM_CATALOG,type InventoryState,type ItemId} from "../game/inventory";
 import type {RecipeId} from "../game/crafting";
 import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
