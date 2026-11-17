@@ -658,6 +658,7 @@ export class BaixadaScene extends Phaser.Scene {
       { id: "feira-corretor", name: "Davi", kind:"person",tile:ACTOR_TILES["feira-corretor"],texture:NPC_TEXTURES.davi,role:"INTERMEDIÁRIO DE ACESSOS" },
       { id: "feira-ajuda", name: "Marta", kind:"person",tile:ACTOR_TILES["feira-ajuda"],texture:NPC_TEXTURES.marta,role:"ARTICULADORA COMUNITÁRIA" },
       { id: "feira-archive", name:"Mural de Boletins",kind:"terminal",tile:ACTOR_TILES["feira-archive"],role:"REDE COMUNITÁRIA" },
+      { id: "feira-memoria", name:"Arquivo de Memórias",kind:"terminal",tile:ACTOR_TILES["feira-memoria"],role:"ACERVO DOS MORADORES" },
       ...ROAMING_NPCS.map((spec,index)=>({
         id:spec.id,name:spec.name,kind:"person" as const,tile:{...spec.route[0]},
         texture:NPC_TEXTURES[spec.id as keyof typeof NPC_TEXTURES]??
