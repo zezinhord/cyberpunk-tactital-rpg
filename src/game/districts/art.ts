@@ -221,6 +221,19 @@ export function drawDistrictBuilding(g:G,id:DistrictId,s:DistrictSpec,b:CityBloc
 export function drawDistrictInteractable(g:G,id:DistrictId,slot:NodeSlot,c:Point,s:DistrictSpec):void{
  const type=DISTRICT_ART[id].architecture;
  ellipse(g,c.x,c.y+4,38,11,0x07121a,.42);
+ if(slot==="discovery"){
+   const signal=DISTRICT_ART[id].architecture;
+   // Arquivos físicos de baixa carga: silhuetas específicas e iluminação âmbar,
+   // sem alocação de novas texturas no Android.
+   rect(g,c.x-21,c.y-27,42,19,0x293940,.95);
+   rect(g,c.x-18,c.y-35,36,10,signal==="nightlife"?0x92556b:0x5a6766,.94);
+   rect(g,c.x-14,c.y-29,28,4,0xe4b87a,.72);
+   line(g,{x:c.x-16,y:c.y-21},{x:c.x+16,y:c.y-21},0x172731,2);
+   for(let k=0;k<3;k++)rect(g,c.x-12+k*10,c.y-18,6,6,0x9cafac,.85);
+   polygon(g,[{x:c.x,y:c.y-62},{x:c.x+7,y:c.y-56},
+    {x:c.x,y:c.y-50},{x:c.x-7,y:c.y-56}],0xffd166);
+   return;
+ }
  const npc=slot==="guide"||slot==="specialist"||slot==="community";
  if(npc){
   const suits:Record<Architecture,number>={corporate:0x334d61,nightlife:0x694267,
