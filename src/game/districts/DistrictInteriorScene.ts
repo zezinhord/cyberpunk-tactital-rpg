@@ -146,6 +146,9 @@ export class DistrictInteriorScene extends Phaser.Scene{
     for(let n=0;n<3;n++)g.fillStyle(bp.accent,.55).fillRect(x+7,y+7+n*9,25+n*5,2);
    }
   }
+  // Painéis arquitetônicos originais de cada bairro, junto às paredes.
+  // Estão atrás dos atores e não adicionam colisões fictícias nem atlases.
+  this.paintIdentity(g);
   g.generateTexture(this.staticKey,W,H);g.destroy();
   this.add.image(0,0,this.staticKey).setOrigin(0).setDepth(-300);
   this.add.text(W/2,55,bp.title.toUpperCase(),{
@@ -156,6 +159,103 @@ export class DistrictInteriorScene extends Phaser.Scene{
    fontFamily:"IBM Plex Mono,monospace",fontSize:"12px",
    color:"#cfdfdd",backgroundColor:"#15252dce",padding:{x:9,y:4},
   }).setOrigin(.5).setDepth(1700);
+ }
+ private paintIdentity(g:Phaser.GameObjects.Graphics):void{
+  const bp=INNER_BLUEPRINTS[this.id],t=bp.accent;
+  if(this.id==="baixada-community"){
+    // Mural de depoimentos, patchwork de famílias e lençóis reaproveitados.
+    g.fillStyle(0x364e49,.94).fillRect(380,117,510,65);
+    g.lineStyle(3,0xe8c18b,.7).strokeRect(380,117,510,65);
+    for(let i=0;i<20;i++){
+      const x=390+i*24,y=128+(i%3)*9;
+      g.fillStyle(i%4===0?0xc39d72:i%4===1?0x6b9290:
+        i%4===2?0x94736f:0xa9ae8b,.85).fillRect(x,y,19,12);
+      g.lineStyle(1,0x172a29,.65).strokeRect(x,y,19,12);
+    }
+    for(let i=0;i<6;i++){
+      g.lineStyle(2,0xdcb98a,.6);
+      g.beginPath().moveTo(220+i*165,127).lineTo(263+i*165,144).strokePath();
+    }
+  }else if(this.id==="ferrugem-foundry"){
+    // Fornalhas ativas, válvulas e placas de segurança de cobre industrial.
+    for(let i=0;i<4;i++){
+      const x=120+i*286;
+      g.fillStyle(0x2f3436,1).fillRoundedRect(x,111,115,75,7);
+      g.fillStyle(0x8d4e33,.95).fillRoundedRect(x+15,130,83,51,4);
+      g.fillStyle(0xec9d54,.63).fillEllipse(x+55,158,68,23);
+      g.fillStyle(0x2a3034,.94).fillRect(x+12,141,90,6);
+      for(let n=0;n<4;n++)g.fillStyle(n%2?0x252e34:0xe5ae60,.78)
+        .fillRect(x+6+n*26,113,17,6);
+      g.lineStyle(5,t,.38).beginPath().moveTo(x+52,115).lineTo(x+52,84).strokePath();
+    }
+  }else if(this.id==="aurea-archive"){
+    // Torre de servidores: porta-eclusa, painéis ópticos e relógio de rede.
+    for(let i=0;i<7;i++){
+      const x=80+i*164;
+      g.fillStyle(0x20313e,.97).fillRoundedRect(x,118,104,68,5);
+      g.lineStyle(2,0x82adbe,.75).strokeRoundedRect(x,118,104,68,5);
+      for(let j=0;j<5;j++){
+        g.fillStyle(j%2?0x5f8797:0x142936,.9).fillRect(x+11,127+j*10,80,7);
+        for(let k=0;k<3;k++)g.fillStyle(k===0?0x93c9d8:0xc0a372,.7)
+          .fillRect(x+15+k*9,130+j*10,4,3);
+      }
+    }
+  }else if(this.id==="subsolo-hideout"){
+    // Túneis em arco e manta hidráulica com infiltrações.
+    for(let i=0;i<7;i++){
+      const x=70+i*180;
+      g.lineStyle(8,0x203942,.95);
+      g.beginPath().moveTo(x,190).lineTo(x,128)
+       .lineTo(x+80,109).lineTo(x+160,128).lineTo(x+160,190).strokePath();
+      g.lineStyle(3,0xd1a871,.53);
+      g.beginPath().moveTo(x+9,190).lineTo(x+9,135)
+       .lineTo(x+80,120).lineTo(x+151,135).lineTo(x+151,190).strokePath();
+    }
+    g.fillStyle(0x31636d,.31).fillRect(0,174,W,13);
+  }else if(this.id==="setor-zero-lab"){
+    // Câmaras de isolamento lacradas em acrílico translúcido.
+    for(let i=0;i<6;i++){
+      const x=97+i*202;
+      g.fillStyle(0x343342,.98).fillRoundedRect(x,107,116,81,13);
+      g.lineStyle(3,0xe8a875,.67).strokeRoundedRect(x,107,116,81,13);
+      g.fillStyle(0x77909c,.29).fillRoundedRect(x+12,115,91,64,17);
+      g.lineStyle(1,0x9fb2b8,.52).strokeRoundedRect(x+12,115,91,64,17);
+      for(let j=0;j<4;j++){
+        g.lineStyle(2,j%2?0xe4ba90:0x8b5b70,.5);
+        g.beginPath().moveTo(x+22+j*20,121).lineTo(x+22+j*20,166).strokePath();
+      }
+    }
+  }else if(this.id==="prisma-backstage"){
+    // Palco alternativo: cortinas, linha de refletores e estrutura de som.
+    g.fillStyle(0x41273d,.97).fillRect(0,105,W,95);
+    for(let i=0;i<12;i++){
+      const x=i*117;
+      g.fillStyle(i%3===0?0x76435d:0x5c3455,.88)
+       .fillRect(x,111,103,81);
+      g.lineStyle(3,i%2?0xe698bf:0x96b5cd,.61);
+      g.beginPath().moveTo(x+14,122).lineTo(x+14,188).strokePath();
+    }
+    g.lineStyle(6,0xacc1c3,.77).beginPath().moveTo(15,110)
+      .lineTo(W-15,110).strokePath();
+    for(let i=0;i<11;i++){
+      const x=45+i*119;
+      g.fillStyle(i%3===0?0xf5afcf:i%3===1?0x91b2d1:0xefbf88,.75)
+       .fillCircle(x,110,7);
+    }
+  }else if(this.id==="periferia-waterworks"){
+    // Cisternas tubulares e placas solares: preservação de água fora da rede.
+    for(let i=0;i<5;i++){
+      const x=122+i*242;
+      g.fillStyle(0x384a49,.94).fillRoundedRect(x,118,109,70,20);
+      g.lineStyle(3,0xd9bd83,.79).strokeRoundedRect(x,118,109,70,20);
+      for(let n=0;n<4;n++)g.lineStyle(2,0x99a99f,.59)
+       .beginPath().moveTo(x+22+n*20,124).lineTo(x+22+n*20,180).strokePath();
+      g.fillStyle(0x355567,.92).fillRect(x+122,127,76,40);
+      g.lineStyle(2,0xa9c0bc,.66).strokeRect(x+122,127,76,40);
+      for(let n=1;n<4;n++)g.lineStyle(1,0x82b0bd,.53).beginPath()
+        .moveTo(x+122+n*19,127).lineTo(x+122+n*19,167).strokePath();
+    }
+  }
  }
  private createPropGraphic(p:XY,prop:InnerProp):void{
   const bp=INNER_BLUEPRINTS[this.id],g=this.add.graphics().setDepth(p.y+125);
