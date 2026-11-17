@@ -18,7 +18,7 @@ export function collectInnerProp(inventory:InventoryState,area:InnerId,propId:st
 export function reconcileInnerExperience(inventory:InventoryState,grant:(id:string,xp:number)=>boolean):boolean{
  for(const area of INNER_IDS)for(const prop of INNER_BLUEPRINTS[area].props){
   const receipt=innerReceipt(area,prop);
-  if(inventory.rewardReceipts.includes(receipt)&&!grant(receipt,prop.xp))return false;
+  if(inventory.rewardReceipts?.includes(receipt)&&!grant(receipt,prop.xp))return false;
  }
  return true;
 }
