@@ -38,6 +38,7 @@ import { markV09Defeated,grantV09Experience } from "./game/story/v09";
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity} from "./game/character/slots";
 import {exportCharacterBackup,importCharacterBackup} from "./game/character/backup";
 import {loadHealth,saveHealth,healAtClinic} from "./game/combat/health";
+import {isOperativeDefeated,recoverFromDefeat,type DefeatChoice} from "./game/combat/defeat.ts";
 import {combatProgression,grantUniqueExperience,purchaseAttribute,purchaseSkill,
   type StatId} from "./game/progression/tree";
 import {advanceTrialBattle,isTrialEncounter,readTrial,saveTrial,reconcileTrial} from "./game/story/field-test";
@@ -79,6 +80,7 @@ function ActionChip({ label, ready }: { label: string; ready: boolean }) {
 }
 
 function getHint(state: GameState, canAttack: boolean): string {
+  if(isOperativeDefeated(state))return "Operativo incapacitado: escolha evacuação ou nova tentativa.";
   if (state.combatComplete) return state.encounterId==="v09"
     ? "Confronto V-09 encerrado. Retorne à Baixada para continuar a investigação."
     : "Combate de teste encerrado";
@@ -227,6 +229,7 @@ export default function App() {
   const [openingError,setOpeningError] = useState("");
   const [battleReset, setBattleReset] = useState(0);
   const [battleMode, setBattleMode] = useState<EncounterId>("test");
+  const [defeatNotice,setDefeatNotice]=useState("");
   const [abilityPickerOpen,setAbilityPickerOpen] = useState(false);
   useEffect(()=>{audioDirector.setScene(screen==="battle"?"battle":screen==="exploration"?"exploration":screen==="title"?"menu":"story");},[screen]);
   const [appearance, setAppearance] = useState<TestAppearance>(() => loadTestAppearance(loadCharacter()?.id ?? ""));
@@ -257,7 +260,8 @@ export default function App() {
   const enemy = getUnit(state, "drone");
   const attackPreview=manager.getBasicAttackPreview();
   const canAttack = attackPreview.available;
-  const victory = Boolean(enemy && enemy.hp <= 0);
+  const victory = Boolean(state.combatComplete && enemy && enemy.hp <= 0);
+  const defeated=isOperativeDefeated(state);
 
   useEffect(() => {
     setState(manager.getState());
@@ -276,6 +280,7 @@ export default function App() {
   }, [manager,screen,character?.id]);
 
   const beginBattle = (mode: EncounterId = "test") => {
+    setDefeatNotice("");
     setAbilityPickerOpen(false);
     setBattleMode(mode);
     setBattleReset((n)=>n+1);
@@ -613,6 +618,24 @@ export default function App() {
       item.energyAmount?manager.useEnergySupply(item.energyAmount):false;
     if(used)setInventory(current=>consumeItem(current,selectedSupply));
   };
+  /** Recuperação após 0 PV: sem alterar missão, facções ou experiência.
+   * O modal independe de scroll e sempre oferece saída no Android landscape.
+   */
+  const handleDefeatChoice=(choice:DefeatChoice):void=>{
+    if(!character||!defeated)return;
+    const result=recoverFromDefeat(character.id,maximumHp,choice);
+    if(!result.ok){setDefeatNotice(result.message);return;}
+    setDefeatNotice("");
+    setAbilityPickerOpen(false);
+    setHealthValue(result.hp);
+    setSaveMessage(result.message);
+    if(choice==="clinic"){
+      setScreen("exploration");
+    }else{
+      setBattleReset(n=>n+1);
+    }
+  };
+
   const consumables=ITEM_IDS.filter(id=>ITEM_CATALOG[id].category==="consumable");
   const supply=ITEM_CATALOG[selectedSupply];
   const supplyUseful=Boolean(supply.healAmount&&player&&player.hp<player.maxHp||
@@ -762,7 +785,7 @@ export default function App() {
         </details>
         </div>
         <section className="control-sheet" aria-label="Comandos do turno">
-          <button type="button" className="na-abilities-open" onClick={()=>setAbilityPickerOpen(true)}
+          <button type="button" className="na-abilities-open" disabled={state.combatComplete} onClick={()=>setAbilityPickerOpen(true)}
             aria-haspopup="dialog" aria-expanded={abilityPickerOpen}
             aria-label="Escolher habilidades de combate">
             <span><strong>⚡ HABILIDADES</strong><small>{manager.getClassAbilities().length} da classe · 3 comuns · 1 de origem</small></span>
@@ -790,10 +813,34 @@ export default function App() {
               title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense}`:attackPreview.reason}
               disabled={!canAttack}>{attackPreview.mode==="ranged"?"Disparar":"Ataque corpo a corpo"}</button>
           </div>
-          <div className="secondary-actions">{battleMode==="test" && <button type="button" onClick={() => setBattleReset((value) => value + 1)}>Reiniciar arena</button>}<button type="button" onClick={() => setScreen("exploration")} >Voltar à exploração</button></div>
+          <div className="secondary-actions">{battleMode==="test" && <button type="button" onClick={() => {setDefeatNotice("");setBattleReset((value) => value + 1);}}>Reiniciar arena</button>}<button type="button" onClick={() => {setDefeatNotice("");setScreen("exploration");}} >Voltar à exploração</button></div>
         </section>
 
       </aside>
+      {defeated&&<div className="na-defeat-backdrop" data-combat-defeat="true">
+        <section className="na-defeat-dialog" role="dialog" aria-modal="true"
+          aria-labelledby="na-defeat-title" aria-describedby="na-defeat-description">
+          <span className="na-defeat-eyebrow">SISTEMA DE EVACUAÇÃO · NOVA ARCÁDIA</span>
+          <h2 id="na-defeat-title">Operativo incapacitado</h2>
+          <p id="na-defeat-description">Você caiu em combate. A missão não foi perdida:
+            suas pistas, itens e progresso continuam salvos. Escolha como retornar.</p>
+          <div className="na-defeat-options">
+            <button type="button" className="na-defeat-clinic"
+              onClick={()=>handleDefeatChoice("clinic")}>
+              <strong>Retornar à clínica</strong><small>Evacuação à Baixada · 35% da Vida</small>
+            </button>
+            <button type="button" className="na-defeat-retry"
+              onClick={()=>handleDefeatChoice("retry")}>
+              <strong>Tentar novamente</strong><small>Recomeçar o confronto · 50% da Vida</small>
+            </button>
+          </div>
+          {defeatNotice&&<p role="alert" className="na-defeat-error">{defeatNotice}</p>}
+          <button type="button" className="na-defeat-menu"
+            onClick={()=>{setAbilityPickerOpen(false);setDefeatNotice("");setScreen("title");}}>
+            Voltar ao menu sem apagar o personagem
+          </button>
+        </section>
+      </div>}
       {abilityPickerOpen&&<CombatAbilityPicker manager={manager} state={state}
         className={character.classId?getClassById(character.classId).name:"Sem classe"}
         originDescription={originProfile.abilityDescription}
