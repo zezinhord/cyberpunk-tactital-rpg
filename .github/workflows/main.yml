@@ -7,6 +7,7 @@ on:
       - feature/nova-arcadia-expansion-v080
       - feature/nova-arcadia-1gb-systems-v082
       - feature/nova-arcadia-1gb-expansion-v090
+      - feature/nova-arcadia-gameplay-depth-v091
   pull_request:
     branches:
       - main
@@ -342,7 +343,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$HOME/.android"
-          if [ "$GITHUB_REF" = "refs/heads/feature/nova-arcadia-1gb-expansion-v090" ]; then
+          if [ "$GITHUB_REF" = "refs/heads/feature/nova-arcadia-1gb-expansion-v090" ] ||
+             [ "$GITHUB_REF" = "refs/heads/feature/nova-arcadia-gameplay-depth-v091" ]; then
             test -s "$HOME/.android/debug.keystore" || {
               echo "ERRO: chave Android persistente ausente. Bloqueando nova assinatura incompatível." >&2
               exit 1
@@ -381,8 +383,13 @@ jobs:
           mkdir -p qa
           "$AAPT" dump badging "$APK" | tee qa/apk-badging.txt
           grep -Fq "name='com.cyberpunk.tacticalrpg'" qa/apk-badging.txt
-          grep -Fq "versionCode='90002'" qa/apk-badging.txt
-          grep -Fq "versionName='0.9.0-rc.2'" qa/apk-badging.txt
+          if [ "$GITHUB_REF" = "refs/heads/feature/nova-arcadia-gameplay-depth-v091" ]; then
+            grep -Fq "versionCode='90101'" qa/apk-badging.txt
+            grep -Fq "versionName='0.9.1-rc.1'" qa/apk-badging.txt
+          else
+            grep -Fq "versionCode='90002'" qa/apk-badging.txt
+            grep -Fq "versionName='0.9.0-rc.2'" qa/apk-badging.txt
+          fi
           echo "APK Android gerado: pacote, versionCode e versionName conferidos."
 
 
@@ -395,7 +402,7 @@ jobs:
           echo "APK_BYTES=$BYTES"
           echo "MARCO_1_GB_BYTES=1000000000"
           {
-            echo "## Nova Arcádia 0.9.0-rc.2 — marco de 1 GB auditado"
+            echo "## Nova Arcádia $(node -p 'require("./package.json").version') — marco de 1 GB auditado"
             echo "APK real: **$BYTES bytes**"
             echo "Meta atual: **1.000.000.000 bytes**"
             echo "Sem limite máximo: arquivos devem estar ligados ao jogo."
@@ -416,7 +423,8 @@ jobs:
             | tee qa/assinatura-debug.txt
           grep -q 'certificate SHA-256 digest' qa/assinatura-debug.txt
           grep -q 'CN=Nova Arcadia Debug' qa/assinatura-debug.txt
-          if [ "$GITHUB_REF" = "refs/heads/feature/nova-arcadia-1gb-expansion-v090" ]; then
+          if [ "$GITHUB_REF" = "refs/heads/feature/nova-arcadia-1gb-expansion-v090" ] ||
+             [ "$GITHUB_REF" = "refs/heads/feature/nova-arcadia-gameplay-depth-v091" ]; then
             EXPECTED="$(cat config/android-qa-v090-cert.sha256)"
             ACTUAL="$(sed -n 's/^V2 Signer: certificate SHA-256 digest: //p' qa/assinatura-debug.txt | head -n 1)"
             if [ "$ACTUAL" != "$EXPECTED" ]; then
@@ -475,7 +483,7 @@ jobs:
       # Variante INTEGRAL (mais de 1GB) usa ID separado e preserva a antiga.
       # As 112 ambiências estendidas são obrigatórias e devem chegar ao APK.
       - name: Preparar APK COMPLETO 1GB Android independente
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090' || github.ref == 'refs/heads/feature/nova-arcadia-gameplay-depth-v091')
         run: |
           set -euo pipefail
           test -s dist/assets/ambient-expanded/manifest.json
@@ -484,44 +492,72 @@ jobs:
           node scripts/prepare-android-compat.mjs
           (cd android && ./gradlew :app:assembleDebug --rerun-tasks)
           mkdir -p qa
-          cp android/app/build/outputs/apk/debug/app-debug.apk qa/NovaArcadia-0.9.0-rc.2-Full-1GB-QA.apk
+          if [ "$GITHUB_REF" = "refs/heads/feature/nova-arcadia-gameplay-depth-v091" ]; then
+            cp android/app/build/outputs/apk/debug/app-debug.apk qa/NovaArcadia-0.9.1-rc.1-Full-1GB-QA.apk
+          else
+            cp android/app/build/outputs/apk/debug/app-debug.apk qa/NovaArcadia-0.9.0-rc.2-Full-1GB-QA.apk
+          fi
 
       - name: Auditar APK INTEGRAL, assinatura e tamanho acima de 1GB
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090' || github.ref == 'refs/heads/feature/nova-arcadia-gameplay-depth-v091')
         run: |
           set -euo pipefail
-          APK="qa/NovaArcadia-0.9.0-rc.2-Full-1GB-QA.apk"
+          if [ "$GITHUB_REF" = "refs/heads/feature/nova-arcadia-gameplay-depth-v091" ]; then
+            APK="qa/NovaArcadia-0.9.1-rc.1-Full-1GB-QA.apk"
+            VERSION_CODE=90101
+          else
+            APK="qa/NovaArcadia-0.9.0-rc.2-Full-1GB-QA.apk"
+            VERSION_CODE=90002
+          fi
           AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
           SIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
           test -s "$APK"
           "$AAPT" dump badging "$APK" > qa/compat-badging.txt
           grep -Fq "name='com.cyberpunk.tacticalrpg.qa'" qa/compat-badging.txt
-          grep -Fq "versionCode='90002'" qa/compat-badging.txt
+          grep -Fq "versionCode='$VERSION_CODE'" qa/compat-badging.txt
           "$SIGNER" verify --verbose --print-certs "$APK" > qa/compat-signature.txt
           grep -Fq "$(cat config/android-qa-v090-cert.sha256)" qa/compat-signature.txt
           python tools/audit_apk_content.py "$APK"
 
+      - name: Disponibilizar APK COMPLETO 1GB como artefato de teste
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-gameplay-depth-v091'
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-0.9.1-Full-1GB-QA
+          path: qa/NovaArcadia-0.9.1-rc.1-Full-1GB-QA.apk
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Publicar APK COMPLETO 1GB para instalacao lado a lado
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090' || github.ref == 'refs/heads/feature/nova-arcadia-gameplay-depth-v091')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="nova-arcadia-v090-1gb-parallel-qa"
-          ASSET="NovaArcadia-0.9.0-rc.2-Full-1GB-QA.apk"
+          if [ "$GITHUB_REF" = "refs/heads/feature/nova-arcadia-gameplay-depth-v091" ]; then
+            TAG="nova-arcadia-v091-gameplay-full-qa"
+            ASSET="NovaArcadia-0.9.1-rc.1-Full-1GB-QA.apk"
+            TITLE="Nova Arcádia 0.9.1 — Expansão funcional completa 1 GB"
+          else
+            TAG="nova-arcadia-v090-1gb-parallel-qa"
+            ASSET="NovaArcadia-0.9.0-rc.2-Full-1GB-QA.apk"
+            TITLE="Nova Arcádia 0.9.0 — Completo 1 GB (instala ao lado)"
+          fi
           APK="qa/$ASSET"
+          test -s "$APK"
+          test "$(stat -c %s "$APK")" -ge 1000000000
           SIZE="$(stat -c %s "$APK")"
           SHA="$(sha256sum "$APK" | cut -d ' ' -f 1)"
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --title "Nova Arcádia 0.9.0 — Completo 1GB (instala ao lado)" \
+              --title "$TITLE" \
               --notes "APK INTEGRAL acima de 1 GB, com 112 ambientes sonoros adicionais. Pacote Android separado: não remove a instalação antiga. Salvos não são transferidos automaticamente; exporte backup antes de apagar qualquer app." \
               --prerelease
           gh release upload "$TAG" "$APK" --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --title "Nova Arcádia 0.9.0 — Completo 1GB (instala ao lado)" \
+            --title "$TITLE" \
             --notes "APK INTEGRAL >1GB com 112 ambientes adicionais presentes; pacote Android independente com.cyberpunk.tacticalrpg.qa; $SIZE bytes; SHA-256 $SHA; commit $GITHUB_SHA. Preserva a instalação e os dados do app antigo. Para recuperar personagens, exporte e importe backup manualmente quando possível." --prerelease
-          echo "APK COMPLETO 1GB instalado em paralelo: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET" >> "$GITHUB_STEP_SUMMARY"
+          echo "APK COMPLETO 1GB da versão $(node -p 'require("./package.json").version'): https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publicar somente o APK atual no canal permanente de testes
         if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-expansion-v080'
