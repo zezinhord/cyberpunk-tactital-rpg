@@ -1050,6 +1050,74 @@ try {
     else await poll(()=>has(".baixada-world:not(.interior-world) canvas"),"retorno à Casa Comum na Baixada");
   }
   console.log("QA interiores: 7 cenas carregadas sob demanda, capturadas e saídas testadas.");
+  // Regressão pós-morte: um combate perdido nunca pode prender o usuário
+  // numa tela com ataques desabilitados ou exigir scroll no Android landscape.
+  await evaluate(`(()=>{
+    const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    localStorage.setItem("cyberpunk-tactical-rpg.world-area.v1."+hero.id,"null");
+    localStorage.setItem("cyberpunk-tactical-rpg.health.v1."+hero.id,
+      JSON.stringify({hp:1,maxHp:18}));
+    return true;
+  })()`);
+  await send("Page.navigate",{url:URL});
+  await poll(()=>has(".na-title-option"),"menu antes de forçar derrota");
+  await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+  await poll(()=>has(".exploration-footer-actions.single-action button"),
+    "acesso ao limbo de teste após retomar o personagem");
+  await evaluate('document.querySelector(".exploration-footer-actions.single-action button").click();true');
+  await poll(()=>has(".arena-v030 .end-turn-button"),"combate real após 1 PV");
+  await evaluate('Math.random=()=>0.99999;true');
+  const lose=async()=>{
+    for(let round=0;round<24;round++){
+      if(await has(".na-defeat-backdrop [role=dialog]"))return true;
+      await evaluate('(()=>{const b=document.querySelector(".actions .end-turn-button:last-of-type");if(!b||b.disabled)return false;b.click();return true})()');
+      await sleep(35);
+    }
+    return has(".na-defeat-backdrop [role=dialog]");
+  };
+  if(!await lose())throw new Error("Softlock: morte não apresentou diálogo de recuperação");
+  const defeatGeometry=await evaluate(`(()=>{
+    const modal=document.querySelector(".na-defeat-dialog");
+    const buttons=[...modal.querySelectorAll(".na-defeat-options button")];
+    const dialog=modal?.getBoundingClientRect();
+    return {viewport:{w:innerWidth,h:innerHeight},
+      modal:{top:dialog?.top,bottom:dialog?.bottom},
+      buttons:buttons.map(b=>{
+        const r=b.getBoundingClientRect();return {text:b.textContent,top:r.top,
+          bottom:r.bottom,width:r.width,height:r.height,disabled:b.disabled}
+      }),main:document.querySelector(".na-defeat-dialog h2")?.textContent};
+  })()`);
+  if(defeatGeometry.buttons.length!==2||
+     !defeatGeometry.main?.includes("incapacitado")||
+     defeatGeometry.modal.top<0||defeatGeometry.modal.bottom>innerHeight+2||
+     defeatGeometry.buttons.some(b=>b.top<0||b.bottom>innerHeight+2||b.height<48||b.disabled))
+    throw new Error("Tela de derrota não cabe na viewport móvel: "+
+      JSON.stringify(defeatGeometry));
+  await writeFile("qa/derrota-recuperacao-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  await evaluate('document.querySelector(".na-defeat-retry").click();true');
+  await poll(()=>evaluate('!document.querySelector(".na-defeat-backdrop")'),
+    "retentativa remove modal e reinicia combate");
+  const retryHp=await evaluate('document.querySelector(".unit-card.cyan .unit-stats b")?.textContent');
+  const retryNumbers=retryHp?.split("/").map(Number)??[];
+  if(!retryHp||retryNumbers[0]!==Math.ceil(retryNumbers[1]*.5))
+    throw new Error("Retentativa não restaurou metade da Vida: "+retryHp);
+  if(!await lose())throw new Error("Segunda derrota não ofereceu evacuação");
+  await evaluate('document.querySelector(".na-defeat-clinic").click();true');
+  await poll(()=>has(".na-clinic-quick-treatment button"),
+    "evacuação real à clínica após derrota");
+  const rescue=await evaluate(`(()=>{
+    const c=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+    return {area:JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.world-area.v1."+c.id)),
+      health:JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.health.v1."+c.id)),
+      clinic:!!document.querySelector(".na-clinic-quick-treatment button")};
+  })()`);
+  if(!rescue.clinic||rescue.area!=="clinic"||
+    rescue.health.hp!==Math.ceil(rescue.health.maxHp*.35))
+    throw new Error("Evacuação da derrota não foi persistida: "+JSON.stringify(rescue));
+  await writeFile("qa/derrota-clinica-914x411.png",Buffer.from(
+    (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+  console.log("QA derrota Android: KO real, modal 914x411, retry 50% PV e clínica 35% PV.");
   console.log("QA Android: ARTE ORIGINAL restaurada, "+androidPixels.artLoaded+
     " imagens (personagens e props), "+androidPixels.colors+
     " cores amostradas, 2D leve e HUD recolhido.");
