@@ -111,7 +111,6 @@ console.log("Tática: LoS, obstrução, cobertura, arma de fogo, economia e IA a
  const random=Math.random;Math.random=()=>0.99;
  try{drain.endPlayerTurn();}finally{Math.random=random;}
  assert.equal(enemyProfile("district-subsolo",2).role,"saboteur");
- console.log("DEBUG SABOTEUR",JSON.stringify({energy:drain.state.energy,logs:drain.state.log,positions:drain.state.units,range:enemyProfile("district-subsolo",2).range,shot:withinShot(drain.state.units[1],drain.state.units[0],3)}));
  assert.equal(drain.state.energy,5);
 }
 assert.equal(enemyProfile("district-prisma",1).role,"sniper");
