@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Hotfix da regressão visual de derrota incluído a partir do build #851.
+      # Hotfix KO definitivo #857: animações vetoriais + canvas lifecycle guard.
       - name: Baixar versao 0.8.1 a partir da branch de expansao
         uses: actions/checkout@v4
         with:
