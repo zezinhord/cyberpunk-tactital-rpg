@@ -47,6 +47,7 @@ import {FAVORS,readFavors,saveFavors,claimFavor,buyFromNilo,syncFavorItems,
 import {readMarket} from "./game/story/market";
 import {EDEN_STEPS,readEden,saveEden,advanceEdenBattle,syncEdenItems,type EdenEncounter} from "./game/story/eden-echoes.ts";
 import {claimDiscovery,DISCOVERY_AREAS,DISCOVERY_REWARDS} from "./game/story/discoveries.ts";
+import {collectInnerProp,reconcileInnerExperience} from "./game/story/indoor-rewards.ts";
 import {readReputation,syncFactionAids} from "./game/story/reputation";
 import {readDistrictProgress,saveDistrictProgress,advanceDistrict,
  districtCurrentStep} from "./game/districts/progress";
@@ -315,6 +316,7 @@ export default function App() {
       if(next.rewardReceipts?.includes("discovery-"+area)&&
           !grantTrialXp("discovery-"+area,DISCOVERY_REWARDS[area].xp))return false;
     }
+    if(!reconcileInnerExperience(next,grantTrialXp))return false;
     const narrative=readEden(active.id);
     for(const id of narrative.history){
       const step=EDEN_STEPS.find(s=>s.id===id);
@@ -675,6 +677,15 @@ export default function App() {
           if(!active)return false;
           const owned=inventory.ownerId===active.id?inventory:loadInventory(active.id);
           const result=claimDiscovery(owned,area);
+          if(!result.ok||!saveInventory(result.state))return false;
+          setInventory(result.state);
+          return true;
+        }}
+        onCollectInteriorProp={(area,prop)=>{
+          const active=characterRef.current;
+          if(!active)return false;
+          const stored=inventory.ownerId===active.id?inventory:loadInventory(active.id);
+          const result=collectInnerProp(stored,area,prop);
           if(!result.ok||!saveInventory(result.state))return false;
           setInventory(result.state);
           return true;
