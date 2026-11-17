@@ -25,11 +25,6 @@ import iza from "../../assets/characters/npc-iza.png";
 import tomas from "../../assets/characters/npc-tomas.png";
 import davi from "../../assets/characters/npc-davi.png";
 import marta from "../../assets/characters/npc-marta.png";
-import celina from "../../assets/characters/npc-celina.png";
-import mara from "../../assets/characters/npc-mara.png";
-import iuri from "../../assets/characters/npc-iuri.png";
-import kai from "../../assets/characters/npc-kai.png";
-import dara from "../../assets/characters/npc-dara.png";
 import type {OriginId} from "../character/origins";
 import type {TestAppearance} from "../test-arena/appearance";
 
