@@ -15,6 +15,7 @@ on:
       - feature/cinematic-opening-expressive-dialogues-v077
       - feature/clinic-healing-hotfix-v078
       - feature/progressive-quests-favors-v079
+      - feature/nova-arcadia-expansion-v080
   pull_request:
     branches:
       - main
