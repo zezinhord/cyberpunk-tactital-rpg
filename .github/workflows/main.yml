@@ -472,25 +472,25 @@ jobs:
           echo "APK direto QA: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET" >> "$GITHUB_STEP_SUMMARY"
 
 
-      # Compatibilidade: APK em namespace separado evita colisão com certificado
-      # de versões antigas, sem apagar saves. 112 ambientes extras usam fallback.
-      - name: Preparar APK Compat Android independente
+      # Variante INTEGRAL (mais de 1GB) usa ID separado e preserva a antiga.
+      # As 112 ambiências estendidas são obrigatórias e devem chegar ao APK.
+      - name: Preparar APK COMPLETO 1GB Android independente
         if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090'
         run: |
           set -euo pipefail
-          rm -rf dist/assets/ambient-expanded
-          test ! -e dist/assets/ambient-expanded
+          test -s dist/assets/ambient-expanded/manifest.json
+          test "$(find dist/assets/ambient-expanded -type f -name '*.ogg' | wc -l)" -eq 112
           npx cap sync android
           node scripts/prepare-android-compat.mjs
           (cd android && ./gradlew :app:assembleDebug --rerun-tasks)
           mkdir -p qa
-          cp android/app/build/outputs/apk/debug/app-debug.apk qa/NovaArcadia-0.9.0-rc.2-Compat-Lite.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk qa/NovaArcadia-0.9.0-rc.2-Full-1GB-QA.apk
 
-      - name: Auditar pacote e assinatura da variante Compat
+      - name: Auditar APK INTEGRAL, assinatura e tamanho acima de 1GB
         if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090'
         run: |
           set -euo pipefail
-          APK="qa/NovaArcadia-0.9.0-rc.2-Compat-Lite.apk"
+          APK="qa/NovaArcadia-0.9.0-rc.2-Full-1GB-QA.apk"
           AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
           SIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
           test -s "$APK"
@@ -499,29 +499,29 @@ jobs:
           grep -Fq "versionCode='90002'" qa/compat-badging.txt
           "$SIGNER" verify --verbose --print-certs "$APK" > qa/compat-signature.txt
           grep -Fq "$(cat config/android-qa-v090-cert.sha256)" qa/compat-signature.txt
-          python tools/audit_android_compat.py "$APK"
+          python tools/audit_apk_content.py "$APK"
 
-      - name: Publicar variante Compat para instalacao lado a lado
+      - name: Publicar APK COMPLETO 1GB para instalacao lado a lado
         if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-1gb-expansion-v090'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="nova-arcadia-v090-compat-qa"
-          ASSET="NovaArcadia-0.9.0-rc.2-Compat-Lite.apk"
+          TAG="nova-arcadia-v090-1gb-parallel-qa"
+          ASSET="NovaArcadia-0.9.0-rc.2-Full-1GB-QA.apk"
           APK="qa/$ASSET"
           SIZE="$(stat -c %s "$APK")"
           SHA="$(sha256sum "$APK" | cut -d ' ' -f 1)"
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-              --title "Nova Arcádia — Android Compat QA (instala ao lado)" \
-              --notes "Instalação independente do aplicativo antigo. Salvos não são compartilhados automaticamente. Contém campanha e combate; os 112 ambientes de áudio estendidos são omitidos para reduzir o instalador. NÃO desinstale o jogo original sem backup." \
+              --title "Nova Arcádia 0.9.0 — Completo 1GB (instala ao lado)" \
+              --notes "APK INTEGRAL acima de 1 GB, com 112 ambientes sonoros adicionais. Pacote Android separado: não remove a instalação antiga. Salvos não são transferidos automaticamente; exporte backup antes de apagar qualquer app." \
               --prerelease
           gh release upload "$TAG" "$APK" --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --title "Nova Arcádia — Android Compat QA (instala ao lado)" \
-            --notes "APK de compatibilidade. com.cyberpunk.tacticalrpg.qa; $SIZE bytes; SHA-256 $SHA; commit $GITHUB_SHA. Não substitui a instalação antiga; preserva o app antigo e seus dados. Armazenamento separado, importar backup manualmente se disponível. Sem 112 áudios expandidos para diagnóstico de aparelhos Android." --prerelease
-          echo "Compat APK: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET" >> "$GITHUB_STEP_SUMMARY"
+            --title "Nova Arcádia 0.9.0 — Completo 1GB (instala ao lado)" \
+            --notes "APK INTEGRAL >1GB com 112 ambientes adicionais presentes; pacote Android independente com.cyberpunk.tacticalrpg.qa; $SIZE bytes; SHA-256 $SHA; commit $GITHUB_SHA. Preserva a instalação e os dados do app antigo. Para recuperar personagens, exporte e importe backup manualmente quando possível." --prerelease
+          echo "APK COMPLETO 1GB instalado em paralelo: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publicar somente o APK atual no canal permanente de testes
         if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-expansion-v080'
