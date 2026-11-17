@@ -10,6 +10,7 @@ import { findPath,getReachableCells,coverBetween,coverArmorBonus,MOVEMENT_PER_TU
 import {enemyProfile,planEnemyTurn,withinShot} from "./tactics";
 import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types";
 import type { OriginGameplayProfile } from "./character/types";
+import {ITEM_CATALOG,type ItemId,type EquipmentBonuses} from "./inventory.ts";
 
 function rollDie(sides: number): number {
   return Math.floor(Math.random() * sides) + 1;
@@ -26,7 +27,7 @@ function livingUnit(units: Unit[], id: string): Unit | undefined {
 export interface TurnManagerOptions {
   playerName?: string;
   originProfile?: OriginGameplayProfile;
-  equipmentBonuses?: { attackBonus: number; armorBonus: number };
+  equipmentBonuses?: EquipmentBonuses;
   characterLevel?: number;
   currentHp?: number;
   progressionBonuses?:{hp:number;attack:number;armor:number;movement:number;energy:number};
@@ -50,12 +51,12 @@ export class TurnManager {
 
   constructor(options: TurnManagerOptions = {}) {
     this.originProfile = options.originProfile;
-    this.weaponRange=options.weaponId==="pistola_inducao"?5:
-      options.weaponId==="pistola_manutencao"?4:1;
+    this.weaponRange=options.weaponId?
+      (ITEM_CATALOG[options.weaponId as ItemId]?.range??1):1;
     const bonus=options.progressionBonuses;
-    const movementPerTurn = MOVEMENT_PER_TURN + (this.originProfile?.movementBonus ?? 0)+(bonus?.movement??0);
-    const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0);
-    const maxEnergy=10+(bonus?.energy??0);
+    const movementPerTurn = Math.max(1,MOVEMENT_PER_TURN+(this.originProfile?.movementBonus??0)+(bonus?.movement??0)+(options.equipmentBonuses?.movementBonus??0));
+    const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0)+(options.equipmentBonuses?.hpBonus??0);
+    const maxEnergy=10+(bonus?.energy??0)+(options.equipmentBonuses?.energyBonus??0);
     const trial=options.encounterId?.startsWith("trial-")??false;
     const district=options.encounterId?.startsWith("district-")??false;
     const trialWaveCount=options.encounterId==="trial-3"||
@@ -292,6 +293,19 @@ export class TurnManager {
     this.addLog("[ITEM] Curativo utilizado: +" + healed + " Vida.");
     this.publish();
     return true;
+  }
+
+  /** Recarga única com ação bônus, alimentada por item real do inventário. */
+  useEnergySupply(amount:number):boolean{
+    if(this.state.combatComplete||this.state.activeSide!=="player"||
+       !this.state.bonusActionAvailable||!Number.isFinite(amount)||amount<1||
+       this.state.energy>=this.state.maxEnergy)return false;
+    const gained=Math.min(Math.floor(amount),this.state.maxEnergy-this.state.energy);
+    this.state.energy+=gained;this.state.bonusActionAvailable=false;
+    this.setCue("repair","player",gained);
+    this.state.message="Bateria de campo: +"+gained+" energia.";
+    this.addLog("[ITEM] Bateria de campo: +"+gained+" energia.");
+    this.publish();return true;
   }
 
   movePlayerTo(x: number, y: number): void {
