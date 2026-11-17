@@ -394,7 +394,7 @@ try {
       boardWidth:boardBox?.width,boardHeight:boardBox?.height,
       exitLabel:exit?.textContent,exitTop:exitBox?.top,
       exitBottom:exitBox?.bottom,exitHeight:exitBox?.height};
-  })()`;
+  })()`);
   const skillLauncher=await evaluate(`(()=>{
     const b=document.querySelector(".na-abilities-open"),r=b?.getBoundingClientRect();
     return {label:b?.textContent,height:r?.height,top:r?.top,bottom:r?.bottom};
