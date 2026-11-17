@@ -11,7 +11,7 @@ globalThis.localStorage={
  removeItem:key=>data.delete(key),
 };
 assert.equal(DISTRICT_WIDTH,30);assert.equal(DISTRICT_HEIGHT,22);
-assert.equal(DISCOVERY_AREAS.length,6);
+assert.equal(DISCOVERY_AREAS.length,7);
 const ids=new Set(DISCOVERY_AREAS);
 assert.equal(ids.size,6);
 for(const district of DISTRICTS){
@@ -43,5 +43,5 @@ for(const area of DISCOVERY_AREAS){
  assert.equal(claimDiscovery(inventory,area).ok,false,
   "Save/restore deve preservar o recibo da descoberta");
 }
-assert.equal(itemCount,6);
-console.log("Exploração: 5 rotas periféricas + 1 arquivo Ferrugem, 6 itens reais, 6×12 XP e recibos persistentes.");
+assert.equal(itemCount,7);
+console.log("Exploração: 5 rotas periféricas + 1 arquivo Ferrugem, 7 itens reais, 7×12 XP e recibos persistentes.");
