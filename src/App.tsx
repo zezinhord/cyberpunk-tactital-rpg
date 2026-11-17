@@ -840,7 +840,7 @@ export default function App() {
               className="end-turn-button na-overwatch-button"
               disabled={state.activeSide!=="player"||state.combatComplete||!state.mainActionAvailable||state.energy<2}
               title="Consome a ação principal e 2 EN; dispara antes da ação inimiga se houver linha de tiro."
-              onClick={()=>{buzz();manager.prepareOverwatch();}}>⌖ Vigiar rota · 2 EN</button>}
+              onClick={()=>{buzz();manager.prepareOverwatch();}}>⌖ Vigiar · 2 EN</button>}
             {battleMode==="test" && <button type="button" onClick={() => {setVictoryDetailsOpen(false);setDefeatNotice("");setBattleReset((value) => value + 1);}}>Reiniciar arena</button>}
             <button type="button" className="na-arena-exit-secondary"
               data-combat-exit="true" onClick={exitBattle}>
