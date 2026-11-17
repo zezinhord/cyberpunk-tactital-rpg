@@ -750,6 +750,8 @@ try {
   await evaluate('document.querySelector(".na-crafting-panel summary")?.click();true');
   await poll(()=>evaluate('document.querySelector(".na-crafting-panel")?.open===true'),
     "catálogo expandido de receitas de fabricação");
+  await evaluate('document.querySelector(".na-crafting-panel")?.scrollIntoView({block:"start",behavior:"instant"});true');
+  await sleep(220);
   await writeFile("qa/ferrugem-fabricacao-914x411.png",Buffer.from(
     (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   await evaluate('document.querySelector(".menu-close-button").click();true');
