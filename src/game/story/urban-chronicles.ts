@@ -16,7 +16,7 @@ export interface UrbanCase{
  situation:string;xp:number;choices:readonly [UrbanChoice,UrbanChoice];
 }
 export interface UrbanState{
- version:1;choices:Readonly<Record<string,UrbanChoiceId>>;
+ version:1;choices:Readonly<Record<string,UrbanChoiceId>>;evidence?:readonly string[];
 }
 export const INITIAL_URBAN:UrbanState={version:1,choices:{}};
 const choice=(id:UrbanChoiceId,label:string,result:string,
@@ -120,6 +120,42 @@ export const URBAN_CASES:readonly UrbanCase[]=[
   "Criar corredores humanitários auditados","Uma passagem formal protege atendimentos, mas exige revisão periódica da vigilância.",{consorcio_civico:2,movimento_livre:1},-1),
 ] as const;
 
+/** NPC ou objeto físico que o jogador precisa alcançar para liberar a decisão.
+ * Os IDs são atores preexistentes no mapa, nenhum marcador fictício.
+ */
+export const URBAN_ACTORS:Readonly<Record<string,{id:string;objective:string}>>={
+ "ba-agua":{id:"feira-ajuda",objective:"Converse com Marta na feira da Baixada"},
+ "ba-vigilancia":{id:"moradora",objective:"Ouça Joana na passagem da Baixada"},
+ "ba-clinica":{id:"dra-amara",objective:"Converse com Amara na clínica"},
+ "fe-fornos":{id:"ferrugem-log",objective:"Inspecione o livro de turnos da Ferrugem"},
+ "fe-filtros":{id:"ferrugem-cabinet",objective:"Inspecione a unidade de manutenção da Ferrugem"},
+ "fe-sindicato":{id:"ferrugem-foundry-access",objective:"Acesse a Fundição Auxiliar"},
+ "au-crachas":{id:"district-aurea-terminal",objective:"Inspecione o terminal de Áurea"},
+ "au-elevadores":{id:"district-aurea-specialist",objective:"Converse com o especialista de Áurea"},
+ "au-memoria":{id:"district-aurea-community",objective:"Visite a comissão comunitária de Áurea"},
+ "su-rotas":{id:"district-subsolo-terminal",objective:"Inspecione o terminal do Subsolo"},
+ "su-oxigenio":{id:"district-subsolo-specialist",objective:"Converse com o técnico do Subsolo"},
+ "su-desaparecidos":{id:"district-subsolo-community",objective:"Visite o conselho de moradores do Subsolo"},
+ "sz-lacres":{id:"district-setor-zero-terminal",objective:"Leia o terminal de contenção do Setor Zero"},
+ "sz-bio":{id:"district-setor-zero-specialist",objective:"Converse com o técnico de biossegurança"},
+ "sz-eden":{id:"district-setor-zero-community",objective:"Ouça os sobreviventes da quarentena"},
+ "pr-sinal":{id:"district-prisma-terminal",objective:"Examine o terminal do centro de Prisma"},
+ "pr-credito":{id:"district-prisma-specialist",objective:"Converse com o operador do estúdio de Prisma"},
+ "pr-eco":{id:"district-prisma-community",objective:"Ouça a comissão de artistas de Prisma"},
+ "pe-agua":{id:"district-periferia-terminal",objective:"Inspecione o terminal rodoviário da Periferia"},
+ "pe-torres":{id:"district-periferia-specialist",objective:"Converse com a motorista das caravanas"},
+ "pe-fronteira":{id:"district-periferia-community",objective:"Visite o conselho das caravanas"},
+};
+export function urbanActor(incident:UrbanCase):{id:string;objective:string}{
+ return URBAN_ACTORS[incident.id]!;
+}
+export function recordUrbanEvidence(state:UrbanState,district:RadioDistrict,
+ actorId:string,unlocked:boolean):{ok:boolean;state:UrbanState;incident?:UrbanCase}{
+ const current=currentUrbanCase(state,district,unlocked);
+ if(!current||urbanActor(current).id!==actorId||
+    state.evidence?.includes(current.id))return {ok:false,state};
+ return {ok:true,state:{...state,evidence:[...(state.evidence??[]),current.id]},incident:current};
+}
 const CASE_IDS=new Set(URBAN_CASES.map(e=>e.id));
 export function normalizeUrban(input:unknown):UrbanState{
  if(!input||typeof input!=="object"||Array.isArray(input))return {...INITIAL_URBAN,choices:{}};
@@ -130,15 +166,21 @@ export function normalizeUrban(input:unknown):UrbanState{
  for(const [key,result] of Object.entries(value.choices)){
    if(CASE_IDS.has(key)&&(result==="a"||result==="b"))safe[key]=result;
  }
- return {version:1,choices:safe};
+ const evidence=Array.isArray(value.evidence)?
+  [...new Set(value.evidence.filter((id):id is string=>typeof id==="string"&&CASE_IDS.has(id)))]:[];
+ return {version:1,choices:safe,evidence};
 }
 export function validateUrbanBackup(input:unknown):boolean{
  if(!input||typeof input!=="object"||Array.isArray(input))return false;
  const value=input as Record<string,unknown>;
- if(Object.keys(value).some(key=>key!=="version"&&key!=="choices")||value.version!==1||
+ if(Object.keys(value).some(key=>key!=="version"&&key!=="choices"&&key!=="evidence")||value.version!==1||
     !value.choices||typeof value.choices!=="object"||Array.isArray(value.choices))return false;
  return Object.entries(value.choices).every(([key,option])=>
-   CASE_IDS.has(key)&&(option==="a"||option==="b"));
+   CASE_IDS.has(key)&&(option==="a"||option==="b"))&&
+  (value.evidence===undefined||
+   Array.isArray(value.evidence)&&value.evidence.length<=21&&
+   value.evidence.every((id:unknown)=>typeof id==="string"&&CASE_IDS.has(id))&&
+   new Set(value.evidence).size===value.evidence.length);
 }
 export function readUrban(characterId:string):UrbanState{
  if(!characterId)return {...INITIAL_URBAN,choices:{}};
@@ -160,10 +202,10 @@ export function decideUrban(state:UrbanState,district:RadioDistrict,
  id:string,optionId:UrbanChoiceId,unlocked:boolean):
  {ok:boolean;state:UrbanState;incident?:UrbanCase;choice?:UrbanChoice}{
  const incident=currentUrbanCase(state,district,unlocked);
- if(!incident||incident.id!==id)return {ok:false,state};
+ if(!incident||incident.id!==id||!state.evidence?.includes(id))return {ok:false,state};
  const selected=incident.choices.find(c=>c.id===optionId);
  if(!selected)return {ok:false,state};
- return {ok:true,state:{version:1,choices:{...state.choices,[id]:optionId}},
+ return {ok:true,state:{version:1,choices:{...state.choices,[id]:optionId},evidence:state.evidence},
   incident,choice:selected};
 }
 export function urbanFactionEffects(state:UrbanState):readonly UrbanDelta[]{

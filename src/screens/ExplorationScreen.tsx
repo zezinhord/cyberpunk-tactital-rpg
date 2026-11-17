@@ -18,7 +18,7 @@ import {isAndroidDevice} from "../game/performance";
 import {FAVORS,NILO_SHOP,readFavors,saveFavors,acceptFavor,recordFavorActivity,
   visibleFavors,knownFavors,discoverFavors,favorStatus,shopOfferUnlocked,type FavorId} from "../game/story/favors";
 import {calculateReputation,FACTION_NAMES,factionStanding} from "../game/story/reputation";
-import {readUrban,saveUrban,currentUrbanCase,decideUrban,urbanPressure} from "../game/story/urban-chronicles.ts";
+import {readUrban,saveUrban,currentUrbanCase,decideUrban,recordUrbanEvidence,urbanActor,urbanPressure} from "../game/story/urban-chronicles.ts";
 import type {RadioDistrict} from "../audio/soundscapes.ts";
 import {EDEN_STEPS,readEden,saveEden,startEden,currentEdenStep,edenObjective,advanceEden,type EdenEnding} from "../game/story/eden-echoes.ts";
 import {DISCOVERY_REWARDS,type DiscoveryArea} from "../game/story/discoveries.ts";
@@ -426,6 +426,15 @@ export default function ExplorationScreen({
   };
 
   const handleInteract = (id: string) => {
+    // Evidência de ocorrências exige presença no objeto ou NPC real do mapa.
+    // A visita também mantém a missão, comércio ou interação original ativa.
+    const evidence=recordUrbanEvidence(urban,cityArea,id,v09.defeated);
+    if(evidence.ok&&evidence.incident){
+      if(saveUrban(character.id,evidence.state)){
+        setUrban(evidence.state);
+        setUrbanNotice(evidence.incident.title+" · prova registrada. Abra a aba Cidade para decidir.");
+      }else setUrbanNotice("Espaço insuficiente: não foi possível registrar a prova.");
+    }
     // Conteúdo realmente explorável: cenas internas carregadas uma por vez.
     if(id==="feira-casa-comum"){
       setHubOpen(false);setInterior("baixada-community");audioDirector.effect("door");return;
@@ -1303,8 +1312,10 @@ export default function ExplorationScreen({
                 <div><strong>{urbanCase.title}</strong><small>{urbanCase.contact}</small></div>
                 <p>{urbanCase.situation}</p>
                 <small>{urbanCase.xp} XP · relações políticas e vigilância afetadas</small>
-                {urbanCase.choices.map(option=><button type="button" key={option.id}
-                  onClick={()=>resolveUrban(option.id)}>{option.label}</button>)}
+                {!urban.evidence?.includes(urbanCase.id)?
+                  <p className="na-favor-active">Pista ainda não investigada: {urbanActor(urbanCase).objective}. Toque no personagem ou terminal antes de decidir.</p>:
+                  urbanCase.choices.map(option=><button type="button" key={option.id}
+                    onClick={()=>resolveUrban(option.id)}>{option.label}</button>)}
               </article>:<p className="na-favor-empty">Ocorrências resolvidas nesta região. Outros distritos têm novos conflitos.</p>}
             {urbanNotice&&<small role="status" className="na-quest-notice">{urbanNotice}</small>}
             <small className="na-quest-kicker">DECISÕES REGISTRADAS: {Object.keys(urban.choices).length} / 21</small>
