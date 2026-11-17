@@ -4,23 +4,20 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
-      - feature/landscape-mobile-v1
-      - feature/progression-audit-nova-arcadia-v071
-      - feature/music-director-v072
-      - feature/stability-tactical-combat-v073
-      - feature/visual-audit-camera-ui-v074
-      - feature/district-art-identity-v075
-      - feature/baixada-polish-npc-sprites-v076
-      - feature/cinematic-opening-expressive-dialogues-v077
-      - feature/clinic-healing-hotfix-v078
-      - feature/progressive-quests-favors-v079
+      - feature/nova-arcadia-expansion-v080
   pull_request:
     branches:
       - main
 
 permissions:
-  contents: read
+  contents: write
+  actions: read
+
+# Apenas o build mais recente da branch ativa pode promover o APK.
+# Impede CI antigo terminar depois e substituir uma atualização nova.
+concurrency:
+  group: nova-arcadia-android-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-android:
@@ -79,6 +76,9 @@ jobs:
       - name: Testar favores progressivos, carteira, honra e loja
         run: node --experimental-strip-types scripts/test-favors.mjs
 
+      - name: Testar o arco pós-Circuito Fantasma, combates e decisões do Projeto Éden
+        run: node --experimental-strip-types scripts/test-eden-echoes.mjs
+
       - name: Testar NPCs, dialogos e persistencia da campanha
         run: |
           node --experimental-strip-types scripts/test-npc-routines.mjs
@@ -112,6 +112,12 @@ jobs:
           node --experimental-strip-types scripts/test-tactics.mjs
           node --experimental-strip-types scripts/test-movement.mjs
 
+      - name: Testar implantes, consumíveis e novos encontros Éden
+        run: node --experimental-strip-types scripts/test-expansion-combat.mjs
+
+      - name: Reproduzir morte a 0 PV e validar evacuação, retentativa e salvamentos
+        run: node --experimental-strip-types scripts/test-combat-defeat.mjs
+
       - name: Testar progressao, campanha e ondas de combate
         run: |
           node --experimental-strip-types scripts/test-progression.mjs
@@ -133,6 +139,12 @@ jobs:
       - name: Testar cinco distritos, 35 missões e dez desfechos
         run: node --experimental-strip-types scripts/test-districts.mjs
 
+      - name: Validar caches reais e rotas dos seis territórios
+        run: node --experimental-strip-types scripts/test-world-cache.mjs
+
+      - name: Testar os sete interiores autorais, corredores e 21 recompensas
+        run: node --experimental-strip-types scripts/test-indoor-expansion.mjs
+
       - name: Testar os dois esgotos e checkpoints da investigação
         run: node --experimental-strip-types scripts/test-sewer-world.mjs
 
@@ -145,6 +157,34 @@ jobs:
           path: public/assets/soundscapes
           key: nova-arcadia-original-score-v1-${{ hashFiles('tools/generate_soundscapes.py') }}
 
+      # Cache de áudio é isolado por branch no GitHub. Reutilizamos as 56
+      # composições produzidas e validadas no APK 0.7.9, preservando hashes
+      # e a geração procedural como fallback quando o download não funciona.
+      - name: Reutilizar 56 trilhas originais de build validada
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -s public/assets/soundscapes/baixada/abertura.ogg ] &&
+             [ -s public/assets/soundscapes/periferia/revelacao.ogg ] &&
+             [ -s public/assets/soundscapes/catalog.json ]; then
+            echo "Trilhas originais já restauradas do cache desta branch."
+          else
+            echo "Tentando recuperar somente os áudios da build Android 0.7.9 validada."
+            if curl --connect-timeout 10 --max-time 120 --retry 2 -fsSL \
+               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+               -H "Accept: application/vnd.github+json" \
+               "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/14284261708/zip" \
+               -o /tmp/nova-arcadia-v079-artifact.zip &&
+               unzip -p /tmp/nova-arcadia-v079-artifact.zip app-debug.apk > /tmp/nova-arcadia-v079.apk &&
+               python tools/recover_soundscapes_from_apk.py /tmp/nova-arcadia-v079.apk; then
+              echo "Áudios restaurados sem síntese custosa; preservados no pacote final."
+            else
+              echo "Recuperação indisponível: o sintetizador local regenerará os arquivos faltantes."
+            fi
+          fi
+          rm -f /tmp/nova-arcadia-v079-artifact.zip /tmp/nova-arcadia-v079.apk
+
       - name: Instalar e validar sintetizador de trilha original
         run: |
           set -euo pipefail
@@ -155,6 +195,18 @@ jobs:
           command -v ffmpeg
           command -v ffprobe
           ffmpeg -hide_banner -encoders | grep 'libopus'
+
+      - name: Restaurar ambientes urbanos originais entre compilações
+        uses: actions/cache@v4
+        with:
+          path: public/assets/ambient
+          key: nova-arcadia-ambience-v081-${{ hashFiles('tools/generate_urban_ambience.py') }}
+
+      - name: Produzir 28 ambiências ambientais originais para 7 distritos
+        run: python tools/generate_urban_ambience.py
+
+      - name: Verificar duração, originalidade e integração das ambiências
+        run: node scripts/test-urban-ambience.mjs
 
       - name: Restaurar musicas CC0 licenciadas entre compilações
         uses: actions/cache@v4
@@ -222,6 +274,10 @@ jobs:
         if: github.event_name != 'pull_request'
         run: node scripts/lock-android-landscape.mjs
 
+      - name: Atualizar versao real no manifesto Android
+        if: github.event_name != 'pull_request'
+        run: node scripts/stamp-android-version.mjs
+
       - name: Ativar tela imersiva Android
         if: github.event_name != 'pull_request'
         run: node scripts/enable-android-immersive.mjs
@@ -260,27 +316,37 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Verificar APK real sem limite maximo de tamanho
+      - name: Confirmar manifesto Android real e progresso de versao
         if: github.event_name != 'pull_request'
         run: |
           set -euo pipefail
           APK=android/app/build/outputs/apk/debug/app-debug.apk
-          test -s "$APK"
-          BYTES="$(stat -c %s "$APK")"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          AAPT="$(find "$SDK/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          test -n "$AAPT"
+          mkdir -p qa
+          "$AAPT" dump badging "$APK" | tee qa/apk-badging.txt
+          grep -Fq "name='com.cyberpunk.tacticalrpg'" qa/apk-badging.txt
+          grep -Fq "versionCode='80102'" qa/apk-badging.txt
+          grep -Fq "versionName='0.8.1-rc.2'" qa/apk-badging.txt
+          echo "APK Android gerado: pacote, versionCode e versionName conferidos."
+
+
+      - name: Validar marco de 250 MB e conteúdo REAL usado no APK
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          python tools/audit_apk_content.py android/app/build/outputs/apk/debug/app-debug.apk
+          BYTES="$(stat -c %s android/app/build/outputs/apk/debug/app-debug.apk)"
           echo "APK_BYTES=$BYTES"
-          echo "META_BYTES=100000000"
-          echo "PERCENTUAL=$((BYTES * 100 / 100000000))%"
-          if [ "$BYTES" -lt 100000000 ]; then
-            echo "ERRO: o APK ainda não contém 100 MB reais de conteúdo original." >&2
-            exit 1
-          fi
+          echo "MARCO_250_MB_BYTES=250000000"
           {
-            echo "## Tamanho do APK (sem limite maximo)"
+            echo "## Nova Arcádia 0.8.1-rc.2 — marco de armazenamento auditado"
             echo "APK real: **$BYTES bytes**"
-            echo "Meta de conteúdo: **100.000.000 bytes (100 MB decimais)**"
-            echo "Progresso sobre o mínimo histórico: **$((BYTES * 100 / 100000000))%**"
-            echo "Não existe limite máximo de tamanho nesta compilação."
-            echo "Arquivos de preenchimento não são permitidos. Arte e áudio devem ser otimizados e carregados conforme a área."
+            echo "Meta original: **250.000.000 bytes**"
+            echo "Sem limite máximo: arquivos devem estar ligados ao jogo."
+            echo "Manifesto verificou 56 músicas preservadas, 28 ambientes originais"
+            echo "e 29 folhas direcionais utilizadas em jogo (17 NPCs + 12 protagonistas)."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validar assinatura real da APK
@@ -321,3 +387,43 @@ jobs:
           name: Cyberpunk-Tactical-RPG-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
+
+
+      - name: Publicar somente o APK atual no canal permanente de testes
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-expansion-v080'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="nova-arcadia-android-atual"
+          ASSET="NovaArcadia-Android-atual.apk"
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          VERSION="$(node -p 'require("./package.json").version')"
+          test -s "$APK"
+          test "$(stat -c %s "$APK")" -ge 250000000
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          APKSIGNER="$(find "$SDK/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --print-certs "$APK" > qa/certificado-canal-atual.txt
+          # Apenas a assinatura da linha atual poderá atualizar este APK.
+          grep -Fiq "cb8a4e8c5c17d326e7ad0a08bbb90cd50eaf2d4ecfda59bf300784361eb44eb6" qa/certificado-canal-atual.txt
+          cp "$APK" "$ASSET"
+          SHA256="$(sha256sum "$ASSET" | cut -d ' ' -f 1)"
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --target feature/nova-arcadia-expansion-v080 \
+              --title "Nova Arcádia — APK Android atual" \
+              --notes "Canal oficial de testes Android: um único APK acumulativo. Testes em aparelhos físicos ainda pendentes." \
+              --prerelease
+          fi
+          gh release upload "$TAG" "$ASSET" --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --title "Nova Arcádia — Android $VERSION (atual)" \
+            --notes "APENAS UMA VERSÃO RECOMENDADA PARA TESTES: $VERSION. APK assinado na linha de desenvolvimento atual, acumulando todos os conteúdos anteriores. Workflow: #$GITHUB_RUN_NUMBER; commit: $GITHUB_SHA; SHA-256 do APK: $SHA256. Instale por cima da versão atual após exportar o backup do personagem. Não usar builds históricos de outras branches; não desinstalar sem backup. Teste físico de estabilidade ainda pendente." \
+            --prerelease
+          {
+            echo "## APK ÚNICO ATUAL — Nova Arcádia $VERSION"
+            echo "Link permanente: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET"
+            echo "SHA-256: \`$SHA256\`"
+            echo "Pacote Android auditado e assinatura da linha atual conferida."
+          } >> "$GITHUB_STEP_SUMMARY"

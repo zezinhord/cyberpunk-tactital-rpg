@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {createStartingInventory,loadInventory,saveInventory} from "../src/game/inventory.ts";
 import {FAVORS,INITIAL_FAVORS,acceptFavor,recordFavorActivity,
- claimFavor,buyFromNilo,syncFavorItems,visibleFavors,readFavors,saveFavors,
+ claimFavor,buyFromNilo,syncFavorItems,visibleFavors,knownFavors,discoverFavors,validateFavorBackup,readFavors,saveFavors,
  favorStatus,buyFromNilo as buyForTest,NILO_SHOP,shopOfferUnlocked} from "../src/game/story/favors.ts";
 import {INITIAL_MARKET,applyMarketAction,getMarketConversation} from "../src/game/story/market.ts";
 import {calculateReputation,factionStanding,syncFactionAids,readReputation} from "../src/game/story/reputation.ts";
@@ -13,9 +13,10 @@ const ctx3={missionStep:3,v09Defeated:false};
 assert.equal(visibleFavors(ctx0).length,0);
 assert.deepEqual(visibleFavors(ctx1).map(x=>x.id),["triagem","filtros"]);
 assert.ok(!visibleFavors(ctx3).some(x=>x.id==="seguranca"));
-assert.equal(visibleFavors({...ctx3,v09Defeated:true}).length,FAVORS.length-1,
- "Contrato de Davi requer reputação de Honra");
-assert.equal(visibleFavors({...ctx3,v09Defeated:true,honor:2}).length,FAVORS.length);
+assert.ok(visibleFavors({...ctx3,v09Defeated:true}).length<FAVORS.length,
+ "Novos favores precisam de Honra antes da liberação");
+assert.ok(visibleFavors({...ctx3,v09Defeated:true,honor:2}).some(x=>x.id==="seguranca"));
+assert.equal(visibleFavors({...ctx3,v09Defeated:true,honor:3}).length,FAVORS.length);
 let state={...INITIAL_FAVORS};
 assert.equal(acceptFavor(state,"seguranca",ctx1).ok,false);
 let acc=acceptFavor(state,"triagem",ctx1);
@@ -129,4 +130,38 @@ assert.equal(saveFavors("reputation",community),true);
 assert.equal(readReputation("reputation").factions.movimento_livre,3,
  "Reputação deve ser reconstruída após reiniciar o aplicativo");
 console.log("Reputação: Honra + facções, conflitos corporativos, serviços reais, recibos e persistência aprovados.");
-console.log("Favores: desbloqueio progressivo, entrega ao NPC, 1x XP/itens, carteira, loja e saves isolados.");
+// Nove pedidos regionais permanecem ocultos até conversar com os contatos.
+const ctxRegional={missionStep:3,v09Defeated:true,honor:3};
+assert.equal(FAVORS.length,15);
+let regional={...INITIAL_FAVORS};
+assert.equal(knownFavors(regional,ctxRegional).length,6);
+for(const task of FAVORS.filter(q=>q.requiresContact)){
+ if(!regional.discovered.includes(task.id))
+  assert.equal(acceptFavor(regional,task.id,ctxRegional).ok,false,
+    "O quadro não pode inventar oferta antes de conhecer "+task.contact);
+ const discovered=discoverFavors(regional,task.contactId,ctxRegional);
+ assert.ok(discovered.revealed.includes(task.id)||regional.discovered.includes(task.id),
+   "Um contato pode descobrir mais de um favor");
+ regional=discovered.state;
+ assert.equal(discoverFavors(regional,task.contactId,ctxRegional).revealed.length,0);
+ const accepted=acceptFavor(regional,task.id,ctxRegional);
+ assert.equal(accepted.ok,true);
+ assert.deepEqual(recordFavorActivity(accepted.state,task.taskId,false).ready,[],
+   "Ponto regional bloqueado não cumpre favor");
+ const activity=recordFavorActivity(accepted.state,task.taskId,true);
+ assert.ok(activity.ready.includes(task.id));
+ const claimed=claimFavor(activity.state,task.id);
+ assert.equal(claimed.ok,true);
+ regional=claimed.state;
+ assert.equal(claimFavor(regional,task.id).ok,false);
+}
+assert.equal(regional.claimed.length,9);
+assert.equal(knownFavors(regional,ctxRegional).length,15);
+assert.equal(validateFavorBackup(regional),true);
+assert.equal(saveFavors("regional",regional),true);
+assert.equal(readFavors("regional").claimed.length,9);
+assert.equal(readFavors("regional").discovered.length,9);
+let oldBackup={...regional};
+delete oldBackup.discovered;
+assert.equal(validateFavorBackup(oldBackup),true,"Backups da 0.7.9 sem descobertas continuam válidos");
+console.log("Favores: 15 atividades, nove descobertas narrativas, execução regional e recompensas únicas.");

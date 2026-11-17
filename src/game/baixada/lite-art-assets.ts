@@ -25,11 +25,6 @@ import iza from "../../assets/characters/npc-iza.png";
 import tomas from "../../assets/characters/npc-tomas.png";
 import davi from "../../assets/characters/npc-davi.png";
 import marta from "../../assets/characters/npc-marta.png";
-import celina from "../../assets/characters/npc-celina.png";
-import mara from "../../assets/characters/npc-mara.png";
-import iuri from "../../assets/characters/npc-iuri.png";
-import kai from "../../assets/characters/npc-kai.png";
-import dara from "../../assets/characters/npc-dara.png";
 import type {OriginId} from "../character/origins";
 import type {TestAppearance} from "../test-arena/appearance";
 
@@ -42,13 +37,13 @@ const ORIGINS:Readonly<Record<OriginId,Readonly<Record<TestAppearance,string>>>>
  nomade:{masculine:nomadeM,feminine:nomadeF},
 };
 export function getPlayerLiteSpriteUrl(origin:OriginId,appearance:TestAppearance):string{return ORIGINS[origin][appearance];}
-// NPCs autorais: 12 spritesheets 4×4 (64×80 por quadro).
+// 11 NPCs da Baixada: 12 quadros por direção; os contatos regionais carregam somente na cena deles.
 // Somente a origem ativa e os NPCs realmente usados são decodificados.
 const NPCS:Readonly<Record<string,string>>={
  nilo,joana,saira,teo,
- lia,ramon,duda,iza,tomas,davi,marta,celina,mara,iuri,kai,dara,
+ lia,ramon,duda,iza,tomas,davi,marta,
 };
-export const LONG_NPC_SHEETS:ReadonlySet<string>=new Set();
+export const LONG_NPC_SHEETS:ReadonlySet<string>=new Set(Object.keys(NPCS));
 const PUBLIC_DECOR:Readonly<Record<string,string>>={
  market:"/assets/baixada/market-stall.svg",
  palm:"/assets/baixada/palm-tree.svg",

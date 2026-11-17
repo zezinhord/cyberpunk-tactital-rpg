@@ -1,6 +1,10 @@
 # Nova Arcádia — Projeto Éden
 
-**Candidata à primeira prévia pública: 0.7.0-rc.4 (Android, em validação).**
+**Versão Android atual para testes: 0.8.1-rc.2 (291 MB).** Correção da derrota em combate, sete interiores novos, 28 ambiências ambientais e todos os conteúdos anteriores preservados.
+
+**[BAIXAR O ÚNICO APK ATUAL DE NOVA ARCÁDIA](https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/download/nova-arcadia-android-atual/NovaArcadia-Android-atual.apk)**
+
+O link acima será reutilizado em cada atualização aprovada no workflow; não escolha mais APKs de branches e releases históricas. A referência de desenvolvimento é `feature/nova-arcadia-expansion-v080`.
 
 RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambientado em uma cidade cyberpunk tropical. Projeto independente com React, TypeScript, Phaser 4, Vite e Capacitor 8.
 
@@ -18,14 +22,18 @@ RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambi
 - Exportação/importação de backups JSON contendo personagem, inventário, aparência, posição, missões, história, Vida e progresso de Circuito Fantasma.
 - Interface horizontal e controles adaptados a celular.
 
-## Instalar em Android para testes
+## Instalar em Android para testes — um único arquivo
 
-1. Abra o workflow **Build Cyberpunk Tactical RPG APK** na aba [Actions](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/workflows/main.yml).
-2. Escolha uma execução **bem-sucedida de `push`** na branch `feature/landscape-mobile-v1`. Execuções de `pull_request` verificam código, mas **não produzem o APK**.
-3. Em **Artifacts**, baixe `Cyberpunk-Tactical-RPG-APK`, extraia o ZIP e abra o arquivo `.apk`.
-4. Autorize a instalação desse APK no Android apenas se confiar na origem. Não é necessário Android Studio para testar.
+1. Abra o **[download direto do APK Android atual](https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/download/nova-arcadia-android-atual/NovaArcadia-Android-atual.apk)** pelo Chrome. O arquivo já é .apk: não precisa extrair ZIP.
+2. Aguarde o download completo e confira o tamanho aproximado de 291 MB para esta versão.
+3. Instale por cima do aplicativo da linha de desenvolvimento atual, sem apagar os dados.
+4. Se o Android recusar a atualização por assinatura ou versão, **exporte primeiro os backups dos personagens** antes de considerar desinstalação.
 
-**Distribuição pública:** para disponibilizar permanentemente ao público, anexe o APK final a uma [GitHub Release](https://github.com/zezinhord/cyberpunk-tactital-rpg/releases). Os artefatos de Actions têm retenção limitada. Este pipeline produz **APK debug assinado para instalação direta**, e **não** um Android App Bundle de produção pronto para Google Play. Não compartilhe como versão estável sem executar os testes físicos.
+**Único canal de distribuição recomendado:** [Nova Arcádia — Android atual](https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/tag/nova-arcadia-android-atual).
+
+Cada execução de CI aprovada atualiza o mesmo arquivo, por isso o jogador não precisa escolher entre números de workflow, versões antigas ou duas variantes de assinatura. O histórico de desenvolvimento fica no GitHub apenas para rastreabilidade. A build é de teste, com assinatura debug e validações automatizadas; **não representa estabilidade comprovada em Galaxy A07, Redmi Note 12S ou outros aparelhos físicos**. A `main` não é alterada sem aprovação.
+
+Consulte [a política de versão única](docs/POLITICA-ATUALIZACAO-UNICA.md) para as regras de publicação e salvamentos.
 
 ## Salvamentos e atualizações
 

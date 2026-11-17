@@ -26,7 +26,7 @@ export interface CombatCue { sequence: number; visual: CombatVisual;
 
 export type EncounterId="test"|"v09"|"trial-1"|"trial-2"|"trial-3"|
  "district-aurea"|"district-subsolo"|"district-setor-zero"|
- "district-prisma"|"district-periferia";
+ "district-prisma"|"district-periferia"|"eden-relay"|"eden-core";
 export interface GameState {
   units: Unit[];
   archetypeId: string;

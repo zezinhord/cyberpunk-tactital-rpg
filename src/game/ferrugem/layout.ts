@@ -27,6 +27,8 @@ export const FERRUGEM_ACTORS:readonly IndustrialActor[]=[
  {id:"ferrugem-relay",title:"Repetidor da Helix",role:"SINAL ALTERADO",tile:{x:23,y:9},kind:"terminal"},
  {id:"ferrugem-shelter",title:"Posto comunitário",role:"TRABALHADORES",tile:{x:11,y:16},kind:"worker"},
  {id:"ferrugem-conveyor",title:"Esteira clandestina",role:"SEPARAÇÃO DE CARGA",tile:{x:19,y:16},kind:"evidence"},
+ {id:"ferrugem-salvage",title:"Arquivo de refugo",role:"RECUPERAR MICROATUADOR",tile:{x:23,y:17},kind:"evidence"},
+ {id:"ferrugem-foundry-access",title:"Fundição auxiliar",role:"INTERIOR · FORNO DE RECUPERAÇÃO",tile:{x:23,y:6},kind:"terminal"},
 ] as const;
 export const KEY=(t:Cell)=>t.x+","+t.y;
 const walls:ReadonlySet<string>=(()=>{

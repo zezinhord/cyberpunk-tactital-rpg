@@ -26,7 +26,7 @@ import ExplorationScreen from "./screens/ExplorationScreen";
 import TitleScreen from "./screens/TitleScreen";
 import {
   createStartingInventory, loadInventory, saveInventory,
-  toggleEquipment, consumeItem, getEquipmentBonuses, grantItem, ITEM_CATALOG,
+  toggleEquipment, consumeItem, getEquipmentBonuses, grantItem, grantRewardInventoryItem, ITEM_CATALOG,ITEM_IDS,
 } from "./game/inventory";
 import type { ItemId, InventoryState } from "./game/inventory";
 import {craftRecipe,type RecipeId} from "./game/crafting";
@@ -38,6 +38,7 @@ import { markV09Defeated,grantV09Experience } from "./game/story/v09";
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity} from "./game/character/slots";
 import {exportCharacterBackup,importCharacterBackup} from "./game/character/backup";
 import {loadHealth,saveHealth,healAtClinic} from "./game/combat/health";
+import {isOperativeDefeated,recoverFromDefeat,type DefeatChoice} from "./game/combat/defeat.ts";
 import {combatProgression,grantUniqueExperience,purchaseAttribute,purchaseSkill,
   type StatId} from "./game/progression/tree";
 import {advanceTrialBattle,isTrialEncounter,readTrial,saveTrial,reconcileTrial} from "./game/story/field-test";
@@ -45,6 +46,9 @@ import {isDistrictId} from "./game/districts/catalog";
 import {FAVORS,readFavors,saveFavors,claimFavor,buyFromNilo,syncFavorItems,
   type FavorId,type FavorState} from "./game/story/favors";
 import {readMarket} from "./game/story/market";
+import {EDEN_STEPS,readEden,saveEden,advanceEdenBattle,syncEdenItems,type EdenEncounter} from "./game/story/eden-echoes.ts";
+import {claimDiscovery,DISCOVERY_AREAS,DISCOVERY_REWARDS} from "./game/story/discoveries.ts";
+import {collectInnerProp,reconcileInnerExperience} from "./game/story/indoor-rewards.ts";
 import {readReputation,syncFactionAids} from "./game/story/reputation";
 import {readDistrictProgress,saveDistrictProgress,advanceDistrict,
  districtCurrentStep} from "./game/districts/progress";
@@ -76,6 +80,7 @@ function ActionChip({ label, ready }: { label: string; ready: boolean }) {
 }
 
 function getHint(state: GameState, canAttack: boolean): string {
+  if(isOperativeDefeated(state))return "Operativo incapacitado: escolha evacuação ou nova tentativa.";
   if (state.combatComplete) return state.encounterId==="v09"
     ? "Confronto V-09 encerrado. Retorne à Baixada para continuar a investigação."
     : "Combate de teste encerrado";
@@ -224,6 +229,7 @@ export default function App() {
   const [openingError,setOpeningError] = useState("");
   const [battleReset, setBattleReset] = useState(0);
   const [battleMode, setBattleMode] = useState<EncounterId>("test");
+  const [defeatNotice,setDefeatNotice]=useState("");
   const [abilityPickerOpen,setAbilityPickerOpen] = useState(false);
   useEffect(()=>{audioDirector.setScene(screen==="battle"?"battle":screen==="exploration"?"exploration":screen==="title"?"menu":"story");},[screen]);
   const [appearance, setAppearance] = useState<TestAppearance>(() => loadTestAppearance(loadCharacter()?.id ?? ""));
@@ -232,7 +238,8 @@ export default function App() {
     if (character) saveTestAppearance(character.id, choice);
   };
   const [inventory, setInventory] = useState<InventoryState>(() => loadInventory(loadCharacter()?.id ?? ""));
-  const bonuses = useMemo(() => getEquipmentBonuses(inventory), [inventory.equipped.weapon, inventory.equipped.armor]);
+  const [selectedSupply,setSelectedSupply]=useState<ItemId>("curativo_campo");
+  const bonuses = useMemo(() => getEquipmentBonuses(inventory), [inventory.equipped.weapon, inventory.equipped.armor, inventory.equipped.implant]);
   useEffect(() => {
     if (character && inventory.ownerId === character.id) saveInventory(inventory);
   }, [character?.id, inventory]);
@@ -244,7 +251,7 @@ export default function App() {
 
   const originProfile = useMemo(() => character ? getOriginGameplay(character.originId) : undefined, [character?.originId]);
   const progressionBonuses=combatProgression(character);
-  const maximumHp=18+(originProfile?.maxHpBonus??0)+progressionBonuses.hp;
+  const maximumHp=18+(originProfile?.maxHpBonus??0)+progressionBonuses.hp+bonuses.hpBonus;
   const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
     currentHp:loadHealth(character?.id??"",maximumHp),
     progressionBonuses:combatProgression(character),encounterId:battleMode,weaponId:inventory.equipped.weapon }), [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
@@ -253,7 +260,8 @@ export default function App() {
   const enemy = getUnit(state, "drone");
   const attackPreview=manager.getBasicAttackPreview();
   const canAttack = attackPreview.available;
-  const victory = Boolean(enemy && enemy.hp <= 0);
+  const victory = Boolean(state.combatComplete && enemy && enemy.hp <= 0);
+  const defeated=isOperativeDefeated(state);
 
   useEffect(() => {
     setState(manager.getState());
@@ -272,6 +280,7 @@ export default function App() {
   }, [manager,screen,character?.id]);
 
   const beginBattle = (mode: EncounterId = "test") => {
+    setDefeatNotice("");
     setAbilityPickerOpen(false);
     setBattleMode(mode);
     setBattleReset((n)=>n+1);
@@ -299,7 +308,7 @@ export default function App() {
     const active=characterRef.current;
     if(!active)return false;
     const stored=loadInventory(active.id);
-    const next=syncFactionAids(syncFavorItems(stored,state),readMarket(active.id));
+    const next=syncEdenItems(syncFactionAids(syncFavorItems(stored,state),readMarket(active.id)),readEden(active.id));
     if(next!==stored){
       if(!saveInventory(next))return false;
       setInventory(next);
@@ -307,6 +316,16 @@ export default function App() {
     for(const id of state.claimed){
       const quest=FAVORS.find(f=>f.id===id);
       if(quest&&!grantTrialXp("favor-"+id,quest.reward.xp))return false;
+    }
+    for(const area of DISCOVERY_AREAS){
+      if(next.rewardReceipts?.includes("discovery-"+area)&&
+          !grantTrialXp("discovery-"+area,DISCOVERY_REWARDS[area].xp))return false;
+    }
+    if(!reconcileInnerExperience(next,grantTrialXp))return false;
+    const narrative=readEden(active.id);
+    for(const id of narrative.history){
+      const step=EDEN_STEPS.find(s=>s.id===id);
+      if(step&&!grantTrialXp("eden-"+id,step.xp))return false;
     }
     return true;
   };
@@ -338,7 +357,7 @@ export default function App() {
     const active=characterRef.current;
     if(screen!=="exploration"||!active)return;
     const state=readFavors(active.id);
-    if(state.claimed.length||state.purchases.length)reconcileFavorRewards(state);
+    reconcileFavorRewards(state);
     // A reconciliação deve rodar na entrada da exploração e troca de slot,
     // nunca a cada animação de diálogo ou tick de combate.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -379,6 +398,18 @@ export default function App() {
     const enemyDefeated=state.units.find(u=>u.id==="drone")?.hp===0;
     const active=characterRef.current;
     if(!active)return;
+    if(enemyDefeated&&state.encounterId.startsWith("eden-")){
+      const result=advanceEdenBattle(readEden(active.id),state.encounterId as EdenEncounter);
+      if(result.advanced&&result.step){
+        if(saveEden(active.id,result.state)){
+          if(!grantTrialXp("eden-"+result.step.id,result.step.xp))
+            setSaveMessage("Registro Éden preservado; XP será reconciliado ao carregar o personagem.");
+          reconcileFavorRewards(readFavors(active.id));
+          audioDirector.effect("victory");
+        }else setSaveMessage("Sem espaço para registrar o confronto Éden; libere armazenamento.");
+      }
+      return;
+    }
     if(enemyDefeated && isTrialEncounter(state.encounterId)){
       const stored=readTrial(active.id);
       const progress=reconcileTrial(stored,active.questRewards);
@@ -573,19 +604,42 @@ export default function App() {
   };
   const treatAtClinic=():number=>{
     if(!character)return 0;
-    const max=18+getOriginGameplay(character.originId).maxHpBonus+combatProgression(character).hp;
+    const max=18+getOriginGameplay(character.originId).maxHpBonus+combatProgression(character).hp+bonuses.hpBonus;
     const current=loadHealth(character.id,max);
     if(!healAtClinic(character.id,max))return 0;
     setHealthValue(max);
     return Math.max(0,max-current);
   };
 
-  const handleUseMedkit = () => {
-    if (inventory.quantities.curativo_campo < 1) return;
-    if (manager.useMedicalSupply(ITEM_CATALOG.curativo_campo.healAmount ?? 0)) {
-      setInventory((current) => consumeItem(current, "curativo_campo"));
+  const handleUseSupply = () => {
+    if (inventory.quantities[selectedSupply] < 1) return;
+    const item=ITEM_CATALOG[selectedSupply];
+    const used=item.healAmount?manager.useMedicalSupply(item.healAmount):
+      item.energyAmount?manager.useEnergySupply(item.energyAmount):false;
+    if(used)setInventory(current=>consumeItem(current,selectedSupply));
+  };
+  /** Recuperação após 0 PV: sem alterar missão, facções ou experiência.
+   * O modal independe de scroll e sempre oferece saída no Android landscape.
+   */
+  const handleDefeatChoice=(choice:DefeatChoice):void=>{
+    if(!character||!defeated)return;
+    const result=recoverFromDefeat(character.id,maximumHp,choice);
+    if(!result.ok){setDefeatNotice(result.message);return;}
+    setDefeatNotice("");
+    setAbilityPickerOpen(false);
+    setHealthValue(result.hp);
+    setSaveMessage(result.message);
+    if(choice==="clinic"){
+      setScreen("exploration");
+    }else{
+      setBattleReset(n=>n+1);
     }
   };
+
+  const consumables=ITEM_IDS.filter(id=>ITEM_CATALOG[id].category==="consumable");
+  const supply=ITEM_CATALOG[selectedSupply];
+  const supplyUseful=Boolean(supply.healAmount&&player&&player.hp<player.maxHp||
+    supply.energyAmount&&state.energy<state.maxEnergy);
 
   if (screen === "title") {
     return <TitleScreen character={character} slots={slots} onLoadSlot={handleLoadSlot}
@@ -641,8 +695,26 @@ export default function App() {
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
         onCraft={craftAtWorkshop}
+        onCollectDistrictCache={area=>{
+          const active=characterRef.current;
+          if(!active)return false;
+          const owned=inventory.ownerId===active.id?inventory:loadInventory(active.id);
+          const result=claimDiscovery(owned,area);
+          if(!result.ok||!saveInventory(result.state))return false;
+          setInventory(result.state);
+          return true;
+        }}
+        onCollectInteriorProp={(area,prop)=>{
+          const active=characterRef.current;
+          if(!active)return false;
+          const stored=inventory.ownerId===active.id?inventory:loadInventory(active.id);
+          const result=collectInnerProp(stored,area,prop);
+          if(!result.ok||!saveInventory(result.state))return false;
+          setInventory(result.state);
+          return true;
+        }}
         onGrantIndustrialItem={(id:ItemId)=>setInventory(current=>grantItem(current,id))}
-        onGrantQuestItem={(id: ItemId) => setInventory((current) => current.quantities[id] > 0 ? current : grantItem(current, id))}
+        onGrantQuestItem={(id:ItemId)=>setInventory(current=>grantRewardInventoryItem(current,id,1,"story-first-"+id))}
       />
     );
   }
@@ -713,7 +785,7 @@ export default function App() {
         </details>
         </div>
         <section className="control-sheet" aria-label="Comandos do turno">
-          <button type="button" className="na-abilities-open" onClick={()=>setAbilityPickerOpen(true)}
+          <button type="button" className="na-abilities-open" disabled={state.combatComplete} onClick={()=>setAbilityPickerOpen(true)}
             aria-haspopup="dialog" aria-expanded={abilityPickerOpen}
             aria-label="Escolher habilidades de combate">
             <span><strong>⚡ HABILIDADES</strong><small>{manager.getClassAbilities().length} da classe · 3 comuns · 1 de origem</small></span>
@@ -729,16 +801,46 @@ export default function App() {
             <ActionChip label="Bônus" ready={state.bonusActionAvailable} />
           </div>
           <div className="actions">
-            <button type="button" className="end-turn-button" disabled={state.activeSide !== "player" || state.combatComplete || !state.bonusActionAvailable || !player || player.hp >= player.maxHp || inventory.quantities.curativo_campo < 1} onClick={handleUseMedkit}>Curativo ({inventory.quantities.curativo_campo})</button>
+            <label className="na-supply-select">
+              <span>SUPRIMENTO</span>
+              <select value={selectedSupply} onChange={event=>setSelectedSupply(event.target.value as ItemId)} aria-label="Escolher suprimento de combate">
+                {consumables.map(id=><option key={id} value={id}>{ITEM_CATALOG[id].name} ({inventory.quantities[id]})</option>)}
+              </select>
+            </label>
+            <button type="button" className="end-turn-button" disabled={state.activeSide!=="player"||state.combatComplete||!state.bonusActionAvailable||!supplyUseful||inventory.quantities[selectedSupply]<1} onClick={handleUseSupply}>Usar suprimento</button>
             <button type="button" className="end-turn-button" onClick={() => { buzz(); manager.endPlayerTurn(); }} disabled={state.activeSide !== "player" || state.combatComplete}>Encerrar turno</button>
             <button type="button" className="attack-button" onClick={() => { buzz(20); manager.attack(); }}
               title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense}`:attackPreview.reason}
               disabled={!canAttack}>{attackPreview.mode==="ranged"?"Disparar":"Ataque corpo a corpo"}</button>
           </div>
-          <div className="secondary-actions">{battleMode==="test" && <button type="button" onClick={() => setBattleReset((value) => value + 1)}>Reiniciar arena</button>}<button type="button" onClick={() => setScreen("exploration")} >Voltar à exploração</button></div>
+          <div className="secondary-actions">{battleMode==="test" && <button type="button" onClick={() => {setDefeatNotice("");setBattleReset((value) => value + 1);}}>Reiniciar arena</button>}<button type="button" onClick={() => {setDefeatNotice("");setScreen("exploration");}} >Voltar à exploração</button></div>
         </section>
 
       </aside>
+      {defeated&&<div className="na-defeat-backdrop" data-combat-defeat="true">
+        <section className="na-defeat-dialog" role="dialog" aria-modal="true"
+          aria-labelledby="na-defeat-title" aria-describedby="na-defeat-description">
+          <span className="na-defeat-eyebrow">SISTEMA DE EVACUAÇÃO · NOVA ARCÁDIA</span>
+          <h2 id="na-defeat-title">Operativo incapacitado</h2>
+          <p id="na-defeat-description">Você caiu em combate. A missão não foi perdida:
+            suas pistas, itens e progresso continuam salvos. Escolha como retornar.</p>
+          <div className="na-defeat-options">
+            <button type="button" className="na-defeat-clinic"
+              onClick={()=>handleDefeatChoice("clinic")}>
+              <strong>Retornar à clínica</strong><small>Evacuação à Baixada · 35% da Vida</small>
+            </button>
+            <button type="button" className="na-defeat-retry"
+              onClick={()=>handleDefeatChoice("retry")}>
+              <strong>Tentar novamente</strong><small>Recomeçar o confronto · 50% da Vida</small>
+            </button>
+          </div>
+          {defeatNotice&&<p role="alert" className="na-defeat-error">{defeatNotice}</p>}
+          <button type="button" className="na-defeat-menu"
+            onClick={()=>{setAbilityPickerOpen(false);setDefeatNotice("");setScreen("title");}}>
+            Voltar ao menu sem apagar o personagem
+          </button>
+        </section>
+      </div>}
       {abilityPickerOpen&&<CombatAbilityPicker manager={manager} state={state}
         className={character.classId?getClassById(character.classId).name:"Sem classe"}
         originDescription={originProfile.abilityDescription}

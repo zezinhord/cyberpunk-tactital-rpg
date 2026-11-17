@@ -10,6 +10,7 @@ import { findPath,getReachableCells,coverBetween,coverArmorBonus,MOVEMENT_PER_TU
 import {enemyProfile,planEnemyTurn,withinShot} from "./tactics";
 import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types";
 import type { OriginGameplayProfile } from "./character/types";
+import {ITEM_CATALOG,type ItemId,type EquipmentBonuses} from "./inventory.ts";
 
 function rollDie(sides: number): number {
   return Math.floor(Math.random() * sides) + 1;
@@ -26,7 +27,7 @@ function livingUnit(units: Unit[], id: string): Unit | undefined {
 export interface TurnManagerOptions {
   playerName?: string;
   originProfile?: OriginGameplayProfile;
-  equipmentBonuses?: { attackBonus: number; armorBonus: number };
+  equipmentBonuses?: EquipmentBonuses;
   characterLevel?: number;
   currentHp?: number;
   progressionBonuses?:{hp:number;attack:number;armor:number;movement:number;energy:number};
@@ -50,17 +51,18 @@ export class TurnManager {
 
   constructor(options: TurnManagerOptions = {}) {
     this.originProfile = options.originProfile;
-    this.weaponRange=options.weaponId==="pistola_inducao"?5:
-      options.weaponId==="pistola_manutencao"?4:1;
+    this.weaponRange=options.weaponId?
+      (ITEM_CATALOG[options.weaponId as ItemId]?.range??1):1;
     const bonus=options.progressionBonuses;
-    const movementPerTurn = MOVEMENT_PER_TURN + (this.originProfile?.movementBonus ?? 0)+(bonus?.movement??0);
-    const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0);
-    const maxEnergy=10+(bonus?.energy??0);
+    const movementPerTurn = Math.max(1,MOVEMENT_PER_TURN+(this.originProfile?.movementBonus??0)+(bonus?.movement??0)+(options.equipmentBonuses?.movementBonus??0));
+    const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0)+(options.equipmentBonuses?.hpBonus??0);
+    const maxEnergy=10+(bonus?.energy??0)+(options.equipmentBonuses?.energyBonus??0);
     const trial=options.encounterId?.startsWith("trial-")??false;
+    const eden=options.encounterId?.startsWith("eden-")??false;
     const district=options.encounterId?.startsWith("district-")??false;
     const trialWaveCount=options.encounterId==="trial-3"||
-      options.encounterId==="district-setor-zero"?3:trial||district?2:1;
-    const encounterHp=options.encounterId==="v09"?16:district?17:trial?14:12;
+      options.encounterId==="district-setor-zero"||options.encounterId==="eden-core"?3:trial||district||eden?2:1;
+    const encounterHp=options.encounterId==="eden-core"?24:options.encounterId==="eden-relay"?19:options.encounterId==="v09"?16:district?17:trial?14:12;
     this.state = {
       units: [
         {
@@ -78,7 +80,8 @@ export class TurnManager {
         },
         {
           id: "drone",
-          name: options.encounterId==="v09" ? "Unidade de Vigilância V-09"
+          name: eden?(options.encounterId==="eden-core"?"Guardião do Éden":"Interceptador de Prisma"):
+            options.encounterId==="v09" ? "Unidade de Vigilância V-09"
              : district ? "Agente de Segurança Helix" : trial ? "Drone de Interceptação" : "Sentinela-07",
           side: "enemy",
           x: 6,
@@ -294,6 +297,19 @@ export class TurnManager {
     return true;
   }
 
+  /** Recarga única com ação bônus, alimentada por item real do inventário. */
+  useEnergySupply(amount:number):boolean{
+    if(this.state.combatComplete||this.state.activeSide!=="player"||
+       !this.state.bonusActionAvailable||!Number.isFinite(amount)||amount<1||
+       this.state.energy>=this.state.maxEnergy)return false;
+    const gained=Math.min(Math.floor(amount),this.state.maxEnergy-this.state.energy);
+    this.state.energy+=gained;this.state.bonusActionAvailable=false;
+    this.setCue("repair","player",gained);
+    this.state.message="Bateria de campo: +"+gained+" energia.";
+    this.addLog("[ITEM] Bateria de campo: +"+gained+" energia.");
+    this.publish();return true;
+  }
+
   movePlayerTo(x: number, y: number): void {
     const player = livingUnit(this.state.units, "runner");
     if (!player || this.state.activeSide !== "player" || this.state.combatComplete) return;
@@ -439,14 +455,15 @@ export class TurnManager {
     this.state.defeatedEnemyCount++;
     const trial=this.state.encounterId.startsWith("trial-");
     const district=this.state.encounterId.startsWith("district-");
-    const waves=trial||district;
+    const eden=this.state.encounterId.startsWith("eden-");
+    const waves=trial||district||eden;
     if(waves&&this.state.wave<this.state.totalWaves){
       this.state.wave+=1;
-      const hp=(district?17:14)+3*(this.state.wave-1);
+      const hp=(eden?(this.state.encounterId==="eden-core"?24:19):district?17:14)+3*(this.state.wave-1);
       enemy.hp=hp;enemy.maxHp=hp;enemy.armorClass=13+this.state.wave-1;
       enemy.attackBonus=4+this.state.wave-1;
       enemy.x=6;enemy.y=1;
-      enemy.name=(district?"Agente Helix":"Drone de Interceptação")+" · "+this.state.wave;
+      enemy.name=(eden?"Guardião do Éden":district?"Agente Helix":"Drone de Interceptação")+" · "+this.state.wave;
       this.state.combatComplete=false;
       this.state.mainActionAvailable=true;
       this.state.bonusActionAvailable=true;

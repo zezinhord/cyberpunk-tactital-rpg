@@ -29,5 +29,5 @@ assert.equal(signatures.size,15);
 const source=readFileSync(new URL("../src/game/districts/DistrictScene.ts",import.meta.url),"utf8");
 for(const identifier of ["drawDistrictSkyline","drawDistrictPavement","drawDistrictBuilding","drawDistrictInteractable"])
  assert.ok(source.includes(identifier),"District scene missing "+identifier);
-assert.match(source,/district-surface-.*-v3/,"Static texture version must change");
-console.log("District art: 5 unique identities, 15 motifs, 35 reachable actor approaches, existing map preserved.");
+assert.match(source,/district-surface-.*-v080/,"Static texture version must change");
+console.log("District art: 5 unique identities, 15 motifs, 40 reachable actor approaches, existing map preserved.");

@@ -13,6 +13,7 @@ import ProgressionTree from "./ProgressionTree";
 import {SEWER_MAPS} from "../game/baixada/sewer-layout";
 import {favorStatus,visibleFavors,type FavorContext,type FavorState} from "../game/story/favors";
 import {FACTION_NAMES,factionStanding,type Reputation} from "../game/story/reputation";
+import {EDEN_STEPS,edenObjective,type EdenProgress} from "../game/story/eden-echoes.ts";
 import {sewerStatus,type SewerProgress} from "../game/story/sewer-v09";
 import {FERRUGEM_STEPS,ferrugemObjective,type FerrugemProgress} from "../game/ferrugem/story";
 import type {StatId} from "../game/progression/tree";
@@ -41,6 +42,7 @@ interface Props {
   favors:FavorState;
   favorContext:FavorContext;
   reputation:Reputation;
+  edenProgress:EdenProgress;
   sewerProgress:SewerProgress;
   ferrugemProgress:FerrugemProgress;
   clues: JournalClue[];
@@ -103,6 +105,7 @@ export default function CharacterMenu({
   favors,
   favorContext,
   reputation,
+  edenProgress,
   sewerProgress,
   ferrugemProgress,
   clues,
@@ -285,8 +288,8 @@ export default function CharacterMenu({
                   })}
                   {ITEM_IDS.every((id) => inventory.quantities[id] === 0) && <p className="menu-empty-copy">Inventário vazio.</p>}
                 </section>
-                <section className="na-crafting-panel" aria-label="Bancada de fabricação de Ferrugem">
-                  <span className="menu-panel-kicker">BANCADA INDUSTRIAL · FABRICAÇÃO</span>
+                <details className="na-crafting-panel" aria-label="Bancada de fabricação de Ferrugem">
+                  <summary className="menu-panel-kicker">BANCADA INDUSTRIAL · {CRAFTING_RECIPES.length} RECEITAS · ABRIR</summary>
                   <p>Combine os componentes recuperados em Ferrugem e na oficina de Nilo.
                     A fabricação consome recursos e produz equipamentos utilizáveis no combate.</p>
                   {CRAFTING_RECIPES.map(recipe=>
@@ -298,19 +301,19 @@ export default function CharacterMenu({
                         onClick={()=>setCraftNotice(onCraft(recipe.id))}>Fabricar</button>
                     </article>)}
                   {craftNotice&&<p role="status">{craftNotice}</p>}
-                </section>
-                <p className="menu-footnote">O inventário e os equipamentos fabricados são salvos neste aparelho. Curativos podem ser usados em combate.</p>
+                </details>
+                <p className="menu-footnote">As receitas consomem componentes reais. Curativos e baterias podem ser usados em combate.</p>
               </div>
             )}
 
             {activeSection === "equipment" && (
               <div className="menu-section-stack">
                 <div className="menu-two-columns">
-                  {(["weapon", "armor"] as const).map((slot) => {
+                  {(["weapon", "armor","implant"] as const).map((slot) => {
                     const id = inventory.equipped[slot];
                     return (
                       <section className="menu-info-panel" key={slot}>
-                        <span className="menu-panel-kicker">{slot === "weapon" ? "ARMA" : "PROTEÇÃO"}</span>
+                        <span className="menu-panel-kicker">{slot === "weapon" ? "ARMA" : slot==="armor"?"PROTEÇÃO":"IMPLANTE"}</span>
                         <h4>{id ? ITEM_CATALOG[id].name : "Espaço livre"}</h4>
                         <p>{id ? ITEM_CATALOG[id].description : "Abra o Inventário para equipar um item."}</p>
                         {id && <button type="button" className="na-item-unequip" onClick={() => onToggleEquipment(id)}>Remover equipamento</button>}
@@ -318,7 +321,7 @@ export default function CharacterMenu({
                     );
                   })}
                 </div>
-                <p className="menu-footnote">Modificadores de arma e proteção são aplicados na próxima entrada no Limbo de Teste.</p>
+                <p className="menu-footnote">Armas, armaduras e implantes alteram alcance, Vida, energia, movimento e defesa no combate. O equipamento ativo é salvo por personagem.</p>
               </div>
             )}
 
@@ -399,6 +402,24 @@ export default function CharacterMenu({
                   {sewerProgress.traceFound&&<div className="menu-list-row"><span>{sewerProgress.pumpRestored?"✓":"○"}</span><strong>Bomba hidráulica</strong><small>GALERIA -01</small></div>}
                   {sewerProgress.pumpRestored&&<div className="menu-list-row"><span>{sewerProgress.gateOpened?"✓":"○"}</span><strong>Comporta 04</strong><small>DESCIDA -02</small></div>}
                   {sewerProgress.gateOpened&&<div className="menu-list-row"><span>{sewerProgress.manifestRecovered?"✓":"○"}</span><strong>Manifesto V-09</strong><small>CÂMARA -02</small></div>}
+                </section>}
+                {edenProgress.started&&<section className="menu-list-panel" aria-label="Operação Ecos da Cidade">
+                  <span className="menu-panel-kicker">PROJETO ÉDEN // ECOS DA CIDADE</span>
+                  <p>{edenObjective(edenProgress)}</p>
+                  <small>Etapa {edenProgress.step} de {EDEN_STEPS.length}</small>
+                  {edenProgress.history.map(id=>{
+                    const stage=EDEN_STEPS.find(s=>s.id===id);
+                    return stage?<div className="menu-list-row" key={id}>
+                      <span>✓</span><strong>{stage.title}</strong><small>{stage.sector}</small>
+                    </div>:null;
+                  })}
+                  {!edenProgress.completed&&<div className="menu-list-row current">
+                    <span>◇</span><strong>{EDEN_STEPS[edenProgress.step]?.title}</strong>
+                    <small>EM ANDAMENTO</small>
+                  </div>}
+                  {edenProgress.completed&&<p className="menu-footnote">
+                    Desfecho: {edenProgress.ending==="publicar"?"dossiê público":"testemunhas protegidas"}.
+                  </p>}
                 </section>}
                 {ferrugemProgress.started&&<section className="menu-list-panel">
                   <span className="menu-panel-kicker">CAPÍTULO FERRUGEM // {ferrugemProgress.completed?"CONCLUÍDO":ferrugemProgress.started?(ferrugemProgress.step+"/"+FERRUGEM_STEPS.length):"NÃO INICIADO"}</span>

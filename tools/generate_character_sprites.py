@@ -301,6 +301,21 @@ for row,(origin,(masc_hair,fem_hair)) in enumerate(ORIGINS.items()):
                 fill=(216,230,224),font=ImageFont.load_default())
         dc.text((start_x+4,192),"4 dir. / 5 estados",fill=(149,180,182))
 contact.save(QA/"character-matrix.png")
+# Nova Arcádia v0.8.1: comportamento/expressão para TODOS os contatos.
+# As quatro direções conservam as proporções da arte original; além da
+# caminhada, o ator pode apontar, usar ferramentas, reagir e desabar.
+NPC_FULL_NAMES=[name for name in CHARS if name.startswith("npc-")]
+for name in NPC_FULL_NAMES:
+    cfg=CHARS[name]
+    sheet=Image.new("RGBA",(CW*len(ACTION_COLUMNS),CH*4),(0,0,0,0))
+    for direction in range(4):
+        for frame_index,(state,frame) in enumerate(ACTION_COLUMNS):
+            # O estado de habilidade é usado como gesto de diálogo/trabalho;
+            # o desenho tem acessórios específicos já definidos em cfg.
+            sheet.alpha_composite(draw_frame(cfg,direction,frame,state),
+                                  (frame_index*CW,direction*CH))
+    sheet.save(OUT/f"{name}.png",optimize=True)
+
 # QA atlas of unique named NPCs, four directions and idle/walk poses.
 NPC_NAMES=["lia","ramon","duda","iza","tomas","davi","marta","celina","mara","iuri","kai","dara"]
 atlas=Image.new("RGB",(4*210,3*157),(14,25,32))

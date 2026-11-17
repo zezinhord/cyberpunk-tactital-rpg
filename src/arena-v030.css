@@ -185,3 +185,77 @@
 .na-scene-recovery small{font-size:10px;color:#d2c5b1}
 .na-scene-recovery button{min-height:48px;padding:9px 14px;background:#294853;
  border:1px solid #e6ba8a;color:#fff0d8;border-radius:6px;font-weight:700}
+
+/* v0.8: seletor de consumível com alvo de toque acessível e sem expandir painel. */
+.na-supply-select{min-width:0;display:flex;align-items:center;gap:5px;
+ border:1px solid #53616b;border-radius:8px;padding:5px 6px;background:#1b2b36}
+.na-supply-select span{color:#e6cb97;font:700 9px var(--mono)}
+.na-supply-select select{max-width:160px;min-width:0;width:100%;min-height:40px;
+ border-radius:5px;border:1px solid #536f78;background:#17232d;color:#e9e5d6;
+ font:600 11px var(--body)}
+@media (orientation:landscape){
+ .arena-v030 .actions{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
+ .arena-v030 .na-supply-select{grid-column:1/-1;min-height:40px}
+ .arena-v030 .na-supply-select select{max-width:none;flex:1}
+}
+
+
+/* HOTFIX: derrota não é mais um botão enterrado no painel do turno.
+   Uma camada independente ocupa a viewport e funciona em landscape 914×411,
+   mesmo quando todos os comandos da arena estão indisponíveis. */
+.na-defeat-backdrop{
+ position:fixed;inset:0;z-index:10050;
+ display:flex;align-items:center;justify-content:center;
+ box-sizing:border-box;padding:max(8px,env(safe-area-inset-top,0px))
+ max(10px,env(safe-area-inset-right,0px))
+ max(8px,env(safe-area-inset-bottom,0px))
+ max(10px,env(safe-area-inset-left,0px));
+ background:rgba(4,10,19,.91);
+ backdrop-filter:blur(5px);
+ overflow-y:auto;overscroll-behavior:contain;
+}
+.na-defeat-dialog{
+ box-sizing:border-box;flex:none;width:min(620px,100%);
+ max-height:calc(100dvh - 16px);overflow-y:auto;
+ padding:clamp(12px,2vw,22px);
+ background:#152230;color:#e8ebeb;
+ border:2px solid #c85881;border-radius:14px;
+ box-shadow:0 8px 50px #000c;
+ display:flex;flex-direction:column;gap:9px;
+ font-family:system-ui,sans-serif;
+}
+.na-defeat-eyebrow{
+ color:#f8aac6;font:700 10px "IBM Plex Mono",monospace;
+ letter-spacing:.11em;
+}
+.na-defeat-dialog h2{font-size:clamp(19px,2.8vw,27px);line-height:1.05;
+ margin:0;color:#fff2f5;}
+.na-defeat-dialog>p{font-size:clamp(12px,1.5vw,14px);line-height:1.35;margin:0;}
+.na-defeat-options{display:grid;grid-template-columns:1fr 1fr;gap:9px;}
+.na-defeat-options button{
+ display:flex;flex-direction:column;justify-content:center;
+ gap:5px;padding:11px;text-align:left;min-height:62px;
+ border:2px solid #e0b278;border-radius:9px;
+ background:#36404a;color:#fff3d6;cursor:pointer;
+}
+.na-defeat-options button:focus-visible,
+.na-defeat-menu:focus-visible{outline:3px solid #00e5ff;outline-offset:2px;}
+.na-defeat-options button:active{transform:translateY(1px);}
+.na-defeat-options button strong{font-size:clamp(12px,1.7vw,16px);}
+.na-defeat-options button small{font-size:11px;color:#e4dad1;line-height:1.25;}
+.na-defeat-options .na-defeat-retry{border-color:#82cad7;background:#203c4a;}
+.na-defeat-menu{background:transparent;border:1px solid #87949f;
+ color:#e2e8e8;border-radius:7px;min-height:44px;padding:7px 12px;
+ cursor:pointer;font-size:12px;}
+.na-defeat-dialog .na-defeat-error{padding:5px 8px;border-left:3px solid #ffa574;
+ color:#ffd3bb;background:#4c2733;font-size:12px;}
+@media(max-width:570px),(max-height:345px){
+ .na-defeat-dialog{gap:6px;padding:9px 12px;}
+ .na-defeat-dialog>p{font-size:11px;}
+ .na-defeat-options button{min-height:52px;padding:8px;}
+ .na-defeat-options button small{font-size:10px;}
+ .na-defeat-menu{min-height:38px;}
+}
+@media (prefers-reduced-motion:reduce){
+ .na-defeat-backdrop{backdrop-filter:none;}
+}

@@ -5,6 +5,7 @@ import {ACTOR_TILES,BUILDINGS,GRID_HEIGHT,GRID_WIDTH,PLAYER_START,PROPS,ROAMING_
 import {paintCityBackground,drawCityBuilding,drawCityProp,tileWorld,
   type PropKind,type Point} from "../game/baixada/lite-city-art";
 import {createLiteArtAssets,drawLiteSprite,LONG_NPC_SHEETS,type LiteArtAssets} from "../game/baixada/lite-art-assets";
+import {CitizenRoutine} from "../game/baixada/npc-routines.ts";
 import {canStand,route,approachRoute} from "../game/baixada/navigation";
 import {smoothCamera,interpolateWalk} from "../game/baixada/motion";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
@@ -30,6 +31,8 @@ const ACTORS:ReadonlyArray<{id:string;tile:Tile;label:string;person:boolean}>= [
  {id:"feira-corretor",tile:ACTOR_TILES["feira-corretor"],label:"DAVI",person:true},
  {id:"feira-ajuda",tile:ACTOR_TILES["feira-ajuda"],label:"MARTA",person:true},
  {id:"feira-archive",tile:ACTOR_TILES["feira-archive"],label:"BOLETINS",person:false},
+ {id:"feira-memoria",tile:ACTOR_TILES["feira-memoria"],label:"MEMÓRIA",person:false},
+ {id:"feira-casa-comum",tile:ACTOR_TILES["feira-casa-comum"],label:"CASA COMUM",person:false},
  {id:"enter-sewer-drain",tile:ACTOR_TILES["enter-sewer-drain"],label:"ESGOTO -01",person:false},
  {id:"enter-sewer-deep",tile:ACTOR_TILES["enter-sewer-deep"],label:"ESGOTO -02",person:false},
  {id:"enter-ferrugem",tile:ACTOR_TILES["enter-ferrugem"],label:"FERRUGEM",person:false},
@@ -121,6 +124,23 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
   let view=getView(900,440,cameraPosition);
   let marker:Tile|null=null;
   const actorById=new Map(ACTORS.map(a=>[a.id,a]));
+  // Residentes usam as rotas/collisions do Phaser, mas são simulados uma vez
+  // por segundo no Android Canvas. Nenhuma IA ou cena fica fora da tela.
+  const residents:Map<string,{tile:Tile;from:Tile;movedAt:number;
+    routine:CitizenRoutine;lockUntil:number}>=new Map(ROAMING_NPCS.map(spec=>[spec.id,{
+    tile:{...spec.route[0]},from:{...spec.route[0]},movedAt:0,
+    routine:new CitizenRoutine(spec),lockUntil:0,
+  }] as const));
+  const actorTile=(id:string):Tile=>residents.get(id)?.tile??
+     actorById.get(id)?.tile??motion.position;
+  const actorWorld=(id:string):{x:number;y:number}=>{
+    const resident=residents.get(id);
+    if(!resident)return tileWorld(actorTile(id));
+    const elapsed=performance.now()-resident.movedAt;
+    const a=tileWorld(resident.from),b=tileWorld(resident.tile);
+    const factor=Math.max(0,Math.min(1,elapsed/620));
+    return {x:a.x+(b.x-a.x)*factor,y:a.y+(b.y-a.y)*factor};
+  };
   let art:LiteArtAssets|null=null;
   let facing:0|1|2|3=2;
   const layers:DrawLayer[]=[
@@ -238,7 +258,9 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
    // Renderização Canvas 2D da mesma arquitetura, sprites e props Phaser.
    // A câmera e a projeção compartilham a geometria do mapa original;
    // não há textura única gigantesca nem carregamento de sprites ociosos.
-   const visible=layers.filter(layer=>{
+   const visible=layers.map(layer=>layer.kind==="actor"&&residents.has(layer.actor.id)?
+      {...layer,pos:actorWorld(layer.actor.id),depth:actorWorld(layer.actor.id).y+.2}:layer)
+     .sort((a,b)=>a.depth-b.depth).filter(layer=>{
      const p=project(view,layer.pos);
      return p.x>=-205&&p.x<=width+205&&p.y>=-245&&p.y<=height+215;
    });
@@ -263,13 +285,20 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
      ctx.beginPath();ctx.ellipse(x,y+2,17,8,0,0,Math.PI*2);ctx.stroke();
    };
    const drawActor=(actor:(typeof ACTORS)[number])=>{
-     const p=tileWorld(actor.tile),x=p.x,y=p.y;
+     const p=actorWorld(actor.id),x=p.x,y=p.y;
      ctx.fillStyle="rgba(4,13,19,.5)";
      ctx.beginPath();ctx.ellipse(x,y+2,14,4,0,0,Math.PI*2);ctx.fill();
      const skin=ACTOR_SKIN[actor.id];
      if(actor.person){
+       const resident=residents.get(actor.id);
+       const walking=resident&&performance.now()-resident.movedAt<620;
+       const frame=walking?Math.floor(performance.now()/150)%4:
+         (Math.floor(performance.now()/900)%2)*2;
+       const dir:0|1|2|3=resident?
+         resident.tile.y<resident.from.y?0:resident.tile.x>resident.from.x?1:
+         resident.tile.y>resident.from.y?2:3:2;
        const drawn=drawLiteSprite(ctx,skin?art?.npc(skin)??null:null,x,y,
-         {scale:.86,direction:2,frame:0,
+         {scale:.86,direction:dir,frame,
           columns:skin&&LONG_NPC_SHEETS.has(skin)?12:4});
        if(!drawn){
          ctx.fillStyle=actor.id==="patio-sentinel"?"#9b4a67":"#59838c";
@@ -324,6 +353,35 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
        ctx.beginPath();ctx.moveTo(x-15,y-13);ctx.lineTo(x+15,y-13);
        ctx.stroke();
        ctx.fillStyle="#e0b47a";ctx.fillRect(x-11,y-36,22,3);
+     }else if(actor.id==="feira-casa-comum"){
+       // Pórtico comunitário: madeira de reuso, escada curta e banner âmbar.
+       ctx.fillStyle="#1a2e34";ctx.fillRect(x-20,y-52,40,52);
+       ctx.fillStyle="#7d6350";ctx.fillRect(x-24,y-54,48,9);
+       ctx.strokeStyle="#edbd83";ctx.lineWidth=2;
+       ctx.strokeRect(x-20,y-52,40,52);
+       ctx.fillStyle="#30484b";ctx.fillRect(x-14,y-42,28,29);
+       ctx.fillStyle="#d8c392";ctx.fillRect(x-10,y-39,20,4);
+       ctx.fillStyle="#8db7a4";ctx.fillRect(x-7,y-26,14,7);
+       ctx.fillStyle="#cfb08e";ctx.fillRect(x-26,y-5,52,4);
+       ctx.fillStyle="#f4d3a2";ctx.font="bold 7px monospace";
+       ctx.textAlign="center";ctx.fillText("COMUM",x,y-47);
+       ctx.textAlign="start";
+     }else if(actor.id==="feira-memoria"){
+       // Totem comunitário de gravações offline, com moldura em madeira
+       // reaproveitada e luz âmbar (verde fica exclusivo do Éden).
+       ctx.fillStyle="#1a2d33";ctx.fillRect(x-18,y-44,36,40);
+       ctx.fillStyle="#845d47";ctx.fillRect(x-19,y-47,38,6);
+       ctx.strokeStyle="#d7a56f";ctx.lineWidth=2;
+       ctx.strokeRect(x-18,y-44,36,40);
+       ctx.fillStyle="#344d53";ctx.fillRect(x-14,y-36,28,22);
+       ctx.fillStyle="#9cbaae";ctx.fillRect(x-11,y-33,22,16);
+       ctx.fillStyle="#273b43";ctx.fillRect(x-9,y-31,18,12);
+       ctx.strokeStyle="#e6b977";ctx.lineWidth=1.8;
+       ctx.beginPath();ctx.arc(x,y-25,5,Math.PI*.2,Math.PI*1.8);ctx.stroke();
+       ctx.fillStyle="#f5d1a2";ctx.font="bold 6px monospace";
+       ctx.textAlign="center";ctx.fillText("MEM",x,y-10);
+       ctx.fillStyle="#394c4c";ctx.fillRect(x-22,y-4,44,6);
+       ctx.textAlign="start";
      }else if(actor.id==="feira-archive"){
        // Painel de boletins comunitários no Mercado dos Cabos.
        ctx.fillStyle="#1a3036";ctx.fillRect(x-20,y-42,40,38);
@@ -359,7 +417,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
        ctx.fillStyle="#ac805a";ctx.fillRect(x-16,y-42,32,6);
        ctx.strokeStyle="#e4b273";ctx.strokeRect(x-16,y-42,32,6);
      }
-     if(distance(motion.position,actor.tile)<=3){
+     if(distance(motion.position,actorTile(actor.id))<=3){
        const label=actor.label;
        ctx.font="bold 10px monospace";
        const labelWidth=ctx.measureText(label).width;
@@ -412,7 +470,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
       notify(motion.position,true);
       const actor=motion.pendingActor;
       motion.pendingActor=null;
-      if(actor&&distance(motion.position,actorById.get(actor)?.tile??motion.position)<=1)
+      if(actor&&distance(motion.position,actorTile(actor))<=1)
         callbacks.current.onInteract(actor);
       return;
     }
@@ -452,11 +510,13 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
       return;
      }
     }
-    if(motion.step||cameraMoving)schedule();
+    if(motion.step||cameraMoving||[...residents.values()].some(n=>now-n.movedAt<640))schedule();
   };
   const go=(destination:Tile,actor?:string)=>{
     const start=motion.step?.to??motion.position;
-    const target=actor?actorById.get(actor)?.tile:null;
+    const target=actor?actorTile(actor):null;
+    const resident=actor?residents.get(actor):undefined;
+    if(resident)resident.lockUntil=performance.now()+Math.max(4000,motion.steps.length*190+2800);
     const path=target?approachRoute(start,target):route(start,destination);
     if(!path)return;
     motion.steps=path.slice(1);
@@ -492,7 +552,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     // The smoothed camera lags behind the avatar while walking; using
     // renderPosition targets a different tile from the one the player taps.
     const v=getView(width,height,cameraPosition);
-    const nearest=ACTORS.map(a=>({a,p:project(v,center(a.tile))}))
+    const nearest=ACTORS.map(a=>({a,p:project(v,actorWorld(a.id))}))
       .filter(({p})=>Math.abs(point.x-p.x)<36&&point.y>p.y-76&&point.y<p.y+18)
       .sort((a,b)=>Math.abs(a.p.x-point.x)+Math.abs(a.p.y-28-point.y)-
          Math.abs(b.p.x-point.x)-Math.abs(b.p.y-28-point.y))[0];
@@ -518,6 +578,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     if(canStand(target))go(target);
   };
   let observer:ResizeObserver|null=null;
+  let residentTimer:number|null=null;
   const visibility=()=>{
     if(document.hidden){
       suspendedAt=performance.now();
@@ -546,6 +607,23 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
       observer=new ResizeObserver(sizing);observer.observe(host);
     }else window.addEventListener("resize",sizing);
     scene.current={go,frame:schedule};
+    residentTimer=window.setInterval(()=>{
+      if(disposed||document.hidden)return;
+      const occupied=new Set([...residents.values()].map(r=>r.tile.x+","+r.tile.y));
+      occupied.add(motion.position.x+","+motion.position.y);
+      let moved=false;
+      for(const npc of residents.values()){
+        if(performance.now()<npc.lockUntil)continue;
+        occupied.delete(npc.tile.x+","+npc.tile.y);
+        const result=npc.routine.tick(npc.tile,occupied);
+        if(result.moved){
+          npc.from=npc.tile;npc.tile=result.tile;
+          npc.movedAt=performance.now();moved=true;
+        }
+        occupied.add(npc.tile.x+","+npc.tile.y);
+      }
+      if(moved)schedule();
+    },1350);
     art=createLiteArtAssets(originId,()=>{
       if(disposed)return;
       host.dataset.artLoaded=String(art?.loaded()??0);
@@ -563,6 +641,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     disposed=true;
     if(frameId)cancelAnimationFrame(frameId);
     clearTimeout(watchdog);
+    if(residentTimer!==null)clearInterval(residentTimer);
     observer?.disconnect();
     window.removeEventListener("resize",sizing);
     canvas.removeEventListener("pointerdown",pointer);

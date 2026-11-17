@@ -79,7 +79,17 @@ export class BattleScene extends Phaser.Scene {
     }
     this.lastCue = this.manager.getState().cue?.sequence ?? 0;
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.handleBoardTap, this);
-    this.unsubscribe = this.manager.subscribe((state) => this.renderState(state));
+    this.unsubscribe = this.manager.subscribe((state) => {
+      try{
+        this.renderState(state);
+      }catch(error){
+        // A renderização é acessória. Jamais permitir que uma falha do Canvas
+        // interrompa EventBus.emit antes de notificar o App do KO/resultado.
+        console.warn("[BATTLE_RENDER_RECOVERY] Canvas indisponível; HUD permanece ativo.",error);
+        this.unsubscribe?.();
+        this.unsubscribe=undefined;
+      }
+    });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.movementTicket++;
       this.playerMoving=false;
@@ -116,7 +126,17 @@ export class BattleScene extends Phaser.Scene {
     graphics.closePath();
   }
 
+  private hasLiveCanvas():boolean{
+    // Em React StrictMode/retentativa rápida, Phaser pode entregar eventos
+    // enquanto o renderer antigo já perdeu seu CanvasRenderingContext2D.
+    // Não criar Phaser.Text nem desenhar sobre canvas destruído.
+    const renderer=this.sys?.game?.renderer as unknown as
+      {context?:CanvasRenderingContext2D|null}|undefined;
+    return Boolean(this.sys?.isActive() && renderer?.context &&
+      this.graphics?.active && this.bars?.active);
+  }
   private renderState(state: GameState): void {
+    if(!this.hasLiveCanvas())return;
     const player = state.units.find((unit) => unit.id === "runner");
     const enemy = state.units.find((unit) => unit.id === "drone");
     const moveCue = state.cue?.visual === "move" && state.cue.sequence !== this.lastCue;
@@ -169,6 +189,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private showEffect(cue: NonNullable<GameState["cue"]>): void {
+    if(!this.hasLiveCanvas())return;
     const entity = cue.target === "enemy" ? this.enemyImage : this.playerImage;
     const base = cue.target === "terminal" ? { x: 0, y: 6 }
       : cue.target === "enemy" ? this.manager.getState().units.find((u) => u.id === "drone")
@@ -196,13 +217,26 @@ export class BattleScene extends Phaser.Scene {
         this.tweens.add({ targets: entity, alpha: 0.3, duration: 90, yoyo: true, repeat: 1 });
       }
       if (cue.amount && cue.amount > 0) {
-        const sign = cue.visual === "repair" || cue.visual === "terminal" ? "+" : "−";
-        const floating = this.add.text(position.x, position.y - 66, sign + String(cue.amount), {
-          fontFamily: "Arial", fontSize: "20px", fontStyle: "bold", color: "#f7e8d6",
-          stroke: "#09121a", strokeThickness: 4,
-        }).setOrigin(0.5).setDepth(14);
-        this.tweens.add({ targets: floating, y: floating.y - 22, alpha: 0, duration: 720,
-          onComplete: () => floating.destroy() });
+        // Phaser.Text aloca canvas/contextos auxiliares. Em Android, quando o
+        // Scene antigo fecha durante um KO, CanvasPool pode retornar null e
+        // Phaser.Text lança "Cannot read properties of null (reading 'context')".
+        // Representação vetorial dispensa Text/CanvasPool: o dano numérico
+        // continua exposto na mensagem e no relatório do combate.
+        const healing=cue.visual==="repair"||cue.visual==="terminal";
+        const amount=Math.max(1,Math.floor(cue.amount));
+        const pipCount=Math.min(6,Math.max(1,Math.ceil(amount/3)));
+        const floating=this.add.graphics().setDepth(14)
+          .setPosition(position.x,position.y-67);
+        floating.fillStyle(0x0b1822,.94).fillRoundedRect(-20,-9,40,18,5);
+        floating.lineStyle(1.7,healing?COLOR.cyan:COLOR.magenta,.92)
+          .strokeRoundedRect(-20,-9,40,18,5);
+        for(let i=0;i<pipCount;i++){
+          const x=-17+i*6;
+          floating.fillStyle(healing?COLOR.cyan:COLOR.magenta,.9)
+            .fillRoundedRect(x,-4,4,8,1);
+        }
+        this.tweens.add({targets:floating,y:floating.y-22,alpha:0,
+          duration:620,onComplete:()=>floating.destroy()});
       }
     }
   }

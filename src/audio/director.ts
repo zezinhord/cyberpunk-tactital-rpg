@@ -46,6 +46,10 @@ class SynthDirector {
   private lastEffect=0;
   private soundtrack:HTMLAudioElement|null=null;
   private soundtrackURL="";
+  // One compressed environmental stream at a time. No decoded PCM buffers in RAM.
+  private ambience:HTMLAudioElement|null=null;
+  private ambienceURL="";
+  private ambienceRain=false;
   private soundtrackBlocked=false;
   private district:RadioDistrict="baixada";
   private radioMode:RadioMode=savedRadioValue("mode")==="manual"?"manual":"auto";
@@ -78,12 +82,14 @@ class SynthDirector {
     document.addEventListener("visibilitychange",()=>{
       if(document.hidden){
         this.soundtrack?.pause();
+        this.ambience?.pause();
         this.stopSynthScore();
         this.musicFadeToken++;
         if(this.ctx)void this.ctx.suspend().catch(()=>{});
       }else if(this.ctx){
         void this.ctx.resume().then(()=>{
           if(this.volumes.music>0)this.switchTrack();
+          this.updateAmbience();
         }).catch(()=>{});
       }
       this.notifyRadio();
@@ -125,6 +131,8 @@ class SynthDirector {
         this.soundtrack=audio;
       }catch{/* Fallback síntese procedural. */}
       this.switchTrack();
+      this.prepareAmbience();
+      this.updateAmbience();
       // Somente arquivos locais: os originais continuam funcionando offline caso
       // a importação CC0 não exista na versão de desenvolvimento.
       void fetch("/assets/music/catalog.json",{cache:"force-cache"}).then(response=>{
@@ -154,6 +162,10 @@ class SynthDirector {
     try{globalThis.localStorage?.setItem(KEY+channel,String(v));}catch{}
     const ctx=this.ctx,g=this.outputs?.[channel];
     if(ctx&&g)g.gain.setTargetAtTime(v,ctx.currentTime,0.055);
+    if(channel==="ambient"&&this.ambience){
+      this.ambience.volume=v*0.42;
+      if(v===0)this.ambience.pause();else this.updateAmbience();
+    }
     if(channel==="music"&&this.soundtrack){
       this.soundtrack.volume=v*.65;
       if(v===0)this.soundtrack.pause();
@@ -166,10 +178,13 @@ class SynthDirector {
     this.current=scene;
     this.beat=0;this.rotation++;
     this.switchTrack();
+    this.updateAmbience();
   }
   setDistrict(district:RadioDistrict):void{
     if(this.district===district)return;
     this.district=district;
+    this.ambienceRain=false;
+    this.updateAmbience();
     if(this.radioMode==="auto"){
       this.rotation++;
       this.switchTrack();
@@ -272,6 +287,50 @@ class SynthDirector {
       this.startScore();
     }
   }
+  /** Três estados funcionais por área + chuva tropical alternada com rua.
+   * Áudio longo é transmitido por HTMLAudioElement e descarregado ao mudar de cena.
+   * O usuário pode reduzir/desativar a ambiência pelo mixer existente.
+   */
+  private prepareAmbience():void{
+    if(this.ambience||typeof Audio==="undefined")return;
+    try{
+      const stream=new Audio();
+      stream.preload="none";stream.loop=false;
+      stream.volume=this.volumes.ambient*0.42;
+      stream.onended=()=>{
+        if(this.current==="exploration")this.ambienceRain=!this.ambienceRain;
+        this.ambienceURL="";
+        this.updateAmbience();
+      };
+      stream.onerror=()=>{stream.pause();this.ambienceURL="";};
+      this.ambience=stream;
+    }catch{this.ambience=null;}
+  }
+  private updateAmbience():void{
+    const stream=this.ambience;
+    if(!stream)return;
+    if(this.current==="menu"||this.current==="story"||
+       this.volumes.ambient<=0||
+       typeof document!=="undefined"&&document.hidden){
+      stream.pause();return;
+    }
+    const mode=this.current==="battle"?"alert":
+       this.current==="interior"?"interior":
+       this.ambienceRain?"rain":"street";
+    const path="/assets/ambient/"+this.district+"/"+mode+".ogg";
+    if(this.ambienceURL!==path){
+      stream.pause();
+      stream.src=path;this.ambienceURL=path;
+      stream.load();
+    }
+    stream.volume=Math.max(0,Math.min(.5,this.volumes.ambient*.42));
+    if(stream.paused){
+      try{
+        const started=stream.play();
+        if(started)void started.catch(()=>{/* O gesto do usuário pode desbloquear novamente. */});
+      }catch{/* Streaming opcional em Chrome sem codec Opus ou sem gesto. */}
+    }
+  }
   private tone(channel:SoundChannel,freq:number,duration:number,kind:OscillatorType,level:number):void {
     const ctx=this.ctx,output=this.outputs?.[channel];
     if(!ctx||!output||ctx.state!=="running")return;
@@ -297,7 +356,7 @@ class SynthDirector {
       if(this.beat%2===0)this.tone("ambient",this.current==="battle"?58:46,0.5,"sine",0.09);
     },score.speed);
   }
-  effect(kind:"step"|"door"|"terminal"|"interact"|"hit"|"tech"|"victory"):void {
+  effect(kind:"step"|"door"|"terminal"|"interact"|"hit"|"tech"|"victory"|"archive"|"machine"|"eden"):void {
     if(!this.ctx)return;
     const now=Date.now();
     if(kind==="step"&&now-this.previousStep<170)return;
@@ -309,10 +368,19 @@ class SynthDirector {
       terminal:[590,.22,"sine",.16],interact:[340,.11,"triangle",.11],
       hit:[114,.18,"sawtooth",.22],tech:[740,.26,"square",.09],
       victory:[440,.45,"sine",.23],
+      archive:[310,.28,"triangle",.16],machine:[78,.36,"sawtooth",.17],
+      eden:[216,.42,"sine",.18],
     };
     const [f,d,w,a]=defs[kind];
     this.tone("effects",f,d,w,a);
-    if(kind==="tech"||kind==="victory")this.tone("effects",f*1.5,d*.8,"sine",a*.65);
+    if(kind==="tech"||kind==="victory"||kind==="archive")
+      this.tone("effects",f*1.5,d*.8,"sine",a*.65);
+    if(kind==="machine")
+      this.tone("effects",f*.55,d*1.1,"triangle",a*.45);
+    if(kind==="eden"){
+      this.tone("effects",f*1.26,d*.73,"sine",a*.45);
+      this.tone("ambient",54,d*1.4,"triangle",.055);
+    }
   }
 }
 export const audioDirector=new SynthDirector();

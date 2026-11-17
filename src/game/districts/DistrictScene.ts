@@ -11,7 +11,7 @@ import type {TestAppearance} from "../test-arena/appearance";
 import {DISTRICT_WIDTH,DISTRICT_HEIGHT,DISTRICT_SPAWN,NODE_TILES,NODE_NAMES,
  getDistrict,districtActorId,districtWalkable,districtPath,districtApproach,
  type Tile,type NodeSlot,type DistrictId,type DistrictSpec} from "./catalog";
-const W=1560,H=940,TW=54,TH=28,OX=788,OY=164;
+const W=1660,H=1040,TW=54,TH=28,OX=815,OY=164;
 type Point={x:number;y:number};
 const center=(p:Tile):Point=>({x:OX+(p.x-p.y)*TW/2,y:OY+(p.x+p.y)*TH/2});
 const cardinal:readonly Tile[]=[
@@ -124,7 +124,9 @@ export class DistrictScene extends Phaser.Scene{
   const g=this.add.graphics(),s=this.spec;
   drawDistrictSkyline(g,this.id,s,W,H);
   for(let y=0;y<DISTRICT_HEIGHT;y++)for(let x=0;x<DISTRICT_WIDTH;x++){
-   const c=center({x,y}),road=y===10||x===11||x===19;
+   const c=center({x,y}),road=y===10||x===11||x===19||
+     (y===6&&x>=3&&x<=27)||(y===18&&x>=11&&x<=28)||
+     (x===27&&y>=10&&y<=19);
    const tone=road?s.lane:(x*3+y)%5===0?s.wall:s.ground;
    this.tileDiamond(g,c,tone,s.accent);
    drawDistrictPavement(g,this.id,c,{x,y},road);
@@ -134,7 +136,7 @@ export class DistrictScene extends Phaser.Scene{
    }
   }
   // O fundo é exclusivo para piso e horizonte; edifícios têm profundidade própria.
-  const key="district-surface-"+this.id+"-v3";
+  const key="district-surface-"+this.id+"-v080";
   if(this.textures.exists(key))this.textures.remove(key);
   g.generateTexture(key,W,H);
   g.destroy();

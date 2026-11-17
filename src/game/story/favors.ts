@@ -4,11 +4,11 @@ import type {Reputation} from "./reputation.ts";
 
 /** Encomendas locais: surgem por contato e avanço real da narrativa, não por pré-cadastro no HUD. */
 export const FAVORS_KEY="cyberpunk-tactical-rpg.favors.v1.";
-export type FavorId="triagem"|"filtros"|"agua"|"rotas"|"patio"|"seguranca";
+export type FavorId="triagem"|"filtros"|"agua"|"rotas"|"patio"|"seguranca"|"forja"|"auditoria"|"abrigos"|"quarentena"|"palco"|"caravana"|"farol"|"conexao"|"neon";
 export interface FavorReward{xp:number;credits:number;honor:number;item:ItemId;amount:number}
 export interface FavorQuest{
  id:FavorId;title:string;contact:string;contactId:string;taskId:string;objective:string;
- synopsis:string;minimumMission:number;needsDefeat?:boolean;minimumHonor?:number;reward:FavorReward;
+ synopsis:string;minimumMission:number;needsDefeat?:boolean;minimumHonor?:number;requiresContact?:boolean;reward:FavorReward;
 }
 export const FAVORS:readonly FavorQuest[]=[
  {id:"triagem",title:"Arquivo de primeiros socorros",contact:"Dra. Amara",contactId:"dra-amara",
@@ -35,14 +35,24 @@ export const FAVORS:readonly FavorQuest[]=[
   taskId:"feira-ajuda",objective:"Combine o apoio com Marta e retorne a Davi.",
   synopsis:"Sem a sentinela V-09, moradores tentam reabrir rotas de suprimentos.",
   minimumMission:3,needsDefeat:true,minimumHonor:2,reward:{xp:46,credits:200,honor:2,item:"pistola_inducao",amount:1}},
+ {id:"forja",title:"Reativar o forno auxiliar",contact:"Ramon",contactId:"ramon",taskId:"ferrugem-cabinet",objective:"Inspecione o quadro elétrico de Ferrugem e retorne a Ramon.",synopsis:"A cooperativa precisa verificar o consumo de uma rede que alimenta a siderúrgica.",minimumMission:3,needsDefeat:true,minimumHonor:1,requiresContact:true,reward:{xp:46,credits:160,honor:1,item:"microatuador",amount:2}},
+ {id:"auditoria",title:"Cópias da torre",contact:"Nilo",contactId:"vendedor",taskId:"district-aurea-terminal",objective:"Recupere o protocolo de auditoria em Áurea e retorne a Nilo.",synopsis:"Uma credencial descartada pode esclarecer a origem dos componentes.",minimumMission:3,needsDefeat:true,minimumHonor:1,requiresContact:true,reward:{xp:44,credits:145,honor:1,item:"dados_criptografados",amount:2}},
+ {id:"abrigos",title:"Mapa de abrigo seguro",contact:"Iza",contactId:"iza",taskId:"district-subsolo-community",objective:"Ouça o conselho do Subsolo e volte a Iza.",synopsis:"Moradores precisam de uma rota de entrega que não revele os abrigos.",minimumMission:3,needsDefeat:true,minimumHonor:2,requiresContact:true,reward:{xp:50,credits:160,honor:1,item:"tecido_tecnico",amount:2}},
+ {id:"quarentena",title:"Medicação sem cadastro",contact:"Dra. Amara",contactId:"dra-amara",taskId:"district-setor-zero-terminal",objective:"Examine o terminal da quarentena e retorne à clínica.",synopsis:"A clínica precisa comparar protocolos de uma unidade isolada.",minimumMission:3,needsDefeat:true,minimumHonor:2,requiresContact:true,reward:{xp:60,credits:180,honor:1,item:"reagente_bio",amount:2}},
+ {id:"palco",title:"Transmissor livre",contact:"Davi",contactId:"feira-corretor",taskId:"district-prisma-relay",objective:"Localize a antena independente de Prisma e retorne a Davi.",synopsis:"Um canal não rastreável pode proteger as testemunhas do Mercado.",minimumMission:3,needsDefeat:true,minimumHonor:1,requiresContact:true,reward:{xp:50,credits:165,honor:1,item:"fibra_optica",amount:2}},
+ {id:"caravana",title:"Reserva de água externa",contact:"Marta",contactId:"feira-ajuda",taskId:"district-periferia-cache",objective:"Inspecione o depósito das caravanas e retorne a Marta.",synopsis:"A Casa Comum quer saber por que os tanques ainda não chegaram.",minimumMission:3,needsDefeat:true,minimumHonor:2,requiresContact:true,reward:{xp:55,credits:190,honor:1,item:"placa_ceramica",amount:2}},
+ {id:"farol",title:"Sinal das caravanas",contact:"Téo",contactId:"teo",taskId:"district-periferia-terminal",objective:"Verifique o terminal rodoviário e volte a Téo.",synopsis:"Uma rota fora da rede pode salvar os entregadores do Canal.",minimumMission:3,needsDefeat:true,minimumHonor:3,requiresContact:true,reward:{xp:52,credits:190,honor:1,item:"rifle_periferia",amount:1}},
+ {id:"conexao",title:"Lista de turnos apagados",contact:"Joana",contactId:"moradora",taskId:"ferrugem-log",objective:"Encontre o livro de turnos de Ferrugem e volte a Joana.",synopsis:"Joana procura parentes de trabalhadores registrados com nomes falsos.",minimumMission:3,needsDefeat:true,minimumHonor:2,requiresContact:true,reward:{xp:44,credits:130,honor:1,item:"colete_comunitario",amount:1}},
+ {id:"neon",title:"O operador do palco",contact:"Iza",contactId:"iza",taskId:"district-prisma-specialist",objective:"Converse com o técnico de Prisma e retorne a Iza.",synopsis:"Entregas noturnas desapareceram após o corte do sinal da praça.",minimumMission:3,needsDefeat:true,minimumHonor:3,requiresContact:true,reward:{xp:57,credits:185,honor:1,item:"traje_prisma",amount:1}},
 ] as const;
 export type FavorContext={missionStep:number;v09Defeated:boolean;honor?:number};
 export interface PurchaseReceipt{id:number;item:ItemId;amount:number;cost:number}
 export interface FavorState{
  version:1;accepted:readonly FavorId[];ready:readonly FavorId[];claimed:readonly FavorId[];
  credits:number;honor:number;purchases:readonly PurchaseReceipt[];
+ discovered:readonly FavorId[];
 }
-export const INITIAL_FAVORS:FavorState={version:1,accepted:[],ready:[],claimed:[],credits:0,honor:0,purchases:[]};
+export const INITIAL_FAVORS:FavorState={version:1,accepted:[],ready:[],claimed:[],credits:0,honor:0,purchases:[],discovered:[]};
 export interface ShopOffer{item:ItemId;amount:number;price:number;label:string;minHonor?:number;minLivre?:number}
 export const NILO_SHOP:readonly ShopOffer[]=[
  {item:"curativo_campo",amount:1,price:30,label:"Curativo de campo"},
@@ -51,6 +61,15 @@ export const NILO_SHOP:readonly ShopOffer[]=[
  {item:"colete_reforcado",amount:1,price:240,label:"Colete reforçado"},
  {item:"celula_energia",amount:1,price:90,label:"Célula solidária · rede comunitária",
   minHonor:3,minLivre:2},
+ {item:"fibra_optica",amount:1,price:50,label:"Fibra óptica"},
+ {item:"placa_ceramica",amount:1,price:60,label:"Placa cerâmica"},
+ {item:"reagente_bio",amount:1,price:65,label:"Reagente biomédico"},
+ {item:"tecido_tecnico",amount:1,price:45,label:"Tecido técnico"},
+ {item:"dados_criptografados",amount:1,price:90,label:"Pacote criptografado"},
+ {item:"microatuador",amount:1,price:80,label:"Microatuador"},
+ {item:"kit_trauma",amount:1,price:95,label:"Kit de trauma"},
+ {item:"bioespuma",amount:1,price:65,label:"Bioespuma"},
+ {item:"bateria_portatil",amount:1,price:90,label:"Bateria portátil"},
 ] as const;
 export function shopOfferUnlocked(offer:ShopOffer,state:FavorState,reputation?:Reputation):boolean{
  return state.honor>=(offer.minHonor??0)&&
@@ -69,6 +88,7 @@ export function readFavors(ownerId:string):FavorState{
   const v=JSON.parse(raw) as Partial<FavorState>;
   if(v.version!==1)return {...INITIAL_FAVORS};
   const accepted=ids(v.accepted),ready=ids(v.ready).filter(id=>accepted.includes(id));
+  const discovered=ids(v.discovered);
   const claimed=ids(v.claimed).filter(id=>ready.includes(id));
   const purchases=Array.isArray(v.purchases)?v.purchases.filter((p):p is PurchaseReceipt=>{
    if(!p||typeof p!=="object")return false;
@@ -76,7 +96,7 @@ export function readFavors(ownerId:string):FavorState{
      ITEMS.has(p.item)&&p.amount===1&&NILO_SHOP.some(s=>s.item===p.item&&s.price===p.cost);
   }).slice(0,10000):[];
   return {version:1,accepted,ready,claimed,credits:safeNumber(v.credits,9999999),
-   honor:safeNumber(v.honor,99999),purchases};
+   honor:safeNumber(v.honor,99999),purchases,discovered};
  }catch{return {...INITIAL_FAVORS};}
 }
 export function saveFavors(ownerId:string,state:FavorState):boolean{
@@ -92,6 +112,19 @@ export function favorUnlocked(quest:FavorQuest,ctx:FavorContext):boolean{
 export function visibleFavors(ctx:FavorContext):readonly FavorQuest[]{
  return FAVORS.filter(quest=>favorUnlocked(quest,ctx));
 }
+/** Atividades novas só entram no quadro depois que o contato contou o problema.
+ * As seis tarefas antigas mantêm o desbloqueio legado sem exigir migração. */
+export function knownFavors(state:FavorState,ctx:FavorContext):readonly FavorQuest[]{
+ return visibleFavors(ctx).filter(f=>!f.requiresContact||
+   state.discovered.includes(f.id)||state.accepted.includes(f.id));
+}
+export function discoverFavors(state:FavorState,actor:string,ctx:FavorContext):
+ {state:FavorState;revealed:readonly FavorId[]}{
+ const revealed=visibleFavors(ctx).filter(f=>f.requiresContact&&f.contactId===actor&&
+   !state.discovered.includes(f.id)).map(f=>f.id);
+ return revealed.length?{state:{...state,discovered:[...state.discovered,...revealed]},revealed}:
+  {state,revealed:[]};
+}
 export function favorStatus(state:FavorState,id:FavorId):"offered"|"active"|"ready"|"claimed"{
  if(state.claimed.includes(id))return "claimed";
  if(state.ready.includes(id))return "ready";
@@ -100,7 +133,8 @@ export function favorStatus(state:FavorState,id:FavorId):"offered"|"active"|"rea
 export function acceptFavor(state:FavorState,id:FavorId,ctx:FavorContext):
  {ok:boolean;state:FavorState;message:string}{
  const quest=FAVORS.find(f=>f.id===id);
- if(!quest||!favorUnlocked(quest,ctx))return {ok:false,state,message:"Este favor ainda não foi liberado."};
+ if(!quest||!favorUnlocked(quest,ctx)||quest.requiresContact&&!state.discovered.includes(id))
+  return {ok:false,state,message:"Este favor ainda não foi descoberto. Procure o contato."};
  if(state.accepted.includes(id))return {ok:false,state,message:"Este favor já está no seu diário."};
  if(state.accepted.filter(x=>!state.claimed.includes(x)).length>=3)
   return {ok:false,state,message:"Conclua um dos três favores ativos antes de aceitar outro."};
@@ -159,11 +193,12 @@ export function syncFavorItems(inventory:InventoryState,state:FavorState):Invent
 export function validateFavorBackup(raw:unknown):raw is FavorState{
  if(!raw||typeof raw!=="object"||Array.isArray(raw))return false;
  const s=raw as Record<string,unknown>;
- if(Object.keys(s).some(k=>!["version","accepted","ready","claimed","credits","honor","purchases"].includes(k))||
+ if(Object.keys(s).some(k=>!["version","accepted","ready","claimed","credits","honor","purchases","discovered"].includes(k))||
    s.version!==1)return false;
  const valid=(x:unknown):x is FavorId[]=>Array.isArray(x)&&x.length<=FAVORS.length&&
    new Set(x).size===x.length&&x.every(v=>typeof v==="string"&&IDS.has(v as FavorId));
- if(!valid(s.accepted)||!valid(s.ready)||!valid(s.claimed))return false;
+ if(!valid(s.accepted)||!valid(s.ready)||!valid(s.claimed)||
+   s.discovered!==undefined&&!valid(s.discovered))return false;
  const accepted=s.accepted as FavorId[],ready=s.ready as FavorId[],claimed=s.claimed as FavorId[];
  if(!ready.every(x=>accepted.includes(x))||!claimed.every(x=>ready.includes(x)))return false;
  if(!Array.isArray(s.purchases)||s.purchases.length>10000)return false;

@@ -5,6 +5,7 @@
 import {readFavors,type FavorId,type FavorState} from "./favors.ts";
 import {readMarket,type MarketState} from "./market.ts";
 import {readFerrugem,type FerrugemProgress} from "../ferrugem/story.ts";
+import {readEden,type EdenProgress} from "./eden-echoes.ts";
 import {readDistrictProgress,type ChapterProgress} from "../districts/progress.ts";
 import {DISTRICTS,type DistrictId} from "../districts/catalog.ts";
 import {grantRewardInventoryItem,type ItemId,type InventoryState} from "../inventory.ts";
@@ -22,7 +23,7 @@ export interface Reputation{
 }
 export interface ReputationSource{
  favors:FavorState;market:MarketState;
- ferrugem?:FerrugemProgress;
+ ferrugem?:FerrugemProgress;eden?:EdenProgress;
  chapters?:Partial<Record<DistrictId,ChapterProgress>>;
 }
 type Delta=Partial<Record<FactionId,number>>;
@@ -30,6 +31,11 @@ const FAVOR_EFFECTS:Readonly<Record<FavorId,Delta>>={
  triagem:{movimento_livre:1},filtros:{mercado_cinzento:1},
  agua:{movimento_livre:2},rotas:{mercado_cinzento:2},
  patio:{movimento_livre:1},seguranca:{movimento_livre:1,mercado_cinzento:1},
+ forja:{movimento_livre:1},auditoria:{mercado_cinzento:1},
+ abrigos:{movimento_livre:2},quarentena:{movimento_livre:1},
+ palco:{mercado_cinzento:2},caravana:{movimento_livre:1},
+ farol:{mercado_cinzento:1},conexao:{movimento_livre:2},
+ neon:{mercado_cinzento:1},
 };
 const MARKET_EFFECTS:Readonly<Record<string,Delta>>={
  converse:{mercado_cinzento:1},mutirao:{movimento_livre:1},
@@ -73,6 +79,11 @@ export function calculateReputation(source:ReputationSource):Reputation{
  };
  for(const id of new Set(source.favors.claimed))apply(FAVOR_EFFECTS[id]);
  for(const decision of new Set(source.market.decisions))apply(MARKET_EFFECTS[decision]);
+ if(source.eden?.completed){
+  apply(source.eden.ending==="publicar"
+   ?{movimento_livre:2,helix:-2,mercado_cinzento:-1}:
+   {movimento_livre:2,mercado_cinzento:1,helix:-1});
+ }
  if(source.ferrugem?.completed){
   apply(source.ferrugem.ending==="publicar"
    ?{movimento_livre:2,helix:-2}
@@ -93,7 +104,7 @@ export function calculateReputation(source:ReputationSource):Reputation{
 export function readReputation(characterId:string):Reputation{
  return calculateReputation({
   favors:readFavors(characterId),market:readMarket(characterId),
-  ferrugem:readFerrugem(characterId),
+  ferrugem:readFerrugem(characterId),eden:readEden(characterId),
   chapters:Object.fromEntries(DISTRICTS.map(d=>[d.id,readDistrictProgress(characterId,d.id)])),
  });
 }

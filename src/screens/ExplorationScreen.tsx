@@ -8,7 +8,7 @@ import BaixadaWorld from "../components/BaixadaWorld";
 import SceneRecovery from "../components/SceneRecovery";
 import { getOriginById, getOriginGameplay } from "../game/character";
 import CharacterMenu from "../components/CharacterMenu";
-import type { InventoryState, ItemId } from "../game/inventory";
+import {ITEM_CATALOG,type InventoryState,type ItemId} from "../game/inventory";
 import type {RecipeId} from "../game/crafting";
 import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
@@ -16,8 +16,10 @@ import type { TestAppearance } from "../game/test-arena/appearance";
 import { audioDirector } from "../audio/director";
 import {isAndroidDevice} from "../game/performance";
 import {FAVORS,NILO_SHOP,readFavors,saveFavors,acceptFavor,recordFavorActivity,
-  visibleFavors,favorStatus,shopOfferUnlocked,type FavorId} from "../game/story/favors";
+  visibleFavors,knownFavors,discoverFavors,favorStatus,shopOfferUnlocked,type FavorId} from "../game/story/favors";
 import {calculateReputation,FACTION_NAMES,factionStanding} from "../game/story/reputation";
+import {EDEN_STEPS,readEden,saveEden,startEden,currentEdenStep,edenObjective,advanceEden,type EdenEnding} from "../game/story/eden-echoes.ts";
+import {DISCOVERY_REWARDS,type DiscoveryArea} from "../game/story/discoveries.ts";
 import type {ClassId} from "../game/classes/registry";
 import type {EncounterId} from "../game/types";
 import {statRank,type StatId} from "../game/progression/tree";
@@ -35,6 +37,8 @@ import {FERRUGEM_ACTORS,isFerrugemActor} from "../game/ferrugem/layout";
 import {readFerrugem,saveFerrugem,startFerrugem,advanceFerrugem,
  currentFerrugemStep,ferrugemObjective,type FerrugemEnding} from "../game/ferrugem/story";
 import {DISTRICTS,isDistrictId,getDistrict,actorFromId,type DistrictId} from "../game/districts/catalog";
+import {isInnerId,isInnerInteract,INNER_BLUEPRINTS,INNER_IDS,type InnerId} from "../game/districts/interiors.ts";
+import {innerReceipt} from "../game/story/indoor-rewards.ts";
 import {readDistrictProgress,saveDistrictProgress,beginDistrict,
  districtCurrentStep,districtObjective,advanceDistrict,type ChapterProgress,
  type DistrictEnding} from "../game/districts/progress";
@@ -64,6 +68,8 @@ interface Props {
   onToggleEquipment: (id: ItemId) => void;
   onGrantQuestItem: (id: ItemId) => void;
   onGrantIndustrialItem:(id:ItemId)=>void;
+  onCollectDistrictCache:(area:DiscoveryArea)=>boolean;
+  onCollectInteriorProp:(area:InnerId,propId:string)=>boolean;
   onCraft:(id:RecipeId)=>string;
 }
 
@@ -138,6 +144,8 @@ export default function ExplorationScreen({
   onToggleEquipment,
   onGrantQuestItem,
   onGrantIndustrialItem,
+  onCollectDistrictCache,
+  onCollectInteriorProp,
   onCraft,
 }: Props) {
   const origin = getOriginById(character.originId);
@@ -178,10 +186,12 @@ export default function ExplorationScreen({
   const [favors,setFavors]=useState(()=>readFavors(character.id));
   const [favorNotice,setFavorNotice]=useState("");
   const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));
+  const [eden,setEden]=useState(()=>readEden(character.id));
   const [trialNotice,setTrialNotice]=useState("");
   const [sectorId,setSectorId]=useState<SectorId>(()=>sectorAt(loadWorldLocation(character.id)));
   useEffect(()=>{
-    audioDirector.setDistrict(isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":"baixada");
+    audioDirector.setDistrict(isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":
+      isInnerId(interior)?INNER_BLUEPRINTS[interior].parent??"baixada":"baixada");
     audioDirector.setScene(interior?"interior":"exploration");
   },[interior]);
 
@@ -214,10 +224,11 @@ export default function ExplorationScreen({
         ...favorChoicesFor("dra-amara")]}:page));
   };
   const v09=readV09(character.id);
-  const reputation=calculateReputation({favors,market,ferrugem,chapters:cityChapters});
+  const reputation=calculateReputation({favors,market,ferrugem,eden,chapters:cityChapters});
   const favorContext={missionStep:mission.step,v09Defeated:v09.defeated,honor:favors.honor};
-  const unlockedFavors=visibleFavors(favorContext);
-  const favorChoicesFor=(actor:string):ConversationOption[]=>unlockedFavors
+  const unlockedFavors=knownFavors(favors,favorContext);
+  // Ao conversar com o próprio contato, a oferta aparece sem precisar abrir o quadro.
+  const favorChoicesFor=(actor:string):ConversationOption[]=>visibleFavors(favorContext)
     .filter(f=>f.contactId===actor&&!favors.claimed.includes(f.id))
     .flatMap(f=>{
       const status=favorStatus(favors,f.id);
@@ -290,6 +301,7 @@ export default function ExplorationScreen({
       return;
     }
     setFerrugem(result.progress);
+    audioDirector.effect("machine");
     if(result.progress.completed){
       // A resolução altera indicadores já usados nos diálogos do Mercado.
       // Publicar amplia o alerta da rede; proteger fortalece a confiança local.
@@ -386,17 +398,87 @@ export default function ExplorationScreen({
   };
 
   const handleInteract = (id: string) => {
-    // O console do Pátio pode ser consultado parcialmente antes do manifesto.
-    // A inspeção do favor só conta quando os registros de fato são acessíveis.
-    const taskAccessible=id!=="patio-console"||
-      (mission.step>=3&&(hasSewerEvidence(sewer)||v09.defeated));
-    const activity=recordFavorActivity(favors,id,taskAccessible);
-    if(activity.ready.length){
+    // Conteúdo realmente explorável: cenas internas carregadas uma por vez.
+    if(id==="feira-casa-comum"){
+      setHubOpen(false);setInterior("baixada-community");audioDirector.effect("door");return;
+    }
+    if(id==="ferrugem-foundry-access"){
+      setHubOpen(false);setInterior("ferrugem-foundry");audioDirector.effect("door");return;
+    }
+    if(isInnerId(interior)){
+      const blueprint=INNER_BLUEPRINTS[interior];
+      if(id==="interior-"+interior+"-exit"){
+        setInterior(blueprint.parent);audioDirector.effect("door");return;
+      }
+      if(id==="interior-"+interior+"-guide"){
+        const favor= blueprint.parent==="subsolo"?"movimento_livre":
+          blueprint.parent==="aurea"?"helix":"movimento_livre";
+        say([{speaker:blueprint.guide,role:"CONTATO LOCAL · "+blueprint.title,portrait:"◆",
+          text:blueprint.guideWords+(reputation.factions[favor]>=2
+            ?" Sua ajuda anterior foi reconhecida pela rede local."
+            :" A confiança é conquistada pelas decisões que realmente ajudam o bairro.")}]);
+        return;
+      }
+      const found=isInnerInteract(id);
+      if(found?.area===interior){
+        const claimed=onCollectInteriorProp(found.area,found.prop.id);
+        if(claimed){
+          audioDirector.effect(found.prop.kind==="machine"?"machine":"archive");
+          onQuestXp(innerReceipt(found.area,found.prop),found.prop.xp);
+        }
+        say([{speaker:blueprint.title,role:"DESCOBERTA · "+found.prop.title,portrait:"▤",
+          text:claimed?found.prop.detail+" +"+found.prop.xp+" XP; "+found.prop.item.replaceAll("_"," ")+" recolhido."
+           :"Este recurso já foi coletado ou o inventário não pôde ser salvo."}]);
+        return;
+      }
+    }
+    const discovered=discoverFavors(favors,id,favorContext);
+    // A inspeção de um mapa regional só é válida após alcançar o distrito.
+    const regionalActor=actorFromId(id);
+    const taskAccessible=(id!=="patio-console"||
+      (mission.step>=3&&(hasSewerEvidence(sewer)||v09.defeated)))&&
+      (!regionalActor||cityChapters[regionalActor.district].started)&&
+      (!id.startsWith("ferrugem-")||ferrugem.started);
+    const activity=recordFavorActivity(discovered.state,id,taskAccessible);
+    if(activity.state!==favors){
       if(saveFavors(character.id,activity.state)){
         setFavors(activity.state);
-        const names=activity.ready.map(fid=>FAVORS.find(f=>f.id===fid)?.title).filter(Boolean);
-        setFavorNotice("Favor pronto para entregar: "+names.join(", ")+".");
-      }else setFavorNotice("Falha ao registrar o favor. Libere espaço e tente novamente.");
+        const readyNames=activity.ready.map(fid=>FAVORS.find(f=>f.id===fid)?.title).filter(Boolean);
+        setFavorNotice(readyNames.length?"Favor pronto para entregar: "+readyNames.join(", ")+"."
+          :discovered.revealed.length?"Novos pedidos conhecidos. Abra o Quadro de Favores.":"");
+      }else setFavorNotice("Falha ao registrar favor. Libere espaço no aparelho.");
+    }
+    const storyStage=currentEdenStep(eden);
+    if(storyStage?.actor===id){
+      if(storyStage.kind==="combat"){
+        onOpenBattle(storyStage.encounter);
+        return;
+      }
+      if(storyStage.kind==="decision"){
+        say([{speaker:"MURAL DE BOLETINS",role:"DECISÃO COLETIVA · PROJETO ÉDEN",
+          portrait:"▤",text:storyStage.message,
+          choices:[
+            {id:"eden-publicar",label:"Divulgar os dados agora",reply:"Os documentos serão publicados."},
+            {id:"eden-resguardar",label:"Proteger testemunhas e preparar auditoria",reply:"Os arquivos serão preservados."}
+          ]}]);
+        return;
+      }
+      const result=advanceEden(eden,id);
+      if(result.advanced&&result.step){
+        if(!saveEden(character.id,result.state)){
+          say([{speaker:"REGISTRO LOCAL",role:"FALHA DE SALVAMENTO",portrait:"!",
+            text:"Não foi possível registrar o capítulo Éden. Libere espaço e repita a interação."}]);
+          return;
+        }
+        setEden(result.state);
+        audioDirector.effect("eden");
+        onQuestXp("eden-"+result.step.id,result.step.xp);
+        onSyncFactionAids();
+        setCityNotice(result.step.title+" · +"+result.step.xp+" XP · próxima pista liberada.");
+        say([{speaker:storyStage.sector,role:"RASTROS DO PROJETO ÉDEN",
+          portrait:"▤",text:result.message}]);
+        return;
+      }
     }
     const cityActor=actorFromId(id);
     if(cityActor){
@@ -404,6 +486,20 @@ export default function ExplorationScreen({
       if(slot==="exit"){
         setCityDecision(null);saveWorldLocation(character.id,{x:36,y:26});
         setInterior(null);return;
+      }
+      if(slot==="interior"){
+        const inner=INNER_IDS.find(area=>INNER_BLUEPRINTS[area].parent===district);
+        if(inner){audioDirector.effect("door");setInterior(inner);}return;
+      }
+      if(slot==="discovery"){
+        const discovery=DISCOVERY_REWARDS[district];
+        const collected=onCollectDistrictCache(district);
+        if(collected){audioDirector.effect("archive");onQuestXp("discovery-"+district,discovery.xp);}
+        say([{speaker:getDistrict(district).name,role:"CAIXA DE SUPRIMENTOS · DESCOBERTA",
+          portrait:"▤",text:collected?discovery.story+
+            " Item recolhido e +"+discovery.xp+" XP.":
+          "Esta caixa já foi recolhida ou o inventário não pôde ser salvo."}]);
+        return;
       }
       const state=cityChapters[district];
       const stage=districtCurrentStep(district,state);
@@ -468,6 +564,15 @@ export default function ExplorationScreen({
       saveWorldLocation(character.id,{x:36,y:22});
       setFerrugemDecisionPending(false);
       setInterior(null);
+      return;
+    }
+    if(id==="ferrugem-salvage"){
+      const collected=onCollectDistrictCache("ferrugem");
+      if(collected){audioDirector.effect("machine");onQuestXp("discovery-ferrugem",12);}
+      say([{speaker:"ARQUIVO DE REFUGO",role:"RECUPERAÇÃO DA SIDERÚRGICA",
+        portrait:"▤",text:collected?
+          "Um microatuador da linha de montagem estava escondido na caixa lacrada. Material recuperado e +12 XP.":
+          "A caixa já foi esvaziada ou o inventário não pôde ser salvo."}]);
       return;
     }
     if(isFerrugemActor(id)){
@@ -576,6 +681,16 @@ export default function ExplorationScreen({
       return;
     }
 
+    if(id==="feira-memoria"){
+      const discovery=DISCOVERY_REWARDS.baixada;
+      const collected=onCollectDistrictCache("baixada");
+      if(collected){audioDirector.effect("archive");onQuestXp("discovery-baixada",discovery.xp);}
+      say([{speaker:"ARQUIVO DE MEMÓRIAS",role:"REDE AUTÔNOMA · HISTÓRIAS DA BAIXADA",
+        portrait:"▤",text:collected?
+          discovery.story+" +"+discovery.xp+" XP e arquivo recuperado.":
+          "Os registros já foram recolhidos ou não foi possível gravar o inventário."}]);
+      return;
+    }
     if(isMarketActor(id)){
       const node=getMarketConversation(id,character.classId,market,v09.reported,character.originId,reputation);
       say([{speaker:node.speaker,role:node.role,portrait:node.portrait,
@@ -724,10 +839,12 @@ export default function ExplorationScreen({
           role: "MECÂNICO / VENDEDOR",
           portrait: "N",
           text: "Encontrei um conector com marcação de manutenção do canal. Pode ficar com a peça; talvez ajude a entender o que aconteceu. Não é equipamento de oficina comum. Saldo da oficina: "+favors.credits+" créditos.",
-          choices:[...favorChoicesFor("vendedor"),...NILO_SHOP.filter(offer=>
-            shopOfferUnlocked(offer,favors,reputation)).map(offer=>({
-            id:"nilo-buy-"+offer.item,label:"Comprar "+offer.label+" · "+offer.price+" créditos",
-            reply:"Pedido de compra da oficina.",shopAction:offer.item}))],
+          choices:[...favorChoicesFor("vendedor"),...[
+            ["materiais","Componentes e fabricação"],
+            ["medicamentos","Curativos e baterias"],
+            ["equipamentos","Armas e proteção"],
+          ].map(([code,label])=>({
+            id:"nilo-open-"+code,label:"Ver "+label,reply:"Abrir seção do catálogo."}))],
         },
       ]);
       return;
@@ -741,6 +858,7 @@ export default function ExplorationScreen({
           role: "MORADORA DA BAIXADA",
           portrait: "J",
           text: "Teve gente perguntando por implantes usados e levando caixas sem identificação. Aconteceu perto da passagem do canal. Depois disso, ninguém quis falar sobre o assunto.",
+          choices:[...favorChoicesFor("moradora")],
         },
       ]);
       return;
@@ -780,6 +898,7 @@ export default function ExplorationScreen({
           role: "ENTREGADOR DO CANAL",
           portrait: "T",
           text: "Vi uma equipe atravessar o canal num horário que não aparecia nos avisos. O caminhão parou na Subestação Sul, do outro lado do Pátio. Há uma escada de manutenção ali; se ainda procura a rota V-09, comece por ela.",
+          choices:[...favorChoicesFor("teo")],
         },
       ]);
       return;
@@ -809,6 +928,40 @@ export default function ExplorationScreen({
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    if(choice.id==="eden-publicar"||choice.id==="eden-resguardar"){
+      const ending:EdenEnding=choice.id==="eden-publicar"?"publicar":"resguardar";
+      const result=advanceEden(eden,"feira-archive",ending);
+      if(!result.advanced||!result.step)return;
+      if(!saveEden(character.id,result.state)){
+        say([{speaker:"REGISTRO LOCAL",role:"FALHA DE SALVAMENTO",portrait:"!",
+          text:"A decisão não foi salva. Libere espaço e tente novamente."}]);return;
+      }
+      setEden(result.state);
+      audioDirector.effect("eden");
+      onQuestXp("eden-"+result.step.id,result.step.xp);
+      onSyncFactionAids();
+      say([{speaker:"MARTA · CASA COMUM",role:"CONSEQUÊNCIAS DO PROJETO ÉDEN",portrait:"M",
+        text:result.message+(ending==="publicar"
+          ?" A Helix foi notificada e a comunidade começa a preparar proteção para as fontes."
+          :" Os nomes permanecem protegidos enquanto se constrói uma auditoria independente.")}]);
+      return;
+    }
+    if(choice.id.startsWith("nilo-open-")){
+      const category=choice.id.slice("nilo-open-".length);
+      const offers=NILO_SHOP.filter(offer=>{
+        const item=ITEM_CATALOG[offer.item];
+        const group=item.category==="material"?"materiais":item.category==="consumable"?"medicamentos":"equipamentos";
+        return group===category&&shopOfferUnlocked(offer,favors,reputation);
+      });
+      say([{speaker:"Nilo",role:"CATÁLOGO DA OFICINA",portrait:"N",
+        text:"Peças disponíveis para entrega local. Saldo: "+favors.credits+" créditos. Escolha uma remessa.",
+        choices:[...offers.map(offer=>({
+          id:"nilo-buy-"+offer.item,label:offer.label+" · "+offer.price+" créditos",
+          reply:"Pedido de compra da oficina.",shopAction:offer.item})),
+          {id:"nilo-back",label:"Voltar às conversas",reply:"Retornar à oficina."}]}]);
+      return;
+    }
+    if(choice.id==="nilo-back"){handleInteract("vendedor");return;}
     if(choice.favorAction){actOnFavor(choice.favorAction);return;}
     if(choice.shopAction){
       const result=onBuyWithCredits(choice.shopAction as ItemId);
@@ -846,7 +999,8 @@ export default function ExplorationScreen({
     say([{speaker:current.speaker,role:current.role,portrait:current.portrait,text:choice.reply}]);
   };
   const currentDialogue = dialogue?.pages[dialogue.index] ?? null;
-  const sceneTitle = isDistrictId(interior) ? getDistrict(interior).name+" · Nova Arcádia"
+  const sceneTitle = isInnerId(interior)?INNER_BLUEPRINTS[interior].title+" · Nova Arcádia"
+    : isDistrictId(interior) ? getDistrict(interior).name+" · Nova Arcádia"
     : interior === "ferrugem" ? "Ferrugem · Distrito Industrial"
     : interior === "sewer-drain" ? "Galeria de Drenagem Sul"
     : interior === "sewer-deep" ? "Câmara de Recalque 04"
@@ -857,7 +1011,8 @@ export default function ExplorationScreen({
       : interior === "canal"
         ? "Galeria do Canal"
         : getSectorById(sectorId).name;
-  const sceneSubtitle = isDistrictId(interior) ? getDistrict(interior).subtitle
+  const sceneSubtitle = isInnerId(interior)?INNER_BLUEPRINTS[interior].subtitle
+    : isDistrictId(interior) ? getDistrict(interior).subtitle
     : interior === "ferrugem" ? "SIDERÚRGICA · REDE INDUSTRIAL · PROJETO ÉDEN"
     : interior === "sewer-drain" ? "NÍVEL -01 · GALERIA HIDRÁULICA"
     : interior === "sewer-deep" ? "NÍVEL -02 · ESGOTO PROFUNDO"
@@ -911,7 +1066,8 @@ export default function ExplorationScreen({
         <div className="explorer-character-data">
           <span className="eyebrow">PROTAGONISTA · NÍVEL {character.level}</span>
           <strong>{character.name}</strong>
-          <small>{origin.name} · {isDistrictId(interior)?getDistrict(interior).name:interior==="ferrugem"?"Ferrugem":getSectorById(sectorId).name}</small>
+          <small>{origin.name} · {isInnerId(interior)?INNER_BLUEPRINTS[interior].title:
+            isDistrictId(interior)?getDistrict(interior).name:interior==="ferrugem"?"Ferrugem":getSectorById(sectorId).name}</small>
         </div>
         <div className="district-clock">
           <span>18:40</span>
@@ -921,7 +1077,7 @@ export default function ExplorationScreen({
 
       <section className="district-scene-section">
         <div className="district-scene-heading">
-          <span>{isDistrictId(interior)?"DISTRITO EXPLORÁVEL":interior==="ferrugem"?"DISTRITO INDUSTRIAL":interior?"ÁREA INTERNA":"EXPLORAÇÃO ISOMÉTRICA"}</span>
+          <span>{isInnerId(interior)?"INTERIOR EXPLORÁVEL · "+INNER_BLUEPRINTS[interior].title.toUpperCase():isDistrictId(interior)?"DISTRITO EXPLORÁVEL":interior==="ferrugem"?"DISTRITO INDUSTRIAL":interior?"ÁREA INTERNA":"EXPLORAÇÃO ISOMÉTRICA"}</span>
           <span>TOQUE PARA SE MOVER</span>
         </div>
         {interior ? (
@@ -958,12 +1114,16 @@ export default function ExplorationScreen({
               setReturnFromDeep(true);setInterior("sewer-drain");
             }else{
               if(isDistrictId(interior))saveWorldLocation(character.id,{x:36,y:26});
+              if(isInnerId(interior)){
+                audioDirector.effect("door");setInterior(INNER_BLUEPRINTS[interior].parent);return;
+              }
               if(interior==="ferrugem")saveWorldLocation(character.id,{x:36,y:22});
               if(interior==="sewer-drain")saveWorldLocation(character.id,{x:33,y:20});
               setReturnFromDeep(false);setInterior(null);
             }
           }}>
-            {interior==="sewer-deep"?"← RETORNAR À GALERIA":"← RETORNAR À BAIXADA"}
+            {interior==="sewer-deep"?"← RETORNAR À GALERIA":isInnerId(interior)?
+              "← RETORNAR AO DISTRITO":"← RETORNAR À BAIXADA"}
           </button>
         )}
         {interior==="clinic"&&<section className="na-clinic-quick-treatment"
@@ -979,15 +1139,13 @@ export default function ExplorationScreen({
           </button>
         </section>}
       </section>
-      {(interior==="sewer-drain"||interior==="sewer-deep"||interior==="ferrugem"||isDistrictId(interior))&&<button type="button"
+      {/* Um único HUD de objetivo por área: o painel principal já cobre os
+          seis distritos; o lembrete extra existe apenas no esgoto labiríntico. */}
+      {(interior==="sewer-drain"||interior==="sewer-deep")&&<button type="button"
         className="na-sewer-objective-hint" onClick={()=>setHubOpen(true)}
-        aria-label={isDistrictId(interior)?"Abrir objetivos de "+getDistrict(interior).name:
-          interior==="ferrugem"?"Abrir objetivos da missão Ferrugem":"Abrir objetivos da investigação subterrânea"}>
-        <span>{isDistrictId(interior)?"◈ "+getDistrict(interior).name.toUpperCase()+" · MISSÃO ATIVA":
-          interior==="ferrugem"?"◈ MISSÃO EM FERRUGEM · TOQUE PARA DETALHES":
-          "◈ OBJETIVO SUBTERRÂNEO · TOQUE PARA DETALHES"}</span>
-        <strong>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
-          interior==="ferrugem"?ferrugemObjective(ferrugem):sewerNextObjective(sewer)}</strong>
+        aria-label="Abrir objetivos da investigação subterrânea">
+        <span>◈ OBJETIVO SUBTERRÂNEO · TOQUE PARA DETALHES</span>
+        <strong>{sewerNextObjective(sewer)}</strong>
       </button>}
       {!interior&&nearSewerAccess&&<button type="button"
         className="na-sewer-quick-access"
@@ -1032,6 +1190,7 @@ export default function ExplorationScreen({
         {!hubOpen&&<div className="na-quest-peek">
           <strong>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
             interior==="ferrugem"?ferrugemObjective(ferrugem):
+            eden.started?edenObjective(eden):
             trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
             objective}</strong>
           {favors.ready.some(id=>!favors.claimed.includes(id))&&
@@ -1048,15 +1207,25 @@ export default function ExplorationScreen({
             <span className="na-quest-kicker">ETAPA ATUAL · SEM REVELAR PRÓXIMOS CAPÍTULOS</span>
             <h3>{isDistrictId(interior)?getDistrict(interior).name:
               interior==="ferrugem"?"Ecos de Ferrugem":
+              eden.started?"Ecos da Cidade · Projeto Éden":
               trial.started&&!trial.completed?"Operação Circuito Fantasma":
               mission.step<3?"O nome que sumiu":
               !v09.reported?"Investigação V-09":"Rastros do Éden"}</h3>
             <p>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
               interior==="ferrugem"?ferrugemObjective(ferrugem):
+              eden.started?edenObjective(eden):
               trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
               objective}</p>
+            {eden.started&&!eden.completed&&<small>Capítulo Éden · etapa {eden.step+1} de {EDEN_STEPS.length}</small>}
             {trial.started&&!trial.completed&&<small>
               Etapa {trial.step+1} de {TRIAL_STEPS.length} · {currentTrialStep(trial)?.sector}</small>}
+            {trial.completed&&!eden.started&&v09.reported&&
+              <button className="na-quest-primary" type="button" onClick={()=>{
+                const opened=startEden(eden,trial.completed,v09.reported);
+                if(saveEden(character.id,opened)){
+                  setEden(opened);setCityNotice("Novo capítulo liberado: Ecos da Cidade.");
+                }else setCityNotice("Não foi possível registrar o capítulo Éden.");
+              }}>Iniciar Ecos da Cidade · Projeto Éden</button>}
             {mission.step>=3&&!trial.started&&!trial.completed&&
               <button className="na-quest-primary" type="button" onClick={()=>{
                 const started=startTrial(trial);
@@ -1123,6 +1292,7 @@ export default function ExplorationScreen({
           favors={favors}
           favorContext={favorContext}
           reputation={reputation}
+          edenProgress={eden}
           sewerProgress={sewer}
           ferrugemProgress={ferrugem}
           clues={mission.clues.map((id) => ({ id, text: CLUE_LABELS[id] ?? "Pista registrada." }))}

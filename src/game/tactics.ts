@@ -17,6 +17,10 @@ export type EnemyPlan={
 export function enemyProfile(encounter:EncounterId,wave:number):EnemyProfile{
  if(encounter==="test")return {role:"sentinel",name:"Sentinela",range:1,mobility:2,preferredDistance:1};
  if(encounter==="v09")return {role:"hunter",name:"Vigilância V-09",range:3,mobility:2,preferredDistance:2};
+ if(encounter==="eden-relay")return {role:"drone",name:"Interceptador de Prisma",range:4,mobility:3,preferredDistance:3};
+ if(encounter==="eden-core")return wave>=2
+  ?{role:"hunter",name:"Guardião do Éden",range:4,mobility:3,preferredDistance:3}
+  :{role:"helix",name:"Escolta autônoma",range:3,mobility:2,preferredDistance:2};
  if(encounter.startsWith("district-")){
    return wave>=3?{role:"hunter",name:"Caçador Helix",range:4,mobility:3,preferredDistance:3}:
      {role:"helix",name:"Segurança Helix",range:3,mobility:2,preferredDistance:2};
