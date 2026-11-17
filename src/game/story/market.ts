@@ -58,6 +58,22 @@ export const MARKET_ACTIONS:readonly MarketAction[]=[
     label:"Helix · Aceitar auditoria central (compartilhar metadados)",
     reply:"Uma interface da Helix aceita o dossiê e concede uma credencial provisória. Os nomes não foram divulgados publicamente, mas horários e conexões da comunidade agora constam na infraestrutura corporativa. Marta recebe um alerta.",
     clue:"market-helix-bargain",trustDelta:-2,heatDelta:-1,requiresV09Report:true},
+  // O procedimento administrativo e a audiência independente são exclusivos.
+  {id:"civico-protocolo",actor:"feira-archive",
+    label:"Consórcio Cívico · Protocolar denúncia com metadados",
+    reply:"O Consórcio confirma o recebimento e emite um número de fiscalização. A investigação pode liberar suprimentos, mas o cadastro guarda horários e contatos dos denunciantes. Marta exige saber quem terá acesso.",
+    clue:"civico-protocolado",trustDelta:-1,heatDelta:-1,minClues:2,
+    requiresV09Report:true,exclusiveGroup:"civico-auditoria"},
+  {id:"civico-contestacao",actor:"feira-archive",
+    label:"Conselho de moradores · Exigir audiência independente",
+    reply:"A cooperativa convoca uma audiência com testemunhas protegidas. O Consórcio considera a iniciativa uma afronta ao procedimento centralizado, enquanto a vigilância reforça a presença na feira.",
+    clue:"civico-audiencia",trustDelta:2,heatDelta:2,minClues:2,
+    requiresV09Report:true,exclusiveGroup:"civico-auditoria"},
+  {id:"civico-suprimentos",actor:"feira-archive",
+    label:"Consórcio Cívico · Requisitar reagentes com protocolo",
+    reply:"A unidade administrativa libera dois reagentes biomédicos para a clínica. O lote fica anexado ao seu histórico e não pode ser resgatado novamente.",
+    clue:"civico-reagentes",trustDelta:0,heatDelta:0,
+    requiresV09Report:true,faction:"consorcio_civico",minStanding:2},
   // Serviços de rede só aparecem quando o personagem conquistou acesso real.
   // Uma opção aceita grava sua própria decisão e um recibo de item idempotente.
   {id:"rede-livre-apoio",actor:"feira-ajuda",label:"Movimento Livre · Pedir apoio médico",
@@ -99,6 +115,12 @@ export function getMarketConversation(actor:MarketActorId,classId:ClassId|null,
       ?" A Casa Comum observa seus contatos corporativos com cautela: os moradores temem que novos nomes cheguem à Helix.":"")
    +(actor==="feira-corretor"&&(reputation?.factions.mercado_cinzento??0)<=-2
       ?" Meus contatos não confiam na segurança das suas últimas rotas. Primeiro será preciso reconstruir a relação.":"")
+   +(actor==="feira-ajuda"&&state.decisions.includes("civico-protocolo")
+      ?" A denúncia oficial trouxe ajuda, mas Marta quer saber quais famílias agora constam do cadastro central.":"")
+   +(actor==="feira-archive"&&state.decisions.includes("civico-contestacao")
+      ?" A audiência convocada pelos moradores virou um conflito aberto de competência administrativa.":"")
+   +(actor==="feira-archive"&&(reputation?.factions.consorcio_civico??0)>=2
+      ?" O Consórcio Cívico reconhece sua colaboração e habilita uma requisição restrita de suprimentos.":"")
    +(actor==="feira-archive"&&(reputation?.factions.helix??0)>=2
       ?" O terminal reconhece uma credencial corporativa e oferece acessos de risco.":"");
  return {...base,text,choices:MARKET_ACTIONS.filter(action=>

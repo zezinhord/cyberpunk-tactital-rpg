@@ -1241,9 +1241,9 @@ export default function ExplorationScreen({
             <div className="na-favor-wallet"><span>CRÉDITOS <strong>{favors.credits}</strong></span>
               <span>HONRA <strong>{favors.honor}</strong></span></div>
             <div className="na-faction-mini" aria-label="Relações com as facções">
-              {(["helix","movimento_livre","mercado_cinzento"] as const).map(id=>
+              {(["helix","movimento_livre","mercado_cinzento","consorcio_civico"] as const).map(id=>
                 <span key={id} title={FACTION_NAMES[id]+" · "+factionStanding(reputation.factions[id])}>
-                  {id==="helix"?"HELIX":id==="movimento_livre"?"LIVRE":"CINZENTO"}
+                  {id==="helix"?"HELIX":id==="movimento_livre"?"LIVRE":id==="mercado_cinzento"?"CINZENTO":"CÍVICO"}
                   <strong>{reputation.factions[id]>0?"+":""}{reputation.factions[id]}</strong>
                 </span>)}
             </div>
