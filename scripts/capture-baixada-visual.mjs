@@ -1014,6 +1014,42 @@ try {
     (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
   console.log("QA clínica: botão sempre visível com missões fechadas; 5 PV recuperados até máximo e persistidos.");
 
+  // v0.8.1: confirmar que os 7 novos interiores são cenas reais no Chromium.
+  // Captura em 914×411 e teste do retorno à área de origem (sem softlock).
+  const rooms=[
+    ["baixada-community",null],["ferrugem-foundry","ferrugem"],
+    ["aurea-archive","aurea"],["subsolo-hideout","subsolo"],
+    ["setor-zero-lab","setor-zero"],["prisma-backstage","prisma"],
+    ["periferia-waterworks","periferia"],
+  ];
+  for(const [room,parent] of rooms){
+    await evaluate(`(()=>{
+      const hero=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.character.v1")).character;
+      localStorage.setItem("cyberpunk-tactical-rpg.world-area.v1."+hero.id,JSON.stringify("${room}"));
+      return true;
+    })()`);
+    await send("Page.navigate",{url:URL});
+    await poll(()=>has(".na-title-option"),"menu após entrar no interior "+room);
+    await evaluate('document.querySelectorAll(".na-title-option")[0].click();true');
+    await poll(()=>has('.interior-world.'+room+' canvas[data-nova-arcadia-interior="'+room+'"]'),
+      "mapa navegável de "+room,90);
+    await sleep(230);
+    const indoor=await evaluate(`(()=>{
+      const canvas=document.querySelector(".interior-world.${room} canvas");
+      const rect=canvas?.getBoundingClientRect();
+      return {area:canvas?.getAttribute("data-nova-arcadia-interior"),
+       width:rect?.width,height:rect?.height,screen:document.querySelector(".district-brand h1")?.textContent};
+    })()`);
+    if(indoor.area!==room||indoor.width<400||indoor.height<250||
+       !indoor.screen?.includes("Nova Arcádia"))
+      throw new Error("Falha na cena interior de "+room+": "+JSON.stringify(indoor));
+    await writeFile("qa/interior-"+room+"-914x411.png",Buffer.from(
+      (await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false})).data,"base64"));
+    await evaluate('document.querySelector(".area-return")?.click();true');
+    if(parent)await poll(()=>has(".interior-world."+parent+" canvas"),"retorno de "+room+" para "+parent);
+    else await poll(()=>has(".baixada-world:not(.interior-world) canvas"),"retorno à Casa Comum na Baixada");
+  }
+  console.log("QA interiores: 7 cenas carregadas sob demanda, capturadas e saídas testadas.");
   console.log("QA Android: ARTE ORIGINAL restaurada, "+androidPixels.artLoaded+
     " imagens (personagens e props), "+androidPixels.colors+
     " cores amostradas, 2D leve e HUD recolhido.");
