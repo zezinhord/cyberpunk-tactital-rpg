@@ -22,6 +22,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build-android:
@@ -154,6 +155,34 @@ jobs:
         with:
           path: public/assets/soundscapes
           key: nova-arcadia-original-score-v1-${{ hashFiles('tools/generate_soundscapes.py') }}
+
+      # Cache de áudio é isolado por branch no GitHub. Reutilizamos as 56
+      # composições produzidas e validadas no APK 0.7.9, preservando hashes
+      # e a geração procedural como fallback quando o download não funciona.
+      - name: Reutilizar 56 trilhas originais de build validada
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -s public/assets/soundscapes/baixada/abertura.ogg ] &&
+             [ -s public/assets/soundscapes/periferia/revelacao.ogg ] &&
+             [ -s public/assets/soundscapes/catalog.json ]; then
+            echo "Trilhas originais já restauradas do cache desta branch."
+          else
+            echo "Tentando recuperar somente os áudios da build Android 0.7.9 validada."
+            if curl --connect-timeout 10 --max-time 120 --retry 2 -fsSL \
+               -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+               -H "Accept: application/vnd.github+json" \
+               "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/14284261708/zip" \
+               -o /tmp/nova-arcadia-v079-artifact.zip &&
+               unzip -p /tmp/nova-arcadia-v079-artifact.zip app-debug.apk > /tmp/nova-arcadia-v079.apk &&
+               python tools/recover_soundscapes_from_apk.py /tmp/nova-arcadia-v079.apk; then
+              echo "Áudios restaurados sem síntese custosa; preservados no pacote final."
+            else
+              echo "Recuperação indisponível: o sintetizador local regenerará os arquivos faltantes."
+            fi
+          fi
+          rm -f /tmp/nova-arcadia-v079-artifact.zip /tmp/nova-arcadia-v079.apk
 
       - name: Instalar e validar sintetizador de trilha original
         run: |
