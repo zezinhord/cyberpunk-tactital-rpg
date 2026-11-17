@@ -6,6 +6,8 @@ import { InteriorScene, INTERIOR_VIEW_HEIGHT, INTERIOR_VIEW_WIDTH, type Interior
 import {SewerScene} from "../game/baixada/SewerScene";
 import {FerrugemScene} from "../game/ferrugem/FerrugemScene";
 import {DistrictScene} from "../game/districts/DistrictScene";
+import {DistrictInteriorScene} from "../game/districts/DistrictInteriorScene";
+import {isInnerId,INNER_BLUEPRINTS} from "../game/districts/interiors.ts";
 import {isDistrictId,type NodeSlot} from "../game/districts/catalog";
 import {loadDistrictPosition,saveDistrictPosition} from "../game/districts/positions";
 import {isSewerId} from "../game/baixada/sewer-layout";
@@ -35,7 +37,7 @@ export default function InteriorWorld({
   characterId:string;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<InteriorScene | SewerScene | FerrugemScene | DistrictScene | null>(null);
+  const sceneRef = useRef<InteriorScene | SewerScene | FerrugemScene | DistrictScene | DistrictInteriorScene | null>(null);
   const callbackRef = useRef(onInteract);
   callbackRef.current = onInteract;
 
@@ -43,7 +45,9 @@ export default function InteriorWorld({
     const host = hostRef.current;
     if (!host) return;
     let lastCheckpoint=0;
-    const scene = isDistrictId(interior)
+    const scene = isInnerId(interior)
+      ? new DistrictInteriorScene(interior,(id)=>callbackRef.current(id),originId,appearance)
+      : isDistrictId(interior)
       ? new DistrictScene(interior,(id)=>callbackRef.current(id),originId,
           appearance,districtTarget,loadDistrictPosition(characterId,interior),
           (tile,settled=false)=>{
@@ -82,6 +86,7 @@ export default function InteriorWorld({
   return <div className={`baixada-world interior-world ${interior}`} ref={hostRef} aria-label={interior === "clinic" ? "Interior isométrico da clínica comunitária" : interior === "workshop" ? "Interior isométrico da oficina do Nilo" : interior === "canal" ? "Interior isométrico da Galeria do Canal"
    : interior === "sewer-drain" ? "Galeria de Drenagem Sul subterrânea, isométrica e caminhável"
    : interior === "ferrugem" ? "Distrito Ferrugem industrial, isométrico e caminhável"
+   : isInnerId(interior) ? "Interior "+INNER_BLUEPRINTS[interior].title+" caminhável e com objetos interativos"
    : isDistrictId(interior) ? "Distrito "+interior+" explorável, com missões e NPCs interativos"
    : "Câmara de Recalque 04 subterrânea, isométrica e caminhável"} />;
 }
