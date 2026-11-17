@@ -61,6 +61,15 @@ export const NILO_SHOP:readonly ShopOffer[]=[
  {item:"colete_reforcado",amount:1,price:240,label:"Colete reforçado"},
  {item:"celula_energia",amount:1,price:90,label:"Célula solidária · rede comunitária",
   minHonor:3,minLivre:2},
+ {item:"fibra_optica",amount:1,price:50,label:"Fibra óptica"},
+ {item:"placa_ceramica",amount:1,price:60,label:"Placa cerâmica"},
+ {item:"reagente_bio",amount:1,price:65,label:"Reagente biomédico"},
+ {item:"tecido_tecnico",amount:1,price:45,label:"Tecido técnico"},
+ {item:"dados_criptografados",amount:1,price:90,label:"Pacote criptografado"},
+ {item:"microatuador",amount:1,price:80,label:"Microatuador"},
+ {item:"kit_trauma",amount:1,price:95,label:"Kit de trauma"},
+ {item:"bioespuma",amount:1,price:65,label:"Bioespuma"},
+ {item:"bateria_portatil",amount:1,price:90,label:"Bateria portátil"},
 ] as const;
 export function shopOfferUnlocked(offer:ShopOffer,state:FavorState,reputation?:Reputation):boolean{
  return state.honor>=(offer.minHonor??0)&&
