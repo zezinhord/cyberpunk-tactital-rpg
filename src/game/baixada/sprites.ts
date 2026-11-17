@@ -34,7 +34,7 @@ import type { TestAppearance } from "../test-arena/appearance";
 export const SPRITE_FRAME_WIDTH = 64;
 export const SPRITE_FRAME_HEIGHT = 80;
 export const PLAYER_COLUMNS = 12;
-const NPC_COLUMNS = 4;
+const NPC_COLUMNS = 12;
 
 /** Todas as seis origens possuem os dois recursos visuais, sem modificadores de regras. */
 export const PLAYER_SPRITES: Record<OriginId, Record<TestAppearance, string>> = {
