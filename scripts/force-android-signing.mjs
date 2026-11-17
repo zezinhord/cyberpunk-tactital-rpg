@@ -8,14 +8,15 @@ if(!text.includes("com.android.application")||!text.includes("android {"))
  throw new Error("build.gradle não corresponde ao template Capacitor esperado.");
 const marker="// NOVA_ARCADIA_PERSISTENT_DEBUG_SIGNING";
 if(text.includes(marker))throw new Error("Configuração de assinatura já aplicada.");
-// Todas as versões anteriores geradas pelo template usavam versionCode 1.
-// Uma versão maior permite atualização in-place quando o certificado coincide.
+// O versionamento pertence EXCLUSIVAMENTE a stamp-android-version.mjs.
+// Não regravar para 0.6.9-alpha.1: isso invalidava a atualização Android.
 const versionCode=/\bversionCode\s+\d+\b/;
 const versionName=/\bversionName\s+["'][^"']+["']/;
 if(!versionCode.test(text)||!versionName.test(text))
  throw new Error("Campos versionCode/versionName ausentes no template Android.");
-const versioned=text.replace(versionCode,"versionCode 691")
-  .replace(versionName,'versionName "0.6.9-alpha.1"');
+if(text.includes("versionCode 691")||text.includes('versionName "0.6.9-alpha.1"'))
+ throw new Error("O versionamento ainda é legado: execute stamp-android-version.mjs ANTES deste script.");
+const versioned=text;
 const block=`
 \n${marker}
 // Chave de desenvolvimento, nunca uma chave privada de produção.
