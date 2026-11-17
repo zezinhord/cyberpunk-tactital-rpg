@@ -66,7 +66,13 @@ jobs:
         run: |
           set -euo pipefail
           TAG=v0.8.1-rc.2-android-hotfix
-          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --target feature/nova-arcadia-expansion-v080 \
+              --title "Nova Arcádia 0.8.1-rc.2 · Correção de derrota" \
+              --notes "Hotfix Android de 291MB. Corrige KO travado, crash do Phaser Canvas, retry e resgate para clínica. Testes Android físicos ainda pendentes." \
+              --prerelease || gh release view "$TAG" --repo "$GITHUB_REPOSITORY"
+          fi
           gh release upload "$TAG" NovaArcadia-0.8.1-rc.2-Compat-080.apk --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "0.8.1-rc.2 | APKs Android de teste — NAO e release publico final. Compat-079: para instalacoes 0.7.9 assinadas com 5dc2...5f38; Compat-080: para instalacoes 0.8.0/0.8.1 assinadas com cb8a...4eb6. Ambos sao pacotes APK completos de aproximadamente 291 MB; escolha conforme a versao instalada para preservar o save. Confira que o arquivo baixado termina com .apk e possui ~291 MB. Se nenhuma variante atualizar, exporte seu backup antes de desinstalar. Comandos validados no CI (aapt + apksigner + integridade ZIP). Testes fisicos ainda pendentes."
           echo "Link de descarga: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/NovaArcadia-0.8.1-rc.2-Compat-080.apk" >> "$GITHUB_STEP_SUMMARY"
