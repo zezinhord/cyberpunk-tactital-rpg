@@ -4,7 +4,8 @@ import {DISCOVERY_AREAS,DISCOVERY_REWARDS,claimDiscovery} from "../src/game/stor
 import {DISTRICTS,DISTRICT_SPAWN,NODE_TILES,districtApproach,districtPath,DISTRICT_WIDTH,DISTRICT_HEIGHT}
  from "../src/game/districts/catalog.ts";
 import {FERRUGEM_START,FERRUGEM_ACTORS,ferrugemApproach} from "../src/game/ferrugem/layout.ts";
-import {ACTOR_TILES,PLAYER_START,isWalkable,findPath} from "../src/game/baixada/layout.ts";
+import {ACTOR_TILES,PLAYER_START,isWalkable} from "../src/game/baixada/layout.ts";
+import {approachRoute} from "../src/game/baixada/navigation.ts";
 const data=new Map();
 globalThis.localStorage={
  getItem:key=>data.get(key)??null,
@@ -30,7 +31,7 @@ const neighborhood=[
  {x:baixadaCache.x,y:baixadaCache.y+1},
  {x:baixadaCache.x,y:baixadaCache.y-1}
 ];
-assert.ok(neighborhood.some(p=>isWalkable(p)&&findPath(PLAYER_START,p)?.length),
+assert.ok(neighborhood.some(p=>isWalkable(p)&&approachRoute(PLAYER_START,baixadaCache)?.length),
  "O Arquivo de Memórias deve ser alcançável no mapa da Baixada");
 const salvage=FERRUGEM_ACTORS.find(n=>n.id==="ferrugem-salvage");
 assert.ok(salvage);
