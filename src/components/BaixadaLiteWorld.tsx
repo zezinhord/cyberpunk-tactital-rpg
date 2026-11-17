@@ -31,6 +31,7 @@ const ACTORS:ReadonlyArray<{id:string;tile:Tile;label:string;person:boolean}>= [
  {id:"feira-ajuda",tile:ACTOR_TILES["feira-ajuda"],label:"MARTA",person:true},
  {id:"feira-archive",tile:ACTOR_TILES["feira-archive"],label:"BOLETINS",person:false},
  {id:"feira-memoria",tile:ACTOR_TILES["feira-memoria"],label:"MEMÓRIA",person:false},
+ {id:"feira-casa-comum",tile:ACTOR_TILES["feira-casa-comum"],label:"CASA COMUM",person:false},
  {id:"enter-sewer-drain",tile:ACTOR_TILES["enter-sewer-drain"],label:"ESGOTO -01",person:false},
  {id:"enter-sewer-deep",tile:ACTOR_TILES["enter-sewer-deep"],label:"ESGOTO -02",person:false},
  {id:"enter-ferrugem",tile:ACTOR_TILES["enter-ferrugem"],label:"FERRUGEM",person:false},
@@ -325,6 +326,19 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
        ctx.beginPath();ctx.moveTo(x-15,y-13);ctx.lineTo(x+15,y-13);
        ctx.stroke();
        ctx.fillStyle="#e0b47a";ctx.fillRect(x-11,y-36,22,3);
+     }else if(actor.id==="feira-casa-comum"){
+       // Pórtico comunitário: madeira de reuso, escada curta e banner âmbar.
+       ctx.fillStyle="#1a2e34";ctx.fillRect(x-20,y-52,40,52);
+       ctx.fillStyle="#7d6350";ctx.fillRect(x-24,y-54,48,9);
+       ctx.strokeStyle="#edbd83";ctx.lineWidth=2;
+       ctx.strokeRect(x-20,y-52,40,52);
+       ctx.fillStyle="#30484b";ctx.fillRect(x-14,y-42,28,29);
+       ctx.fillStyle="#d8c392";ctx.fillRect(x-10,y-39,20,4);
+       ctx.fillStyle="#8db7a4";ctx.fillRect(x-7,y-26,14,7);
+       ctx.fillStyle="#cfb08e";ctx.fillRect(x-26,y-5,52,4);
+       ctx.fillStyle="#f4d3a2";ctx.font="bold 7px monospace";
+       ctx.textAlign="center";ctx.fillText("COMUM",x,y-47);
+       ctx.textAlign="start";
      }else if(actor.id==="feira-memoria"){
        // Totem comunitário de gravações offline, com moldura em madeira
        // reaproveitada e luz âmbar (verde fica exclusivo do Éden).
