@@ -50,6 +50,7 @@ export class TurnManager {
   private temporaryMovementBonus = 0;
   private nextAttackDamageBonus = 0;
   private nextAttackAccuracyBonus = 0;
+  private sabotageBlocksRecovery=false;
   private state: GameState;
 
   constructor(options: TurnManagerOptions = {}) {
@@ -440,7 +441,8 @@ export class TurnManager {
           if(profile.role==="saboteur"){
             const drained=Math.min(2,this.state.energy);
             this.state.energy-=drained;
-            this.addLog("[SABOTAGEM] Interferência em baterias: -"+drained+" EN.");
+            this.sabotageBlocksRecovery=true;
+            this.addLog("[SABOTAGEM] Interferência em baterias: -"+drained+" EN e recarga interrompida.");
           }
         }else{
           this.setCue("miss","player");
@@ -480,7 +482,13 @@ export class TurnManager {
       this.state.movementPerTurn -= this.temporaryMovementBonus;
       this.temporaryMovementBonus = 0;
     }
+    const energyBeforeRecovery=this.state.energy;
     advanceSpecialRound(this.state);
+    if(this.sabotageBlocksRecovery){
+      // Sem isto, a recarga passiva (+2 EN) neutralizaria o efeito no mesmo turno.
+      this.state.energy=energyBeforeRecovery;
+      this.sabotageBlocksRecovery=false;
+    }
     advanceClassRound(this.state);
     if (this.state.classExtraMovement>0) {
       this.state.movementPerTurn-=this.state.classExtraMovement;
