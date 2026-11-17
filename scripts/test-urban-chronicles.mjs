@@ -55,3 +55,15 @@ assert.equal(normalizeUrban({version:1,choices:{"ba-agua":"b"}}).evidence.length
 assert.equal(saveUrban("urban-slot",second.state),true);
 assert.equal(readReputation("urban-slot").factions.consorcio_civico,2);
 console.log("Ocorrências urbanas: 21 histórias, 7 distritos, 42 escolhas, ramificações, backups e reputações válidas.");
+
+// Decisões regionais têm consequência mecânica verificável e não alteram o esquema de save.
+const {urbanCombatSupport}=await import("../src/game/story/urban-chronicles.ts");
+const districtA={version:1,choices:{"au-crachas":"a"}};
+const districtB={version:1,choices:{"au-crachas":"b"}};
+assert.equal(urbanCombatSupport(districtA,"district-aurea")?.attack,1);
+assert.equal(urbanCombatSupport(districtB,"district-aurea")?.armor,1);
+assert.equal(urbanCombatSupport(districtA,"district-prisma"),null);
+assert.equal(urbanCombatSupport(districtA,"test"),null);
+assert.equal(urbanCombatSupport({version:1,choices:{"su-rotas":"a"}},"district-subsolo")?.movement,1);
+assert.equal(urbanCombatSupport({version:1,choices:{"pe-agua":"b"}},"district-periferia")?.armor,1);
+console.log("Decisões regionais agora influenciam atributos de combate em cada distrito.");
