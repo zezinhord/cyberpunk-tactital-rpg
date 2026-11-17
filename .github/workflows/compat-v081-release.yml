@@ -1,4 +1,4 @@
-name: Nova Arcadia 0.8.1 compatible with 0.7.9 installer
+name: Nova Arcadia 0.8.1 rc.2 combat defeat hotfix compatible with 0.7.9
 
 on:
   push:
@@ -333,8 +333,8 @@ jobs:
           mkdir -p qa
           "$AAPT" dump badging "$APK" | tee qa/apk-badging.txt
           grep -Fq "name='com.cyberpunk.tacticalrpg'" qa/apk-badging.txt
-          grep -Fq "versionCode='80101'" qa/apk-badging.txt
-          grep -Fq "versionName='0.8.1-rc.1'" qa/apk-badging.txt
+          grep -Fq "versionCode='80102'" qa/apk-badging.txt
+          grep -Fq "versionName='0.8.1-rc.2'" qa/apk-badging.txt
           echo "APK Android gerado: pacote, versionCode e versionName conferidos."
 
 
@@ -347,7 +347,7 @@ jobs:
           echo "APK_BYTES=$BYTES"
           echo "MARCO_250_MB_BYTES=250000000"
           {
-            echo "## Nova Arcádia 0.8.1-rc.1 — marco de armazenamento auditado"
+            echo "## Nova Arcádia 0.8.1-rc.2 — marco de armazenamento auditado"
             echo "APK real: **$BYTES bytes**"
             echo "Meta original: **250.000.000 bytes**"
             echo "Sem limite máximo: arquivos devem estar ligados ao jogo."
@@ -392,7 +392,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: NovaArcadia-081-Compat079-APK
+          name: NovaArcadia-081-RC2-Compat079-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
 
@@ -402,8 +402,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="v0.8.1-rc.1-android-test"
-          DEST="NovaArcadia-0.8.1-Compat-079.apk"
+          TAG="v0.8.1-rc.2-android-test"
+          DEST="NovaArcadia-0.8.1-rc.2-Compat-079.apk"
           cp android/app/build/outputs/apk/debug/app-debug.apk "$DEST"
           test -s "$DEST"
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -411,7 +411,7 @@ jobs:
           else
             gh release create "$TAG" "$DEST" \
               --target feature/nova-arcadia-expansion-v080 \
-              --title "Nova Arcadia 0.8.1-rc.1 | Android QA, sem publicar" \
+              --title "Nova Arcadia 0.8.1-rc.2 | Android QA, sem publicar" \
               --notes "APK experimental direto, sem ZIP. Compat-079: certificado identico a 0.7.9 para atualizar SEM perder salvamentos. Validado por apksigner, checksum, 250MB e QA. A branch main permanece intocada; testes fisicos ainda pendentes." \
               --prerelease
           fi
