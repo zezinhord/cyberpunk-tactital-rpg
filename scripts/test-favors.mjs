@@ -136,10 +136,12 @@ assert.equal(FAVORS.length,15);
 let regional={...INITIAL_FAVORS};
 assert.equal(knownFavors(regional,ctxRegional).length,6);
 for(const task of FAVORS.filter(q=>q.requiresContact)){
- assert.equal(acceptFavor(regional,task.id,ctxRegional).ok,false,
-  "O quadro não pode inventar oferta antes de conhecer "+task.contact);
+ if(!regional.discovered.includes(task.id))
+  assert.equal(acceptFavor(regional,task.id,ctxRegional).ok,false,
+    "O quadro não pode inventar oferta antes de conhecer "+task.contact);
  const discovered=discoverFavors(regional,task.contactId,ctxRegional);
- assert.ok(discovered.revealed.includes(task.id));
+ assert.ok(discovered.revealed.includes(task.id)||regional.discovered.includes(task.id),
+   "Um contato pode descobrir mais de um favor");
  regional=discovered.state;
  assert.equal(discoverFavors(regional,task.contactId,ctxRegional).revealed.length,0);
  const accepted=acceptFavor(regional,task.id,ctxRegional);
