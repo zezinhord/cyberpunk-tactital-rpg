@@ -318,6 +318,22 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
+      - name: Confirmar manifesto Android real e progresso de versao
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          AAPT="$(find "$SDK/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          test -n "$AAPT"
+          mkdir -p qa
+          "$AAPT" dump badging "$APK" | tee qa/apk-badging.txt
+          grep -Fq "name='com.cyberpunk.tacticalrpg'" qa/apk-badging.txt
+          grep -Fq "versionCode='80101'" qa/apk-badging.txt
+          grep -Fq "versionName='0.8.1-rc.1'" qa/apk-badging.txt
+          echo "APK Android gerado: pacote, versionCode e versionName conferidos."
+
+
       - name: Validar marco de 250 MB e conteúdo REAL usado no APK
         if: github.event_name != 'pull_request'
         run: |
