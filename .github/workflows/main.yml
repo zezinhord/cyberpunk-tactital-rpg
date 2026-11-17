@@ -144,6 +144,9 @@ jobs:
       - name: Validar caches reais e rotas dos seis territórios
         run: node --experimental-strip-types scripts/test-world-cache.mjs
 
+      - name: Testar os sete interiores autorais, corredores e 21 recompensas
+        run: node --experimental-strip-types scripts/test-indoor-expansion.mjs
+
       - name: Testar os dois esgotos e checkpoints da investigação
         run: node --experimental-strip-types scripts/test-sewer-world.mjs
 
