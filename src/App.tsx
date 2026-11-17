@@ -45,6 +45,7 @@ import {isDistrictId} from "./game/districts/catalog";
 import {FAVORS,readFavors,saveFavors,claimFavor,buyFromNilo,syncFavorItems,
   type FavorId,type FavorState} from "./game/story/favors";
 import {readMarket} from "./game/story/market";
+import {EDEN_STEPS,readEden,saveEden,advanceEdenBattle,syncEdenItems,type EdenEncounter} from "./game/story/eden-echoes.ts";
 import {readReputation,syncFactionAids} from "./game/story/reputation";
 import {readDistrictProgress,saveDistrictProgress,advanceDistrict,
  districtCurrentStep} from "./game/districts/progress";
@@ -300,7 +301,7 @@ export default function App() {
     const active=characterRef.current;
     if(!active)return false;
     const stored=loadInventory(active.id);
-    const next=syncFactionAids(syncFavorItems(stored,state),readMarket(active.id));
+    const next=syncEdenItems(syncFactionAids(syncFavorItems(stored,state),readMarket(active.id)),readEden(active.id));
     if(next!==stored){
       if(!saveInventory(next))return false;
       setInventory(next);
@@ -308,6 +309,11 @@ export default function App() {
     for(const id of state.claimed){
       const quest=FAVORS.find(f=>f.id===id);
       if(quest&&!grantTrialXp("favor-"+id,quest.reward.xp))return false;
+    }
+    const narrative=readEden(active.id);
+    for(const id of narrative.history){
+      const step=EDEN_STEPS.find(s=>s.id===id);
+      if(step&&!grantTrialXp("eden-"+id,step.xp))return false;
     }
     return true;
   };
@@ -339,7 +345,7 @@ export default function App() {
     const active=characterRef.current;
     if(screen!=="exploration"||!active)return;
     const state=readFavors(active.id);
-    if(state.claimed.length||state.purchases.length)reconcileFavorRewards(state);
+    reconcileFavorRewards(state);
     // A reconciliação deve rodar na entrada da exploração e troca de slot,
     // nunca a cada animação de diálogo ou tick de combate.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -380,6 +386,18 @@ export default function App() {
     const enemyDefeated=state.units.find(u=>u.id==="drone")?.hp===0;
     const active=characterRef.current;
     if(!active)return;
+    if(enemyDefeated&&state.encounterId.startsWith("eden-")){
+      const result=advanceEdenBattle(readEden(active.id),state.encounterId as EdenEncounter);
+      if(result.advanced&&result.step){
+        if(saveEden(active.id,result.state)){
+          if(!grantTrialXp("eden-"+result.step.id,result.step.xp))
+            setSaveMessage("Registro Éden preservado; XP será reconciliado ao carregar o personagem.");
+          reconcileFavorRewards(readFavors(active.id));
+          audioDirector.effect("victory");
+        }else setSaveMessage("Sem espaço para registrar o confronto Éden; libere armazenamento.");
+      }
+      return;
+    }
     if(enemyDefeated && isTrialEncounter(state.encounterId)){
       const stored=readTrial(active.id);
       const progress=reconcileTrial(stored,active.questRewards);
