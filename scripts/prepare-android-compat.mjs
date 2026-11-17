@@ -1,6 +1,13 @@
 /** Modifica somente a variante de teste de pacote separado.
  * O app de 1GB e os salvamentos anteriores não são tocados. */
 import {readFileSync,writeFileSync} from "node:fs";
+// Pacote QA 0.9.1 isolado: a chave privada da QA 0.9.0 vive em outro escopo
+// de cache do GitHub Actions. Nunca reutilizar o mesmo package ID com uma
+// assinatura nova, pois isso impediria a atualização pelo Android.
+const qaVariant=process.env.NA_QA_VARIANT==="v091"?"v091":"v090";
+const packageId=qaVariant==="v091"?"com.cyberpunk.tacticalrpg.qa091":
+ "com.cyberpunk.tacticalrpg.qa";
+const appLabel=qaVariant==="v091"?"Nova Arcádia QA 0.9.1":"Nova Arcádia QA";
 const gradle="android/app/build.gradle";
 const original=readFileSync(gradle,"utf8");
 const pattern=/\bapplicationId\s+["']com\.cyberpunk\.tacticalrpg["']/g;
@@ -8,7 +15,7 @@ if([...original.matchAll(pattern)].length!==1)throw Error("ApplicationId inesper
 if(!original.includes("NOVA_ARCADIA_PERSISTENT_DEBUG_SIGNING"))
  throw Error("A variante paralela exige assinatura persistente");
 writeFileSync(gradle,original.replace(pattern,
- 'applicationId "com.cyberpunk.tacticalrpg.qa"'),"utf8");
+ 'applicationId "'+packageId+'"'),"utf8");
 const manifestPath="android/app/src/main/AndroidManifest.xml";
 const xml=readFileSync(manifestPath,"utf8");
 if(!xml.includes('android:name=".MainActivity"'))
@@ -20,7 +27,7 @@ const strings=readFileSync(labelPath,"utf8");
 if(!strings.includes('<string name="app_name">'))
  throw Error("app_name ausente");
 writeFileSync(labelPath,strings.replace(
- /(<string name="app_name">)[^<]*(<\/string>)/,"$1Nova Arcádia QA$2").replace(
+ /(<string name="app_name">)[^<]*(<\/string>)/,"$1"+appLabel+"$2").replace(
  /(<string name="title_activity_main">)[^<]*(<\/string>)/,
- "$1Nova Arcádia QA$2"),"utf8");
-console.log("QA separado: com.cyberpunk.tacticalrpg.qa, MainActivity explícita.");
+ "$1"+appLabel+"$2"),"utf8");
+console.log("QA separado: "+packageId+", MainActivity explícita.");
