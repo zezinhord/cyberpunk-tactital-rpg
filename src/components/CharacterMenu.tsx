@@ -13,6 +13,7 @@ import ProgressionTree from "./ProgressionTree";
 import {SEWER_MAPS} from "../game/baixada/sewer-layout";
 import {favorStatus,visibleFavors,type FavorContext,type FavorState} from "../game/story/favors";
 import {FACTION_NAMES,factionStanding,type Reputation} from "../game/story/reputation";
+import {EDEN_STEPS,edenObjective,type EdenProgress} from "../game/story/eden-echoes.ts";
 import {sewerStatus,type SewerProgress} from "../game/story/sewer-v09";
 import {FERRUGEM_STEPS,ferrugemObjective,type FerrugemProgress} from "../game/ferrugem/story";
 import type {StatId} from "../game/progression/tree";
@@ -41,6 +42,7 @@ interface Props {
   favors:FavorState;
   favorContext:FavorContext;
   reputation:Reputation;
+  edenProgress:EdenProgress;
   sewerProgress:SewerProgress;
   ferrugemProgress:FerrugemProgress;
   clues: JournalClue[];
@@ -103,6 +105,7 @@ export default function CharacterMenu({
   favors,
   favorContext,
   reputation,
+  edenProgress,
   sewerProgress,
   ferrugemProgress,
   clues,
@@ -399,6 +402,24 @@ export default function CharacterMenu({
                   {sewerProgress.traceFound&&<div className="menu-list-row"><span>{sewerProgress.pumpRestored?"✓":"○"}</span><strong>Bomba hidráulica</strong><small>GALERIA -01</small></div>}
                   {sewerProgress.pumpRestored&&<div className="menu-list-row"><span>{sewerProgress.gateOpened?"✓":"○"}</span><strong>Comporta 04</strong><small>DESCIDA -02</small></div>}
                   {sewerProgress.gateOpened&&<div className="menu-list-row"><span>{sewerProgress.manifestRecovered?"✓":"○"}</span><strong>Manifesto V-09</strong><small>CÂMARA -02</small></div>}
+                </section>}
+                {edenProgress.started&&<section className="menu-list-panel" aria-label="Operação Ecos da Cidade">
+                  <span className="menu-panel-kicker">PROJETO ÉDEN // ECOS DA CIDADE</span>
+                  <p>{edenObjective(edenProgress)}</p>
+                  <small>Etapa {edenProgress.step} de {EDEN_STEPS.length}</small>
+                  {edenProgress.history.map(id=>{
+                    const stage=EDEN_STEPS.find(s=>s.id===id);
+                    return stage?<div className="menu-list-row" key={id}>
+                      <span>✓</span><strong>{stage.title}</strong><small>{stage.sector}</small>
+                    </div>:null;
+                  })}
+                  {!edenProgress.completed&&<div className="menu-list-row current">
+                    <span>◇</span><strong>{EDEN_STEPS[edenProgress.step]?.title}</strong>
+                    <small>EM ANDAMENTO</small>
+                  </div>}
+                  {edenProgress.completed&&<p className="menu-footnote">
+                    Desfecho: {edenProgress.ending==="publicar"?"dossiê público":"testemunhas protegidas"}.
+                  </p>}
                 </section>}
                 {ferrugemProgress.started&&<section className="menu-list-panel">
                   <span className="menu-panel-kicker">CAPÍTULO FERRUGEM // {ferrugemProgress.completed?"CONCLUÍDO":ferrugemProgress.started?(ferrugemProgress.step+"/"+FERRUGEM_STEPS.length):"NÃO INICIADO"}</span>
