@@ -12,7 +12,6 @@ import type {TestAppearance} from "../test-arena/appearance.ts";
 const W=1280,H=810,TW=50,TH=26,OX=630,OY=175;
 type XY={x:number;y:number};
 const project=(t:Tile):XY=>({x:OX+(t.x-t.y)*TW/2,y:OY+(t.x+t.y)*TH/2});
-const dirs:readonly Tile[]=[{x:0,y:-1},{x:1,y:0},{x:0,y:1},{x:-1,y:0}];
 function shade(hex:number,scale:number):number{
  const rgb=(v:number)=>Math.max(0,Math.min(255,Math.round(v*scale)));
  return rgb((hex>>16)&255)<<16|rgb((hex>>8)&255)<<8|rgb(hex&255);
@@ -82,7 +81,6 @@ export class DistrictInteriorScene extends Phaser.Scene{
   // Habilitar a identidade do espaço sem poluir a rua com obstáculos falsos.
   const wallpaper=shade(bp.wall,.70);
   g.fillStyle(wallpaper,1).fillRect(0,85,W,87);
-  const back=shade(bp.wall,.9);
   for(let i=0;i<24;i++){
    const x=24+i*56;
    g.fillStyle(shade(bp.wall,i%3===0?1.18:.78),.58);
