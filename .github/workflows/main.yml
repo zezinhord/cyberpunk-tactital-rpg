@@ -4,24 +4,13 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - main
-      - feature/landscape-mobile-v1
-      - feature/progression-audit-nova-arcadia-v071
-      - feature/music-director-v072
-      - feature/stability-tactical-combat-v073
-      - feature/visual-audit-camera-ui-v074
-      - feature/district-art-identity-v075
-      - feature/baixada-polish-npc-sprites-v076
-      - feature/cinematic-opening-expressive-dialogues-v077
-      - feature/clinic-healing-hotfix-v078
-      - feature/progressive-quests-favors-v079
       - feature/nova-arcadia-expansion-v080
   pull_request:
     branches:
       - main
 
 permissions:
-  contents: read
+  contents: write
   actions: read
 
 jobs:
@@ -392,3 +381,43 @@ jobs:
           name: Cyberpunk-Tactical-RPG-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
+
+
+      - name: Publicar somente o APK atual no canal permanente de testes
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feature/nova-arcadia-expansion-v080'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="nova-arcadia-android-atual"
+          ASSET="NovaArcadia-Android-atual.apk"
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          VERSION="$(node -p 'require("./package.json").version')"
+          test -s "$APK"
+          test "$(stat -c %s "$APK")" -ge 250000000
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
+          APKSIGNER="$(find "$SDK/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$APKSIGNER"
+          "$APKSIGNER" verify --print-certs "$APK" > qa/certificado-canal-atual.txt
+          # Apenas a assinatura da linha atual poderá atualizar este APK.
+          grep -Fiq "cb8a4e8c5c17d326e7ad0a08bbb90cd50eaf2d4ecfda59bf300784361eb44eb6" qa/certificado-canal-atual.txt
+          cp "$APK" "$ASSET"
+          SHA256="$(sha256sum "$ASSET" | cut -d ' ' -f 1)"
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --target feature/nova-arcadia-expansion-v080 \
+              --title "Nova Arcádia — APK Android atual" \
+              --notes "Canal oficial de testes Android: um único APK acumulativo. Testes em aparelhos físicos ainda pendentes." \
+              --prerelease
+          fi
+          gh release upload "$TAG" "$ASSET" --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --title "Nova Arcádia — Android $VERSION (atual)" \
+            --notes "APENAS UMA VERSÃO RECOMENDADA PARA TESTES: $VERSION. APK assinado na linha de desenvolvimento atual, acumulando todos os conteúdos anteriores. Workflow: #$GITHUB_RUN_NUMBER; commit: $GITHUB_SHA; SHA-256 do APK: $SHA256. Instale por cima da versão atual após exportar o backup do personagem. Não usar builds históricos de outras branches; não desinstalar sem backup. Teste físico de estabilidade ainda pendente." \
+            --prerelease
+          {
+            echo "## APK ÚNICO ATUAL — Nova Arcádia $VERSION"
+            echo "Link permanente: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$ASSET"
+            echo "SHA-256: \`$SHA256\`"
+            echo "Pacote Android auditado e assinatura da linha atual conferida."
+          } >> "$GITHUB_STEP_SUMMARY"
