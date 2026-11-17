@@ -1,4 +1,4 @@
-name: Publicar APK padrao 0.8.1 testado no Android
+name: Publicar APK 0.8.1 rc.2 corrigido para Android 0.8.0
 on:
   push:
     branches:
@@ -12,17 +12,17 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Aguardar APK final auditado do workflow 834
+      - name: Aguardar APK final auditado do workflow 848
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          RUN_ID=44005795159
+          RUN_ID=44009501074
           for attempt in $(seq 1 40); do
             JSON="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}")"
             STATUS="$(echo "$JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")"
             RESULT="$(echo "$JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('conclusion'))")"
-            echo "Build final #834: $STATUS / $RESULT (checagem $attempt)"
+            echo "Build final #848: $STATUS / $RESULT (checagem $attempt)"
             if [ "$STATUS" = "completed" ]; then
               [ "$RESULT" = "success" ] || exit 1
               break
@@ -37,16 +37,16 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/standard-apk
-          gh run download 44005795159 --repo "$GITHUB_REPOSITORY" \
+          gh run download 44009501074 --repo "$GITHUB_REPOSITORY" \
             -n Cyberpunk-Tactical-RPG-APK -D /tmp/standard-apk
           test -s /tmp/standard-apk/app-debug.apk
-          cp /tmp/standard-apk/app-debug.apk NovaArcadia-0.8.1-Compat-080.apk
-          test "$(stat -c '%s' NovaArcadia-0.8.1-Compat-080.apk)" -gt 250000000
+          cp /tmp/standard-apk/app-debug.apk NovaArcadia-0.8.1-rc.2-Compat-080.apk
+          test "$(stat -c '%s' NovaArcadia-0.8.1-rc.2-Compat-080.apk)" -gt 250000000
 
       - name: Verificar manifesto e assinatura no arquivo a distribuir
         run: |
           set -euo pipefail
-          APK=NovaArcadia-0.8.1-Compat-080.apk
+          APK=NovaArcadia-0.8.1-rc.2-Compat-080.apk
           unzip -tq "$APK"
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}"
           AAPT="$(find "$SDK/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
@@ -54,8 +54,8 @@ jobs:
           test -n "$AAPT" && test -n "$APKSIGNER"
           "$AAPT" dump badging "$APK" | head -n 2 | tee /tmp/compat080-badging.txt
           grep -Fq "name='com.cyberpunk.tacticalrpg'" /tmp/compat080-badging.txt
-          grep -Fq "versionCode='80101'" /tmp/compat080-badging.txt
-          grep -Fq "versionName='0.8.1-rc.1'" /tmp/compat080-badging.txt
+          grep -Fq "versionCode='80102'" /tmp/compat080-badging.txt
+          grep -Fq "versionName='0.8.1-rc.2'" /tmp/compat080-badging.txt
           "$APKSIGNER" verify --print-certs "$APK" > /tmp/compat080-signature.txt
           grep -Fq "cb8a4e8c5c17d326e7ad0a08bbb90cd50eaf2d4ecfda59bf300784361eb44eb6" /tmp/compat080-signature.txt
           sha256sum "$APK"
@@ -65,8 +65,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG=v0.8.1-rc.1-android-test
+          TAG=v0.8.1-rc.2-android-hotfix
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
-          gh release upload "$TAG" NovaArcadia-0.8.1-Compat-080.apk --repo "$GITHUB_REPOSITORY" --clobber
-          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "0.8.1-rc.1 | APKs Android de teste — NAO e release publico final. Compat-079: para instalacoes 0.7.9 assinadas com 5dc2...5f38; Compat-080: para instalacoes 0.8.0/0.8.1 assinadas com cb8a...4eb6. Ambos sao pacotes APK completos de aproximadamente 291 MB; escolha conforme a versao instalada para preservar o save. Confira que o arquivo baixado termina com .apk e possui ~291 MB. Se nenhuma variante atualizar, exporte seu backup antes de desinstalar. Comandos validados no CI (aapt + apksigner + integridade ZIP). Testes fisicos ainda pendentes."
-          echo "Link de descarga: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/NovaArcadia-0.8.1-Compat-080.apk" >> "$GITHUB_STEP_SUMMARY"
+          gh release upload "$TAG" NovaArcadia-0.8.1-rc.2-Compat-080.apk --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "0.8.1-rc.2 | APKs Android de teste — NAO e release publico final. Compat-079: para instalacoes 0.7.9 assinadas com 5dc2...5f38; Compat-080: para instalacoes 0.8.0/0.8.1 assinadas com cb8a...4eb6. Ambos sao pacotes APK completos de aproximadamente 291 MB; escolha conforme a versao instalada para preservar o save. Confira que o arquivo baixado termina com .apk e possui ~291 MB. Se nenhuma variante atualizar, exporte seu backup antes de desinstalar. Comandos validados no CI (aapt + apksigner + integridade ZIP). Testes fisicos ainda pendentes."
+          echo "Link de descarga: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/NovaArcadia-0.8.1-rc.2-Compat-080.apk" >> "$GITHUB_STEP_SUMMARY"
