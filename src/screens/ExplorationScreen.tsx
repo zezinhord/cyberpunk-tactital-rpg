@@ -729,10 +729,12 @@ export default function ExplorationScreen({
           role: "MECÂNICO / VENDEDOR",
           portrait: "N",
           text: "Encontrei um conector com marcação de manutenção do canal. Pode ficar com a peça; talvez ajude a entender o que aconteceu. Não é equipamento de oficina comum. Saldo da oficina: "+favors.credits+" créditos.",
-          choices:[...favorChoicesFor("vendedor"),...NILO_SHOP.filter(offer=>
-            shopOfferUnlocked(offer,favors,reputation)).map(offer=>({
-            id:"nilo-buy-"+offer.item,label:"Comprar "+offer.label+" · "+offer.price+" créditos",
-            reply:"Pedido de compra da oficina.",shopAction:offer.item}))],
+          choices:[...favorChoicesFor("vendedor"),...[
+            ["materiais","Componentes e fabricação"],
+            ["medicamentos","Curativos e baterias"],
+            ["equipamentos","Armas e proteção"],
+          ].map(([code,label])=>({
+            id:"nilo-open-"+code,label:"Ver "+label,reply:"Abrir seção do catálogo."}))],
         },
       ]);
       return;
@@ -816,6 +818,22 @@ export default function ExplorationScreen({
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    if(choice.id.startsWith("nilo-open-")){
+      const category=choice.id.slice("nilo-open-".length);
+      const offers=NILO_SHOP.filter(offer=>{
+        const item=ITEM_CATALOG[offer.item];
+        const group=item.category==="material"?"materiais":item.category==="consumable"?"medicamentos":"equipamentos";
+        return group===category&&shopOfferUnlocked(offer,favors,reputation);
+      });
+      say([{speaker:"Nilo",role:"CATÁLOGO DA OFICINA",portrait:"N",
+        text:"Peças disponíveis para entrega local. Saldo: "+favors.credits+" créditos. Escolha uma remessa.",
+        choices:[...offers.map(offer=>({
+          id:"nilo-buy-"+offer.item,label:offer.label+" · "+offer.price+" créditos",
+          reply:"Pedido de compra da oficina.",shopAction:offer.item})),
+          {id:"nilo-back",label:"Voltar às conversas",reply:"Retornar à oficina."}]}]);
+      return;
+    }
+    if(choice.id==="nilo-back"){handleInteract("vendedor");return;}
     if(choice.favorAction){actOnFavor(choice.favorAction);return;}
     if(choice.shopAction){
       const result=onBuyWithCredits(choice.shopAction as ItemId);
