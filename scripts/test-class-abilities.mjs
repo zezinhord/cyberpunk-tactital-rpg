@@ -98,3 +98,20 @@ executeClassSkill(nomad,CLASS_SKILLS["nomade-rota"]);
 assert.equal(nomad.movementRemaining,7);
 assert.equal(nomad.movementPerTurn,10);
 console.log("Classes: 11 oficiais, 11 exclusivas com efeitos distintos, custos, cooldown, alcance, desbloqueio, durações e economia aprovados.");
+
+// Tier 3: todas as habilidades de domínio são utilizadas pelo mesmo motor.
+for(const id of CLASS_IDS){
+ const mastery=getClassSkills(id).filter(x=>x.id.includes("-master-skill-"));
+ assert.equal(mastery.length,3,"Falta domínio de especialização para "+id);
+ for(const skill of mastery){
+   const state=game(id,skill.id);
+   state.characterLevel=10;state.energy=20;state.maxEnergy=20;
+   assert.equal(checkClassSkill(state,skill).available,true,skill.id);
+   const result=executeClassSkill(state,skill);
+   assert.equal(result.ok,true,skill.id);
+   assert.equal(state.mainActionAvailable,false);
+   assert.ok(state.energy<20||state.units[1].hp<18||state.units[0].armorClass>12||
+      state.movementRemaining>3||state.units[0].hp>9,"Domínio sem efeito real "+skill.id);
+ }
+}
+console.log("Domínio de classe: 33 técnicas adicionais executadas em simulação de combate.");

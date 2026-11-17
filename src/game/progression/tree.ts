@@ -86,6 +86,7 @@ export function availableAttributePoints(char:PlayerCharacter):number{
 export function skillPrerequisite(id:string):string|null{
  for(const classId of CLASS_IDS)for(const branch of getClassBranches(classId))
    if(branch.skillIds[1]===id)return branch.skillIds[0];
+   else if(branch.skillIds[2]===id)return branch.skillIds[1];
  // A relação entre as técnicas antigas de níveis 2 e 3 é contrato de
  // progressão de versões anteriores e continua obrigatória após a expansão.
  const node=ALL_CLASS_SKILLS[id];

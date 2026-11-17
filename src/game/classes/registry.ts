@@ -1,4 +1,4 @@
-import {BRANCH_CLASS_SKILLS,CLASS_BRANCHES} from "./branches.ts";
+import {BRANCH_CLASS_SKILLS,MASTER_BRANCH_SKILLS,CLASS_BRANCHES} from "./branches.ts";
 export {CLASS_BRANCHES} from "./branches.ts";
 /** As 11 classes oficiais de Nova Arcádia. Independentes das seis origens.
  * Poderes e números desta primeira etapa são balanceamento inicial jogável.
@@ -131,7 +131,7 @@ export const ADVANCED_CLASS_SKILLS:Readonly<Record<string,ClassSkill>>={
 "fixador-recursos":{id:"fixador-recursos",classId:"fixador",name:"Reserva Clandestina",description:"Recupera 8 de energia e concede +3 Defesa temporária.",role:"support",target:"self",cost:5,cooldown:4,range:0,area:0,minimumLevel:3,effects:[{type:"energy",amount:8},{type:"guard",amount:3,turns:2}],visual:"repair",maxRank:3,rankNote:"Poder avançado."},
 };
 export const ALL_CLASS_SKILLS:Readonly<Record<string,ClassSkill>>={
- ...CLASS_SKILLS,...ADVANCED_CLASS_SKILLS,...BRANCH_CLASS_SKILLS,
+ ...CLASS_SKILLS,...ADVANCED_CLASS_SKILLS,...BRANCH_CLASS_SKILLS,...MASTER_BRANCH_SKILLS,
 };
 
 export function getAllClasses():CombatClass[]{return CLASS_IDS.map(id=>PLAYABLE_CLASSES[id]);}
