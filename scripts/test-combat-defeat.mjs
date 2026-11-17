@@ -80,6 +80,11 @@ assert.equal(loadHealth("operativo-a",18),1,"Não gravar cura se a transição f
 assert.equal(loadWorldArea("operativo-a"),"subsolo","Falha de armazenamento mantém posição");
 assert.ok(data.get("cyberpunk-tactical-rpg.mission.v1.operativo-a")?.includes("pending"));
 assert.ok(data.get("cyberpunk-tactical-rpg.inventory.v1.operativo-a")?.includes("kit_trauma"));
+const battleScene=readFileSync(new URL("../src/game/BattleScene.ts",import.meta.url),"utf8");
+const fx=battleScene.slice(battleScene.indexOf("private showEffect("),battleScene.indexOf("private drawBoard("));
+assert.ok(battleScene.includes("private hasLiveCanvas()"),"Renderer desativado deve ignorar eventos tardios");
+assert.ok(battleScene.includes("if(!this.hasLiveCanvas())return"),"Eventos de dano não podem desenhar sem contexto");
+assert.ok(!fx.includes("this.add.text("),"Golpes fatais não devem alocar Phaser.Text nem CanvasPool");
 const app=readFileSync(new URL("../src/App.tsx",import.meta.url),"utf8");
 const css=readFileSync(new URL("../src/arena-v030.css",import.meta.url),"utf8");
 for(const marker of ['role="dialog"','aria-modal="true"','data-combat-defeat="true"',
