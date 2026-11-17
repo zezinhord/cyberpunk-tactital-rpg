@@ -2,7 +2,7 @@
  * entre renderer Phaser e testes de regressão: sem colisão ilusória.
  */
 export type DistrictId="aurea"|"subsolo"|"setor-zero"|"prisma"|"periferia";
-export type NodeSlot="exit"|"guide"|"terminal"|"cache"|"specialist"|"relay"|"community"|"discovery";
+export type NodeSlot="exit"|"guide"|"terminal"|"cache"|"specialist"|"relay"|"community"|"discovery"|"interior";
 export interface Tile{readonly x:number;readonly y:number}
 export interface CityBlock{readonly x:number;readonly y:number;readonly w:number;readonly h:number}
 export interface DistrictSpec{
@@ -57,13 +57,13 @@ export function getDistrict(id:DistrictId):DistrictSpec{
 export const NODE_TILES:Readonly<Record<NodeSlot,Tile>>={
  exit:{x:2,y:10},guide:{x:6,y:8},terminal:{x:12,y:7},
  cache:{x:7,y:17},specialist:{x:18,y:9},
- relay:{x:24,y:8},community:{x:12,y:17},discovery:{x:27,y:19},
+ relay:{x:24,y:8},community:{x:12,y:17},discovery:{x:27,y:19},interior:{x:27,y:6},
 };
 export const NODE_NAMES:Readonly<Record<NodeSlot,string>>={
  exit:"Transporte de retorno",guide:"Contato local",terminal:"Console público",
  cache:"Depósito oculto",specialist:"Operador de campo",
  relay:"Repetidor clandestino",community:"Assembleia da região",
- discovery:"Arquivo recuperável",
+ discovery:"Arquivo recuperável",interior:"Entrada para espaço interno",
 };
 export function districtActorId(id:DistrictId,slot:NodeSlot):string{
  return "district-"+id+"-"+slot;
