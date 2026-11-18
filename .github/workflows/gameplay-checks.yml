@@ -39,5 +39,11 @@ jobs:
           node --experimental-strip-types scripts/test-eden-governance.mjs
       - name: Testar backups e eliminacao de slots
         run: node --experimental-strip-types scripts/test-save-slots.mjs
+      - name: Testar as 66 combinacoes de classe e origem
+        run: node --experimental-strip-types scripts/test-class-saves.mjs
+      - name: Testar fabricacao e equipamentos
+        run: node --experimental-strip-types scripts/test-crafting.mjs
+      - name: Testar derrota, cura e retorno seguro ao combate
+        run: node --experimental-strip-types scripts/test-combat-defeat.mjs
       - name: Validar contrato visual
         run: node .agents/skills/nova-arcadia-game-art-ui/scripts/check-visual-contract.mjs
