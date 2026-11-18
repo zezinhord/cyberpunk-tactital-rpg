@@ -57,4 +57,4 @@ const published=calculateReputation({favors:INITIAL_FAVORS,market:INITIAL_MARKET
 assert.ok(guarded.factions.mercado_cinzento>published.factions.mercado_cinzento);
 assert.ok(guarded.factions.helix>published.factions.helix);
 assert.ok(EDEN_KEY.endsWith("."));
-console.log("Éden: 10 etapas, 2 confrontos, 2 finais, saves v1, reputação e recompensas únicas aprovados.");
+console.log("Éden: 10 etapas, 2 confrontos, finais legados, saves v1, reputação e recompensas únicas aprovados.");
