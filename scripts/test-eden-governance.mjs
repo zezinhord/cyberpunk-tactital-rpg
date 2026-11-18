@@ -44,7 +44,9 @@ for(const choice of EDEN_ENDING_CHOICES){
  const inventory=createStartingInventory(owner);
  const rewarded=syncEdenItems(inventory,read);
  const {item,amount}=bonuses[choice.id];
- assert.equal(rewarded.quantities[item],amount);
+ assert.equal(rewarded.quantities[item],
+  EDEN_STEPS.filter(step=>step.rewardItem===item).length+amount,
+  "Recompensa final soma-se aos itens já recebidos na campanha");
  assert.deepEqual(syncEdenItems(rewarded,read),rewarded,"Recibos não duplicam itens");
  const reputation=calculateReputation({favors:INITIAL_FAVORS,market:INITIAL_MARKET,eden:read});
  const epilogue=createEdenEpilogue(read,{
