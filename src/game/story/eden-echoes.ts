@@ -3,7 +3,23 @@
  */
 import {grantRewardInventoryItem,type ItemId,type InventoryState} from "../inventory.ts";
 export const EDEN_KEY="cyberpunk-tactical-rpg.eden-echoes.v1.";
-export type EdenEnding="publicar"|"resguardar";
+export type EdenEnding="publicar"|"resguardar"|"autonomia";
+export const EDEN_ENDING_CHOICES:readonly {
+ id:EdenEnding;label:string;reply:string;title:string;postgame:string;
+}[]=[
+ {id:"publicar",label:"Instituir controle público e abrir os arquivos",
+  reply:"As provas serão públicas e a fiscalização ficará sob controle civil.",
+  title:"Controle público e transparência",
+  postgame:"A cidade criou um conselho público. Visite os distritos para observar as consequências da fiscalização."},
+ {id:"resguardar",label:"Negociar governança híbrida e proteger as fontes",
+  reply:"Éden, comunidades e instituições terão limites negociados.",
+  title:"Governança híbrida",
+  postgame:"A auditoria conjunta protege testemunhas. Retorne às regiões para verificar os acordos."},
+ {id:"autonomia",label:"Conceder autonomia condicionada ao Projeto Éden",
+  reply:"A rede poderá agir sob limites de revisão e contestação.",
+  title:"Autonomia condicionada",
+  postgame:"Éden recebeu autonomia limitada. Serviços e vigilância reagem de maneiras diferentes nos distritos."},
+] as const;
 export type EdenEncounter="eden-relay"|"eden-core";
 export interface EdenStep{
  id:string;title:string;actor:string;sector:string;
@@ -48,8 +64,8 @@ export const EDEN_STEPS:readonly EdenStep[]=[
   message:"As reservas de água existem, mas foram classificadas como economicamente invisíveis. Dara confirma que a cidade pode corrigir o bloqueio; exige apenas que ninguém perca o direito de escolher como será representado.",
   xp:32,rewardItem:"tecido_tecnico"},
  {id:"escolha",title:"Quem terá direito a escolher?",actor:"feira-archive",sector:"Mercado dos Cabos",
-  kind:"decision",objective:"Volte ao mural da feira e decida se publica imediatamente ou resguarda as testemunhas.",
-  message:"O dossiê conecta Helix, Éden e os cortes de serviço. A comunidade aceita guardá-lo ou divulgá-lo, mas pede que você assuma as consequências da decisão. A história de Nova Arcádia continuará a partir dessa escolha.",
+  kind:"decision",objective:"Volte ao mural da feira e decida quem governará a infraestrutura: o público, uma coalizão ou Éden sob limites.",
+  message:"O dossiê conecta Helix, Éden e os cortes de serviço. Três projetos disputam o futuro: controle público, governança negociada e autonomia condicionada. Nenhum elimina por completo os riscos da cidade.",
   xp:60,rewardItem:"mira_neural"},
 ] as const;
 export interface EdenProgress{
@@ -64,7 +80,7 @@ export function normalizeEden(raw:unknown):EdenProgress{
  const step=Number.isInteger(v.step)&&Number(v.step)>=0&&Number(v.step)<=EDEN_STEPS.length?Number(v.step):0;
  const history=Array.isArray(v.history)?v.history.filter((x):x is string=>
    typeof x==="string"&&EDEN_STEPS.some(a=>a.id===x)).slice(0,EDEN_STEPS.length):[];
- const ending=v.ending==="publicar"||v.ending==="resguardar"?v.ending:null;
+ const ending=v.ending==="publicar"||v.ending==="resguardar"||v.ending==="autonomia"?v.ending:null;
  const completed=v.completed===true&&step===EDEN_STEPS.length&&ending!==null;
  return {version:1,started:v.started===true||completed,completed,
   step:completed?step:Math.min(step,EDEN_STEPS.length-1),
@@ -80,7 +96,7 @@ export function validateEdenBackup(raw:unknown):raw is EdenProgress{
    new Set(v.history).size!==v.history.length||
    !v.history.every(x=>typeof x==="string"&&EDEN_STEPS.some(a=>a.id===x))||
    !v.history.every((x,i)=>EDEN_STEPS[i]?.id===x)||
-   v.history.length!==v.step||!["publicar","resguardar",null].includes(v.ending as string|null)||
+   v.history.length!==v.step||!["publicar","resguardar","autonomia",null].includes(v.ending as string|null)||
    (v.completed&&(v.step!==EDEN_STEPS.length||v.ending===null))||
    (!v.completed&&v.ending!==null))return false;
  return true;
@@ -104,10 +120,9 @@ export function currentEdenStep(progress:EdenProgress):EdenStep|null{
  return progress.started&&!progress.completed?EDEN_STEPS[progress.step]??null:null;
 }
 export function edenObjective(progress:EdenProgress):string{
- if(progress.completed)return progress.ending==="publicar"
-  ?"Provas divulgadas. Converse com as comunidades enquanto a Helix reage à exposição."
-  :"Fontes protegidas. A comunidade organiza uma auditoria pública sem revelar os abrigos.";
- return currentEdenStep(progress)?.objective??"Ainda não há um novo capítulo ativo.";
+ if(progress.completed)return EDEN_ENDING_CHOICES.find(e=>e.id===progress.ending)?.postgame
+   ??"A cidade aguarda a decisão final.";
+  return currentEdenStep(progress)?.objective??"Ainda não há um novo capítulo ativo.";
 }
 export function advanceEden(progress:EdenProgress,actor:string,ending?:EdenEnding,encounter?:EdenEncounter):
  {advanced:boolean;state:EdenProgress;step?:EdenStep;message:string}{
@@ -115,7 +130,7 @@ export function advanceEden(progress:EdenProgress,actor:string,ending?:EdenEndin
  if(!step||actor!==step.actor)return {advanced:false,state:progress,message:"Este não é o objetivo da investigação atual."};
  if(step.kind==="combat"&&step.encounter!==encounter)
   return {advanced:false,state:progress,message:"É necessário superar o confronto para recuperar a prova."};
- if(step.kind==="decision"&&!ending)
+ if(step.kind==="decision"&&(!ending||!EDEN_ENDING_CHOICES.some(e=>e.id===ending)))
   return {advanced:false,state:progress,message:"Escolha como a comunidade deve guardar o dossiê."};
  if(step.kind!=="decision"&&ending||step.kind!=="combat"&&encounter)
   return {advanced:false,state:progress,message:"Esta etapa não aceita essa resolução."};
@@ -139,5 +154,15 @@ export function syncEdenItems(inventory:InventoryState,progress:EdenProgress):In
   const stage=EDEN_STEPS.find(s=>s.id===id);
   if(stage?.rewardItem)next=grantRewardInventoryItem(next,stage.rewardItem,1,"eden-"+id);
  }
- return next;
+ // Uma consequência econômica distinta por final, resgatável após reload.
+  const endingAid:Record<EdenEnding,{item:ItemId;amount:number}>={
+   publicar:{item:"dados_criptografados",amount:2},
+   resguardar:{item:"kit_trauma",amount:2},
+   autonomia:{item:"bateria_portatil",amount:2},
+  };
+  if(progress.completed&&progress.ending){
+   const aid=endingAid[progress.ending];
+   next=grantRewardInventoryItem(next,aid.item,aid.amount,"eden-final-"+progress.ending);
+  }
+  return next;
 }
