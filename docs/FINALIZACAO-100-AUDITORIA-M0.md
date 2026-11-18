@@ -4,7 +4,7 @@
 **Base congelada:** `feature/nova-arcadia-gameplay-depth-v091`, commit `87aac85850ab3f8ca6272e72a03680436d7f9321` (v0.9.1-rc.1).
 **Integração isolada:** `feature/nova-arcadia-finalization-v100-rc`. Não houve merge na `main` nem substituição da APK anteriormente distribuída.
 
-> **Critério de verdade:** `tsc` e simulações em Node são testes de código, não homologação de Android, jornada real ou campanha de 5–8 horas. O build de 1,14 GB citado no documento-base é da versão anterior, não uma nova APK desta integração.
+> **Critério de verdade:** `tsc`, compilação Android e simulações em Node não substituem homologação física nem playthrough da campanha de 5–8 horas. A nova APK 1.0.0-rc.1 recupera mídia original de uma APK 0.9.1 verificada e foi recompilada e assinada na própria integração.
 
 ## Inventário e verificações do código
 
@@ -18,7 +18,7 @@
 | 35 itens e fabricação | `src/game/inventory.ts`, `src/game/crafting.ts` | Equipamentos, itens, recibos e crafting preservados; economia real por ato ainda não medida. |
 | Combate e IA | `src/game/TurnManager.ts`, `src/components/Battlefield.tsx`, `src/game/tactics.ts` | SVG, cobertura, Vigilância e arquétipos existentes preservados; `test-tactics.mjs` e regressões. |
 | Arco pós-V-09 | `src/game/story/eden-echoes.ts` | 10 etapas e dois confrontos existentes; 3 opções políticas finais agora integradas na UI, com epílogos e retornos. O clímax multietapa proposto no documento ainda NÃO foi implementado. |
-| Áudio | `src/audio/director.ts`, geradores em `tools/` | Nenhum arquivo, trilha ou ambiente sonoro removido; mídia de 1 GB não foi regenerada nesta branch. |
+| Áudio | `src/audio/director.ts`, geradores em `tools/` | Biblioteca original mantida; recuperação de áudio por hash da APK 0.9.1, sem síntese artificial adicional. |
 | Salvos e backup | `src/game/character/backup.ts`, `slots.ts`, `eden-echoes.ts` | Corrigida limpeza de dados Éden e restauração integral de arquivos antigos, com teste de rollback. |
 
 ## Matriz de rastreabilidade por sistema
@@ -36,7 +36,7 @@
 | Classes e habilidades | `game/classes/*`, `game/progression/*` | Preservado | P1, seleção/técnicas ausentes | `test-class-abilities.mjs`, `test-class-saves.mjs` | Pendente | Testar |
 | Inventário e crafting | `game/inventory.ts`, `game/crafting.ts` | Preservado | P1, custos e duplicações | `test-crafting.mjs` | Pendente | Testar |
 | Recursos gráficos | `game/baixada/sprites.ts`, `game/districts/art.ts` | Preservado | P1, arte provisória/oclusão | Contrato `check-visual-contract.mjs` | Pendente | Refino visual |
-| Android/assinatura | `capacitor.config.ts`, `.github/workflows/main.yml` | Pacote anterior existente; NÃO recompilado aqui | P0, chave/update/instalação | CI leve, sem APK | Obrigatório | Manter QA separado |
+| Android/assinatura | `capacitor.config.ts`, `.github/workflows/finalization-android-qa.yml` | APK 1.0.0-rc.1 integral compilada, auditada e assinada na CI | P0, instalação e upgrade físicos pendentes | Android QA #44236725370 | Obrigatório | Manter QA separado |
 
 ## Os dez maiores riscos (em ordem de bloqueio)
 
@@ -75,14 +75,26 @@ Regras e gameplay ──> storage/backup v1 ──> CI ──> APK QA ──> te
 | M2 — conclusão narrativa | **Parcial** | Três decisões, epílogo e créditos integrados; faltam missões A–G e clímax de duas fases. |
 | M3 — 11 classes/6 origens e conteúdo RPG | **Parcial** | Regressões automáticas; checar identidade de todas as classes e rotas em jogo. |
 | M4 — arte, UX e acessibilidade | **Parcial** | Novo painel de epílogo; revisão artística ampla e dispositivos menores pendentes. |
-| M5 — homologação Android | **Não realizada nesta etapa** | APK assinada, migração de saves, 30 min de sessão/telefone e FPS/memória. |
-| M6 — publicação 1.0.0 | **Bloqueado** | Nenhuma falha P0/P1 sem justificativa; playthrough completo e decisão de GO. |
+| M5 — homologação Android | **Parcial** | APK assinada e auditada na CI; migração de saves, 30 min em aparelho e FPS/memória pendentes. |
+| M6 — publicação 1.0.0 | **Estável bloqueado; QA RC publicada** | Playthrough completo, dispositivos e decisão de GO pendentes. |
 
 ## Medições que NÃO podem ser declaradas como concluídas
 
-- APK nova da branch e seu SHA-256, assinatura, tamanho real, espaço instalado.
+- Espaço instalado e consumo temporário de armazenamento em Android real (APK e assinatura na CI verificados).
 - FPS, picos de memória, cold boot e taxa de crash em dispositivos físicos.
 - Duração de 5–8 horas e três rotas finais jogadas do começo aos créditos.
 - Validação visual de sprites, corpo/identidade e cenas com captura de 914×411 e outro tamanho de tela.
 
-**Decisão editorial:** manter o código em **branch de pré-finalização, rascunho**, sem tag estável e sem atualização de `main`. A existência de três finais no modelo de regras não permite nomear a entrega como 1.0.0.
+**Decisão editorial:** manter o código em branch de pré-finalização e PR em rascunho, com tag **prerelease QA** isolada, sem tag estável e sem alterar a `main`. Três finais no modelo de regras ainda não homologam 1.0.0 estável.
+
+
+## APK 1.0.0-rc.1 — resultado da CI Android
+- **Workflow:** https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44236725370 — conclusão `success`.
+- **Release de QA:** https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/tag/nova-arcadia-v100-rc1-full-qa
+- **Arquivo:** `NovaArcadia-1.0.0-rc.1-Full-1GB-QA.apk` — **1.143.067.327 bytes**.
+- **SHA-256:** `70f857587019e9d49a0ba3f8f20a982d503452bfb9df22fdb82cdcf7953feb18`.
+- **App ID separado:** `com.cyberpunk.tacticalrpg.qa100`; VersionName `1.0.0-rc.1`; VersionCode `1000001`.
+- **Commit de código/compilação:** `82ca799e80c4f7564df9dbed2f7d351ffee5b07e`.
+- **Verificado na CI:** código TypeScript, 66 combinações, saves, derrota, crafting, web build, Gradle, versão, assinatura via `apksigner` e auditoria de conteúdo.
+- **Mídia:** APK anterior validada pelo SHA-256 antes de extrair somente 56 trilhas, 28 ambiências e 112 ambientes expandidos efetivamente referenciados.
+- **Próximo gate:** Android real, FPS/RAM, migração e playthrough. Consulte `docs/QA-ANDROID-100-RC1.md`.
