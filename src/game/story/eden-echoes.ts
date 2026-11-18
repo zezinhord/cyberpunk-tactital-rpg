@@ -93,7 +93,8 @@ export function readEden(id:string):EdenProgress{
 }
 export function saveEden(id:string,progress:EdenProgress):boolean{
  if(!id||!validateEdenBackup(progress))return false;
- try{globalThis.localStorage?.setItem(EDEN_KEY+id,JSON.stringify(progress));return true}
+ try{const storage=globalThis.localStorage;if(!storage)return false;
+  storage.setItem(EDEN_KEY+id,JSON.stringify(progress));return true}
  catch{return false;}
 }
 export function startEden(progress:EdenProgress,trialComplete:boolean,reported:boolean):EdenProgress{
