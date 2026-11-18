@@ -4,10 +4,14 @@ import {readFileSync,writeFileSync} from "node:fs";
 // Pacote QA 0.9.1 isolado: a chave privada da QA 0.9.0 vive em outro escopo
 // de cache do GitHub Actions. Nunca reutilizar o mesmo package ID com uma
 // assinatura nova, pois isso impediria a atualização pelo Android.
-const qaVariant=process.env.NA_QA_VARIANT==="v091"?"v091":"v090";
-const packageId=qaVariant==="v091"?"com.cyberpunk.tacticalrpg.qa091":
+const qaVariant=process.env.NA_QA_VARIANT==="v100"?"v100":
+ process.env.NA_QA_VARIANT==="v091"?"v091":"v090";
+// Nunca reusar o identificador do QA 0.9.1 com certificado de outra branch.
+const packageId=qaVariant==="v100"?"com.cyberpunk.tacticalrpg.qa100":
+ qaVariant==="v091"?"com.cyberpunk.tacticalrpg.qa091":
  "com.cyberpunk.tacticalrpg.qa";
-const appLabel=qaVariant==="v091"?"Nova Arcádia QA 0.9.1":"Nova Arcádia QA";
+const appLabel=qaVariant==="v100"?"Nova Arcádia Final QA":
+ qaVariant==="v091"?"Nova Arcádia QA 0.9.1":"Nova Arcádia QA";
 const gradle="android/app/build.gradle";
 const original=readFileSync(gradle,"utf8");
 const pattern=/\bapplicationId\s+["']com\.cyberpunk\.tacticalrpg["']/g;
