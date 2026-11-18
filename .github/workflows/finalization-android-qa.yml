@@ -67,6 +67,12 @@ jobs:
             "$ORIGINAL" | sha256sum -c -
           python tools/restore_media_from_apk.py "$ORIGINAL"
           rm -f "$ORIGINAL"
+      - name: Install FFmpeg and FFprobe for media validation
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          command -v ffmpeg
+          command -v ffprobe
       - name: Verify original media and runtime bindings
         run: |
           node --experimental-strip-types scripts/test-expanded-ambience.mjs
