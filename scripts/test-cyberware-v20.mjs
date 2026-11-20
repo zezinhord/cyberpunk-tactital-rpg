@@ -1,0 +1,56 @@
+import assert from "node:assert/strict";
+import {createStartingInventory,getEquipmentBonuses,saveInventory,loadInventory,
+ grantItem} from "../src/game/inventory.ts";
+import {CYBERWARE_IDS,CYBERWARE_CATALOG,cyberwareStealth,cyberwareCapacity,
+ cyberwareLoad,canInstallCyberware,installCyberware,removeCyberware,safeCyberware,
+ getCyberwareBonuses} from "../src/game/cyberware.ts";
+const db=new Map();
+globalThis.localStorage={getItem:k=>db.get(k)??null,setItem:(k,v)=>db.set(k,String(v)),removeItem:k=>db.delete(k)};
+assert.equal(CYBERWARE_IDS.length,8);
+assert.equal(new Set(CYBERWARE_IDS.map(id=>CYBERWARE_CATALOG[id].name)).size,8);
+let inv=createStartingInventory("v20-cyb");
+assert.deepEqual(inv.cyberware,[]);
+const prior=getEquipmentBonuses(inv);
+assert.equal(canInstallCyberware(inv,"retina-espectral",1).ok,false);
+for(const mat of ["reagente_bio","microatuador","fibra_optica","dados_criptografados",
+ "tecido_tecnico","placa_ceramica"])inv=grantItem(inv,mat,30);
+const original={...inv.quantities};
+assert.equal(canInstallCyberware(inv,"retina-espectral",3).ok,true);
+const a=installCyberware(inv,"retina-espectral",3);
+assert.equal(a.ok,true);
+assert.deepEqual(a.state.cyberware,["retina-espectral"]);
+assert.equal(a.state.quantities.fibra_optica,original.fibra_optica-2);
+assert.equal(a.state.quantities.dados_criptografados,original.dados_criptografados-1);
+assert.deepEqual(inv.cyberware,[],"Original remains immutable");
+inv=a.state;
+assert.equal(installCyberware(inv,"retina-espectral",3).ok,false,"no duplicate billing");
+assert.equal(installCyberware(inv,"olhos-balisticos",7).ok,false,"same anatomy slot conflicts");
+assert.equal(cyberwareStealth(inv.cyberware),2);
+assert.equal(cyberwareLoad(inv.cyberware),1);
+assert.equal(cyberwareCapacity(3),5);
+const b=installCyberware(inv,"derme-regenerativa",5);
+assert.equal(b.ok,true);
+inv=b.state;
+const c=installCyberware(inv,"interface-mnemonica",6);
+assert.equal(c.ok,true);
+inv=c.state;
+assert.equal(inv.cyberware.length,3);
+assert.equal(cyberwareLoad(inv.cyberware),5);
+assert.equal(installCyberware(inv,"braco-industrial",9).ok,false,"three slots max");
+assert.equal(getEquipmentBonuses(inv).hpBonus,prior.hpBonus+6);
+assert.equal(getEquipmentBonuses(inv).energyBonus,prior.energyBonus+4);
+assert.equal(getCyberwareBonuses(inv.cyberware).hpBonus,6);
+assert.equal(saveInventory(inv),true);
+assert.deepEqual(loadInventory("v20-cyb").cyberware,inv.cyberware,"Save restore");
+const removed=removeCyberware(inv,"derme-regenerativa");
+assert.equal(removed.ok,true);
+assert.equal(removed.state.quantities.reagente_bio,inv.quantities.reagente_bio,"No refund exploit");
+assert.equal(removeCyberware(removed.state,"derme-regenerativa").ok,false);
+assert.deepEqual(safeCyberware(["retina-espectral","retina-espectral"]),[]);
+assert.deepEqual(safeCyberware(["retina-espectral","olhos-balisticos"]),[]);
+assert.deepEqual(safeCyberware(["../../bad"]),[]);
+assert.deepEqual(safeCyberware(["retina-espectral","derme-regenerativa","interface-mnemonica","braco-industrial"]),[]);
+const old={...inv};delete old.cyberware;
+assert.deepEqual(getEquipmentBonuses(old),prior,"old inventory mechanics unchanged");
+assert.equal(canInstallCyberware(createStartingInventory("empty"),"retina-espectral",8).ok,false);
+console.log("Cyberware 2.0: 8 modules, 5 anatomy slots, neural load, materials, no duplication and v1 save approved.");
