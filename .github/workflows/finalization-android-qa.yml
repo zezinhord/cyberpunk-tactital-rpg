@@ -1,4 +1,4 @@
-name: Nova Arcadia 1.0.0 RC - Full Android QA
+name: Nova Arcadia 1.0.0 RC - Full Android QA + WebView boot
 
 on:
   push:
@@ -80,6 +80,8 @@ jobs:
           node --experimental-strip-types scripts/test-soundscapes.mjs
       - name: Compile real web runtime and character sheets
         run: npm run build
+      - name: Smoke test Android-UI cold boot, character creation and first map
+        run: node scripts/test-android-cold-boot.mjs
       - name: Validate generated artwork and web assets
         run: |
           node scripts/test-character-sheets.mjs
@@ -100,22 +102,13 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: nova-arcadia-v100-qa-signing-v1
-      - name: Create fresh isolated QA key when necessary
+      # O certificado anterior deve permanecer IGUAL para permitir upgrade de rc1
+      # sobre rc2 sem perder saves. Nunca gerar outra chave para mesmo package ID.
+      - name: Block incompatible Android QA keys
         if: steps.qa_signing.outputs.cache-hit != 'true'
         run: |
-          mkdir -p "$HOME/.android"
-          test ! -e "$HOME/.android/debug.keystore"
-          keytool -genkeypair -noprompt \
-            -keystore "$HOME/.android/debug.keystore" \
-            -storepass android -keypass android -alias androiddebugkey \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Nova Arcadia Debug,O=Nova Arcadia,C=BR"
-      - name: Save QA key before expensive Gradle build
-        if: steps.qa_signing.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: nova-arcadia-v100-qa-signing-v1
+          echo "ERRO: chave da QA100 anterior indisponível. Não emitir APK incompatível." >&2
+          exit 1
       - name: Bind separate application ID and sign
         run: |
           node scripts/force-android-signing.mjs
@@ -136,19 +129,50 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
           "$AAPT" dump badging "$APK" | tee qa/apk-badging.txt
           grep -Fq "name='com.cyberpunk.tacticalrpg.qa100'" qa/apk-badging.txt
-          grep -Fq "versionCode='1000001'" qa/apk-badging.txt
-          grep -Fq "versionName='1.0.0-rc.1'" qa/apk-badging.txt
+          grep -Fq "versionCode='1000002'" qa/apk-badging.txt
+          grep -Fq "versionName='1.0.0-rc.2'" qa/apk-badging.txt
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee qa/assinatura.txt
           grep -Fq "CN=Nova Arcadia Debug" qa/assinatura.txt
+          grep -Fq "3759bf917ed1423fde28272602b5cb4aa34447c0e60d65f2ce66946bb4916dc0" qa/assinatura.txt
           sha256sum "$APK" | tee qa/apk-sha256.txt
           test "$(stat -c %s "$APK")" -ge 1000000000
+      - name: Install full signed APK and prove WebView launch in 2GB Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          ram-size: 2048M
+          disk-size: 8192M
+          emulator-boot-timeout: 600
+          disable-animations: true
+          script: |
+            set -e
+            adb install -r -t android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n com.cyberpunk.tacticalrpg.qa100/com.cyberpunk.tacticalrpg.MainActivity
+            sleep 3
+            node scripts/test-android-webview-startup.mjs
+            adb exec-out screencap -p > qa/boot-android-2gb-rc2.png
+            adb shell am force-stop com.cyberpunk.tacticalrpg.qa100
+            adb shell am start -W -n com.cyberpunk.tacticalrpg.qa100/com.cyberpunk.tacticalrpg.MainActivity
+            sleep 3
+            node scripts/test-android-webview-startup.mjs
+      - name: Upload Android cold boot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-v100-rc2-boot-android-2GB
+          path: qa/boot-android-2gb-rc2.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Publish direct download in SEPARATE QA prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="nova-arcadia-v100-rc1-full-qa"
-          FILE="NovaArcadia-1.0.0-rc.1-Full-1GB-QA.apk"
+          TAG="nova-arcadia-v100-rc2-boot-qa"
+          FILE="NovaArcadia-1.0.0-rc.2-Full-1GB-BOOT-QA.apk"
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
           cp "$APK" "$FILE"
           SIZE="$(stat -c %s "$FILE")"
@@ -156,13 +180,13 @@ jobs:
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
-              --title "Nova Arcádia 1.0.0-rc.1 — QA integral, NÃO estável" \
+              --title "Nova Arcádia 1.0.0-rc.2 — Boot Recovery QA integral, NÃO estável" \
               --notes "Prévia Android de teste. Ainda não homologada em aparelhos reais. Não substitui a instalação 0.9.1; exporte e importe seu backup manualmente." \
               --prerelease
           gh release upload "$TAG" "$FILE" --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --title "Nova Arcádia 1.0.0-rc.1 — QA integral, NÃO estável" \
-            --notes "APK integral com biblioteca de mídia preservada e novo código. Pacote Android isolado com.cyberpunk.tacticalrpg.qa100. $SIZE bytes; SHA-256: $SHA; commit: $GITHUB_SHA. Testes físicos, playthrough integral, desempenho e campanhas finais ainda pendentes. NÃO é a versão estável 1.0.0. Salvos só por backup exportado/importado." \
+            --title "Nova Arcádia 1.0.0-rc.2 — Boot Recovery QA integral, NÃO estável" \
+            --notes "APK integral de inicialização corrigida, cidade carregada sob demanda e recuperação de erro sem apagar dados. Biblioteca original preservada. Android API35 2GB boot/restart verificados. Pacote Android com.cyberpunk.tacticalrpg.qa100. $SIZE bytes; SHA-256: $SHA; commit: $GITHUB_SHA. Testes físicos, playthrough integral, desempenho e campanhas finais ainda pendentes. NÃO é a versão estável 1.0.0. Salvos só por backup exportado/importado." \
             --prerelease
           echo "APK QA direto: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$FILE" >> "$GITHUB_STEP_SUMMARY"
           echo "SHA256: $SHA" >> "$GITHUB_STEP_SUMMARY"
