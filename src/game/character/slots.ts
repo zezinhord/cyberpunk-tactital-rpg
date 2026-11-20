@@ -23,6 +23,7 @@ const OWNED_DATA_KEYS=[
  "cyberpunk-tactical-rpg.cisma-v20.v1.",
  "cyberpunk-tactical-rpg.cisma-operations.v1.",
  "cyberpunk-tactical-rpg.party-v20.v1.",
+ "cyberpunk-tactical-rpg.stealth-v20.v1.",
 ] as const;
 /** Descobre e preserva automaticamente o slot único de versões anteriores. */
 export function listCharacterSlots():PlayerCharacter[]{
