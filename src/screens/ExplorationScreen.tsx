@@ -13,6 +13,8 @@ import {ITEM_CATALOG,type InventoryState,type ItemId} from "../game/inventory";
 import type {CyberwareId} from "../game/cyberware.ts";
 import {readParty,saveParty,recruitCompanion,toggleCompanion,
   type CompanionId} from "../game/companions.ts";
+import {readStealth,saveStealth,planStealth,
+ type StealthMode} from "../game/stealth.ts";
 import type {RecipeId} from "../game/crafting";
 import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
@@ -213,6 +215,7 @@ export default function ExplorationScreen({
   const [eden,setEden]=useState(()=>readEden(character.id));
   const [cisma,setCisma]=useState(()=>readCisma(character.id));
   const [party,setParty]=useState(()=>readParty(character.id));
+  const [stealth,setStealth]=useState(()=>readStealth(character.id));
   const [partyNotice,setPartyNotice]=useState("");
   const [operations,setOperations]=useState(()=>readOperations(character.id));
   const [epilogueOpen,setEpilogueOpen]=useState(false);
@@ -609,7 +612,18 @@ export default function ExplorationScreen({
     const operationStage=currentOperation(operations);
     if(operationStage?.actor===id){
       if(operationStage.kind==="combat"){
-        if(operationStage.encounter)onOpenBattle(operationStage.encounter);
+        if(!operationStage.encounter)return;
+        say([{speaker:operationStage.speaker,role:"OPERAÇÃO 2.0 · ROTA DE ENTRADA",
+          portrait:"▤",text:operationStage.objective+
+            "\n\nVocê pode atacar frontalmente ou tentar uma infiltração. A escolha será salva uma única vez por encontro, mesmo se o combate for interrompido.",
+          choices:[
+            {id:"ops-approach-"+operationStage.encounter+":stealth",
+              label:"Infiltrar · usar classe, cyberware e contatos",
+              reply:"Tentar uma rota de baixa exposição, sujeita à vigilância local."},
+            {id:"ops-approach-"+operationStage.encounter+":assault",
+              label:"Assalto frontal · sem teste de furtividade",
+              reply:"Avançar diretamente, preservando o controle da rota."},
+          ]}]);
         return;
       }
       if(operationStage.kind==="decision"){
@@ -1082,6 +1096,27 @@ export default function ExplorationScreen({
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    if(choice.id.startsWith("ops-approach-")){
+      const [encounter,rawMode]=choice.id.slice("ops-approach-".length).split(":");
+      const active=currentOperation(operations);
+      if(!active||active.kind!=="combat"||active.encounter!==encounter||
+        (rawMode!=="stealth"&&rawMode!=="assault"))return;
+      const result=planStealth(stealth,active.encounter,rawMode as StealthMode,{
+        classId:character.classId??"solo",level:character.level,
+        cyberware:inventory.cyberware??[],party,cisma,
+      });
+      if(!result.ok)return;
+      if(!saveStealth(character.id,result.state)){
+        say([{speaker:"ARQUIVO LOCAL",role:"PLANO NÃO SALVO",portrait:"!",
+          text:"Não foi possível registrar o plano de infiltração. Libere espaço e escolha novamente."}]);
+        return;
+      }
+      setStealth(result.state);
+      setCityNotice(result.message);
+      setDialogue(null);
+      onOpenBattle(active.encounter);
+      return;
+    }
     const operationChoice=OPERATIONS_ENDINGS.find(option=>choice.id==="cisma-operations-"+option.id);
     if(operationChoice){
       const result=advanceOperation(operations,"feira-archive",operationChoice.id);
