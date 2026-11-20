@@ -1,0 +1,206 @@
+#!/usr/bin/env python3
+"""Build seven authenticated *playable* Nova Arcadia district content packs.
+
+The ONLY supported source is explicit, artist-curated source-manifest.json
+under CONTENT_ROOT. Assets must be referenced in the game: one environment
+mural, three real interactables, and >=4 zoomable story dossier pages per room.
+
+No arbitrary resizing, noise, silence, duplication or padding is done here.
+ZIP_STORED preserves already-compressed image/video bytes as-is. A final
+distribution is created only when baseline APK + seven real pack ZIPs are
+at least 3,000,000,000 bytes. This is checked on-disk, not invented metadata.
+
+Usage:
+  python tools/build_3gb_asset_packs.py --source resourcepacks/source \
+      --output resourcepacks/release
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import re
+import struct
+import zipfile
+from collections import Counter
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parents[1]
+ROOMS_FILE = BASE / "src/game/districts/expansion-interiors.ts"
+APPROVED_DISTRICTS = (
+    "baixada", "ferrugem", "aurea", "subsolo", "setor-zero", "prisma", "periferia"
+)
+BASELINE_BYTES = 1143503198  # audited signed RC4 release
+GOAL_BYTES = 3_000_000_000
+GITHUB_ASSET_MAX_BYTES = 2 * (1024**3)
+RELEASE_TAG = "nova-arcadia-v200-final-3gb-assets"
+PATH_RE = re.compile(
+    r"^(murals|props|dossiers)/[a-z0-9-]+/(?:[a-z0-9-]+/)*[a-z0-9-]+\.(png|webp)$"
+)
+MAX_IMAGE_BYTES = 70_000_000
+MAX_PIXELS = 65_536_000  # prevent malicious 80k x 80k dimensions
+
+
+def sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def rooms_by_district() -> dict:
+    raw = ROOMS_FILE.read_text(encoding="utf-8")
+    snippet = raw.split("export const EXPANSION_ROOM_DESIGNS=", 1)[1].split(" as const;", 1)[0]
+    rooms = json.loads(snippet)
+    result = {x: [] for x in APPROVED_DISTRICTS}
+    for room in rooms:
+        district = next(
+            (x for x in APPROVED_DISTRICTS if room["id"].startswith(x + "-")), None
+        )
+        if not district:
+            raise ValueError("Room has no matching district: " + room["id"])
+        result[district].append(room)
+    if len(rooms) != 28 or any(len(a) != 4 for a in result.values()):
+        raise ValueError("Expected exactly 4 authored rooms in each of 7 districts")
+    return result
+
+
+def dimensions(path: Path, data: bytes) -> tuple[int, int]:
+    if path.suffix == ".png":
+        if data[:8] != b"\x89PNG\r\n\x1a\n":
+            raise ValueError("Not a valid PNG: " + str(path))
+        return struct.unpack(">II", data[16:24])
+    if path.suffix == ".webp":
+        if data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+            raise ValueError("Not a valid WebP: " + str(path))
+        from PIL import Image
+        with Image.open(path) as im:
+            return im.size
+    raise ValueError("Unsupported image format")
+
+
+def list_pack(district: str, source: Path, rooms: list[dict]) -> tuple[list[dict], int]:
+    root = source / district
+    src_manifest = root / "source-manifest.json"
+    if not src_manifest.is_file():
+        raise ValueError(f"Missing curated source metadata: {src_manifest}")
+    manifest = json.loads(src_manifest.read_text(encoding="utf-8"))
+    if not isinstance(manifest, list):
+        raise ValueError("Source manifest must be an asset array")
+    approved_rooms = {room["id"] for room in rooms}
+    seen_paths, seen_sha = set(), set()
+    entries, material_bytes = [], 0
+    per_room = {room: Counter() for room in approved_rooms}
+    for raw in manifest:
+        if not isinstance(raw, dict):
+            raise ValueError("Invalid asset entry")
+        path = raw.get("path")
+        room = raw.get("room")
+        kind = raw.get("kind")
+        caption = raw.get("caption")
+        license_id = raw.get("license")
+        if not isinstance(path, str) or not PATH_RE.fullmatch(path) or ".." in path:
+            raise ValueError(f"Unsafe path or format: {path}")
+        if path in seen_paths or room not in approved_rooms:
+            raise ValueError(f"Duplicate or irrelevant asset: {path}")
+        if path.split("/")[1] != room or (
+            kind not in ("mural", "prop", "dossier")
+        ) or path.split("/")[0] != kind + "s":
+            raise ValueError(f"Asset is not mapped to real interactive room: {path}")
+        if not isinstance(caption, str) or len(caption.strip()) < 18 or len(caption) > 240:
+            raise ValueError(f"Asset requires original narrative description: {path}")
+        if license_id not in ("original", "CC0-1.0"):
+            raise ValueError(f"Unsupported or unverified license: {path}")
+        disk_path = root / path
+        if not disk_path.is_file() or disk_path.is_symlink():
+            raise ValueError(f"Source artwork missing: {disk_path}")
+        data = disk_path.read_bytes()
+        if not 1024 <= len(data) <= MAX_IMAGE_BYTES:
+            raise ValueError(f"Invalid or empty artwork byte count: {path}")
+        w, h = dimensions(disk_path, data)
+        if w * h > MAX_PIXELS or w < 128 or h < 128:
+            raise ValueError(f"Artwork dimensions unsafe: {path} ({w}x{h})")
+        checksum = sha(data)
+        if checksum in seen_sha:
+            raise ValueError(f"Exact art duplication detected: {path}")
+        seen_paths.add(path)
+        seen_sha.add(checksum)
+        material_bytes += len(data)
+        per_room[room][kind] += 1
+        entries.append(dict(
+            path=path, room=room, kind=kind,
+            caption=caption.strip(), sha256=checksum,
+        ))
+    for room, counts in per_room.items():
+        if counts["mural"] != 1:
+            raise ValueError(f"{room}: exactly one active mural required")
+        if counts["prop"] != 3:
+            raise ValueError(f"{room}: all three physically interactive props required")
+        if counts["dossier"] < 4:
+            raise ValueError(f"{room}: at least 4 distinct explorable dossier pages required")
+    return entries, material_bytes
+
+
+def build(source: Path, output: Path, require_3gb=True):
+    all_rooms = rooms_by_district()
+    output.mkdir(parents=True, exist_ok=True)
+    packs, world_hashes = [], set()
+    total_zips = 0
+    for district in APPROVED_DISTRICTS:
+        entries, unpacked_bytes = list_pack(district, source, all_rooms[district])
+        archive_path = output / f"NA20-{district}.zip"
+        with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_STORED,
+                             allowZip64=True) as archive:
+            for entry in sorted(entries, key=lambda x: x["path"]):
+                if entry["sha256"] in world_hashes:
+                    raise ValueError("Content duplicated in multiple districts")
+                world_hashes.add(entry["sha256"])
+                path = source / district / entry["path"]
+                archive.write(path, arcname=entry["path"])
+        size = archive_path.stat().st_size
+        if not 1024 <= size < GITHUB_ASSET_MAX_BYTES:
+            raise ValueError(f"{district}: GitHub asset must be <2 GiB")
+        packs.append(dict(
+            id=district,
+            title="Distrito " + district.replace("-", " ").title(),
+            file=archive_path.name,
+            compressedBytes=size,
+            uncompressedBytes=unpacked_bytes,
+            sha256=sha(archive_path.read_bytes()),
+            artworkCount=len(entries),
+            locationCount=len(all_rooms[district]),
+            assets=entries,
+        ))
+        total_zips += size
+    catalog = dict(version=2,tag=RELEASE_TAG,totalBytes=total_zips,packs=packs)
+    delivery_bytes = BASELINE_BYTES + total_zips
+    (output / "manifest.json").write_text(
+        json.dumps(catalog,ensure_ascii=False,indent=2)+"\n", encoding="utf-8")
+    with (output / "SHA256SUMS.txt").open("w", encoding="utf-8") as sums:
+        for pack in packs:
+            sums.write(f'{pack["sha256"]}  {pack["file"]}\n')
+    print(f"Original packed artworks: {sum(p['artworkCount'] for p in packs)}.")
+    print(f"Seven authenticated ZIP packs: {total_zips:,} bytes.")
+    print(f"Signed RC4 plus packs: {delivery_bytes:,} bytes.")
+    if require_3gb and delivery_bytes < GOAL_BYTES:
+        raise ValueError(f"Definitive 3GB delivery BLOCKED: missing "
+                         f"{GOAL_BYTES-delivery_bytes:,} bytes of ORIGINAL, USED content")
+    if require_3gb:
+        # This manifest may be compiled into the Android client only after
+        # the full final package size has genuinely passed the gate.
+        target = BASE / "src/game/assets/published-packs.ts"
+        literal = json.dumps(catalog,ensure_ascii=False,indent=2)
+        target.write_text(
+            'import type {PackCatalog} from "./pack-catalog.ts";\n'
+            'export const FINAL_ASSET_CATALOG:PackCatalog='+literal+';\n',
+            encoding="utf-8",
+        )
+    return catalog
+
+
+if __name__ == "__main__":
+    cli = argparse.ArgumentParser()
+    cli.add_argument("--source",type=Path,required=True)
+    cli.add_argument("--output",type=Path,required=True)
+    # For testing the integrity checks with tiny hand-authored art fixtures;
+    # NEVER pass this flag from release CI.
+    cli.add_argument("--test-only-skip-size-gate",action="store_true")
+    args = cli.parse_args()
+    build(args.source,args.output,not args.test_only_skip_size_gate)
