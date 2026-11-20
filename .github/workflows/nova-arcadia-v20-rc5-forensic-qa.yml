@@ -1,9 +1,10 @@
 name: Nova Arcadia 2.0 RC5 — 28 forensic cases, full Android APK QA
 
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
     branches:
-      - feature/nova-arcadia-3gb-final-assets
+      - feature/nova-arcadia-cisma-eden-v20-foundation
     paths:
       - .github/workflows/nova-arcadia-v20-rc5-forensic-qa.yml
       - src/game/story/forensic-cases.ts
@@ -227,7 +228,7 @@ jobs:
           SHA="$(sha256sum "$FILE" | cut -d ' ' -f 1)"
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
+              --target "${{ github.event.pull_request.head.sha || github.sha }}" \
               --title "Nova Arcádia 2.0.0-rc.5 — Investigação forense nos 28 interiores, QA" \
               --notes "Prévia RC5 com 28 análises forenses autorais, três alternativas por caso, dedução após prova física, XP único e backups antigos compatíveis. 31 etapas, 28 contratos, 35 interiores, 8 cyberwares, 4 aliados e infiltração. QA200. NÃO é a versão final de 3GB." \
               --prerelease
