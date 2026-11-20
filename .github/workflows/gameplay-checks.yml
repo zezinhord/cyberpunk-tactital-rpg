@@ -40,6 +40,8 @@ jobs:
           node --experimental-strip-types scripts/test-eden-governance.mjs
       - name: Testar o Cisma de Eden 2.0, oito etapas e tres caminhos
         run: node --experimental-strip-types scripts/test-cisma-v20.mjs
+      - name: Testar Atos II-IV, combate e finais completos da campanha 2.0
+        run: node --experimental-strip-types scripts/test-cisma-operations.mjs
       - name: Testar backups e eliminacao de slots
         run: node --experimental-strip-types scripts/test-save-slots.mjs
       - name: Testar as 66 combinacoes de classe e origem
