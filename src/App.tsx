@@ -37,6 +37,7 @@ import ClassSelection from "./components/ClassSelection";
 import {getClassById,type ClassId} from "./game/classes/registry";
 import {installCyberware,removeCyberware,type CyberwareId} from "./game/cyberware.ts";
 import {readParty,activeCompanions} from "./game/companions.ts";
+import {readStealth,stealthCombatEntry} from "./game/stealth.ts";
 import { audioDirector } from "./audio/director";
 import { markV09Defeated,grantV09Experience } from "./game/story/v09";
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity} from "./game/character/slots";
@@ -265,7 +266,8 @@ export default function App() {
     currentHp:loadHealth(character?.id??"",maximumHp),
     progressionBonuses:combatProgression(character),encounterId:battleMode,weaponId:inventory.equipped.weapon,
      districtSupport:character?urbanCombatSupport(readUrban(character.id),battleMode):null,
-     partySupport:character?activeCompanions(readParty(character.id)):[] }),
+     partySupport:character?activeCompanions(readParty(character.id)):[],
+     infiltration:character?stealthCombatEntry(readStealth(character.id),battleMode):null }),
      [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
   const [state, setState] = useState<GameState>(() => manager.getState());
   const player = getUnit(state, "runner");
