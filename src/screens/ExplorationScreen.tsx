@@ -1099,7 +1099,7 @@ export default function ExplorationScreen({
     if(choice.id.startsWith("ops-approach-")){
       const [encounter,rawMode]=choice.id.slice("ops-approach-".length).split(":");
       const active=currentOperation(operations);
-      if(!active||active.kind!=="combat"||active.encounter!==encounter||
+      if(!active||active.kind!=="combat"||!active.encounter||active.encounter!==encounter||
         (rawMode!=="stealth"&&rawMode!=="assault"))return;
       const result=planStealth(stealth,active.encounter,rawMode as StealthMode,{
         classId:character.classId??"solo",level:character.level,
