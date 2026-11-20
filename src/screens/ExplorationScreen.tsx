@@ -58,7 +58,9 @@ import {isInnerId,isInnerInteract,INNER_BLUEPRINTS,INNER_IDS,type InnerId} from 
 import {innerReceipt} from "../game/story/indoor-rewards.ts";
 import {packAssetUrl} from "../game/assets/native-pack-manager.ts";
 import {INNER_CONTRACTS,isContractId,readContracts,saveContracts,startContract,
- completeContract,contractObjective} from "../game/story/inner-contracts.ts";
+ completeContract,contractObjective,solveForensicCase} from "../game/story/inner-contracts.ts";
+import {FORENSIC_CASES} from "../game/story/forensic-cases.ts";
+import type {ExpansionInnerId} from "../game/districts/expansion-interiors.ts";
 import {readDistrictProgress,saveDistrictProgress,beginDistrict,
  districtCurrentStep,districtObjective,advanceDistrict,type ChapterProgress,
  type DistrictEnding} from "../game/districts/progress";
@@ -239,6 +241,13 @@ const [dossierOpen,setDossierOpen]=useState(false);
   useEffect(()=>{saveMarket(character.id,market);},[character.id,market]);
 
   const say = (pages: DialoguePage[]) => setDialogue({ pages, index: 0 });
+  const openForensicQuestion=(id:ExpansionInnerId,prefix=""):void=>{
+    const c=FORENSIC_CASES[id];
+    say([{speaker:INNER_CONTRACTS[id].guide,role:"PARECER FORENSE · TRÊS PROVAS",
+      portrait:"▤",text:prefix+c.question,
+      choices:c.options.map((label,i)=>({id:"forensic:"+id+":"+i,
+        label,reply:"Analisar evidências."}))}]);
+  };
   // O tratamento é uma ação médica do cenário, não uma recompensa de missão.
   // A mesma ação atende o botão visível da clínica e a conversa com Amara.
   const performClinicTreatment=():void=>{
@@ -535,8 +544,11 @@ const [dossierOpen,setDossierOpen]=useState(false);
             onQuestXp("inner-contract-"+interior,finished.xp);
             setCityNotice(contract.title+" concluído · +"+finished.xp+" XP.");
             audioDirector.effect("archive");
-            say([{speaker:contract.guide,role:"CONTRATO CONCLUÍDO · DOSSIÊ",
-              portrait:"◆",text:finished.message}]);
+            openForensicQuestion(interior,finished.message+"\n\n"+
+              "A entrega está registrada. Parecer adicional (XP único):\n");
+          }else if(contracts.completed.includes(interior)&&
+            !(contracts.analysed??[]).includes(interior)){
+            openForensicQuestion(interior,"Dossiê entregue. Falta interpretar as três evidências.\n\n");
           }else say([{speaker:contract.guide,role:"CONTRATO · EM INVESTIGAÇÃO",
             portrait:"◆",text:finished.message}]);
           return;
@@ -1129,6 +1141,32 @@ const [dossierOpen,setDossierOpen]=useState(false);
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    const forensic=/^forensic:([a-z0-9-]+):([0-2])$/.exec(choice.id);
+    if(forensic){
+      const id=forensic[1];
+      if(!isContractId(id)||interior!==id){setDialogue(null);return;}
+      const result=solveForensicCase(contracts,id,Number(forensic[2]));
+      if(!result.ok){
+        if(!(contracts.analysed??[]).includes(id))
+          openForensicQuestion(id,result.message+"\n\n");
+        else say([{speaker:INNER_CONTRACTS[id].guide,role:"PARECER REGISTRADO",
+          portrait:"▤",text:result.message}]);
+        return;
+      }
+      if(!saveContracts(character.id,result.state)){
+        say([{speaker:"ARQUIVO LOCAL",role:"PARECER NÃO SALVO",portrait:"!",
+          text:"Falha ao persistir o parecer. Libere espaço e tente novamente."}]);return;
+      }
+      setContracts(result.state);
+      onQuestXp("inner-forensic-"+id,result.xp);
+      setCityNotice("Parecer forense aprovado em "+INNER_BLUEPRINTS[id].title+
+        " · +"+result.xp+" XP.");
+      audioDirector.effect("archive");
+      say([{speaker:INNER_CONTRACTS[id].guide,role:"PARECER FORENSE HOMOLOGADO",
+        portrait:"▤",text:result.message+"\n\nRecompensa única: "+result.xp+
+        " XP. Os registros permanecem no dossiê deste protagonista."}]);
+      return;
+    }
     if(choice.id.startsWith("ops-approach-")){
       const [encounter,rawMode]=choice.id.slice("ops-approach-".length).split(":");
       const active=currentOperation(operations);
