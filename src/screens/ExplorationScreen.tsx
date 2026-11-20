@@ -55,6 +55,8 @@ import {readFerrugem,saveFerrugem,startFerrugem,advanceFerrugem,
 import {DISTRICTS,isDistrictId,getDistrict,actorFromId,type DistrictId} from "../game/districts/catalog";
 import {isInnerId,isInnerInteract,INNER_BLUEPRINTS,INNER_IDS,type InnerId} from "../game/districts/interiors.ts";
 import {innerReceipt} from "../game/story/indoor-rewards.ts";
+import {INNER_CONTRACTS,isContractId,readContracts,saveContracts,startContract,
+ completeContract,contractObjective} from "../game/story/inner-contracts.ts";
 import {readDistrictProgress,saveDistrictProgress,beginDistrict,
  districtCurrentStep,districtObjective,advanceDistrict,type ChapterProgress,
  type DistrictEnding} from "../game/districts/progress";
@@ -216,6 +218,7 @@ export default function ExplorationScreen({
   const [cisma,setCisma]=useState(()=>readCisma(character.id));
   const [party,setParty]=useState(()=>readParty(character.id));
   const [stealth,setStealth]=useState(()=>readStealth(character.id));
+  const [contracts,setContracts]=useState(()=>readContracts(character.id));
   const [partyNotice,setPartyNotice]=useState("");
   const [operations,setOperations]=useState(()=>readOperations(character.id));
   const [epilogueOpen,setEpilogueOpen]=useState(false);
@@ -508,6 +511,33 @@ export default function ExplorationScreen({
         setInterior(blueprint.parent);audioDirector.effect("door");return;
       }
       if(id==="interior-"+interior+"-guide"){
+        if(isContractId(interior)){
+          const contract=INNER_CONTRACTS[interior];
+          if(!contracts.accepted.includes(interior)){
+            const started=startContract(contracts,interior);
+            if(started.ok&&saveContracts(character.id,started.state)){
+              setContracts(started.state);
+              setCityNotice(contract.title+" iniciado. Examine os três objetos deste interior.");
+              say([{speaker:contract.guide,role:"CONTRATO DE INVESTIGAÇÃO · 2.0",
+                portrait:"◆",text:started.message}]);
+            }else setCityNotice("Falha ao registrar contrato. Verifique espaço livre.");
+            return;
+          }
+          const finished=completeContract(contracts,interior,inventory);
+          if(finished.ok){
+            if(!saveContracts(character.id,finished.state)){
+              setCityNotice("Contrato não salvo. Libere espaço e repita a entrega.");return;
+            }
+            setContracts(finished.state);
+            onQuestXp("inner-contract-"+interior,finished.xp);
+            setCityNotice(contract.title+" concluído · +"+finished.xp+" XP.");
+            audioDirector.effect("archive");
+            say([{speaker:contract.guide,role:"CONTRATO CONCLUÍDO · DOSSIÊ",
+              portrait:"◆",text:finished.message}]);
+          }else say([{speaker:contract.guide,role:"CONTRATO · EM INVESTIGAÇÃO",
+            portrait:"◆",text:finished.message}]);
+          return;
+        }
         const favor= blueprint.parent==="subsolo"?"movimento_livre":
           blueprint.parent==="aurea"?"helix":"movimento_livre";
         say([{speaker:blueprint.guide,role:"CONTATO LOCAL · "+blueprint.title,portrait:"◆",
@@ -1564,6 +1594,13 @@ export default function ExplorationScreen({
               Histórico e recompensas no diário ↗</button>
           </div>:<div className="na-quest-tab-content na-favor-board na-urban-board" role="tabpanel">
             <span className="na-quest-kicker">OCORRÊNCIAS LOCAIS · {sceneLabel(cityArea).toUpperCase()}</span>
+            {isInnerId(interior)&&isContractId(interior)&&
+              <article className="na-favor-row" aria-label="Contrato da região">
+                <strong>{INNER_CONTRACTS[interior].title}</strong>
+                <p>{contractObjective(interior,contracts,inventory)}</p>
+                <small>{contracts.completed.length}/28 dossiês concluídos ·
+                  três provas físicas por interior</small>
+              </article>}
             {operationsImpact&&<article className="na-favor-row" aria-label="Repercussão da conclusão da campanha 2.0">
               <strong>DEPOIS DO CISMA · {operationsImpact.title}</strong>
               <p>{operationsImpact.message}</p>
