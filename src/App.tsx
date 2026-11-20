@@ -49,6 +49,8 @@ import {FAVORS,readFavors,saveFavors,claimFavor,buyFromNilo,syncFavorItems,
   type FavorId,type FavorState} from "./game/story/favors";
 import {readMarket} from "./game/story/market";
 import {EDEN_STEPS,readEden,saveEden,advanceEdenBattle,syncEdenItems,type EdenEncounter} from "./game/story/eden-echoes.ts";
+import {readOperations,saveOperations,advanceOperationBattle,isOperationsCombat,
+  OPERATIONS_STAGES} from "./game/story/cisma-operations.ts";
 import {claimDiscovery,DISCOVERY_AREAS,DISCOVERY_REWARDS} from "./game/story/discoveries.ts";
 import {collectInnerProp,reconcileInnerExperience} from "./game/story/indoor-rewards.ts";
 import {readReputation,syncFactionAids} from "./game/story/reputation";
@@ -333,6 +335,11 @@ export default function App() {
       const step=EDEN_STEPS.find(s=>s.id===id);
       if(step&&!grantTrialXp("eden-"+id,step.xp))return false;
     }
+    const operations=readOperations(active.id);
+    for(const id of operations.history){
+      const step=OPERATIONS_STAGES.find(s=>s.id===id);
+      if(step&&!grantTrialXp("cisma-operation-"+id,step.xp))return false;
+    }
     return true;
   };
   const claimNpcFavor=(id:FavorId):{ok:boolean;message:string}=>{
@@ -404,6 +411,17 @@ export default function App() {
     const enemyDefeated=state.units.find(u=>u.id==="drone")?.hp===0;
     const active=characterRef.current;
     if(!active)return;
+    if(enemyDefeated&&isOperationsCombat(state.encounterId)){
+      const result=advanceOperationBattle(readOperations(active.id),state.encounterId);
+      if(result.advanced&&result.stage){
+        if(saveOperations(active.id,result.progress)){
+          if(!grantTrialXp("cisma-operation-"+result.stage.id,result.stage.xp))
+            setSaveMessage("Operação 2.0 salva; XP será reconciliado ao carregar.");
+          audioDirector.effect("victory");
+        }else setSaveMessage("Não foi possível salvar o confronto 2.0. Libere espaço e retorne ao jogo.");
+      }
+      return;
+    }
     if(enemyDefeated&&state.encounterId.startsWith("eden-")){
       const result=advanceEdenBattle(readEden(active.id),state.encounterId as EdenEncounter);
       if(result.advanced&&result.step){
