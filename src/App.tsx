@@ -38,6 +38,7 @@ import {getClassById,type ClassId} from "./game/classes/registry";
 import {installCyberware,removeCyberware,type CyberwareId} from "./game/cyberware.ts";
 import {readParty,activeCompanions} from "./game/companions.ts";
 import {readStealth,stealthCombatEntry} from "./game/stealth.ts";
+import {readContracts,INNER_CONTRACTS} from "./game/story/inner-contracts.ts";
 import { audioDirector } from "./audio/director";
 import { markV09Defeated,grantV09Experience } from "./game/story/v09";
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity} from "./game/character/slots";
@@ -343,6 +344,9 @@ export default function App() {
       const step=EDEN_STEPS.find(s=>s.id===id);
       if(step&&!grantTrialXp("eden-"+id,step.xp))return false;
     }
+    const innerContracts=readContracts(active.id);
+    for(const id of innerContracts.completed)
+      if(!grantTrialXp("inner-contract-"+id,INNER_CONTRACTS[id].rewardXp))return false;
     const cisma=readCisma(active.id);
     for(const id of cisma.history){
       const step=CISMA_STEPS.find(s=>s.id===id);
