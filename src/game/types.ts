@@ -66,6 +66,8 @@ export interface GameState {
   round: number;
   movementRemaining: number;
   movementPerTurn: number;
+  /** Cada aliado ativo só presta apoio uma vez por combate. */
+  companionUsed: readonly string[];
   originAbilityAvailable: boolean;
   originAbilityName: string;
   mainActionAvailable: boolean;
