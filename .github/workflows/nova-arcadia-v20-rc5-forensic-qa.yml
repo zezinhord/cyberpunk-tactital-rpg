@@ -17,7 +17,7 @@ permissions:
 
 concurrency:
   group: nova-arcadia-v200-rc5-forensic-qa
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   qa-android-full:
@@ -90,12 +90,11 @@ jobs:
             "$ORIGINAL" | sha256sum -c -
           python tools/restore_media_from_apk.py "$ORIGINAL"
           rm -f "$ORIGINAL"
-      - name: Install FFmpeg and FFprobe for media validation
+      - name: Verify preinstalled FFmpeg and FFprobe without apt network stalls
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends ffmpeg
           command -v ffmpeg
           command -v ffprobe
+          ffprobe -version | head -n 1
       - name: Verify original media and runtime bindings
         run: |
           node --experimental-strip-types scripts/test-expanded-ambience.mjs
