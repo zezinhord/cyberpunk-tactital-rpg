@@ -80,9 +80,10 @@ export class DistrictInteriorScene extends Phaser.Scene{
    this.animator?.dispose();this.tweens.killAll();
    if(this.textures.exists(this.staticKey))this.textures.remove(this.staticKey);
    // Release exactly the room's four illustrations on exit (not 112 at boot).
-   if(isV20IllustratedRoom(this.id)){
-     const ids=[environmentArtKey(this.id),
-       ...INNER_BLUEPRINTS[this.id].props.map(p=>environmentArtKey(this.id,p.id))];
+   const roomId=this.id;
+   if(isV20IllustratedRoom(roomId)){
+     const ids=[environmentArtKey(roomId),
+       ...INNER_BLUEPRINTS[roomId].props.map(p=>environmentArtKey(roomId,p.id))];
      for(const key of ids)if(this.textures.exists(key))this.textures.remove(key);
    }
   });
