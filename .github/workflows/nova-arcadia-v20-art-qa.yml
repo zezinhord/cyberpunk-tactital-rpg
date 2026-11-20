@@ -1,0 +1,40 @@
+name: Nova Arcadia 2.0 — original environment art QA
+on:
+  push:
+    branches: [feature/nova-arcadia-cisma-eden-v20-foundation]
+    paths:
+      - .github/workflows/nova-arcadia-v20-art-qa.yml
+      - tools/generate_v20_illustrations.py
+      - src/game/districts/expansion-interiors.ts
+      - src/game/districts/v20-illustrations.ts
+      - src/game/districts/DistrictInteriorScene.ts
+      - scripts/test-v20-illustrations.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-original-visuals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python art dependencies
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Pillow from pinned project constraints
+        run: pip install -r tools/requirements-characters.txt
+      - name: Render art for 28 explorable rooms and 84 clues
+        run: python tools/generate_v20_illustrations.py
+      - name: Validate SHA, GPU caps, unique content and in-game links
+        run: node scripts/test-v20-illustrations.mjs
+      - name: Publish actual visual review sheet, not as game asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-v20-112-original-art-review
+          path: |
+            qa/v20-environments-art-matrix.png
+            public/assets/v20-illustrations/manifest.json
+          retention-days: 14
+          if-no-files-found: error
