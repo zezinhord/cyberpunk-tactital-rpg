@@ -1,6 +1,6 @@
 /** Testa a WebView instalada no Android/emulador, não o Chrome desktop. */
 import {execFileSync,spawnSync} from "node:child_process";
-const PACKAGE="com.cyberpunk.tacticalrpg.qa100";
+const PACKAGE=process.env.NA_TEST_PACKAGE||"com.cyberpunk.tacticalrpg.qa100";
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const adb=(...args)=>execFileSync("adb",args,{encoding:"utf8",timeout:20000}).trim();
 const d={};let session=null;
