@@ -1,0 +1,55 @@
+/* Illustrated investigation dossiers — one decoded texture at a time.
+ * Designed for 960×540 landscape Android screens as well as desktop.
+ */
+.na-dossier-overlay{
+ position:fixed;inset:0;z-index:1300;display:flex;align-items:center;
+ justify-content:center;padding:10px;background:rgba(3,12,20,.97);
+ color:#e2e8df;
+}
+.na-dossier-window{
+ display:flex;flex-direction:column;width:min(98vw,1080px);
+ max-height:97dvh;min-height:0;border:1px solid #4c7d83;
+ border-radius:10px;background:#11252c;box-shadow:0 15px 50px #000a;
+ overflow:hidden;
+}
+.na-dossier-heading,.na-dossier-footer{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:8px;padding:9px 14px;background:#12272e;
+}
+.na-dossier-heading>div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.na-dossier-heading small{font:10px "IBM Plex Mono",monospace;color:#89c3cc}
+.na-dossier-heading strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.na-dossier-heading span{font:11px "IBM Plex Mono",monospace;color:#d8ae7f}
+.na-dossier-visual{
+ flex:1;display:flex;min-height:120px;max-height:calc(97dvh - 160px);
+ align-items:center;justify-content:center;overflow:auto;
+ background:#061b24;overscroll-behavior:contain;
+}
+.na-dossier-visual img{
+ display:block;object-fit:contain;max-width:100%;max-height:100%;
+ width:auto;height:auto;
+}
+.na-dossier-visual img.zoom{
+ max-width:none;max-height:none;min-width:100%;
+ object-fit:unset;
+}
+.na-dossier-visual p{padding:15px;max-width:640px;text-align:center}
+.na-dossier-copy{
+ padding:5px 14px;max-height:58px;overflow-y:auto;
+ border-top:1px solid #314e55;
+}
+.na-dossier-copy p{margin:0;font-size:12px;line-height:1.45}
+.na-dossier-overlay button{
+ min-width:76px;min-height:38px;padding:6px 10px;
+ border-radius:6px;border:1px solid #5e878e;background:#1c3944;
+ color:#f3e8d1;font:12px "IBM Plex Mono",monospace;
+}
+.na-dossier-overlay button:disabled{opacity:.35;cursor:default}
+.na-dossier-overlay button:focus-visible{outline:2px solid #d8b27a;outline-offset:2px}
+@media (max-height:430px){
+ .na-dossier-heading{padding:5px 10px}
+ .na-dossier-heading small{display:none}
+ .na-dossier-copy{max-height:35px}
+ .na-dossier-footer{padding:4px 10px}
+ .na-dossier-visual{max-height:calc(97dvh - 120px)}
+}
