@@ -1,0 +1,76 @@
+name: Nova Arcadia Android WebView Startup Forensics
+
+on:
+  push:
+    branches:
+      - hotfix/nova-arcadia-boot-v100-rc2
+    paths:
+      - .github/workflows/android-boot-forensics.yml
+      - scripts/test-android-webview-startup.mjs
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  emulator-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Grant Linux KVM permission
+        run: |
+          sudo chmod 666 /dev/kvm || true
+      - name: Retrieve exact released 1GB APK and verify SHA-256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p qa
+          gh release download nova-arcadia-v100-rc1-full-qa \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "NovaArcadia-1.0.0-rc.1-Full-1GB-QA.apk" \
+            --dir qa
+          echo "70f857587019e9d49a0ba3f8f20a982d503452bfb9df22fdb82cdcf7953feb18  qa/NovaArcadia-1.0.0-rc.1-Full-1GB-QA.apk" | sha256sum -c -
+      - name: Boot emulator and check installed WebView
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          ram-size: 3072M
+          disk-size: 8192M
+          emulator-boot-timeout: 600
+          disable-animations: true
+          script: |
+            set -e
+            adb shell getprop ro.build.version.release
+            adb install -r -t qa/NovaArcadia-1.0.0-rc.1-Full-1GB-QA.apk
+            adb logcat -c
+            adb shell am start -W -n com.cyberpunk.tacticalrpg.qa100/com.cyberpunk.tacticalrpg.MainActivity
+            sleep 7
+            adb shell dumpsys activity activities | grep -E "mResumed|topResumed|ResumedActivity" || true
+            adb exec-out screencap -p > qa/emulator-launch.png || true
+            node scripts/test-android-webview-startup.mjs
+      - name: Save Android crash signatures and system activity for triage
+        if: always()
+        run: |
+          mkdir -p qa
+          adb logcat -d -v time > qa/android-logcat.txt || true
+          grep -Ei 'FATAL EXCEPTION|AndroidRuntime|am_crash|chromium.*(ERR_|crash)|WebView.*(crash|error)|com\.cyberpunk\.tacticalrpg' qa/android-logcat.txt | tail -n 350 > qa/boot-diagnostics.txt || true
+          adb exec-out screencap -p > qa/emulator-after.png || true
+      - name: Upload emulator startup artifacts (diagnostic only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-1GB-startup-forensics
+          path: |
+            qa/boot-diagnostics.txt
+            qa/emulator-launch.png
+            qa/emulator-after.png
+          if-no-files-found: warn
+          retention-days: 7
