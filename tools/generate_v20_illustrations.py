@@ -191,6 +191,259 @@ MOTIFS = {
 }
 
 
+
+def story_wall(d, room, bg, mid, light, r):
+    """Readable, recognizable, LOCAL architecture for each of the 28 rooms.
+    Four rooms per district have different physical subjects, not recolors.
+    """
+    district = room["id"].split("-", 1)[0]
+    if room["id"].startswith("setor-zero-"):
+        district = "setor-zero"
+    kind = room["variant"]
+    for i in range(6):
+        x = 58 + i * 190 + r.randint(-8, 8)
+        y = 50 + (i % 2) * 3
+        # Opaque insert hides district-generic architecture at this location.
+        d.rounded_rectangle((x - 11, y - 33, x + 146, y + 36), radius=6,
+                            fill=rgba(adjust(bg, 19), 245),
+                            outline=rgba(mid, 240), width=2)
+        if district == "baixada":
+            if kind == 0:  # rain gauges and the city's forgotten reserves
+                d.arc((x + 13, y - 26, x + 71, y + 29), 40, 320, fill=light, width=4)
+                d.polygon(((x + 93, y - 20), (x + 108, y + 8), (x + 77, y + 8)),
+                          fill=rgba(mid, 234))
+                for j in range(4):
+                    d.line((x + 90 + j * 9, y + 18, x + 94 + j * 9, y + 18),
+                           fill=light, width=2)
+            elif kind == 1:  # market stalls and awnings
+                d.polygon(((x + 6, y - 5), (x + 27, y - 28), (x + 119, y - 28),
+                           (x + 139, y - 5)), fill=rgba(mid, 220), outline=light)
+                for j in range(5):
+                    d.polygon(((x + 25 + j * 21, y - 25), (x + 34 + j * 21, y - 25),
+                               (x + 40 + j * 21, y - 5), (x + 25 + j * 21, y - 5)),
+                              fill=rgba(light, 180 if j % 2 else 90))
+                d.rectangle((x + 19, y, x + 127, y + 29), outline=light, width=3)
+            elif kind == 2:  # clothesline communication
+                d.arc((x + 6, y - 36, x + 131, y + 31), 0, 180, fill=light, width=3)
+                for j in range(4):
+                    xx = x + 19 + j * 29
+                    d.polygon(((xx, y - 9), (xx + 24, y - 11),
+                               (xx + 20, y + 18), (xx + 2, y + 18)),
+                              fill=rgba(mid if j % 2 else light, 210))
+                    d.line((xx + 11, y - 15, xx + 11, y - 6), fill=light, width=2)
+            else:  # memorial plaques and candles
+                for j in range(3):
+                    xx = x + 8 + j * 43
+                    d.rounded_rectangle((xx, y - 25, xx + 35, y + 15), radius=4,
+                                        fill=rgba(adjust(bg, 40), 245),
+                                        outline=light, width=2)
+                    d.line((xx + 7, y - 12, xx + 29, y - 12), fill=light, width=2)
+                    d.line((xx + 7, y - 3, xx + 25, y - 3), fill=light, width=2)
+                d.ellipse((x + 60, y + 20, x + 81, y + 29), fill=rgba(light, 205))
+        elif district == "ferrugem":
+            if kind == 0:  # parallel timesheets and clocks
+                d.ellipse((x + 15, y - 25, x + 72, y + 31), outline=light, width=4)
+                d.line((x + 45, y + 3, x + 45, y - 17), fill=light, width=3)
+                d.line((x + 45, y + 3, x + 61, y + 14), fill=mid, width=3)
+                for j in range(5):
+                    d.line((x + 82, y - 21 + j * 10,
+                            x + 128 - j * 2, y - 21 + j * 10), fill=light, width=3)
+            elif kind == 1:  # copper boiler pipes, gauges
+                d.ellipse((x + 27, y - 24, x + 95, y + 27), fill=rgba(mid, 210),
+                          outline=light, width=4)
+                d.ellipse((x + 42, y - 10, x + 80, y + 12),
+                          fill=rgba(adjust(bg, -8), 245))
+                d.line((x + 60, y + 1, x + 75, y - 7), fill=light, width=3)
+                d.line((x + 13, y + 26, x + 124, y + 26), fill=light, width=6)
+            elif kind == 2:  # union vote and ballot box
+                d.rounded_rectangle((x + 35, y - 2, x + 103, y + 28), radius=5,
+                                    fill=rgba(mid, 150), outline=light, width=3)
+                d.rectangle((x + 54, y + 2, x + 85, y + 5), fill=light)
+                for j in range(3):
+                    d.polygon(((x + 22 + 36 * j, y - 29),
+                               (x + 48 + 36 * j, y - 23),
+                               (x + 44 + 36 * j, y - 4),
+                               (x + 18 + 36 * j, y - 10)),
+                              fill=rgba(light, 150 + 30 * (j % 2)))
+            else:  # rail freight containers and crane
+                for j in range(3):
+                    d.rectangle((x + 8 + j * 44, y - 7, x + 44 + j * 44, y + 25),
+                                fill=rgba(mid if j % 2 else light, 162),
+                                outline=rgba(light, 220), width=2)
+                d.line((x + 17, y - 25, x + 130, y - 25), fill=light, width=4)
+                d.line((x + 105, y - 24, x + 105, y - 7), fill=light, width=3)
+        elif district == "aurea":
+            if kind == 0:  # account books and audit trail
+                for j in range(3):
+                    xx = x + 13 + j * 42
+                    d.rectangle((xx, y - 24, xx + 37, y + 26),
+                                fill=rgba(adjust(bg, 33), 252), outline=light, width=2)
+                    for k in range(4):
+                        d.line((xx + 6, y - 13 + k * 9, xx + 31, y - 13 + k * 9),
+                               fill=rgba(light, 190), width=2)
+            elif kind == 1:  # triage cots and monitors
+                d.line((x + 11, y + 18, x + 134, y + 18), fill=light, width=6)
+                for j in range(2):
+                    xx = x + 16 + j * 65
+                    d.rectangle((xx, y - 7, xx + 51, y + 16),
+                                fill=rgba(mid, 162), outline=light, width=2)
+                    d.line((xx + 19, y - 27, xx + 19, y - 10), fill=light, width=4)
+                    d.ellipse((xx + 13, y - 32, xx + 25, y - 20), fill=light)
+            elif kind == 2:  # physical fiber optic switching
+                for j in range(4):
+                    xx = x + 12 + j * 31
+                    d.rounded_rectangle((xx, y - 25, xx + 24, y + 22), radius=3,
+                                        fill=rgba(adjust(bg, 34), 245), outline=mid, width=2)
+                    for k in range(3):
+                        d.ellipse((xx + 9, y - 14 + k * 13, xx + 16, y - 7 + k * 13),
+                                  fill=light)
+                    if j < 3:
+                        d.line((xx + 19, y + 27, xx + 49, y + 27),
+                               fill=rgba(mid, 245), width=3)
+            else:  # legal seals and cross-signed contracts
+                for j in range(2):
+                    xx = x + 11 + j * 66
+                    d.polygon(((xx, y - 27), (xx + 48, y - 27),
+                               (xx + 55, y - 18), (xx + 55, y + 23),
+                               (xx, y + 23)), fill=rgba(adjust(bg, 43), 245),
+                              outline=light)
+                    d.ellipse((xx + 13, y + 3, xx + 32, y + 19),
+                              fill=rgba(mid, 244), outline=light, width=2)
+                    d.line((xx + 8, y - 12, xx + 42, y - 12), fill=light, width=3)
+        elif district == "subsolo":
+            if kind == 0:  # fans and oxygen ducts
+                for j in range(2):
+                    xx = x + 23 + j * 64
+                    d.ellipse((xx, y - 25, xx + 46, y + 21),
+                              fill=rgba(mid, 110), outline=light, width=3)
+                    for k in range(4):
+                        angle = (k * math.pi / 2) + i * .12
+                        d.line((xx + 23, y - 2,
+                                xx + 23 + 20 * math.cos(angle),
+                                y - 2 + 20 * math.sin(angle)), fill=light, width=5)
+            elif kind == 1:  # protected medical shelter
+                d.rounded_rectangle((x + 11, y - 21, x + 135, y + 24),
+                                    radius=5, fill=rgba(mid, 160), outline=light, width=2)
+                d.line((x + 37, y - 25, x + 37, y + 25), fill=light, width=3)
+                d.line((x + 56, y, x + 79, y), fill=light, width=5)
+                d.line((x + 67, y - 12, x + 67, y + 12), fill=light, width=5)
+                d.ellipse((x + 96, y - 5, x + 122, y + 18),
+                          outline=light, width=3)
+            elif kind == 2:  # sewer route graphs
+                for j in range(4):
+                    yy = y - 19 + j * 13
+                    d.line((x + 10, yy, x + 128, yy),
+                           fill=rgba(mid if j % 2 else light, 210), width=5)
+                    d.ellipse((x + 22 + j * 25, yy - 6, x + 34 + j * 25, yy + 6),
+                              fill=light)
+                d.line((x + 24, y - 20, x + 109, y + 22), fill=light, width=2)
+            else:  # informal scales and market supplies
+                d.line((x + 75, y - 23, x + 75, y + 27), fill=light, width=4)
+                d.line((x + 22, y - 13, x + 123, y - 13), fill=light, width=3)
+                for xx in (x + 28, x + 99):
+                    d.line((xx, y - 13, xx, y + 10), fill=light, width=2)
+                    d.arc((xx - 18, y - 5, xx + 18, y + 28), 10, 170,
+                          fill=mid, width=5)
+        elif district == "setor-zero":
+            if kind == 0:  # clinical sealed pods
+                for j in range(2):
+                    xx = x + 13 + j * 63
+                    d.rounded_rectangle((xx, y - 28, xx + 48, y + 30),
+                                        radius=13, fill=rgba(mid, 120),
+                                        outline=light, width=3)
+                    d.ellipse((xx + 16, y - 16, xx + 32, y - 1), fill=rgba(light, 175))
+                    d.line((xx + 12, y + 12, xx + 36, y + 12), fill=light, width=3)
+            elif kind == 1:  # decompression valves and sealed doors
+                d.ellipse((x + 35, y - 31, x + 107, y + 33),
+                          fill=rgba(adjust(bg, 39), 245), outline=light, width=5)
+                for k in range(6):
+                    a = k * math.pi / 3
+                    d.line((x + 71, y, x + 71 + 26 * math.cos(a),
+                            y + 26 * math.sin(a)), fill=rgba(mid, 235), width=5)
+            elif kind == 2:  # reactor core and concentric thermal fields
+                for rad in (43, 30, 17):
+                    d.ellipse((x + 75 - rad, y - rad, x + 75 + rad, y + rad),
+                              outline=rgba(light if rad == 30 else mid, 240),
+                              width=5)
+                d.ellipse((x + 66, y - 9, x + 84, y + 9), fill=light)
+            else:  # citizen veto consoles
+                for j in range(3):
+                    xx = x + 14 + j * 43
+                    d.rectangle((xx, y - 22, xx + 35, y + 25),
+                                fill=rgba(adjust(bg, 23), 245), outline=light, width=2)
+                    d.ellipse((xx + 7, y - 9, xx + 27, y + 11),
+                              fill=rgba(mid, 230), outline=light, width=2)
+                    d.line((xx + 7, y + 19, xx + 27, y + 19), fill=light, width=3)
+        elif district == "prisma":
+            if kind == 0:  # radio microphones and transmitters
+                for j in range(3):
+                    xx = x + 23 + j * 45
+                    d.rounded_rectangle((xx, y - 24, xx + 19, y + 4),
+                                        radius=8, fill=rgba(mid, 210),
+                                        outline=light, width=2)
+                    d.line((xx + 9, y + 4, xx + 9, y + 28), fill=light, width=3)
+                    d.arc((xx + 19, y - 15, xx + 35, y + 6),
+                          270, 90, fill=light, width=2)
+            elif kind == 1:  # dressing room mirrors
+                for j in range(2):
+                    xx = x + 15 + j * 68
+                    d.ellipse((xx, y - 30, xx + 55, y + 24),
+                              fill=rgba(adjust(bg, 53), 210), outline=light, width=4)
+                    for k in range(3):
+                        d.ellipse((xx + 7 + k * 18, y + 26, xx + 13 + k * 18, y + 32),
+                                  fill=light)
+            elif kind == 2:  # community portrait gallery
+                for j in range(3):
+                    xx = x + 9 + j * 46
+                    d.rectangle((xx, y - 26, xx + 39, y + 26),
+                                fill=rgba(mid, 100), outline=light, width=4)
+                    d.ellipse((xx + 12, y - 15, xx + 27, y - 1), fill=light)
+                    d.arc((xx + 7, y - 5, xx + 33, y + 22), 180, 360,
+                          fill=light, width=4)
+            else:  # independent multichannel studio
+                for j in range(5):
+                    xx = x + 14 + j * 25
+                    d.line((xx, y - 25, xx, y + 27), fill=rgba(mid, 210), width=3)
+                    k = (i * 7 + j * 13) % 29 - 14
+                    d.rounded_rectangle((xx - 7, y + k - 6, xx + 7, y + k + 6),
+                                        radius=3, fill=rgba(light, 220))
+        elif district == "periferia":
+            if kind == 0:  # working transports and wheel hubs
+                for j in range(2):
+                    xx = x + 6 + j * 67
+                    d.polygon(((xx, y + 14), (xx + 13, y - 17),
+                               (xx + 49, y - 17), (xx + 58, y + 14)),
+                              fill=rgba(mid, 180), outline=light)
+                    for px in (xx + 14, xx + 47):
+                        d.ellipse((px - 7, y + 11, px + 7, y + 26),
+                                  fill=rgba(adjust(bg, -9), 245), outline=light, width=2)
+            elif kind == 1:  # irrigated crop rows
+                for j in range(5):
+                    xx = x + 13 + j * 25
+                    d.line((xx, y + 28, xx, y - 3), fill=light, width=3)
+                    d.ellipse((xx - 10, y - 18, xx + 8, y - 4), fill=rgba(mid, 220))
+                    d.ellipse((xx + 1, y - 11, xx + 20, y + 4), fill=rgba(light, 195))
+                d.line((x + 7, y + 28, x + 136, y + 28), fill=light, width=4)
+            elif kind == 2:  # emergency rescue cross and cots
+                for j in range(2):
+                    xx = x + 7 + j * 72
+                    d.rounded_rectangle((xx, y - 21, xx + 66, y + 25),
+                                        radius=6, fill=rgba(mid, 155),
+                                        outline=light, width=3)
+                    d.line((xx + 20, y + 1, xx + 48, y + 1), fill=light, width=6)
+                    d.line((xx + 34, y - 12, xx + 34, y + 14), fill=light, width=6)
+            else:  # night navigation beacon
+                for j in range(3):
+                    xx = x + 24 + j * 42
+                    d.polygon(((xx, y + 29), (xx + 10, y - 21),
+                               (xx + 20, y + 29)), fill=rgba(mid, 240),
+                              outline=light)
+                    d.ellipse((xx + 5, y - 28, xx + 15, y - 19), fill=light)
+                    d.arc((xx - 4, y - 39, xx + 25, y - 9),
+                          210, 330, fill=light, width=2)
+
+
+
 def mural_for(room):
     name = room["id"]
     theme_name = name.rsplit("-", 1)[0]
@@ -204,6 +457,7 @@ def mural_for(room):
     d = ImageDraw.Draw(im, "RGBA")
     # Architectural motifs are unique for the real district and room.
     MOTIFS[THEMES[district]](d, r, bg, mid, light)
+    story_wall(d, room, bg, mid, light, r)
     # Location-specific circuit and wear details, deterministic for QA.
     for i in range(32):
         x = r.randint(0, W - 1)
