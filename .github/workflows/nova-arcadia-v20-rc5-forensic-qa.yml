@@ -90,11 +90,17 @@ jobs:
             "$ORIGINAL" | sha256sum -c -
           python tools/restore_media_from_apk.py "$ORIGINAL"
           rm -f "$ORIGINAL"
-      - name: Verify preinstalled FFmpeg and FFprobe without apt network stalls
+      - name: Provide FFmpeg and FFprobe using image package cache first
         run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null 2>&1 || ! command -v ffprobe >/dev/null 2>&1; then
+            sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg || {
+              sudo apt-get update -qq -o Acquire::Retries=2
+              sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg
+            }
+          fi
           command -v ffmpeg
           command -v ffprobe
-          ffprobe -version | head -n 1
       - name: Verify original media and runtime bindings
         run: |
           node --experimental-strip-types scripts/test-expanded-ambience.mjs
