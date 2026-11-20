@@ -14,6 +14,8 @@ import {readDistrictProgress,saveDistrictProgress,DISTRICT_SAVE_KEY,beginDistric
 import {DISTRICT_POSITIONS_KEY,saveDistrictPosition,loadDistrictPosition} from "../src/game/districts/positions.ts";
 import {FAVORS_KEY,INITIAL_FAVORS,saveFavors,readFavors,acceptFavor,recordFavorActivity,claimFavor} from "../src/game/story/favors.ts";
 import {EDEN_KEY,INITIAL_EDEN,saveEden,readEden} from "../src/game/story/eden-echoes.ts";
+import {CISMA_KEY,INITIAL_CISMA,CISMA_STEPS,beginCisma,advanceCisma,
+ saveCisma,readCisma} from "../src/game/story/cisma-v20.ts";
 
 let db=new Map();
 globalThis.localStorage={
@@ -84,6 +86,9 @@ const favorComplete=claimFavor(favorReady,"triagem");
 assert.equal(favorComplete.ok,true);
 assert.equal(saveFavors(a.id,favorComplete.state),true);
 assert.equal(saveEden(a.id,{...INITIAL_EDEN,started:true}),true);
+const cismaStage=advanceCisma(beginCisma(INITIAL_CISMA,true),CISMA_STEPS[0].actor,
+  undefined,"netrunner").progress;
+assert.equal(saveCisma(a.id,cismaStage),true);
 const exported=exportCharacterBackup(a.id);
 assert.equal(loadCharacter()?.id,previouslyActive,"Exportar slot inativo não deve trocar protagonista");
 const parsed=JSON.parse(exported);
@@ -97,6 +102,7 @@ assert.ok(parsed.data.city,"Backup inclui campanhas de novos distritos");
 assert.ok(parsed.data.districtPositions,"Backup inclui posição em cada distrito");
 assert.ok(parsed.data.favors,"Backup inclui favores, créditos e Honra");
 assert.ok(parsed.data.eden,"Backup inclui progresso do arco Éden");
+assert.ok(parsed.data.cisma,"Backup da 2.0 inclui as decisões do Cisma");
 const beforeCount=listCharacterSlots().length;
 assert.equal(importCharacterBackup(exported).ok,false,"Mesmo ID exige confirmação");
 assert.equal(listCharacterSlots().length,beforeCount);
@@ -123,6 +129,9 @@ assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.dat
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,
  favors:JSON.stringify({...favorComplete.state,credits:999999})}})).ok,false,
  "Backup não aceita créditos falsificados");
+assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,
+ cisma:JSON.stringify({...cismaStage,step:7})}})).ok,false,
+ "Backup adulterado do Cisma é rejeitado antes de qualquer escrita");
 assert.equal(importCharacterBackup(exported.padEnd(1_000_002," ")).ok,false);
 // Recriar armazenamento de outro aparelho e importar backup exportado.
 db=new Map();
@@ -136,12 +145,20 @@ assert.equal(loadWorldArea(a.id),"ferrugem","Backup retoma distrito correto");
 assert.equal(readFavors(a.id).credits,60,"Créditos sobrevivem ao backup");
 assert.equal(readFavors(a.id).honor,1,"Honra sobrevive ao backup");
 assert.equal(readEden(a.id).started,true,"Campanha Éden sobrevive à importação");
+assert.deepEqual(readCisma(a.id),cismaStage,"Expansão 2.0 sobrevive à exportação/importação");
 const withoutEden={...parsed,data:{...parsed.data}};
 delete withoutEden.data.eden;
 assert.equal(importCharacterBackup(JSON.stringify(withoutEden),true).ok,true);
 assert.equal(db.has(EDEN_KEY+a.id),false,
  "Backup de versão anterior deve limpar o capítulo órfão ao sobrescrever");
 assert.equal(importCharacterBackup(exported,true).ok,true,"Backup integral recupera o arco Éden");
+const withoutCisma={...parsed,data:{...parsed.data}};
+delete withoutCisma.data.cisma;
+assert.equal(importCharacterBackup(JSON.stringify(withoutCisma),true).ok,true);
+assert.equal(db.has(CISMA_KEY+a.id),false,
+ "Backup anterior à 2.0 não deve reter dados órfãos de campanhas futuras");
+assert.equal(importCharacterBackup(exported,true).ok,true);
+assert.deepEqual(readCisma(a.id),cismaStage);
 assert.deepEqual(readFavors(a.id).claimed,["triagem"]);
 assert.equal(readDistrictProgress(a.id,"aurea").started,true,"Áurea permanece iniciada após restauração");
 assert.deepEqual(loadDistrictPosition(a.id,"aurea"),{x:5,y:10},"Posição isométrica preservada");
@@ -160,6 +177,7 @@ assert.equal(db.get(DISTRICT_SAVE_KEY+a.id),undefined,"Remoção limpa as cinco 
 assert.equal(db.get(DISTRICT_POSITIONS_KEY+a.id),undefined,"Remoção limpa posições dos distritos");
 assert.equal(db.get(FAVORS_KEY+a.id),undefined,"Exclusão limpa os favores do slot");
 assert.equal(db.get(EDEN_KEY+a.id),undefined,"Exclusão limpa o progresso Éden do slot");
+assert.equal(db.get(CISMA_KEY+a.id),undefined,"Exclusão limpa somente o Cisma deste slot");
 assert.equal(loadCharacter(),null);
 assert.equal(listCharacterSlots().length,0);
 // Migração a partir da chave única v1 sem índice.
@@ -183,6 +201,7 @@ assert.equal(saveHealth(a.id,5,20),false);
 assert.equal(saveTrial(a.id,firstStep),false);
 assert.equal(saveInventory(createStartingInventory(a.id)),false);
 assert.equal(saveEden(a.id,{...INITIAL_EDEN}),false);
+assert.equal(saveCisma(a.id,INITIAL_CISMA),false);
 assert.equal(setActiveRaw("save"),false);
 globalThis.localStorage=availableStorage;
 console.log("Saves: legado, slots independentes, limite, backup seguro, importação, Vida persistente e tratamento aprovados.");
