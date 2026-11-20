@@ -11,6 +11,10 @@ on:
       - src/game/assets/**
       - src/game/districts/DistrictInteriorScene.ts
       - src/screens/ExplorationScreen.tsx
+      - src/App.tsx
+      - src/game/story/inner-contracts.ts
+      - src/game/story/forensic-cases.ts
+      - scripts/test-forensic-cases-v20.mjs
       - src/components/AssetPackControls.tsx
       - src/components/DossierGallery.tsx
       - src/components/CharacterMenu.tsx
@@ -48,6 +52,10 @@ jobs:
         run: node --experimental-strip-types scripts/test-asset-packs-v20.mjs
       - name: Verify 7 offline pack archives with 224 disposable art fixtures
         run: python tools/test_3gb_pack_builder.py
+      - name: Play through 28 forensic investigations and validate backwards compatible saves
+        run: |
+          node --experimental-strip-types scripts/test-inner-contracts-v20.mjs
+          node --experimental-strip-types scripts/test-forensic-cases-v20.mjs
       - name: Compile TypeScript without releasing incomplete game
         run: npx tsc -b
       - name: Produce temporary minimal web directory for native compile only
