@@ -2,6 +2,7 @@
  * Primeiro ciclo funcional de itens: armazenamento por personagem, equipamento
  * e consumíveis. Não altera nem migra o formato do save do protagonista.
  */
+import {safeCyberware,getCyberwareBonuses,type CyberwareId} from "./cyberware.ts";
 export const ITEM_IDS = ["pistola_manutencao","colete_reaproveitado","curativo_campo","conector_reuso","residuo_metalico","celula_energia","colete_reforcado","pistola_inducao","carabina_patio","escopeta_ferrugem","fuzil_aurea","faca_ceramica","pistola_prisma","subfuzil_baixada","bastao_choque","rifle_periferia","jaqueta_chuva","armadura_placas","capa_subsolo","traje_prisma","traje_aurea","colete_comunitario","implante_reflexos","modulador_interface","nanofibras_dermicas","mira_neural","kit_trauma","bioespuma","bateria_portatil","fibra_optica","placa_ceramica","reagente_bio","tecido_tecnico","dados_criptografados","microatuador"] as const;
 export type ItemId = typeof ITEM_IDS[number];
 export type ItemCategory = "weapon" | "armor" | "implant" | "consumable" | "material";
@@ -26,6 +27,9 @@ export interface InventoryState {
   equipped: Record<EquipmentSlot, ItemId | null>;
   /** Comprovantes de itens de favores/loja; mantém compatibilidade com saves v1. */
   rewardReceipts?: readonly string[];
+  /** Módulos secundários da versão 2.0; os 3 slots são anatômicos e
+   * independem do slot `equipped.implant` das versões anteriores. */
+  cyberware?: readonly CyberwareId[];
 }
 export const INVENTORY_KEY = "cyberpunk-tactical-rpg.inventory.v1.";
 export const ITEM_CATALOG: Readonly<Record<ItemId, ItemDefinition>> = {
@@ -95,7 +99,7 @@ export function createStartingInventory(ownerId: string): InventoryState {
   return {
     version: 1, ownerId,
     quantities:Object.fromEntries(ITEM_IDS.map(id=>[id,id==="pistola_manutencao"||id==="colete_reaproveitado"?1:id==="curativo_campo"?2:0])) as Record<ItemId,number>,
-    equipped: { weapon: null, armor: null,implant:null }, rewardReceipts:[],
+    equipped: { weapon: null, armor: null,implant:null }, rewardReceipts:[],cyberware:[],
   };
 }
 export function loadInventory(ownerId: string): InventoryState {
@@ -125,7 +129,8 @@ export function loadInventory(ownerId: string): InventoryState {
     const rewardReceipts=Array.isArray(value.rewardReceipts)?
       [...new Set(value.rewardReceipts.filter((x):x is string=>
         typeof x==="string"&&x.length>0&&x.length<90))].slice(0,20000):[];
-    return { ...fresh, quantities, equipped, rewardReceipts };
+    return { ...fresh, quantities, equipped, rewardReceipts,
+      cyberware:safeCyberware(value.cyberware) };
   } catch { return fresh; }
 }
 export function saveInventory(inventory: InventoryState): boolean {
@@ -158,13 +163,18 @@ export interface EquipmentBonuses{attackBonus:number;armorBonus:number;hpBonus:n
 export function getEquipmentBonuses(state:InventoryState):EquipmentBonuses{
  const equipped=(["weapon","armor","implant"] as const).map(slot=>state.equipped[slot]?
    ITEM_CATALOG[state.equipped[slot]!] :null);
- return equipped.reduce<EquipmentBonuses>((sum,item)=>({
+ const base=equipped.reduce<EquipmentBonuses>((sum,item)=>({
   attackBonus:sum.attackBonus+(item?.attackBonus??0),
   armorBonus:sum.armorBonus+(item?.armorBonus??0),
   hpBonus:sum.hpBonus+(item?.hpBonus??0),
   energyBonus:sum.energyBonus+(item?.energyBonus??0),
   movementBonus:sum.movementBonus+(item?.movementBonus??0),
  }),{attackBonus:0,armorBonus:0,hpBonus:0,energyBonus:0,movementBonus:0});
+ const extra=getCyberwareBonuses(state.cyberware);
+ return {attackBonus:base.attackBonus+extra.attackBonus,
+  armorBonus:base.armorBonus+extra.armorBonus,hpBonus:base.hpBonus+extra.hpBonus,
+  energyBonus:base.energyBonus+extra.energyBonus,
+  movementBonus:base.movementBonus+extra.movementBonus};
 }
 
 /** Itens concedidos apenas uma vez, mesmo após reload e reconciliação de recibos. */
