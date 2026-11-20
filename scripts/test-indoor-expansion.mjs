@@ -19,7 +19,9 @@ globalThis.localStorage={
  removeItem:k=>db.delete(k),
 };
 assert.equal(INNER_WIDTH,19);assert.equal(INNER_HEIGHT,14);
-assert.equal(INNER_IDS.length,7);
+assert.equal(INNER_IDS.length,35,"7 interiores originais + 28 novas zonas da expansão 2.0");
+assert.equal(new Set(INNER_IDS.map(id=>INNER_BLUEPRINTS[id].title)).size,35,
+ "Cada área nova precisa de identidade própria");
 const fed=FERRUGEM_ACTORS.find(a=>a.id==="ferrugem-foundry-access");
 assert.ok(fed);
 assert.ok(ferrugemApproach(FERRUGEM_START,fed.tile)?.length,
@@ -77,9 +79,9 @@ for(const id of INNER_IDS){
  assert.equal(reconcileInnerExperience(restored,grant),true);
  assert.equal(once.size,3);
 }
-assert.equal(count,21);
-assert.ok(allRewards>350);
+assert.equal(count,105);
+assert.ok(allRewards>2000);
 assert.equal(isSavedWorldArea("aurea-archive"),true);
 assert.equal(isSavedWorldArea("somente-um-placeholder"),false);
 assert.equal(isInnerInteract("interior-aurea-archive-hack"),null);
-console.log("Interiores: 7 mapas caminháveis, 7 guias, 21 recursos, 7 saídas, recibos persistentes e portal alcançável nos distritos.");
+console.log("Interiores: 35 mapas caminháveis, 105 recursos com recibos, saídas e acesso físico pelos sete distritos.");

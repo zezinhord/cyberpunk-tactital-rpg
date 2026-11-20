@@ -35,6 +35,10 @@ import {craftRecipe,type RecipeId} from "./game/crafting";
 import { getPlayerSpriteUrl } from "./game/baixada/sprites";
 import ClassSelection from "./components/ClassSelection";
 import {getClassById,type ClassId} from "./game/classes/registry";
+import {installCyberware,removeCyberware,type CyberwareId} from "./game/cyberware.ts";
+import {readParty,activeCompanions} from "./game/companions.ts";
+import {readStealth,stealthCombatEntry} from "./game/stealth.ts";
+import {readContracts,INNER_CONTRACTS} from "./game/story/inner-contracts.ts";
 import { audioDirector } from "./audio/director";
 import { markV09Defeated,grantV09Experience } from "./game/story/v09";
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity} from "./game/character/slots";
@@ -49,6 +53,9 @@ import {FAVORS,readFavors,saveFavors,claimFavor,buyFromNilo,syncFavorItems,
   type FavorId,type FavorState} from "./game/story/favors";
 import {readMarket} from "./game/story/market";
 import {EDEN_STEPS,readEden,saveEden,advanceEdenBattle,syncEdenItems,type EdenEncounter} from "./game/story/eden-echoes.ts";
+import {readOperations,saveOperations,advanceOperationBattle,isOperationsCombat,
+  OPERATIONS_STAGES} from "./game/story/cisma-operations.ts";
+import {readCisma,CISMA_STEPS} from "./game/story/cisma-v20.ts";
 import {claimDiscovery,DISCOVERY_AREAS,DISCOVERY_REWARDS} from "./game/story/discoveries.ts";
 import {collectInnerProp,reconcileInnerExperience} from "./game/story/indoor-rewards.ts";
 import {readReputation,syncFactionAids} from "./game/story/reputation";
@@ -243,7 +250,8 @@ export default function App() {
   };
   const [inventory, setInventory] = useState<InventoryState>(() => loadInventory(loadCharacter()?.id ?? ""));
   const [selectedSupply,setSelectedSupply]=useState<ItemId>("curativo_campo");
-  const bonuses = useMemo(() => getEquipmentBonuses(inventory), [inventory.equipped.weapon, inventory.equipped.armor, inventory.equipped.implant]);
+  const bonuses = useMemo(() => getEquipmentBonuses(inventory),
+    [inventory.equipped.weapon,inventory.equipped.armor,inventory.equipped.implant,inventory.cyberware]);
   useEffect(() => {
     if (character && inventory.ownerId === character.id) saveInventory(inventory);
   }, [character?.id, inventory]);
@@ -259,7 +267,10 @@ export default function App() {
   const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
     currentHp:loadHealth(character?.id??"",maximumHp),
     progressionBonuses:combatProgression(character),encounterId:battleMode,weaponId:inventory.equipped.weapon,
-     districtSupport:character?urbanCombatSupport(readUrban(character.id),battleMode):null }), [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
+     districtSupport:character?urbanCombatSupport(readUrban(character.id),battleMode):null,
+     partySupport:character?activeCompanions(readParty(character.id)):[],
+     infiltration:character?stealthCombatEntry(readStealth(character.id),battleMode):null }),
+     [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
   const [state, setState] = useState<GameState>(() => manager.getState());
   const player = getUnit(state, "runner");
   const enemy = getUnit(state, "drone");
@@ -333,6 +344,19 @@ export default function App() {
       const step=EDEN_STEPS.find(s=>s.id===id);
       if(step&&!grantTrialXp("eden-"+id,step.xp))return false;
     }
+    const innerContracts=readContracts(active.id);
+    for(const id of innerContracts.completed)
+      if(!grantTrialXp("inner-contract-"+id,INNER_CONTRACTS[id].rewardXp))return false;
+    const cisma=readCisma(active.id);
+    for(const id of cisma.history){
+      const step=CISMA_STEPS.find(s=>s.id===id);
+      if(step&&!grantTrialXp("cisma-"+id,step.xp))return false;
+    }
+    const operations=readOperations(active.id);
+    for(const id of operations.history){
+      const step=OPERATIONS_STAGES.find(s=>s.id===id);
+      if(step&&!grantTrialXp("cisma-operation-"+id,step.xp))return false;
+    }
     return true;
   };
   const claimNpcFavor=(id:FavorId):{ok:boolean;message:string}=>{
@@ -369,6 +393,22 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[screen,character?.id]);
 
+  const installCyberwareItem=(id:CyberwareId):string=>{
+    if(!character||inventory.ownerId!==character.id)return "Carregue um protagonista primeiro.";
+    const result=installCyberware(inventory,id,character.level);
+    if(!result.ok)return result.message;
+    if(!saveInventory(result.state))return "Falha ao salvar cyberware; os materiais não foram debitados.";
+    setInventory(result.state);
+    return result.message;
+  };
+  const removeCyberwareItem=(id:CyberwareId):string=>{
+    if(!character||inventory.ownerId!==character.id)return "Carregue um protagonista primeiro.";
+    const result=removeCyberware(inventory,id);
+    if(!result.ok)return result.message;
+    if(!saveInventory(result.state))return "Falha ao salvar remoção; o implante continua instalado.";
+    setInventory(result.state);
+    return result.message;
+  };
   const craftAtWorkshop=(id:RecipeId):string=>{
     if(!character||inventory.ownerId!==character.id)return "Nenhum personagem ativo para fabricar.";
     const result=craftRecipe(inventory,id);
@@ -404,6 +444,17 @@ export default function App() {
     const enemyDefeated=state.units.find(u=>u.id==="drone")?.hp===0;
     const active=characterRef.current;
     if(!active)return;
+    if(enemyDefeated&&isOperationsCombat(state.encounterId)){
+      const result=advanceOperationBattle(readOperations(active.id),state.encounterId);
+      if(result.advanced&&result.stage){
+        if(saveOperations(active.id,result.progress)){
+          if(!grantTrialXp("cisma-operation-"+result.stage.id,result.stage.xp))
+            setSaveMessage("Operação 2.0 salva; XP será reconciliado ao carregar.");
+          audioDirector.effect("victory");
+        }else setSaveMessage("Não foi possível salvar o confronto 2.0. Libere espaço e retorne ao jogo.");
+      }
+      return;
+    }
     if(enemyDefeated&&state.encounterId.startsWith("eden-")){
       const result=advanceEdenBattle(readEden(active.id),state.encounterId as EdenEncounter);
       if(result.advanced&&result.step){
@@ -714,6 +765,8 @@ export default function App() {
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
         onCraft={craftAtWorkshop}
+        onInstallCyberware={installCyberwareItem}
+        onRemoveCyberware={removeCyberwareItem}
         onCollectDistrictCache={area=>{
           const active=characterRef.current;
           if(!active)return false;
@@ -842,7 +895,17 @@ export default function App() {
               title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense}`:attackPreview.reason}
               disabled={!canAttack}>{attackPreview.mode==="ranged"?"Disparar":"Ataque corpo a corpo"}</button>
           </div>
-          <div className="secondary-actions">{attackPreview.range>1&&<button type="button"
+          <div className="secondary-actions">
+            {manager.getCompanionSupports().map(member=><button type="button"
+              className="end-turn-button" key={member.id}
+              disabled={state.activeSide!=="player"||state.combatComplete||
+                !state.bonusActionAvailable||state.companionUsed.includes(member.id)}
+              title={member.description}
+              onClick={()=>{buzz();manager.useCompanionSupport(member.id);}}>
+              {state.companionUsed.includes(member.id)?"✓ "+member.name+" usou apoio":
+                "◆ "+member.name+" · Apoio"}
+            </button>)}
+            {attackPreview.range>1&&<button type="button"
               className="end-turn-button na-overwatch-button"
               disabled={state.activeSide!=="player"||state.combatComplete||!state.mainActionAvailable||state.energy<2}
               title="Consome a ação principal e 2 EN; dispara antes da ação inimiga se houver linha de tiro."

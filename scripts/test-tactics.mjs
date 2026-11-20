@@ -114,6 +114,22 @@ console.log("Tática: LoS, obstrução, cobertura, arma de fogo, economia e IA a
  assert.equal(drain.state.energy,5);
 }
 assert.equal(enemyProfile("district-prisma",1).role,"sniper");
+for(const [id,waves,roles] of [
+ ["cisma-intercept",2,["suppressor","saboteur"]],
+ ["cisma-containment",2,["helix","hunter"]],
+ ["cisma-core",3,["suppressor","saboteur","sniper"]],
+]){
+ const battle=new TurnManager({encounterId:id});
+ const initial=battle.getState();
+ assert.equal(initial.totalWaves,waves,"Campanha 2.0 tem ondas reais: "+id);
+ assert.equal(initial.encounterId,id);
+ assert.equal(initial.combatComplete,false);
+ assert.ok(initial.units[1].maxHp>=20);
+ for(let index=0;index<waves;index++)
+   assert.equal(enemyProfile(id,index+1).role,roles[index],
+    "Cada fase do clímax precisa de comportamento distinto");
+}
+
 console.log("Novas táticas: vigilância, supressão, sabotagem e atirador aprovados.");
 
 // Repercussão mecânica de escolhas urbanas na mesma arena, sem duplicar saves.

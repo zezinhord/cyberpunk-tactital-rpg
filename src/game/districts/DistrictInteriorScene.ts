@@ -3,6 +3,8 @@ import {INNER_BLUEPRINTS,INNER_WIDTH,INNER_HEIGHT,INNER_SPAWN,INNER_EXIT_AT,
  innerPath,innerApproach,innerBlock,type InnerId,type InnerProp} from "./interiors.ts";
 import type {Tile} from "./catalog.ts";
 import {isEconomyMode} from "../performance.ts";
+import {isV20IllustratedRoom,environmentArtKey,environmentArtUrl}
+  from "./v20-illustrations.ts";
 import {audioDirector} from "../../audio/director.ts";
 import {preloadCharacterSprites,createCharacterAnimations,getPlayerTexture,
  frameForDirection,ActorAnimationController,playIdle,type IsoDirection} from "../baixada/sprites.ts";
@@ -48,6 +50,14 @@ export class DistrictInteriorScene extends Phaser.Scene{
  preload():void{
   const blueprint=INNER_BLUEPRINTS[this.id];
   preloadCharacterSprites(this,this.origin,[blueprint.guideTexture]);
+  // All 112 illustrations remain on disk. Only this room's mural and
+  // three physical evidence sprites are decoded into RAM when entered.
+  if(isV20IllustratedRoom(this.id)){
+    this.load.image(environmentArtKey(this.id),environmentArtUrl(this.id));
+    for(const prop of blueprint.props)
+      this.load.image(environmentArtKey(this.id,prop.id),
+        environmentArtUrl(this.id,prop.id));
+  }
  }
  create():void{
   createCharacterAnimations(this);
@@ -151,6 +161,13 @@ export class DistrictInteriorScene extends Phaser.Scene{
   this.paintIdentity(g);
   g.generateTexture(this.staticKey,W,H);g.destroy();
   this.add.image(0,0,this.staticKey).setOrigin(0).setDepth(-300);
+  // The mural covers ONLY the back wall; not tiles or navigation targets.
+  // If an asset cannot be loaded, the existing Phaser mural is the fallback.
+  if(isV20IllustratedRoom(this.id)&&
+     this.textures.exists(environmentArtKey(this.id))){
+    this.add.image(48,86,environmentArtKey(this.id))
+      .setOrigin(0).setDisplaySize(W-96,98).setDepth(-299);
+  }
   this.add.text(W/2,55,bp.title.toUpperCase(),{
    fontFamily:"IBM Plex Mono,monospace",fontSize:"23px",fontStyle:"bold",
    color:"#f5e3c5",backgroundColor:"#101f28ee",padding:{x:13,y:7},
@@ -255,6 +272,66 @@ export class DistrictInteriorScene extends Phaser.Scene{
       for(let n=1;n<4;n++)g.lineStyle(1,0x82b0bd,.53).beginPath()
         .moveTo(x+122+n*19,127).lineTo(x+122+n*19,167).strokePath();
     }
+  }else{
+    // Expansão 2.0: arquitetura própria por zona, desenhada uma única vez
+    // no Canvas do mapa, sem carregar dezenas de texturas no boot do Android.
+    // O id define uma composição reproduzível, distinta do mapa vizinho.
+    const seed=[...bp.id].reduce((n,ch)=>((n*31+ch.charCodeAt(0))>>>0),17);
+    const isIndustrial=bp.texture==="rust";
+    const isFlood=bp.texture==="flood";
+    const isNeon=bp.texture==="festival";
+    const isSterile=bp.texture==="sterile";
+    const isGarden=bp.texture==="green";
+    const panels=5+(seed%3);
+    for(let i=0;i<panels;i++){
+      const x=42+i*Math.floor((W-95)/panels)+(seed%19);
+      const y=105+(i*7+seed)%22;
+      const width=90+((seed>>>((i%4)*4))%35);
+      if(isIndustrial){
+        g.fillStyle(shade(bp.wall,.61),.98).fillRoundedRect(x,y,width,89,5);
+        g.fillStyle(shade(bp.accent,.80),.69).fillRect(x+12,y+14,width-24,8);
+        g.fillStyle(0x29333a,.90).fillRect(x+15,y+32,width-30,48);
+        for(let j=0;j<3;j++)g.lineStyle(3,bp.accent,.5)
+          .beginPath().moveTo(x+18+j*25,y+33).lineTo(x+18+j*25,y+78).strokePath();
+      }else if(isFlood){
+        g.lineStyle(8,shade(bp.wall,.62),.91).beginPath()
+          .moveTo(x,y+90).lineTo(x,y+23).lineTo(x+width/2,y+2)
+          .lineTo(x+width,y+23).lineTo(x+width,y+90).strokePath();
+        g.lineStyle(2,bp.accent,.55).beginPath()
+          .moveTo(x+8,y+78).lineTo(x+8,y+25).lineTo(x+width/2,y+12)
+          .lineTo(x+width-8,y+25).strokePath();
+      }else if(isNeon){
+        g.fillStyle(shade(bp.wall,.65),.93).fillRect(x,y,width,87);
+        g.fillStyle(bp.accent,.26).fillRect(x+6,y+11,width-12,49);
+        for(let j=0;j<4;j++)
+          g.lineStyle(2,j%2?0xacc2ce:bp.accent,.67)
+           .beginPath().moveTo(x+14+j*23,y+12).lineTo(x+14+j*23,y+76).strokePath();
+      }else if(isSterile){
+        g.fillStyle(0x1c303e,.97).fillRoundedRect(x,y,width,86,6);
+        g.lineStyle(2,bp.accent,.68).strokeRoundedRect(x,y,width,86,6);
+        for(let j=0;j<5;j++){
+          g.fillStyle(j%2?shade(bp.wall,.75):0x182a38,.91)
+            .fillRect(x+10,y+10+j*13,width-20,9);
+          g.fillStyle(bp.accent,.68).fillRect(x+16,y+13+j*13,5+(seed+j*7)%27,3);
+        }
+      }else if(isGarden){
+        g.fillStyle(shade(bp.wall,.71),.97).fillRoundedRect(x,y,width,80,11);
+        g.lineStyle(2,bp.accent,.76).strokeRoundedRect(x,y,width,80,11);
+        for(let j=0;j<4;j++){
+          g.lineStyle(3,0x78998a,.57).beginPath().moveTo(x+17+j*22,y+69)
+            .lineTo(x+17+j*22,y+22).strokePath();
+          g.fillStyle(j%2?0x9dab84:0xc1b18e,.76)
+            .fillEllipse(x+23+j*22,y+23,25,10);
+        }
+      }
+    }
+    // Painel frontal informa a função do espaço sem criar um colisor falso.
+    const sx=80+(seed%3)*64;
+    g.fillStyle(0x11262f,.90).fillRoundedRect(sx,199,235,48,5);
+    g.lineStyle(2,t,.7).strokeRoundedRect(sx,199,235,48,5);
+    for(let i=0;i<4;i++)
+      g.fillStyle(t,.43+(i%2)*.18).fillRect(sx+14,210+i*8,
+        45+((seed>>>i)&31)*3,3);
   }
  }
  private createPropGraphic(p:XY,prop:InnerProp):void{
@@ -276,6 +353,10 @@ export class DistrictInteriorScene extends Phaser.Scene{
    g.lineStyle(2,bp.accent,.73).strokeCircle(p.x,p.y-height+25,12);
    g.fillStyle(bp.accent,.45).fillCircle(p.x,p.y-height+25,5);
   }
+  if(isV20IllustratedRoom(this.id)&&
+     this.textures.exists(environmentArtKey(this.id,prop.id)))
+    this.add.image(p.x,p.y-2,environmentArtKey(this.id,prop.id))
+      .setOrigin(.5,1).setDisplaySize(49,58).setDepth(p.y+129);
   this.add.text(p.x,p.y-height-11,label(prop.title).toUpperCase(),{
    fontFamily:"IBM Plex Mono,monospace",fontSize:"12px",
    color:"#f6ddae",backgroundColor:"#101c25ed",padding:{x:5,y:3},

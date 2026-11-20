@@ -26,7 +26,8 @@ export interface CombatCue { sequence: number; visual: CombatVisual;
 
 export type EncounterId="test"|"v09"|"trial-1"|"trial-2"|"trial-3"|
  "district-aurea"|"district-subsolo"|"district-setor-zero"|
- "district-prisma"|"district-periferia"|"eden-relay"|"eden-core";
+ "district-prisma"|"district-periferia"|"eden-relay"|"eden-core"|
+ "cisma-intercept"|"cisma-containment"|"cisma-core";
 export interface GameState {
   units: Unit[];
   archetypeId: string;
@@ -65,6 +66,8 @@ export interface GameState {
   round: number;
   movementRemaining: number;
   movementPerTurn: number;
+  /** Cada aliado ativo só presta apoio uma vez por combate. */
+  companionUsed: readonly string[];
   originAbilityAvailable: boolean;
   originAbilityName: string;
   mainActionAvailable: boolean;

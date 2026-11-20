@@ -18,8 +18,11 @@ import {sewerStatus,type SewerProgress} from "../game/story/sewer-v09";
 import {FERRUGEM_STEPS,ferrugemObjective,type FerrugemProgress} from "../game/ferrugem/story";
 import type {StatId} from "../game/progression/tree";
 import {getClassById,CLASS_SKILLS,getClassSkills,type ClassId} from "../game/classes/registry";
+import {CYBERWARE_IDS,CYBERWARE_CATALOG,cyberwareCapacity,cyberwareLoad,
+  cyberwareCostLabel,canInstallCyberware,type CyberwareId} from "../game/cyberware.ts";
+import {COMPANION_IDS,COMPANION_CATALOG,type CompanionId,type PartyState} from "../game/companions.ts";
 
-type MenuSection = "character" | "progression" | "inventory" | "equipment" | "abilities" | "map" | "journal" | "settings";
+type MenuSection = "character" | "progression" | "inventory" | "equipment" | "cyberware" | "team" | "abilities" | "map" | "journal" | "settings";
 
 interface JournalClue {
   id: string;
@@ -54,6 +57,14 @@ interface Props {
   inventory: InventoryState;
   onToggleEquipment: (id: ItemId) => void;
   onCraft:(id:RecipeId)=>string;
+  onInstallCyberware:(id:CyberwareId)=>string;
+  onRemoveCyberware:(id:CyberwareId)=>string;
+  canOperateCyberware:boolean;
+  party:PartyState;
+  availableCompanions:readonly CompanionId[];
+  onRecruitCompanion:(id:CompanionId)=>string;
+  onToggleCompanion:(id:CompanionId)=>string;
+  partyNotice:string;
 }
 
 const MENU_ITEMS: ReadonlyArray<{ id: MenuSection; code: string; label: string; description: string }> = [
@@ -61,6 +72,8 @@ const MENU_ITEMS: ReadonlyArray<{ id: MenuSection; code: string; label: string; 
   { id: "progression", code: "XP", label: "Árvore de evolução", description: "Comprar atributos e habilidades" },
   { id: "inventory", code: "INV", label: "Inventário", description: "Itens e recursos" },
   { id: "equipment", code: "EQP", label: "Equipamentos", description: "Armas, trajes e implantes" },
+  { id: "cyberware", code: "CYB", label: "Cyberware", description: "Instalações, materiais e carga neural" },
+  { id: "team", code: "EQU", label: "Companheiros", description: "Recrutamento e apoio tático" },
   { id: "abilities", code: "HAB", label: "Habilidades", description: "Vantagens e técnicas" },
   { id: "map", code: "MAP", label: "Mapa", description: "Distritos e localização" },
   { id: "journal", code: "LOG", label: "Diário", description: "Missões e descobertas" },
@@ -117,10 +130,14 @@ export default function CharacterMenu({
   inventory,
   onToggleEquipment,
   onCraft,
+  onInstallCyberware,onRemoveCyberware,canOperateCyberware,
+  party,availableCompanions,onRecruitCompanion,onToggleCompanion,partyNotice,
 }: Props) {
   const [activeSection, setActiveSection] = useState<MenuSection>(initialSection??"character");
   const [pendingClass,setPendingClass]=useState<ClassId|null>(null);
   const [craftNotice,setCraftNotice]=useState("");
+  const [cyberwareNotice,setCyberwareNotice]=useState("");
+  const [teamNotice,setTeamNotice]=useState("");
   const [graphicsMode,setGraphicsMode]=useState<GraphicsMode>(readGraphicsMode);
   const [graphicsNotice,setGraphicsNotice]=useState("");
   const [performanceReport]=useState(readPerformanceReport);
@@ -325,6 +342,76 @@ export default function CharacterMenu({
               </div>
             )}
 
+            {activeSection === "cyberware" && (
+              <div className="menu-section-stack">
+                <section className="menu-info-panel">
+                  <span className="menu-panel-kicker">IMPLANTES AUXILIARES · EXPANSÃO 2.0</span>
+                  <h4>Carga neural {cyberwareLoad(inventory.cyberware??[])} / {cyberwareCapacity(character.level)}</h4>
+                  <p>{(inventory.cyberware??[]).length}/3 módulos auxiliares instalados.
+                    Os implantes originais do inventário continuam funcionando no slot legado.</p>
+                  <small>{canOperateCyberware?
+                    "Você está numa unidade habilitada para implantação.":
+                    "Para instalar ou remover, visite a clínica comunitária ou a oficina de Nilo."}</small>
+                </section>
+                <section className="menu-list-panel">
+                  <span className="menu-panel-kicker">CATÁLOGO · CUSTO EM MATERIAIS REAIS</span>
+                  {CYBERWARE_IDS.map(id=>{
+                    const module=CYBERWARE_CATALOG[id];
+                    const installed=(inventory.cyberware??[]).includes(id);
+                    const check=canInstallCyberware(inventory,id,character.level);
+                    return <article className="na-item-row" key={id}>
+                      <div>
+                        <span>{module.slot.toUpperCase()} · CARGA {module.load} · NÍVEL {module.minLevel}</span>
+                        <h4>{module.name} {installed?"· INSTALADO":""}</h4>
+                        <p>{module.description}</p>
+                        <small>{cyberwareCostLabel(id)}</small>
+                        {!installed&&!check.ok&&<small>Indisponível: {check.message}</small>}
+                      </div>
+                      {installed?
+                        <button type="button" disabled={!canOperateCyberware}
+                          onClick={()=>setCyberwareNotice(onRemoveCyberware(id))}>Remover</button>:
+                        <button type="button" disabled={!canOperateCyberware||!check.ok}
+                          onClick={()=>setCyberwareNotice(onInstallCyberware(id))}>Instalar</button>}
+                    </article>;
+                  })}
+                </section>
+                {cyberwareNotice&&<p role="status" className="menu-footnote">{cyberwareNotice}</p>}
+              </div>
+            )}
+            {activeSection === "team" && (
+              <div className="menu-section-stack">
+                <section className="menu-info-panel">
+                  <span className="menu-panel-kicker">CONTATOS RECRUTÁVEIS · EXPANSÃO 2.0</span>
+                  <h4>Equipe ativa: {party.active.length}/2</h4>
+                  <p>Aliados atuam como apoio tático remoto, sem sobrecarregar o tabuleiro.
+                    Cada um oferece bônus passivo e uma ação exclusiva por confronto.</p>
+                  <small>É necessário encontrar cada aliado em seu local de atuação.</small>
+                </section>
+                <section className="menu-list-panel">
+                  {COMPANION_IDS.map(id=>{
+                    const c=COMPANION_CATALOG[id];
+                    const recruited=party.recruited.includes(id);
+                    const active=party.active.includes(id);
+                    const available=availableCompanions.includes(id);
+                    return <article className="na-item-row" key={id}>
+                      <div>
+                        <span>{c.role.toUpperCase()} · {c.home}</span>
+                        <h4>{c.name} {active?"· NA EQUIPE":recruited?"· RECRUTADO":""}</h4>
+                        <p>{c.bio}</p><small>{c.description}</small>
+                      </div>
+                      {!recruited?
+                        <button type="button" disabled={!available}
+                          onClick={()=>setTeamNotice(onRecruitCompanion(id))}>
+                          {available?"Recrutar":"Encontrar contato"}</button>:
+                        <button type="button" disabled={!active&&party.active.length>=2}
+                          onClick={()=>setTeamNotice(onToggleCompanion(id))}>
+                          {active?"Deixar reserva":"Ativar"}</button>}
+                    </article>;
+                  })}
+                </section>
+                {(teamNotice||partyNotice)&&<p role="status" className="menu-footnote">{teamNotice||partyNotice}</p>}
+              </div>
+            )}
             {activeSection === "abilities" && (
               <div className="menu-section-stack">
                 <section className="menu-info-panel menu-ability-card">

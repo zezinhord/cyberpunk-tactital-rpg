@@ -17,6 +17,17 @@ export type EnemyPlan={
 export function enemyProfile(encounter:EncounterId,wave:number):EnemyProfile{
  if(encounter==="test")return {role:"sentinel",name:"Sentinela",range:1,mobility:2,preferredDistance:1};
  if(encounter==="v09")return {role:"hunter",name:"Vigilância V-09",range:3,mobility:2,preferredDistance:2};
+ if(encounter==="cisma-intercept")return wave>=2
+  ?{role:"saboteur",name:"Sabotador do transmissor",range:3,mobility:3,preferredDistance:2}
+  :{role:"suppressor",name:"Interceptador de Prisma",range:4,mobility:2,preferredDistance:3};
+ if(encounter==="cisma-containment")return wave>=2
+  ?{role:"hunter",name:"Unidade de contenção móvel",range:4,mobility:3,preferredDistance:3}
+  :{role:"helix",name:"Escolta de quarentena",range:3,mobility:2,preferredDistance:2};
+ if(encounter==="cisma-core")return wave===1
+  ?{role:"suppressor",name:"Defesa de supressão",range:4,mobility:2,preferredDistance:3}
+  :wave===2
+   ?{role:"saboteur",name:"Desestabilizador neural",range:3,mobility:3,preferredDistance:2}
+   :{role:"sniper",name:"Núcleo de precisão Éden",range:5,mobility:2,preferredDistance:4};
  if(encounter==="eden-relay")return {role:"suppressor",name:"Interceptador de supressão",range:4,mobility:2,preferredDistance:3};
  if(encounter==="eden-core")return wave>=2
   ?{role:"hunter",name:"Guardião do Éden",range:4,mobility:3,preferredDistance:3}

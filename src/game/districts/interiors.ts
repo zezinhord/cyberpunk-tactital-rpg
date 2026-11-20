@@ -3,7 +3,8 @@
  */
 import type {DistrictId,Tile} from "./catalog.ts";
 import type {ItemId} from "../inventory.ts";
-export type InnerId="baixada-community"|"ferrugem-foundry"|"aurea-archive"|"subsolo-hideout"|"setor-zero-lab"|"prisma-backstage"|"periferia-waterworks";
+import {EXPANSION_BLUEPRINTS,type ExpansionInnerId} from "./expansion-interiors.ts";
+export type InnerId="baixada-community"|"ferrugem-foundry"|"aurea-archive"|"subsolo-hideout"|"setor-zero-lab"|"prisma-backstage"|"periferia-waterworks"|ExpansionInnerId;
 export type ParentArea=DistrictId|"ferrugem"|null;
 export interface InnerProp{id:string;title:string;detail:string;at:Tile;kind:"archive"|"cache"|"machine";item:ItemId;xp:number}
 export interface InnerBlueprint{
@@ -103,6 +104,7 @@ export const INNER_BLUEPRINTS:Readonly<Record<InnerId,InnerBlueprint>>={
    prop("telhado","Controlador solar","O conjunto de captação recuperou uma bateria de reserva.",7,9,"machine","bateria_portatil",20),
   ],
  },
+ ...EXPANSION_BLUEPRINTS,
 };
 export const INNER_IDS=Object.keys(INNER_BLUEPRINTS) as InnerId[];
 export const INNER_INTERACT_IDS=INNER_IDS.flatMap(id=>INNER_BLUEPRINTS[id].props.map(p=>"interior-"+id+"-"+p.id));

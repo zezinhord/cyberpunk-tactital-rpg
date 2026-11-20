@@ -14,6 +14,14 @@ import {readDistrictProgress,saveDistrictProgress,DISTRICT_SAVE_KEY,beginDistric
 import {DISTRICT_POSITIONS_KEY,saveDistrictPosition,loadDistrictPosition} from "../src/game/districts/positions.ts";
 import {FAVORS_KEY,INITIAL_FAVORS,saveFavors,readFavors,acceptFavor,recordFavorActivity,claimFavor} from "../src/game/story/favors.ts";
 import {EDEN_KEY,INITIAL_EDEN,saveEden,readEden} from "../src/game/story/eden-echoes.ts";
+import {CISMA_KEY,INITIAL_CISMA,CISMA_STEPS,beginCisma,advanceCisma,
+ saveCisma,readCisma} from "../src/game/story/cisma-v20.ts";
+import {OPERATIONS_KEY,INITIAL_OPERATIONS,OPERATIONS_STAGES,startOperations,
+ advanceOperation,readOperations,saveOperations} from "../src/game/story/cisma-operations.ts";
+import {PARTY_KEY,EMPTY_PARTY,recruitCompanion,readParty,saveParty} from "../src/game/companions.ts";
+import {STEALTH_KEY,INITIAL_STEALTH,planStealth,readStealth,saveStealth} from "../src/game/stealth.ts";
+import {CONTRACTS_KEY,EMPTY_CONTRACTS,startContract,readContracts,saveContracts}
+ from "../src/game/story/inner-contracts.ts";
 
 let db=new Map();
 globalThis.localStorage={
@@ -84,6 +92,22 @@ const favorComplete=claimFavor(favorReady,"triagem");
 assert.equal(favorComplete.ok,true);
 assert.equal(saveFavors(a.id,favorComplete.state),true);
 assert.equal(saveEden(a.id,{...INITIAL_EDEN,started:true}),true);
+const cismaStage=advanceCisma(beginCisma(INITIAL_CISMA,true),CISMA_STEPS[0].actor,
+  undefined,"netrunner").progress;
+assert.equal(saveCisma(a.id,cismaStage),true);
+const cismaComplete={...cismaStage,started:true,completed:true,step:8,
+ history:CISMA_STEPS.map(step=>step.id),ending:"auditoria"};
+const operationsStage=advanceOperation(
+ startOperations(INITIAL_OPERATIONS,cismaComplete),OPERATIONS_STAGES[0].actor).progress;
+assert.equal(saveOperations(a.id,operationsStage),true);
+const partyStage=recruitCompanion(EMPTY_PARTY,"nilo",true).state;
+assert.equal(saveParty(a.id,partyStage),true);
+const stealthStage=planStealth(INITIAL_STEALTH,"cisma-intercept","assault",{
+ classId:"netrunner",level:4,cyberware:[],party:partyStage,cisma:cismaStage,
+}).state;
+assert.equal(saveStealth(a.id,stealthStage),true);
+const contractStage=startContract(EMPTY_CONTRACTS,"baixada-observatorio").state;
+assert.equal(saveContracts(a.id,contractStage),true);
 const exported=exportCharacterBackup(a.id);
 assert.equal(loadCharacter()?.id,previouslyActive,"Exportar slot inativo não deve trocar protagonista");
 const parsed=JSON.parse(exported);
@@ -97,6 +121,11 @@ assert.ok(parsed.data.city,"Backup inclui campanhas de novos distritos");
 assert.ok(parsed.data.districtPositions,"Backup inclui posição em cada distrito");
 assert.ok(parsed.data.favors,"Backup inclui favores, créditos e Honra");
 assert.ok(parsed.data.eden,"Backup inclui progresso do arco Éden");
+assert.ok(parsed.data.cisma,"Backup da 2.0 inclui as decisões do Cisma");
+assert.ok(parsed.data.operations,"Backup inclui a campanha dos atos II-IV");
+assert.ok(parsed.data.party,"Backup inclui os aliados recrutados da versão 2.0");
+assert.ok(parsed.data.stealth,"Backup inclui escolhas de aproximação furtiva");
+assert.ok(parsed.data.contracts,"Backup inclui contratos dos interiores 2.0");
 const beforeCount=listCharacterSlots().length;
 assert.equal(importCharacterBackup(exported).ok,false,"Mesmo ID exige confirmação");
 assert.equal(listCharacterSlots().length,beforeCount);
@@ -123,6 +152,21 @@ assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.dat
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,
  favors:JSON.stringify({...favorComplete.state,credits:999999})}})).ok,false,
  "Backup não aceita créditos falsificados");
+assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,
+ operations:JSON.stringify({...operationsStage,step:23})}})).ok,false,
+ "Backup adulterado dos atos II-IV deve ser rejeitado");
+assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,
+ cisma:JSON.stringify({...cismaStage,step:7})}})).ok,false,
+ "Backup adulterado do Cisma é rejeitado antes de qualquer escrita");
+assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,
+ party:JSON.stringify({...partyStage,active:["mara"]})}})).ok,false,
+ "Backup não pode introduzir aliados não recrutados");
+assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,
+ stealth:JSON.stringify({...stealthStage,records:{"../../admin":"hack"}})}})).ok,false,
+ "Backup não pode introduzir operações ou chaves de infiltração falsas");
+assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,
+ contracts:JSON.stringify({...contractStage,accepted:["../../bad"]})}})).ok,false,
+ "Backup não pode inventar contratos inexistentes");
 assert.equal(importCharacterBackup(exported.padEnd(1_000_002," ")).ok,false);
 // Recriar armazenamento de outro aparelho e importar backup exportado.
 db=new Map();
@@ -136,12 +180,48 @@ assert.equal(loadWorldArea(a.id),"ferrugem","Backup retoma distrito correto");
 assert.equal(readFavors(a.id).credits,60,"Créditos sobrevivem ao backup");
 assert.equal(readFavors(a.id).honor,1,"Honra sobrevive ao backup");
 assert.equal(readEden(a.id).started,true,"Campanha Éden sobrevive à importação");
+assert.deepEqual(readCisma(a.id),cismaStage,"Expansão 2.0 sobrevive à exportação/importação");
+assert.deepEqual(readOperations(a.id),operationsStage,"Campanha completa preservada no backup");
+assert.deepEqual(readParty(a.id),partyStage,"Recrutamento preservado no backup JSON");
+assert.deepEqual(readStealth(a.id),stealthStage,"Aproximações táticas preservadas no backup");
+assert.deepEqual(readContracts(a.id),contractStage,"Contratos aceitos preservados no backup");
 const withoutEden={...parsed,data:{...parsed.data}};
 delete withoutEden.data.eden;
 assert.equal(importCharacterBackup(JSON.stringify(withoutEden),true).ok,true);
 assert.equal(db.has(EDEN_KEY+a.id),false,
  "Backup de versão anterior deve limpar o capítulo órfão ao sobrescrever");
 assert.equal(importCharacterBackup(exported,true).ok,true,"Backup integral recupera o arco Éden");
+const withoutCisma={...parsed,data:{...parsed.data}};
+delete withoutCisma.data.cisma;
+assert.equal(importCharacterBackup(JSON.stringify(withoutCisma),true).ok,true);
+assert.equal(db.has(CISMA_KEY+a.id),false,
+ "Backup anterior à 2.0 não deve reter dados órfãos de campanhas futuras");
+assert.equal(importCharacterBackup(exported,true).ok,true);
+assert.deepEqual(readCisma(a.id),cismaStage);
+const withoutOperations={...parsed,data:{...parsed.data}};
+delete withoutOperations.data.operations;
+assert.equal(importCharacterBackup(JSON.stringify(withoutOperations),true).ok,true);
+assert.equal(db.has(OPERATIONS_KEY+a.id),false,"Backup antigo deve limpar operações órfãs");
+assert.equal(importCharacterBackup(exported,true).ok,true);
+assert.deepEqual(readOperations(a.id),operationsStage);
+const withoutParty={...parsed,data:{...parsed.data}};
+delete withoutParty.data.party;
+assert.equal(importCharacterBackup(JSON.stringify(withoutParty),true).ok,true);
+assert.equal(db.has(PARTY_KEY+a.id),false,"Backup sem equipe limpa aliados órfãos");
+assert.equal(importCharacterBackup(exported,true).ok,true);
+assert.deepEqual(readParty(a.id),partyStage);
+const withoutStealth={...parsed,data:{...parsed.data}};
+delete withoutStealth.data.stealth;
+assert.equal(importCharacterBackup(JSON.stringify(withoutStealth),true).ok,true);
+assert.equal(db.has(STEALTH_KEY+a.id),false,"Backup sem infiltração limpa escolhas órfãs");
+assert.equal(importCharacterBackup(exported,true).ok,true);
+assert.deepEqual(readStealth(a.id),stealthStage);
+const withoutContracts={...parsed,data:{...parsed.data}};
+delete withoutContracts.data.contracts;
+assert.equal(importCharacterBackup(JSON.stringify(withoutContracts),true).ok,true);
+assert.equal(db.has(CONTRACTS_KEY+a.id),false,"Backup legado limpa progresso órfão de contratos");
+assert.equal(importCharacterBackup(exported,true).ok,true);
+assert.deepEqual(readContracts(a.id),contractStage);
 assert.deepEqual(readFavors(a.id).claimed,["triagem"]);
 assert.equal(readDistrictProgress(a.id,"aurea").started,true,"Áurea permanece iniciada após restauração");
 assert.deepEqual(loadDistrictPosition(a.id,"aurea"),{x:5,y:10},"Posição isométrica preservada");
@@ -160,6 +240,11 @@ assert.equal(db.get(DISTRICT_SAVE_KEY+a.id),undefined,"Remoção limpa as cinco 
 assert.equal(db.get(DISTRICT_POSITIONS_KEY+a.id),undefined,"Remoção limpa posições dos distritos");
 assert.equal(db.get(FAVORS_KEY+a.id),undefined,"Exclusão limpa os favores do slot");
 assert.equal(db.get(EDEN_KEY+a.id),undefined,"Exclusão limpa o progresso Éden do slot");
+assert.equal(db.get(CISMA_KEY+a.id),undefined,"Exclusão limpa somente o Cisma deste slot");
+assert.equal(db.get(OPERATIONS_KEY+a.id),undefined,"Exclusão limpa o estado dos atos II-IV");
+assert.equal(db.get(PARTY_KEY+a.id),undefined,"Exclusão limpa equipe deste protagonista");
+assert.equal(db.get(STEALTH_KEY+a.id),undefined,"Exclusão limpa aproximações deste protagonista");
+assert.equal(db.get(CONTRACTS_KEY+a.id),undefined,"Exclusão limpa contratos deste protagonista");
 assert.equal(loadCharacter(),null);
 assert.equal(listCharacterSlots().length,0);
 // Migração a partir da chave única v1 sem índice.
@@ -183,6 +268,11 @@ assert.equal(saveHealth(a.id,5,20),false);
 assert.equal(saveTrial(a.id,firstStep),false);
 assert.equal(saveInventory(createStartingInventory(a.id)),false);
 assert.equal(saveEden(a.id,{...INITIAL_EDEN}),false);
+assert.equal(saveCisma(a.id,INITIAL_CISMA),false);
+assert.equal(saveOperations(a.id,INITIAL_OPERATIONS),false);
+assert.equal(saveParty(a.id,EMPTY_PARTY),false);
+assert.equal(saveStealth(a.id,INITIAL_STEALTH),false);
+assert.equal(saveContracts(a.id,EMPTY_CONTRACTS),false);
 assert.equal(setActiveRaw("save"),false);
 globalThis.localStorage=availableStorage;
 console.log("Saves: legado, slots independentes, limite, backup seguro, importação, Vida persistente e tratamento aprovados.");

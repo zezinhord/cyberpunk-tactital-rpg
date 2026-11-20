@@ -12,6 +12,8 @@ import type {UrbanCombatSupport} from "./story/urban-chronicles.ts";
 import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types";
 import type { OriginGameplayProfile } from "./character/types";
 import {ITEM_CATALOG,type ItemId,type EquipmentBonuses} from "./inventory.ts";
+import type {CompanionProfile,CompanionId} from "./companions.ts";
+import type {StealthRecord} from "./stealth.ts";
 
 function rollDie(sides: number): number {
   return Math.floor(Math.random() * sides) + 1;
@@ -39,6 +41,8 @@ export interface TurnManagerOptions {
   weaponId?:string|null;
   encounterId?: EncounterId;
   districtSupport?:UrbanCombatSupport|null;
+  partySupport?:readonly CompanionProfile[];
+  infiltration?:StealthRecord|null;
 }
 
 export class TurnManager {
@@ -46,6 +50,7 @@ export class TurnManager {
   private readonly originProfile?: OriginGameplayProfile;
   private readonly weaponRange:number;
   private readonly districtSupport:UrbanCombatSupport|null;
+  private readonly partySupport:readonly CompanionProfile[];
   private temporaryArmorBonus = 0;
   private temporaryMovementBonus = 0;
   private nextAttackDamageBonus = 0;
@@ -56,18 +61,30 @@ export class TurnManager {
   constructor(options: TurnManagerOptions = {}) {
     this.originProfile = options.originProfile;
     this.districtSupport=options.districtSupport??null;
+    this.partySupport=(options.partySupport??[]).slice(0,2);
+    const party=this.partySupport.reduce((sum,c)=>({
+      attack:sum.attack+c.attack,armor:sum.armor+c.armor,
+      hp:sum.hp+c.hp,energy:sum.energy+c.energy,movement:sum.movement+c.movement,
+    }),{attack:0,armor:0,hp:0,energy:0,movement:0});
     this.weaponRange=options.weaponId?
       (ITEM_CATALOG[options.weaponId as ItemId]?.range??1):1;
     const bonus=options.progressionBonuses;
-    const movementPerTurn = Math.max(1,MOVEMENT_PER_TURN+(this.originProfile?.movementBonus??0)+(bonus?.movement??0)+(options.equipmentBonuses?.movementBonus??0)+(this.districtSupport?.movement??0));
-    const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0)+(options.equipmentBonuses?.hpBonus??0);
-    const maxEnergy=10+(bonus?.energy??0)+(options.equipmentBonuses?.energyBonus??0)+(this.districtSupport?.energy??0);
+    const movementPerTurn = Math.max(1,MOVEMENT_PER_TURN+(this.originProfile?.movementBonus??0)+(bonus?.movement??0)+(options.equipmentBonuses?.movementBonus??0)+(this.districtSupport?.movement??0)+party.movement);
+    const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0)+(options.equipmentBonuses?.hpBonus??0)+party.hp;
+    const maxEnergy=10+(bonus?.energy??0)+(options.equipmentBonuses?.energyBonus??0)+(this.districtSupport?.energy??0)+party.energy;
     const trial=options.encounterId?.startsWith("trial-")??false;
     const eden=options.encounterId?.startsWith("eden-")??false;
     const district=options.encounterId?.startsWith("district-")??false;
+    const cisma=options.encounterId?.startsWith("cisma-")??false;
     const trialWaveCount=options.encounterId==="trial-3"||
-      options.encounterId==="district-setor-zero"||options.encounterId==="eden-core"?3:trial||district||eden?2:1;
-    const encounterHp=options.encounterId==="eden-core"?24:options.encounterId==="eden-relay"?19:options.encounterId==="v09"?16:district?17:trial?14:12;
+      options.encounterId==="district-setor-zero"||options.encounterId==="eden-core"||
+      options.encounterId==="cisma-core"?3:trial||district||eden||cisma?2:1;
+    const infiltration=options.infiltration?.encounter===options.encounterId?
+      options.infiltration:null;
+    const encounterHp=options.encounterId==="cisma-core"?25:
+      options.encounterId==="cisma-containment"?22:
+      options.encounterId==="cisma-intercept"?20:
+      options.encounterId==="eden-core"?24:options.encounterId==="eden-relay"?19:options.encounterId==="v09"?16:district?17:trial?14:12;
     this.state = {
       units: [
         {
@@ -80,21 +97,22 @@ export class TurnManager {
             ? Math.min(maxHp,Math.max(1,Math.floor(options.currentHp!)))
             : maxHp,
           maxHp,
-          armorClass: 12 + (this.originProfile?.armorBonus ?? 0) + (options.equipmentBonuses?.armorBonus ?? 0) + (bonus?.armor??0)+(this.districtSupport?.armor??0),
-          attackBonus: 5 + (this.originProfile?.attackBonus ?? 0) + (options.equipmentBonuses?.attackBonus ?? 0) + (bonus?.attack??0)+(this.districtSupport?.attack??0),
+          armorClass: 12 + (this.originProfile?.armorBonus ?? 0) + (options.equipmentBonuses?.armorBonus ?? 0) + (bonus?.armor??0)+(this.districtSupport?.armor??0)+party.armor,
+          attackBonus: 5 + (this.originProfile?.attackBonus ?? 0) + (options.equipmentBonuses?.attackBonus ?? 0) + (bonus?.attack??0)+(this.districtSupport?.attack??0)+party.attack,
         },
         {
           id: "drone",
-          name: eden?(options.encounterId==="eden-core"?"Guardião do Éden":"Interceptador de Prisma"):
+          name: cisma?enemyProfile(options.encounterId??"cisma-intercept",1).name:
+            eden?(options.encounterId==="eden-core"?"Guardião do Éden":"Interceptador de Prisma"):
             options.encounterId==="v09" ? "Unidade de Vigilância V-09"
              : district ? "Agente de Segurança Helix" : trial ? "Drone de Interceptação" : "Sentinela-07",
           side: "enemy",
           x: 6,
           y: 1,
-          hp: encounterHp,
+          hp: Math.max(1,encounterHp-(infiltration?.outcome==="undetected"?5:0)),
           maxHp: encounterHp,
           armorClass: 13,
-          attackBonus: 4,
+          attackBonus: 4+(infiltration?.outcome==="spotted"?1:0),
         },
       ],
       activeSide: "player",
@@ -108,7 +126,10 @@ export class TurnManager {
       classEnemyAttackReduction:0,classEnemyAttackTurns:0,
       energy: maxEnergy, maxEnergy,
       cooldowns: { "pulse-emp": 0, barrier: 0, regeneration: 0 },
-      barrierTurns: 0, enemyJamTurns: 0, overwatchReady:false,suppressionTurns:0,
+      barrierTurns: 0,
+      enemyJamTurns: infiltration?.outcome==="undetected"?1:0,
+      overwatchReady:false,suppressionTurns:0,
+      companionUsed:[],
        terminalUsed: false, cue: null,
       round: 1,
       movementRemaining: movementPerTurn,
@@ -118,13 +139,48 @@ export class TurnManager {
       originAbilityAvailable: Boolean(this.originProfile),
       originAbilityName: this.originProfile?.abilityName ?? "Habilidade de origem",
       combatComplete: false,
-      message: district?"Intervenção hostil no distrito · onda 1 de "+trialWaveCount+". Proteja as provas.":trial?"Operação Circuito Fantasma · onda 1 de "+trialWaveCount+". Proteja a comunidade."
+      message: cisma?"O Cisma de Éden · defesa hostil · onda 1 de "+trialWaveCount+
+        ". "+(infiltration?.outcome==="undetected"?"Infiltração: abertura silenciosa!":
+         infiltration?.outcome==="spotted"?"Infiltração detectada: vigias reforçados.":
+         "Proteja as provas e os pacientes."):
+        district?"Intervenção hostil no distrito · onda 1 de "+trialWaveCount+". Proteja as provas.":trial?"Operação Circuito Fantasma · onda 1 de "+trialWaveCount+". Proteja a comunidade."
         : options.encounterId==="v09" ? "Encontro V-09: neutralize a unidade que interceptou os registros de manutenção."
         : "Área de teste ativa. Alcance a sentinela e neutralize-a.",
       log: options.encounterId==="v09" ? ["[MISSÃO] V-09: ameaça localizada no Pátio do Reúso.", "[COMBATE] Proteja os registros da cooperativa."] : ["[SISTEMA] Campo de teste conectado.", "[MISSÃO] Neutralize a unidade sentinela."],
     };
   }
 
+  getCompanionSupports():readonly CompanionProfile[]{return this.partySupport;}
+  useCompanionSupport(id:CompanionId):boolean{
+    const member=this.partySupport.find(c=>c.id===id);
+    const p=livingUnit(this.state.units,"runner");
+    const enemy=livingUnit(this.state.units,"drone");
+    if(!member||!p||!enemy||this.state.combatComplete||
+       this.state.activeSide!=="player"||!this.state.bonusActionAvailable||
+       this.state.companionUsed.includes(id))return false;
+    if(member.aid==="heal"&&p.hp>=p.maxHp){
+      this.setMessage("O protagonista já está com Vida máxima.");return false;
+    }
+    if(member.aid==="energy"&&this.state.energy>=this.state.maxEnergy){
+      this.setMessage("A reserva de energia já está completa.");return false;
+    }
+    const amount=member.aid==="heal"?
+      Math.min(member.power,p.maxHp-p.hp):
+      member.aid==="energy"?Math.min(member.power,this.state.maxEnergy-this.state.energy):
+      member.power;
+    if(member.aid==="heal")p.hp+=amount;
+    else if(member.aid==="energy")this.state.energy+=amount;
+    else if(member.aid==="jam")this.state.enemyJamTurns=Math.max(this.state.enemyJamTurns,amount);
+    else this.nextAttackAccuracyBonus+=amount;
+    this.state.companionUsed=[...this.state.companionUsed,id];
+    this.state.bonusActionAvailable=false;
+    this.state.message=member.name+" prestou apoio tático: "+member.description;
+    this.addLog("[ALIADO] "+member.name+": "+member.description);
+    this.setCue(member.aid==="jam"?"emp":
+      member.aid==="focus"?"shield":"repair",
+      member.aid==="jam"?"enemy":"player",amount);
+    this.publish();return true;
+  }
   getDistrictSupportDescription():string{return this.districtSupport?.label??"";}
 
   getState(): GameState {
@@ -134,6 +190,7 @@ export class TurnManager {
       log: [...this.state.log],
       cooldowns: { ...this.state.cooldowns },
       classCooldowns:{...this.state.classCooldowns},
+      companionUsed:[...this.state.companionUsed],
       cue: this.state.cue ? {...this.state.cue,
         path:this.state.cue.path?.map(tile=>({...tile}))} : null,
     };
@@ -517,10 +574,13 @@ export class TurnManager {
     const trial=this.state.encounterId.startsWith("trial-");
     const district=this.state.encounterId.startsWith("district-");
     const eden=this.state.encounterId.startsWith("eden-");
-    const waves=trial||district||eden;
+    const cisma=this.state.encounterId.startsWith("cisma-");
+    const waves=trial||district||eden||cisma;
     if(waves&&this.state.wave<this.state.totalWaves){
       this.state.wave+=1;
-      const hp=(eden?(this.state.encounterId==="eden-core"?24:19):district?17:14)+3*(this.state.wave-1);
+      const hp=(cisma?(this.state.encounterId==="cisma-core"?25:
+        this.state.encounterId==="cisma-containment"?22:20):
+        eden?(this.state.encounterId==="eden-core"?24:19):district?17:14)+3*(this.state.wave-1);
       enemy.hp=hp;enemy.maxHp=hp;enemy.armorClass=13+this.state.wave-1;
       enemy.attackBonus=4+this.state.wave-1;
       enemy.x=6;enemy.y=1;

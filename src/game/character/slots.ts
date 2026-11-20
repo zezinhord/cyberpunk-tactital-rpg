@@ -20,6 +20,11 @@ const OWNED_DATA_KEYS=[
  "cyberpunk-tactical-rpg.favors.v1.",
  "cyberpunk-tactical-rpg.urban-cases.v1.",
  "cyberpunk-tactical-rpg.eden-echoes.v1.",
+ "cyberpunk-tactical-rpg.cisma-v20.v1.",
+ "cyberpunk-tactical-rpg.cisma-operations.v1.",
+ "cyberpunk-tactical-rpg.party-v20.v1.",
+ "cyberpunk-tactical-rpg.stealth-v20.v1.",
+ "cyberpunk-tactical-rpg.inner-contracts-v20.v1.",
 ] as const;
 /** Descobre e preserva automaticamente o slot único de versões anteriores. */
 export function listCharacterSlots():PlayerCharacter[]{
