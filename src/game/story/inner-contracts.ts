@@ -24,7 +24,7 @@ export const INNER_CONTRACTS:Readonly<Record<ExpansionInnerId,InnerContract>>=
    rewardXp:45+room.variant*4+room.themeIndex*2,
    requires:props.map(prop=>innerReceipt(room.id,prop)),
   } satisfies InnerContract];
- })) as Record<ExpansionInnerId,InnerContract>;
+ })) as unknown as Record<ExpansionInnerId,InnerContract>;
 export const CONTRACT_IDS=Object.keys(INNER_CONTRACTS) as ExpansionInnerId[];
 export interface InnerContractsState{
  version:1;accepted:readonly ExpansionInnerId[];completed:readonly ExpansionInnerId[];
