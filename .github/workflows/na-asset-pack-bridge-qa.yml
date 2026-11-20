@@ -10,6 +10,12 @@ on:
       - scripts/test-asset-packs-v20.mjs
       - src/game/assets/**
       - src/game/districts/DistrictInteriorScene.ts
+      - src/screens/ExplorationScreen.tsx
+      - src/components/AssetPackControls.tsx
+      - src/components/DossierGallery.tsx
+      - src/components/CharacterMenu.tsx
+      - src/dossier-gallery.css
+      - tools/build_3gb_asset_packs.py
   workflow_dispatch:
 permissions:
   contents: read
