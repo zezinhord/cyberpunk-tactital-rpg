@@ -24,6 +24,9 @@ import {readUrban,saveUrban,currentUrbanCase,decideUrban,recordUrbanEvidence,rec
 import type {RadioDistrict} from "../audio/soundscapes.ts";
 import {EDEN_STEPS,EDEN_ENDING_CHOICES,readEden,saveEden,startEden,currentEdenStep,edenObjective,advanceEden} from "../game/story/eden-echoes.ts";
 import {createEdenEpilogue,endingDistrictImpact} from "../game/story/eden-epilogues.ts";
+import {CISMA_STEPS,CISMA_OUTCOMES,CISMA_CLASS_METHODS,CISMA_ORIGIN_MEMORY,
+ readCisma,saveCisma,beginCisma,currentCismaStep,cismaObjective,advanceCisma,
+ cismaDistrictImpact} from "../game/story/cisma-v20.ts";
 import {DISCOVERY_REWARDS,type DiscoveryArea} from "../game/story/discoveries.ts";
 import {getClassById,type ClassId} from "../game/classes/registry";
 import type {EncounterId} from "../game/types";
@@ -197,6 +200,7 @@ export default function ExplorationScreen({
   const [favorNotice,setFavorNotice]=useState("");
   const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));
   const [eden,setEden]=useState(()=>readEden(character.id));
+  const [cisma,setCisma]=useState(()=>readCisma(character.id));
   const [epilogueOpen,setEpilogueOpen]=useState(false);
   const [trialNotice,setTrialNotice]=useState("");
   const [sectorId,setSectorId]=useState<SectorId>(()=>sectorAt(loadWorldLocation(character.id)));
@@ -235,7 +239,7 @@ export default function ExplorationScreen({
         ...favorChoicesFor("dra-amara")]}:page));
   };
   const v09=readV09(character.id);
-  const reputation=calculateReputation({favors,market,ferrugem,eden,chapters:cityChapters,urban});
+  const reputation=calculateReputation({favors,market,ferrugem,eden,cisma,chapters:cityChapters,urban});
   const cityArea:RadioDistrict=isInnerId(interior)?
     INNER_BLUEPRINTS[interior].parent??"baixada":
     isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":"baixada";
@@ -245,11 +249,14 @@ export default function ExplorationScreen({
     className:character.classId?getClassById(character.classId).name:"sem classe",
   },reputation,Object.keys(urban.choices).length);
   const postgameImpact=eden.completed?endingDistrictImpact(eden.ending,cityArea):null;
+  const cismaImpact=cismaDistrictImpact(cisma,cityArea);
   useEffect(()=>{
     const post=eden.completed?endingDistrictImpact(eden.ending,cityArea):null;
-    const pressure=urbanPressure(urban,cityArea)+Math.floor(market.heat/3)+(post?.pressure??0);
+    const cismaLocal=cismaDistrictImpact(cisma,cityArea);
+    const pressure=urbanPressure(urban,cityArea)+Math.floor(market.heat/3)+
+      (post?.pressure??0)+(cismaLocal?.pressure??0);
     audioDirector.setUrbanPressure(Math.max(0,Math.min(3,pressure)));
-  },[urban,cityArea,market.heat,eden.completed,eden.ending]);
+  },[urban,cityArea,market.heat,eden.completed,eden.ending,cisma.completed,cisma.ending]);
   useEffect(()=>{
     if(!epilogueOpen)return;
     const close=(event:KeyboardEvent)=>{
@@ -544,6 +551,39 @@ export default function ExplorationScreen({
           portrait:"▤",text:result.message}]);
         return;
       }
+    }
+    // 2.0: continuação pós-Éden. Somente o contato real do passo atual
+    // pode avançar o ato; nenhuma conversa genérica concede progresso.
+    const cismaStage=currentCismaStep(cisma);
+    if(cismaStage?.actor===id){
+      if(cismaStage.kind==="decision"){
+        say([{speaker:"MURAL DE BOLETINS",role:"O CISMA DE ÉDEN · DECISÃO DA ASSEMBLEIA",
+          portrait:"▤",text:cismaStage.discovery,
+          choices:CISMA_OUTCOMES.map(option=>({
+            id:"cisma-"+option.id,label:option.label,reply:option.reply,
+          }))}]);
+        return;
+      }
+      const result=advanceCisma(cisma,id,undefined,character.classId??undefined);
+      if(!result.advanced||!result.step){
+        say([{speaker:"ARQUIVO LOCAL",role:"OPERAÇÃO 2.0",portrait:"!",
+          text:result.message}]);return;
+      }
+      if(!saveCisma(character.id,result.progress)){
+        say([{speaker:"ARQUIVO LOCAL",role:"FALHA DE SALVAMENTO",portrait:"!",
+          text:"Não foi possível registrar O Cisma de Éden. Verifique o espaço livre e repita a interação."}]);return;
+      }
+      setCisma(result.progress);
+      onQuestXp("cisma-"+result.step.id,result.step.xp);
+      setCityNotice("O Cisma de Éden · "+result.step.title+
+        " · +"+result.step.xp+" XP · exposição "+result.progress.exposure+"/5.");
+      audioDirector.effect("archive");
+      const method=CISMA_CLASS_METHODS[result.progress.method!];
+      say([{speaker:result.step.speaker,role:"O CISMA DE ÉDEN · DOSSIÊ "+(cisma.step+1)+"/"+CISMA_STEPS.length,
+        portrait:"▤",text:result.message+
+          "\n\nMétodo "+method.label+": "+method.insight+
+          (cisma.step===0?"\n\nMEMÓRIA DE ORIGEM: "+CISMA_ORIGIN_MEMORY[character.originId]:"")}]);
+      return;
     }
     const cityActor=actorFromId(id);
     if(cityActor){
@@ -993,6 +1033,24 @@ export default function ExplorationScreen({
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    const cismaChoice=CISMA_OUTCOMES.find(option=>choice.id==="cisma-"+option.id);
+    if(cismaChoice){
+      const result=advanceCisma(cisma,"feira-archive",cismaChoice.id,character.classId??undefined);
+      if(!result.advanced||!result.step)return;
+      if(!saveCisma(character.id,result.progress)){
+        say([{speaker:"ARQUIVO LOCAL",role:"FALHA DE SALVAMENTO",portrait:"!",
+          text:"A deliberação da 2.0 não foi salva. Libere espaço e repita a decisão."}]);return;
+      }
+      setCisma(result.progress);
+      onQuestXp("cisma-"+result.step.id,result.step.xp);
+      setCityNotice("O Cisma de Éden concluído: "+cismaChoice.title+
+        " · exposição "+result.progress.exposure+"/5.");
+      audioDirector.effect("eden");
+      say([{speaker:"ASSEMBLEIA DA BAIXADA",role:"O CISMA DE ÉDEN · RESULTADO",
+        portrait:"▤",text:cismaChoice.consequence+
+        "\n\nAs decisões agora alteram as respostas políticas e a vigilância ambiental nos sete distritos."}]);
+      return;
+    }
     const edenChoice=EDEN_ENDING_CHOICES.find(option=>choice.id==="eden-"+option.id);
     if(edenChoice){
       const ending=edenChoice.id;
@@ -1253,7 +1311,8 @@ export default function ExplorationScreen({
           <span aria-hidden="true">{hubOpen?"×":"+"}</span>
         </button>
         {!hubOpen&&<div className="na-quest-peek">
-          <strong>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
+          <strong>{cisma.started?cismaObjective(cisma):
+            isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
             interior==="ferrugem"?ferrugemObjective(ferrugem):
             eden.started?edenObjective(eden):
             trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
@@ -1272,17 +1331,34 @@ export default function ExplorationScreen({
           </div>
           {hubTab==="mission"?<div className="na-quest-tab-content" role="tabpanel">
             <span className="na-quest-kicker">ETAPA ATUAL · SEM REVELAR PRÓXIMOS CAPÍTULOS</span>
-            <h3>{isDistrictId(interior)?getDistrict(interior).name:
+            <h3>{cisma.started?"O Cisma de Éden · Ato I":
+              isDistrictId(interior)?getDistrict(interior).name:
               interior==="ferrugem"?"Ecos de Ferrugem":
               eden.started?"Ecos da Cidade · Projeto Éden":
               trial.started&&!trial.completed?"Operação Circuito Fantasma":
               mission.step<3?"O nome que sumiu":
               !v09.reported?"Investigação V-09":"Rastros do Éden"}</h3>
-            <p>{isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
+            <p>{cisma.started?cismaObjective(cisma):
+              isDistrictId(interior)?districtObjective(interior,cityChapters[interior]):
               interior==="ferrugem"?ferrugemObjective(ferrugem):
               eden.started?edenObjective(eden):
               trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
               objective}</p>
+            {cisma.started&&!cisma.completed&&<small>Versão 2.0 · etapa {cisma.step+1} de {CISMA_STEPS.length}
+              {" · "}Abordagem: {cisma.method?CISMA_CLASS_METHODS[cisma.method].label:"a definir"}
+              {" · "}Exposição: {cisma.exposure}/5</small>}
+            {cisma.completed&&<small>O Cisma de Éden concluído ·
+              {CISMA_OUTCOMES.find(option=>option.id===cisma.ending)?.title}
+              {" · "}Exposição final {cisma.exposure}/5</small>}
+            {eden.completed&&!cisma.started&&<button type="button"
+              className="na-quest-primary" onClick={()=>{
+                const started=beginCisma(cisma,eden.completed);
+                if(!saveCisma(character.id,started)){
+                  setCityNotice("Não foi possível salvar o começo da expansão 2.0.");return;
+                }
+                setCisma(started);
+                setCityNotice("O Cisma de Éden começou. Investigue o novo caso com a Dra. Amara.");
+              }}>Iniciar expansão 2.0 · O Cisma de Éden</button>}
             {eden.started&&!eden.completed&&<small>Capítulo Éden · etapa {eden.step+1} de {EDEN_STEPS.length}</small>}
             {eden.completed&&<button className="na-quest-primary" type="button"
               onClick={()=>setEpilogueOpen(true)}>Ver desfecho, epílogo e créditos</button>}
@@ -1337,6 +1413,13 @@ export default function ExplorationScreen({
               Histórico e recompensas no diário ↗</button>
           </div>:<div className="na-quest-tab-content na-favor-board na-urban-board" role="tabpanel">
             <span className="na-quest-kicker">OCORRÊNCIAS LOCAIS · {sceneLabel(cityArea).toUpperCase()}</span>
+            {cismaImpact&&<article className="na-favor-row" aria-label="Consequência da expansão 2.0 na região">
+              <strong>O CISMA DE ÉDEN · {cismaImpact.label}</strong>
+              <p>{cismaImpact.description}</p>
+              <small>Decisão final: {CISMA_OUTCOMES.find(option=>option.id===cisma.ending)?.title}
+                {" · "}{cismaImpact.pressure>0?"Vigilância reforçada":
+                  cismaImpact.pressure<0?"Vigilância reduzida":"Pressão monitorada"}</small>
+            </article>}
             {postgameImpact&&<article className="na-favor-row" aria-label="Consequência do desfecho nesta região">
               <strong>DEPOIS DE ÉDEN · {postgameImpact.label}</strong>
               <p>{postgameImpact.consequence}</p>
