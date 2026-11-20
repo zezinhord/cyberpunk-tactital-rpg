@@ -47,6 +47,7 @@ jobs:
           node --experimental-strip-types scripts/test-eden-echoes.mjs
           node --experimental-strip-types scripts/test-eden-governance.mjs
           node --experimental-strip-types scripts/test-cisma-v20.mjs
+          node --experimental-strip-types scripts/test-cisma-operations.mjs
           node --experimental-strip-types scripts/test-save-slots.mjs
           node --experimental-strip-types scripts/test-class-saves.mjs
           node --experimental-strip-types scripts/test-crafting.mjs
@@ -103,22 +104,11 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: nova-arcadia-v200-qa-signing-v1
-      - name: Generate isolated first QA 2.0 signing key
+      - name: Block incompatible QA200 signing keys
         if: steps.qa_signing.outputs.cache-hit != 'true'
         run: |
-          mkdir -p "$HOME/.android"
-          test ! -e "$HOME/.android/debug.keystore"
-          keytool -genkeypair -noprompt \
-            -keystore "$HOME/.android/debug.keystore" \
-            -storepass android -keypass android -alias androiddebugkey \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Nova Arcadia 2 QA,O=Nova Arcadia,C=BR"
-      - name: Save QA 2.0 signing key
-        if: steps.qa_signing.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: nova-arcadia-v200-qa-signing-v1
+          echo "QA200 signing key unavailable; refusing an APK with incompatible signing." >&2
+          exit 1
       - name: Bind separate application ID and sign
         run: |
           node scripts/force-android-signing.mjs
@@ -139,10 +129,11 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
           "$AAPT" dump badging "$APK" | tee qa/apk-badging.txt
           grep -Fq "name='com.cyberpunk.tacticalrpg.qa200'" qa/apk-badging.txt
-          grep -Fq "versionCode='2000001'" qa/apk-badging.txt
-          grep -Fq "versionName='2.0.0-rc.1'" qa/apk-badging.txt
+          grep -Fq "versionCode='2000002'" qa/apk-badging.txt
+          grep -Fq "versionName='2.0.0-rc.2'" qa/apk-badging.txt
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee qa/assinatura.txt
           grep -Fq "CN=Nova Arcadia 2 QA" qa/assinatura.txt
+          grep -Fq "43afabd6de5f33ebeb5958eb0d300d64e1012ddc9bcd98c1d302ae3101ce4404" qa/assinatura.txt
           sha256sum "$APK" | tee qa/apk-sha256.txt
           test "$(stat -c %s "$APK")" -ge 1000000000
       - name: Free build media before Android emulator
@@ -185,7 +176,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: NovaArcadia-v200-rc1-boot-android-2GB
+          name: NovaArcadia-v200-rc2-boot-android-2GB
           path: qa/boot-android-2gb-v20.png
           if-no-files-found: ignore
           retention-days: 7
@@ -194,8 +185,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="nova-arcadia-v200-rc1-cisma-qa"
-          FILE="NovaArcadia-2.0.0-rc.1-Cisma-1GB-QA.apk"
+          TAG="nova-arcadia-v200-rc2-cisma-qa"
+          FILE="NovaArcadia-2.0.0-rc.2-Cisma-1GB-QA.apk"
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
           cp "$APK" "$FILE"
           SIZE="$(stat -c %s "$FILE")"
@@ -203,13 +194,13 @@ jobs:
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
-              --title "Nova Arcádia 2.0.0-rc.1 — Primeiro arco Cisma, QA NÃO estável" \
-              --notes "Versão 2.0 experimental: apenas o primeiro arco Cisma com oito etapas. Não equivale a uma expansão concluída de 3GB. Instalação separada da RC2; importe backup JSON." \
+              --title "Nova Arcádia 2.0.0-rc.2 — Atos I–IV Cisma, QA NÃO estável" \
+              --notes "Versão 2.0 experimental com 31 etapas, três novos confrontos e ramificações. Ainda não são 3GB de recursos novos nem a versão estável. Instalação paralela a 1.0; importe backup JSON." \
               --prerelease
           gh release upload "$TAG" "$FILE" --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --title "Nova Arcádia 2.0.0-rc.1 — Primeiro arco Cisma, QA NÃO estável" \
-            --notes "Protótipo 2.0: arco O Cisma de Éden, oito etapas, três escolhas, consequências por distrito e classe. Biblioteca original preservada; NÃO TEM 3GB. Teste WebView API35 com 2GB obrigatório. Pacote Android separado com.cyberpunk.tacticalrpg.qa200. $SIZE bytes; SHA-256: $SHA; commit: $GITHUB_SHA. Testes físicos, playthrough integral, desempenho e campanhas finais ainda pendentes. NÃO é a versão estável 1.0.0. Salvos só por backup exportado/importado." \
+            --title "Nova Arcádia 2.0.0-rc.2 — Atos I–IV Cisma, QA NÃO estável" \
+            --notes "Prévia 2.0 ampliada com 31 etapas e três combates, incluindo confronto de duas fases, 3 novos desfechos políticos e consequências nos sete distritos. Biblioteca original preservada; NÃO TEM 3GB. Teste WebView API35 com 2GB obrigatório. Pacote Android separado com.cyberpunk.tacticalrpg.qa200. $SIZE bytes; SHA-256: $SHA; commit: $GITHUB_SHA. Testes físicos, playthrough integral, desempenho e campanhas finais ainda pendentes. NÃO é a versão estável 1.0.0. Salvos só por backup exportado/importado." \
             --prerelease
           echo "APK QA direto: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$FILE" >> "$GITHUB_STEP_SUMMARY"
           echo "SHA256: $SHA" >> "$GITHUB_STEP_SUMMARY"
