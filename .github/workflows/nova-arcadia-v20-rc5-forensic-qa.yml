@@ -1,0 +1,235 @@
+name: Nova Arcadia 2.0 RC5 — 28 forensic cases, full Android APK QA
+
+on:
+  push:
+    branches:
+      - feature/nova-arcadia-3gb-final-assets
+    paths:
+      - .github/workflows/nova-arcadia-v20-rc5-forensic-qa.yml
+      - src/game/story/forensic-cases.ts
+      - src/screens/ExplorationScreen.tsx
+      - src/App.tsx
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: nova-arcadia-v200-rc5-forensic-qa
+  cancel-in-progress: false
+
+jobs:
+  qa-android-full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout integrated source
+        uses: actions/checkout@v4
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deterministic dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          python -m pip install -r tools/requirements-characters.txt
+      - name: Validate gameplay before downloading full media
+        run: |
+          npx tsc -b
+          node --experimental-strip-types scripts/test-tactics.mjs
+          node --experimental-strip-types scripts/test-eden-echoes.mjs
+          node --experimental-strip-types scripts/test-eden-governance.mjs
+          node --experimental-strip-types scripts/test-cisma-v20.mjs
+          node --experimental-strip-types scripts/test-cisma-operations.mjs
+          node --experimental-strip-types scripts/test-indoor-expansion.mjs
+          node --experimental-strip-types scripts/test-cyberware-v20.mjs
+          node --experimental-strip-types scripts/test-companions-v20.mjs
+          node --experimental-strip-types scripts/test-stealth-v20.mjs
+          node --experimental-strip-types scripts/test-inner-contracts-v20.mjs
+          node --experimental-strip-types scripts/test-forensic-cases-v20.mjs
+          node --experimental-strip-types scripts/test-save-slots.mjs
+          node --experimental-strip-types scripts/test-class-saves.mjs
+          node --experimental-strip-types scripts/test-crafting.mjs
+          node --experimental-strip-types scripts/test-combat-defeat.mjs
+      - name: Stamp isolated RC5 build only (source remains at RC4 until final gate)
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          for(const file of ['package.json','package-lock.json']){
+            const source=fs.readFileSync(file,'utf8');
+            if(!source.includes('"version": "2.0.0-rc.4"'))
+              throw Error('Package version unexpected');
+            fs.writeFileSync(file,source.replaceAll('"version": "2.0.0-rc.4"',
+              '"version": "2.0.0-rc.5"'));
+          }
+          JS
+      - name: Restore ONLY full original runtime media from 0.9.1 QA APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/nova-baseline"
+          gh release download nova-arcadia-v091-gameplay-full-qa \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "NovaArcadia-0.9.1-rc.1-Full-1GB-QA.apk" \
+            --dir "$RUNNER_TEMP/nova-baseline"
+          ORIGINAL="$RUNNER_TEMP/nova-baseline/NovaArcadia-0.9.1-rc.1-Full-1GB-QA.apk"
+          test "$(stat -c %s "$ORIGINAL")" -eq 1143065746
+          printf '%s  %s\n' \
+            "af25764cb4a4f41b3b2677a7503230dafbaf026f551770125d721e41ad1c9915" \
+            "$ORIGINAL" | sha256sum -c -
+          python tools/restore_media_from_apk.py "$ORIGINAL"
+          rm -f "$ORIGINAL"
+      - name: Install FFmpeg and FFprobe for media validation
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          command -v ffmpeg
+          command -v ffprobe
+      - name: Verify original media and runtime bindings
+        run: |
+          node --experimental-strip-types scripts/test-expanded-ambience.mjs
+          node scripts/test-urban-ambience.mjs
+          node --experimental-strip-types scripts/test-soundscapes.mjs
+      - name: Compile real web runtime and character sheets
+        run: npm run build
+      - name: Audit original visual art in runtime (28 rooms, 84 interactables)
+        run: |
+          node scripts/test-v20-illustrations.mjs
+          test -s dist/assets/v20-illustrations/manifest.json
+          test -s qa/v20-environments-art-matrix.png
+          # Never count artwork merely generated but omitted from the APK.
+          test "$(find dist/assets/v20-illustrations -name '*.png' | wc -l)" -eq 112
+      - name: Smoke test Android-UI cold boot, character creation and first map
+        run: node scripts/test-android-cold-boot.mjs
+      - name: Validate generated artwork and web assets
+        run: |
+          node scripts/test-character-sheets.mjs
+          node scripts/test-npc-sheets.mjs
+          node .agents/skills/nova-arcadia-game-art-ui/scripts/check-visual-contract.mjs
+          test -s dist/assets/ambient-expanded/manifest.json
+          test "$(find dist/assets/ambient-expanded -name '*.ogg' | wc -l)" -eq 112
+      - name: Capacitor Android project
+        run: |
+          npx cap add android
+          npx cap sync android
+          node scripts/lock-android-landscape.mjs
+          node scripts/stamp-android-version.mjs
+          node scripts/enable-android-immersive.mjs
+          node scripts/install-asset-pack-plugin.mjs
+      - name: Restore isolated QA 2.0 signing key
+        id: qa_signing
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: nova-arcadia-v200-qa-signing-v1
+      - name: Block incompatible QA200 signing keys
+        if: steps.qa_signing.outputs.cache-hit != 'true'
+        run: |
+          echo "QA200 signing key unavailable; refusing an APK with incompatible signing." >&2
+          exit 1
+      - name: Bind separate application ID and sign
+        run: |
+          node scripts/force-android-signing.mjs
+          NA_QA_VARIANT=v200 node scripts/prepare-android-compat.mjs
+      - name: Build Android APK (full, offline)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - name: Audit APK, sign, version, all 1GB of live content
+        run: |
+          set -euo pipefail
+          mkdir -p qa
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          python tools/audit_apk_content.py "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          "$AAPT" dump badging "$APK" | tee qa/apk-badging.txt
+          grep -Fq "name='com.cyberpunk.tacticalrpg.qa200'" qa/apk-badging.txt
+          grep -Fq "versionCode='2000005'" qa/apk-badging.txt
+          grep -Fq "versionName='2.0.0-rc.5'" qa/apk-badging.txt
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee qa/assinatura.txt
+          grep -Fq "CN=Nova Arcadia 2 QA" qa/assinatura.txt
+          grep -Fq "43afabd6de5f33ebeb5958eb0d300d64e1012ddc9bcd98c1d302ae3101ce4404" qa/assinatura.txt
+          sha256sum "$APK" | tee qa/apk-sha256.txt
+          test "$(stat -c %s "$APK")" -ge 1000000000
+      - name: Free build media before Android emulator
+        run: |
+          # A APK auditada já contém a mídia. Não manter duplicatas de >1 GB
+          # enquanto o emulador reserva memória e armazenamento no mesmo runner.
+          rm -rf dist public/assets/ambient-expanded public/assets/ambient \
+            public/assets/soundscapes public/assets/music node_modules
+          sync
+          df -h .
+          free -m
+      - name: Enable emulator KVM hardware acceleration
+        run: |
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+          ls -l /dev/kvm
+      - name: Install full signed APK and prove WebView launch in 2GB Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          ram-size: 2048M
+          disk-size: 8192M
+          emulator-boot-timeout: 600
+          disable-animations: true
+          script: |
+            set -e
+            timeout 180 adb install -r -t android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n com.cyberpunk.tacticalrpg.qa200/com.cyberpunk.tacticalrpg.MainActivity
+            sleep 3
+            NA_TEST_PACKAGE=com.cyberpunk.tacticalrpg.qa200 node scripts/test-android-webview-startup.mjs
+            adb exec-out screencap -p > qa/boot-android-2gb-v20.png
+            adb shell am force-stop com.cyberpunk.tacticalrpg.qa200
+            adb shell am start -W -n com.cyberpunk.tacticalrpg.qa200/com.cyberpunk.tacticalrpg.MainActivity
+            sleep 3
+            NA_TEST_PACKAGE=com.cyberpunk.tacticalrpg.qa200 node scripts/test-android-webview-startup.mjs
+      - name: Upload Android cold boot evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-v200-rc5-forensic-boot-android-2GB
+          path: qa/boot-android-2gb-v20.png
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Publish direct download in SEPARATE QA prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="nova-arcadia-v200-rc5-forensic-qa"
+          FILE="NovaArcadia-2.0.0-rc.5-Forensic-Full-1GB-QA.apk"
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          cp "$APK" "$FILE"
+          SIZE="$(stat -c %s "$FILE")"
+          SHA="$(sha256sum "$FILE" | cut -d ' ' -f 1)"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Nova Arcádia 2.0.0-rc.5 — Investigação forense nos 28 interiores, QA" \
+              --notes "Prévia RC5 com 28 análises forenses autorais, três alternativas por caso, dedução após prova física, XP único e backups antigos compatíveis. 31 etapas, 28 contratos, 35 interiores, 8 cyberwares, 4 aliados e infiltração. QA200. NÃO é a versão final de 3GB." \
+              --prerelease
+          gh release upload "$TAG" "$FILE" --repo "$GITHUB_REPOSITORY" --clobber
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --title "Nova Arcádia 2.0.0-rc.5 — Investigação forense nos 28 interiores, QA" \
+            --notes "RC5 experimental: 28 novas análises de provas, 84 alternativas, feedback de dedução, XP forense único com recuperação após falha, RC4 saves e backup JSON compatíveis. Conteúdo real não foi artificialmente inflado; não são 3GB. 31 etapas, 28 contratos, 35 interiores, 112 artes originais, cyberware, 4 aliados, infiltração. Android 15 2GB boot verificado, testes em aparelhos reais ainda necessários. Assinatura QA200 preservada. $SIZE bytes; SHA-256: $SHA; commit: $GITHUB_SHA. Salvos QA100 requerem backup JSON." \
+            --prerelease
+          echo "APK QA direto: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$FILE" >> "$GITHUB_STEP_SUMMARY"
+          echo "SHA256: $SHA" >> "$GITHUB_STEP_SUMMARY"
