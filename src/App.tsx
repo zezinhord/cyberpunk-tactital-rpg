@@ -51,6 +51,7 @@ import {readMarket} from "./game/story/market";
 import {EDEN_STEPS,readEden,saveEden,advanceEdenBattle,syncEdenItems,type EdenEncounter} from "./game/story/eden-echoes.ts";
 import {readOperations,saveOperations,advanceOperationBattle,isOperationsCombat,
   OPERATIONS_STAGES} from "./game/story/cisma-operations.ts";
+import {readCisma,CISMA_STEPS} from "./game/story/cisma-v20.ts";
 import {claimDiscovery,DISCOVERY_AREAS,DISCOVERY_REWARDS} from "./game/story/discoveries.ts";
 import {collectInnerProp,reconcileInnerExperience} from "./game/story/indoor-rewards.ts";
 import {readReputation,syncFactionAids} from "./game/story/reputation";
@@ -334,6 +335,11 @@ export default function App() {
     for(const id of narrative.history){
       const step=EDEN_STEPS.find(s=>s.id===id);
       if(step&&!grantTrialXp("eden-"+id,step.xp))return false;
+    }
+    const cisma=readCisma(active.id);
+    for(const id of cisma.history){
+      const step=CISMA_STEPS.find(s=>s.id===id);
+      if(step&&!grantTrialXp("cisma-"+id,step.xp))return false;
     }
     const operations=readOperations(active.id);
     for(const id of operations.history){
