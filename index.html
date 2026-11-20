@@ -9,7 +9,44 @@
     <title>Nova Arcádia — Projeto Éden</title>
   </head>
   <body>
+    <div id="na-boot-fallback" role="status" aria-live="polite" style="position:fixed;inset:0;z-index:1;background:#0b0d17;color:#ccecf1;display:grid;align-content:center;justify-items:center;gap:16px;padding:24px;text-align:center;font:600 15px system-ui,sans-serif">
+      <strong style="font-size:22px;letter-spacing:.12em">NOVA ARCÁDIA</strong>
+      <span id="na-boot-status">Inicializando o jogo…</span>
+      <button id="na-boot-retry" type="button" hidden style="min-height:48px;padding:10px 24px;background:#145568;color:white;border:1px solid #9ae5ed;border-radius:6px">Reiniciar sem apagar meus dados</button>
+    </div>
     <div id="root"></div>
+    <script>
+      (function(){
+        var root=document.getElementById("root");
+        var overlay=document.getElementById("na-boot-fallback");
+        var status=document.getElementById("na-boot-status");
+        var retry=document.getElementById("na-boot-retry");
+        var exception="";
+        function checkBoot(){
+          if(root && root.children.length){
+            overlay.style.display="none";
+            return true;
+          }
+          return false;
+        }
+        window.addEventListener("error",function(event){
+          if(!exception)exception=String(event.message||"Erro desconhecido").slice(0,180);
+        });
+        window.addEventListener("unhandledrejection",function(event){
+          if(!exception)exception=String(event.reason&&event.reason.message||event.reason||"Recurso não carregado").slice(0,180);
+        });
+        retry.addEventListener("click",function(){location.reload();});
+        new MutationObserver(checkBoot).observe(root,{childList:true});
+        setTimeout(function(){
+          if(checkBoot())return;
+          status.textContent="Falha ao carregar a interface. "+
+            (exception||"Verifique se o Android System WebView está atualizado.");
+          retry.hidden=false;
+          retry.style.display="block";
+          overlay.setAttribute("role","alert");
+        },20000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -1,0 +1,44 @@
+name: Nova Arcadia Boot Hotfix - Web Smoke
+
+on:
+  push:
+    branches:
+      - hotfix/nova-arcadia-boot-v100-rc2
+    paths:
+      - src/App.tsx
+      - src/main.tsx
+      - index.html
+      - .github/workflows/boot-source-checks.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-boot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies and sprite generator
+        run: |
+          npm ci --no-audit --no-fund
+          python3 -m pip install --user Pillow
+          python3 tools/generate_character_sprites.py
+      - name: Typecheck and Vite compile without generating large audio
+        run: |
+          npx tsc -b
+          npx vite build
+      - name: Emulate Android 15 cold boot and enter playable Baixada
+        run: node scripts/test-android-cold-boot.mjs
+      - name: Upload first-frame evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nova-arcadia-boot-web-smoke
+          path: qa/baixada-android-boot-frio-914x411.png
+          if-no-files-found: ignore
+          retention-days: 5

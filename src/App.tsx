@@ -22,7 +22,9 @@ import {
   saveCharacter,
 } from "./game/character";
 import type { OriginId, PlayerCharacter } from "./game/character";
-import ExplorationScreen from "./screens/ExplorationScreen";
+// O mapa, NPCs e atlas só são analisados após sair do menu.
+// Evita inicializar a cidade inteira durante o boot do Android de entrada.
+const ExplorationScreen=lazy(()=>import("./screens/ExplorationScreen"));
 import TitleScreen from "./screens/TitleScreen";
 import {
   createStartingInventory, loadInventory, saveInventory,
@@ -686,6 +688,9 @@ export default function App() {
 
   if (screen === "exploration") {
     return (
+      <Suspense fallback={<main className="na-world-startup" role="status"
+        aria-live="polite" style={{minHeight:"100dvh",display:"grid",placeItems:"center",background:"#0b0d17",color:"#d5f6fa"}}>
+        Preparando a cidade em modo econômico…</main>}>
       <ExplorationScreen
         character={character}
         appearance={appearance}
@@ -730,6 +735,7 @@ export default function App() {
         onGrantIndustrialItem={(id:ItemId)=>setInventory(current=>grantItem(current,id))}
         onGrantQuestItem={(id:ItemId)=>setInventory(current=>grantRewardInventoryItem(current,id,1,"story-first-"+id))}
       />
+      </Suspense>
     );
   }
 
