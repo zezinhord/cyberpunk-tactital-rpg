@@ -13,6 +13,7 @@ import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types"
 import type { OriginGameplayProfile } from "./character/types";
 import {ITEM_CATALOG,type ItemId,type EquipmentBonuses} from "./inventory.ts";
 import type {CompanionProfile,CompanionId} from "./companions.ts";
+import type {StealthRecord} from "./stealth.ts";
 
 function rollDie(sides: number): number {
   return Math.floor(Math.random() * sides) + 1;
@@ -41,6 +42,7 @@ export interface TurnManagerOptions {
   encounterId?: EncounterId;
   districtSupport?:UrbanCombatSupport|null;
   partySupport?:readonly CompanionProfile[];
+  infiltration?:StealthRecord|null;
 }
 
 export class TurnManager {
@@ -77,6 +79,8 @@ export class TurnManager {
     const trialWaveCount=options.encounterId==="trial-3"||
       options.encounterId==="district-setor-zero"||options.encounterId==="eden-core"||
       options.encounterId==="cisma-core"?3:trial||district||eden||cisma?2:1;
+    const infiltration=options.infiltration?.encounter===options.encounterId?
+      options.infiltration:null;
     const encounterHp=options.encounterId==="cisma-core"?25:
       options.encounterId==="cisma-containment"?22:
       options.encounterId==="cisma-intercept"?20:
@@ -105,10 +109,10 @@ export class TurnManager {
           side: "enemy",
           x: 6,
           y: 1,
-          hp: encounterHp,
+          hp: Math.max(1,encounterHp-(infiltration?.outcome==="undetected"?5:0)),
           maxHp: encounterHp,
           armorClass: 13,
-          attackBonus: 4,
+          attackBonus: 4+(infiltration?.outcome==="spotted"?1:0),
         },
       ],
       activeSide: "player",
@@ -122,7 +126,9 @@ export class TurnManager {
       classEnemyAttackReduction:0,classEnemyAttackTurns:0,
       energy: maxEnergy, maxEnergy,
       cooldowns: { "pulse-emp": 0, barrier: 0, regeneration: 0 },
-      barrierTurns: 0, enemyJamTurns: 0, overwatchReady:false,suppressionTurns:0,
+      barrierTurns: 0,
+      enemyJamTurns: infiltration?.outcome==="undetected"?1:0,
+      overwatchReady:false,suppressionTurns:0,
       companionUsed:[],
        terminalUsed: false, cue: null,
       round: 1,
@@ -133,7 +139,10 @@ export class TurnManager {
       originAbilityAvailable: Boolean(this.originProfile),
       originAbilityName: this.originProfile?.abilityName ?? "Habilidade de origem",
       combatComplete: false,
-      message: cisma?"O Cisma de Éden · defesa hostil · onda 1 de "+trialWaveCount+". Preserve as provas e os pacientes.":
+      message: cisma?"O Cisma de Éden · defesa hostil · onda 1 de "+trialWaveCount+
+        ". "+(infiltration?.outcome==="undetected"?"Infiltração: abertura silenciosa!":
+         infiltration?.outcome==="spotted"?"Infiltração detectada: vigias reforçados.":
+         "Proteja as provas e os pacientes."):
         district?"Intervenção hostil no distrito · onda 1 de "+trialWaveCount+". Proteja as provas.":trial?"Operação Circuito Fantasma · onda 1 de "+trialWaveCount+". Proteja a comunidade."
         : options.encounterId==="v09" ? "Encontro V-09: neutralize a unidade que interceptou os registros de manutenção."
         : "Área de teste ativa. Alcance a sentinela e neutralize-a.",
