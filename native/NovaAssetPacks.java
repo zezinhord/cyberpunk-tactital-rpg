@@ -113,6 +113,18 @@ public class NovaAssetPacks extends Plugin {
         out.put("id", id);
         File record = new File(dir, "na-install.json");
         out.put("installed", record.exists());
+        if (record.exists()) {
+            try (InputStream in = new FileInputStream(record)) {
+                byte[] bytes = new byte[(int)Math.min(record.length(), 4096L)];
+                int n = in.read(bytes);
+                if (n > 0) {
+                    JSONObject receipt = new JSONObject(new String(bytes, 0, n, StandardCharsets.UTF_8));
+                    out.put("sha256", receipt.optString("sha256", ""));
+                }
+            } catch (Exception e) {
+                out.put("installed", false);
+            }
+        }
         out.put("storedBytes", sizeOf(dir));
         out.put("freeBytes", baseDir().getUsableSpace());
         JSObject current = progress.get(id);
@@ -245,6 +257,7 @@ public class NovaAssetPacks extends Plugin {
                 result.put("id", id);
                 result.put("installed", true);
                 result.put("storedBytes", sizeOf(destination));
+                result.put("baseUri", "file://" + destination.getAbsolutePath() + "/");
                 call.resolve(result);
             } catch (Exception e) {
                 cleanup(download); cleanup(staged);
