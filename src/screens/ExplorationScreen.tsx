@@ -1,6 +1,7 @@
 import {lazy,Suspense,useEffect,useState} from "react";
 import NpcDialoguePanel from "../components/NpcDialoguePanel";
 import "../dialogue-cinematic.css";
+import "../eden-epilogue.css";
 import BaixadaWorld from "../components/BaixadaWorld";
 // Carrega Phaser apenas quando o protagonista entra num interior/distrito.
  // A Baixada Android funciona com Canvas 2D sem o peso do motor Phaser.
@@ -21,9 +22,10 @@ import {calculateReputation,FACTION_NAMES,factionStanding} from "../game/story/r
 import {readUrban,saveUrban,currentUrbanCase,decideUrban,recordUrbanEvidence,recordUrbanFollowup,
   urbanActor,urbanFollowupActor,urbanFollowupNeeded,URBAN_CASES,urbanPressure} from "../game/story/urban-chronicles.ts";
 import type {RadioDistrict} from "../audio/soundscapes.ts";
-import {EDEN_STEPS,readEden,saveEden,startEden,currentEdenStep,edenObjective,advanceEden,type EdenEnding} from "../game/story/eden-echoes.ts";
+import {EDEN_STEPS,EDEN_ENDING_CHOICES,readEden,saveEden,startEden,currentEdenStep,edenObjective,advanceEden} from "../game/story/eden-echoes.ts";
+import {createEdenEpilogue,endingDistrictImpact} from "../game/story/eden-epilogues.ts";
 import {DISCOVERY_REWARDS,type DiscoveryArea} from "../game/story/discoveries.ts";
-import type {ClassId} from "../game/classes/registry";
+import {getClassById,type ClassId} from "../game/classes/registry";
 import type {EncounterId} from "../game/types";
 import {statRank,type StatId} from "../game/progression/tree";
 import {TRIAL_STEPS,readTrial,saveTrial,startTrial,
@@ -195,6 +197,7 @@ export default function ExplorationScreen({
   const [favorNotice,setFavorNotice]=useState("");
   const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));
   const [eden,setEden]=useState(()=>readEden(character.id));
+  const [epilogueOpen,setEpilogueOpen]=useState(false);
   const [trialNotice,setTrialNotice]=useState("");
   const [sectorId,setSectorId]=useState<SectorId>(()=>sectorAt(loadWorldLocation(character.id)));
   useEffect(()=>{
@@ -237,9 +240,26 @@ export default function ExplorationScreen({
     INNER_BLUEPRINTS[interior].parent??"baixada":
     isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":"baixada";
   const urbanCase=currentUrbanCase(urban,cityArea,v09.defeated);
+  const epilogue=createEdenEpilogue(eden,{
+    name:character.name,origin:origin.name,
+    className:character.classId?getClassById(character.classId).name:"sem classe",
+  },reputation,Object.keys(urban.choices).length);
+  const postgameImpact=eden.completed?endingDistrictImpact(eden.ending,cityArea):null;
   useEffect(()=>{
-    audioDirector.setUrbanPressure(Math.min(3,urbanPressure(urban,cityArea)+Math.floor(market.heat/3)));
-  },[urban,cityArea,market.heat]);
+    const post=eden.completed?endingDistrictImpact(eden.ending,cityArea):null;
+    const pressure=urbanPressure(urban,cityArea)+Math.floor(market.heat/3)+(post?.pressure??0);
+    audioDirector.setUrbanPressure(Math.max(0,Math.min(3,pressure)));
+  },[urban,cityArea,market.heat,eden.completed,eden.ending]);
+  useEffect(()=>{
+    if(!epilogueOpen)return;
+    const close=(event:KeyboardEvent)=>{
+      if(event.key==="Escape"||event.key==="Backspace"){
+        event.preventDefault();setEpilogueOpen(false);
+      }
+    };
+    window.addEventListener("keydown",close);
+    return ()=>window.removeEventListener("keydown",close);
+  },[epilogueOpen]);
   const resolveUrban=(option:"a"|"b"):void=>{
     if(!urbanCase)return;
     const outcome=decideUrban(urban,cityArea,urbanCase.id,option,v09.defeated);
@@ -503,10 +523,9 @@ export default function ExplorationScreen({
       if(storyStage.kind==="decision"){
         say([{speaker:"MURAL DE BOLETINS",role:"DECISÃO COLETIVA · PROJETO ÉDEN",
           portrait:"▤",text:storyStage.message,
-          choices:[
-            {id:"eden-publicar",label:"Divulgar os dados agora",reply:"Os documentos serão publicados."},
-            {id:"eden-resguardar",label:"Proteger testemunhas e preparar auditoria",reply:"Os arquivos serão preservados."}
-          ]}]);
+          choices:EDEN_ENDING_CHOICES.map(option=>({
+            id:"eden-"+option.id,label:option.label,reply:option.reply,
+          }))}]);
         return;
       }
       const result=advanceEden(eden,id);
@@ -974,8 +993,9 @@ export default function ExplorationScreen({
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
-    if(choice.id==="eden-publicar"||choice.id==="eden-resguardar"){
-      const ending:EdenEnding=choice.id==="eden-publicar"?"publicar":"resguardar";
+    const edenChoice=EDEN_ENDING_CHOICES.find(option=>choice.id==="eden-"+option.id);
+    if(edenChoice){
+      const ending=edenChoice.id;
       const result=advanceEden(eden,"feira-archive",ending);
       if(!result.advanced||!result.step)return;
       if(!saveEden(character.id,result.state)){
@@ -986,10 +1006,9 @@ export default function ExplorationScreen({
       audioDirector.effect("eden");
       onQuestXp("eden-"+result.step.id,result.step.xp);
       onSyncFactionAids();
-      say([{speaker:"MARTA · CASA COMUM",role:"CONSEQUÊNCIAS DO PROJETO ÉDEN",portrait:"M",
-        text:result.message+(ending==="publicar"
-          ?" A Helix foi notificada e a comunidade começa a preparar proteção para as fontes."
-          :" Os nomes permanecem protegidos enquanto se constrói uma auditoria independente.")}]);
+      setCityNotice("Desfecho registrado: "+edenChoice.title+". O pós-jogo está disponível.");
+      setDialogue(null);
+      setEpilogueOpen(true);
       return;
     }
     if(choice.id.startsWith("nilo-open-")){
@@ -1265,6 +1284,8 @@ export default function ExplorationScreen({
               trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
               objective}</p>
             {eden.started&&!eden.completed&&<small>Capítulo Éden · etapa {eden.step+1} de {EDEN_STEPS.length}</small>}
+            {eden.completed&&<button className="na-quest-primary" type="button"
+              onClick={()=>setEpilogueOpen(true)}>Ver desfecho, epílogo e créditos</button>}
             {trial.started&&!trial.completed&&<small>
               Etapa {trial.step+1} de {TRIAL_STEPS.length} · {currentTrialStep(trial)?.sector}</small>}
             {trial.completed&&!eden.started&&v09.reported&&
@@ -1316,6 +1337,13 @@ export default function ExplorationScreen({
               Histórico e recompensas no diário ↗</button>
           </div>:<div className="na-quest-tab-content na-favor-board na-urban-board" role="tabpanel">
             <span className="na-quest-kicker">OCORRÊNCIAS LOCAIS · {sceneLabel(cityArea).toUpperCase()}</span>
+            {postgameImpact&&<article className="na-favor-row" aria-label="Consequência do desfecho nesta região">
+              <strong>DEPOIS DE ÉDEN · {postgameImpact.label}</strong>
+              <p>{postgameImpact.consequence}</p>
+              <small>{postgameImpact.pressure>0?"Vigilância aumentada":
+                postgameImpact.pressure<0?"Vigilância reduzida":"Vigilância preservada"} ·
+                reatividade sonora aplicada</small>
+            </article>}
             {!v09.defeated?<p className="na-favor-empty">Investigue a sentinela V-09 para acessar as redes comunitárias de ocorrências.</p>:
               urbanCase?<article className="na-favor-row na-urban-case">
                 <div><strong>{urbanCase.title}</strong><small>{urbanCase.contact}</small></div>
@@ -1384,6 +1412,27 @@ export default function ExplorationScreen({
           onCraft={onCraft}
         />
       )}
+
+      {epilogueOpen&&epilogue&&<div className="na-epilogue-overlay">
+        <section className="na-epilogue-panel" role="dialog" aria-modal="true"
+          aria-labelledby="na-epilogue-title">
+          <span className="na-epilogue-kicker">NOVA ARCÁDIA · DEPOIS DO ALGORITMO</span>
+          <h2 id="na-epilogue-title">{epilogue.title}</h2>
+          <p>{epilogue.lead}</p>
+          <p>{epilogue.world}</p>
+          <p>{epilogue.decisions}</p>
+          <h3>A cidade depois da decisão</h3>
+          <ul>{epilogue.impacts.map(impact=><li key={impact.district}>
+            <strong>{sceneLabel(impact.district)} · {impact.label}</strong>
+            <p>{impact.consequence}</p>
+          </li>)}</ul>
+          <details><summary>Créditos e agradecimentos</summary>
+            {epilogue.credits.map(line=><p key={line}>{line}</p>)}
+          </details>
+          <button type="button" className="na-epilogue-return"
+            onClick={()=>setEpilogueOpen(false)}>Retornar à cidade · pós-jogo</button>
+        </section>
+      </div>}
 
       {currentDialogue && (
        <NpcDialoguePanel key={dialogue?.index} page={currentDialogue}

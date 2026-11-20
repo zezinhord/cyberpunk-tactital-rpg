@@ -1,0 +1,45 @@
+/* Epílogo fechado e retornável em telas Android landscape. Sem alterar o HUD. */
+.na-epilogue-overlay {
+ position:fixed;inset:0;z-index:2500;
+ display:flex;align-items:center;justify-content:center;
+ padding:12px;background:rgba(3,9,20,.94);
+}
+.na-epilogue-panel {
+ box-sizing:border-box;
+ width:min(760px,100%);max-height:calc(100dvh - 24px);
+ overflow-y:auto;overscroll-behavior:contain;
+ padding:18px 20px 62px;
+ background:#101e2a;color:#eaf7f8;
+ border:1px solid #66cddc;border-radius:10px;
+ box-shadow:0 8px 40px rgba(0,0,0,.5);
+ font-size:clamp(13px,1.8vw,16px);line-height:1.45;
+}
+.na-epilogue-kicker {
+ display:block;font-size:.72em;letter-spacing:.1em;
+ color:#9abeca;font-weight:800;
+}
+.na-epilogue-panel h2 {
+ color:#eaf7f8;margin:7px 0 12px;
+ font-size:clamp(19px,2.8vw,28px);
+}
+.na-epilogue-panel h3 {margin:16px 0 7px;font-size:1.1em;color:#8cd9e5;}
+.na-epilogue-panel p {margin:8px 0;}
+.na-epilogue-panel ul {padding-left:20px;margin:8px 0;}
+.na-epilogue-panel li {margin-bottom:9px;}
+.na-epilogue-panel li p {margin:2px 0;}
+.na-epilogue-panel details {margin:12px 0 0;}
+.na-epilogue-panel summary {cursor:pointer;min-height:36px;}
+.na-epilogue-return {
+ position:sticky;bottom:-62px;display:block;
+ margin:16px 0 0;width:100%;min-height:52px;
+ border:1px solid #83d7e4;border-radius:7px;
+ background:#173b4e;color:#f6ffff;font-weight:800;
+ cursor:pointer;touch-action:manipulation;
+}
+@media (max-height:460px) {
+ .na-epilogue-panel {padding:12px 14px 55px;}
+ .na-epilogue-panel h2 {margin:4px 0 8px;}
+}
+@media (prefers-reduced-motion:reduce) {
+ .na-epilogue-overlay,.na-epilogue-panel {scroll-behavior:auto;transition:none;}
+}

@@ -86,10 +86,13 @@ export function calculateReputation(source:ReputationSource):Reputation{
  for(const decision of new Set(source.market.decisions))apply(MARKET_EFFECTS[decision]);
  if(source.urban)for(const delta of urbanFactionEffects(source.urban))apply(delta);
  if(source.eden?.completed){
-  apply(source.eden.ending==="publicar"
-   ?{movimento_livre:2,helix:-2,mercado_cinzento:-1}:
-   {movimento_livre:2,mercado_cinzento:1,helix:-1});
- }
+   apply(source.eden.ending==="publicar"
+    ?{movimento_livre:2,helix:-2,mercado_cinzento:-1}
+    :source.eden.ending==="resguardar"
+     ?{movimento_livre:2,mercado_cinzento:1,helix:-1,consorcio_civico:1}
+     :source.eden.ending==="autonomia"
+      ?{helix:1,consorcio_civico:-1,movimento_livre:1}:{});
+  }
  if(source.ferrugem?.completed){
   apply(source.ferrugem.ending==="publicar"
    ?{movimento_livre:2,helix:-2}

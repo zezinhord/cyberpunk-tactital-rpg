@@ -150,7 +150,10 @@ export function importCharacterBackup(text:string,overwrite=false):
    }
    for(const [field,prefix] of Object.entries(CHARACTER_BACKUP_KEYS)){
      const value=data[field as BackupField];
-     if(value!==undefined)storage.setItem(prefix+character.id,value);
+     // Backups substituem integralmente os campos do slot: uma importação
+     // antiga não deve conservar um desfecho ou evento de outro salvamento.
+     if(value===undefined)storage.removeItem(prefix+character.id);
+     else storage.setItem(prefix+character.id,value);
    }
  }catch{
    rollback();

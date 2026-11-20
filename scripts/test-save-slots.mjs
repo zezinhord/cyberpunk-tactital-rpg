@@ -13,6 +13,7 @@ import {WORLD_AREA_KEY,loadWorldArea,saveWorldArea} from "../src/game/baixada/wo
 import {readDistrictProgress,saveDistrictProgress,DISTRICT_SAVE_KEY,beginDistrict,FRESH_CHAPTER} from "../src/game/districts/progress.ts";
 import {DISTRICT_POSITIONS_KEY,saveDistrictPosition,loadDistrictPosition} from "../src/game/districts/positions.ts";
 import {FAVORS_KEY,INITIAL_FAVORS,saveFavors,readFavors,acceptFavor,recordFavorActivity,claimFavor} from "../src/game/story/favors.ts";
+import {EDEN_KEY,INITIAL_EDEN,saveEden,readEden} from "../src/game/story/eden-echoes.ts";
 
 let db=new Map();
 globalThis.localStorage={
@@ -82,6 +83,7 @@ const favorReady=recordFavorActivity(favorAccepted.state,"terminal-clinica").sta
 const favorComplete=claimFavor(favorReady,"triagem");
 assert.equal(favorComplete.ok,true);
 assert.equal(saveFavors(a.id,favorComplete.state),true);
+assert.equal(saveEden(a.id,{...INITIAL_EDEN,started:true}),true);
 const exported=exportCharacterBackup(a.id);
 assert.equal(loadCharacter()?.id,previouslyActive,"Exportar slot inativo não deve trocar protagonista");
 const parsed=JSON.parse(exported);
@@ -94,6 +96,7 @@ assert.ok(parsed.data.area,"Backup inclui área ativa de Ferrugem");
 assert.ok(parsed.data.city,"Backup inclui campanhas de novos distritos");
 assert.ok(parsed.data.districtPositions,"Backup inclui posição em cada distrito");
 assert.ok(parsed.data.favors,"Backup inclui favores, créditos e Honra");
+assert.ok(parsed.data.eden,"Backup inclui progresso do arco Éden");
 const beforeCount=listCharacterSlots().length;
 assert.equal(importCharacterBackup(exported).ok,false,"Mesmo ID exige confirmação");
 assert.equal(listCharacterSlots().length,beforeCount);
@@ -132,6 +135,13 @@ assert.equal(readFerrugem(a.id).step,1,"Missão Ferrugem preservada no backup");
 assert.equal(loadWorldArea(a.id),"ferrugem","Backup retoma distrito correto");
 assert.equal(readFavors(a.id).credits,60,"Créditos sobrevivem ao backup");
 assert.equal(readFavors(a.id).honor,1,"Honra sobrevive ao backup");
+assert.equal(readEden(a.id).started,true,"Campanha Éden sobrevive à importação");
+const withoutEden={...parsed,data:{...parsed.data}};
+delete withoutEden.data.eden;
+assert.equal(importCharacterBackup(JSON.stringify(withoutEden),true).ok,true);
+assert.equal(db.has(EDEN_KEY+a.id),false,
+ "Backup de versão anterior deve limpar o capítulo órfão ao sobrescrever");
+assert.equal(importCharacterBackup(exported,true).ok,true,"Backup integral recupera o arco Éden");
 assert.deepEqual(readFavors(a.id).claimed,["triagem"]);
 assert.equal(readDistrictProgress(a.id,"aurea").started,true,"Áurea permanece iniciada após restauração");
 assert.deepEqual(loadDistrictPosition(a.id,"aurea"),{x:5,y:10},"Posição isométrica preservada");
@@ -149,6 +159,7 @@ assert.equal(db.get(WORLD_AREA_KEY+a.id),undefined,"Exclusão remove o mapa ativ
 assert.equal(db.get(DISTRICT_SAVE_KEY+a.id),undefined,"Remoção limpa as cinco campanhas");
 assert.equal(db.get(DISTRICT_POSITIONS_KEY+a.id),undefined,"Remoção limpa posições dos distritos");
 assert.equal(db.get(FAVORS_KEY+a.id),undefined,"Exclusão limpa os favores do slot");
+assert.equal(db.get(EDEN_KEY+a.id),undefined,"Exclusão limpa o progresso Éden do slot");
 assert.equal(loadCharacter(),null);
 assert.equal(listCharacterSlots().length,0);
 // Migração a partir da chave única v1 sem índice.
@@ -171,6 +182,7 @@ globalThis.localStorage=undefined;
 assert.equal(saveHealth(a.id,5,20),false);
 assert.equal(saveTrial(a.id,firstStep),false);
 assert.equal(saveInventory(createStartingInventory(a.id)),false);
+assert.equal(saveEden(a.id,{...INITIAL_EDEN}),false);
 assert.equal(setActiveRaw("save"),false);
 globalThis.localStorage=availableStorage;
 console.log("Saves: legado, slots independentes, limite, backup seguro, importação, Vida persistente e tratamento aprovados.");
