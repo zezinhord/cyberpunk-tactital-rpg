@@ -65,9 +65,14 @@ export class TurnManager {
     const trial=options.encounterId?.startsWith("trial-")??false;
     const eden=options.encounterId?.startsWith("eden-")??false;
     const district=options.encounterId?.startsWith("district-")??false;
+    const cisma=options.encounterId?.startsWith("cisma-")??false;
     const trialWaveCount=options.encounterId==="trial-3"||
-      options.encounterId==="district-setor-zero"||options.encounterId==="eden-core"?3:trial||district||eden?2:1;
-    const encounterHp=options.encounterId==="eden-core"?24:options.encounterId==="eden-relay"?19:options.encounterId==="v09"?16:district?17:trial?14:12;
+      options.encounterId==="district-setor-zero"||options.encounterId==="eden-core"||
+      options.encounterId==="cisma-core"?3:trial||district||eden||cisma?2:1;
+    const encounterHp=options.encounterId==="cisma-core"?25:
+      options.encounterId==="cisma-containment"?22:
+      options.encounterId==="cisma-intercept"?20:
+      options.encounterId==="eden-core"?24:options.encounterId==="eden-relay"?19:options.encounterId==="v09"?16:district?17:trial?14:12;
     this.state = {
       units: [
         {
@@ -85,7 +90,8 @@ export class TurnManager {
         },
         {
           id: "drone",
-          name: eden?(options.encounterId==="eden-core"?"Guardião do Éden":"Interceptador de Prisma"):
+          name: cisma?enemyProfile(options.encounterId??"cisma-intercept",1).name:
+            eden?(options.encounterId==="eden-core"?"Guardião do Éden":"Interceptador de Prisma"):
             options.encounterId==="v09" ? "Unidade de Vigilância V-09"
              : district ? "Agente de Segurança Helix" : trial ? "Drone de Interceptação" : "Sentinela-07",
           side: "enemy",
@@ -118,7 +124,8 @@ export class TurnManager {
       originAbilityAvailable: Boolean(this.originProfile),
       originAbilityName: this.originProfile?.abilityName ?? "Habilidade de origem",
       combatComplete: false,
-      message: district?"Intervenção hostil no distrito · onda 1 de "+trialWaveCount+". Proteja as provas.":trial?"Operação Circuito Fantasma · onda 1 de "+trialWaveCount+". Proteja a comunidade."
+      message: cisma?"O Cisma de Éden · defesa hostil · onda 1 de "+trialWaveCount+". Preserve as provas e os pacientes.":
+        district?"Intervenção hostil no distrito · onda 1 de "+trialWaveCount+". Proteja as provas.":trial?"Operação Circuito Fantasma · onda 1 de "+trialWaveCount+". Proteja a comunidade."
         : options.encounterId==="v09" ? "Encontro V-09: neutralize a unidade que interceptou os registros de manutenção."
         : "Área de teste ativa. Alcance a sentinela e neutralize-a.",
       log: options.encounterId==="v09" ? ["[MISSÃO] V-09: ameaça localizada no Pátio do Reúso.", "[COMBATE] Proteja os registros da cooperativa."] : ["[SISTEMA] Campo de teste conectado.", "[MISSÃO] Neutralize a unidade sentinela."],
@@ -517,10 +524,13 @@ export class TurnManager {
     const trial=this.state.encounterId.startsWith("trial-");
     const district=this.state.encounterId.startsWith("district-");
     const eden=this.state.encounterId.startsWith("eden-");
-    const waves=trial||district||eden;
+    const cisma=this.state.encounterId.startsWith("cisma-");
+    const waves=trial||district||eden||cisma;
     if(waves&&this.state.wave<this.state.totalWaves){
       this.state.wave+=1;
-      const hp=(eden?(this.state.encounterId==="eden-core"?24:19):district?17:14)+3*(this.state.wave-1);
+      const hp=(cisma?(this.state.encounterId==="cisma-core"?25:
+        this.state.encounterId==="cisma-containment"?22:20):
+        eden?(this.state.encounterId==="eden-core"?24:19):district?17:14)+3*(this.state.wave-1);
       enemy.hp=hp;enemy.maxHp=hp;enemy.armorClass=13+this.state.wave-1;
       enemy.attackBonus=4+this.state.wave-1;
       enemy.x=6;enemy.y=1;
