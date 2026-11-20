@@ -3,6 +3,8 @@ import {INNER_BLUEPRINTS,INNER_WIDTH,INNER_HEIGHT,INNER_SPAWN,INNER_EXIT_AT,
  innerPath,innerApproach,innerBlock,type InnerId,type InnerProp} from "./interiors.ts";
 import type {Tile} from "./catalog.ts";
 import {isEconomyMode} from "../performance.ts";
+import {isV20IllustratedRoom,environmentArtKey,environmentArtUrl}
+  from "./v20-illustrations.ts";
 import {audioDirector} from "../../audio/director.ts";
 import {preloadCharacterSprites,createCharacterAnimations,getPlayerTexture,
  frameForDirection,ActorAnimationController,playIdle,type IsoDirection} from "../baixada/sprites.ts";
@@ -48,6 +50,14 @@ export class DistrictInteriorScene extends Phaser.Scene{
  preload():void{
   const blueprint=INNER_BLUEPRINTS[this.id];
   preloadCharacterSprites(this,this.origin,[blueprint.guideTexture]);
+  // All 112 illustrations remain on disk. Only this room's mural and
+  // three physical evidence sprites are decoded into RAM when entered.
+  if(isV20IllustratedRoom(this.id)){
+    this.load.image(environmentArtKey(this.id),environmentArtUrl(this.id));
+    for(const prop of blueprint.props)
+      this.load.image(environmentArtKey(this.id,prop.id),
+        environmentArtUrl(this.id,prop.id));
+  }
  }
  create():void{
   createCharacterAnimations(this);
@@ -151,6 +161,13 @@ export class DistrictInteriorScene extends Phaser.Scene{
   this.paintIdentity(g);
   g.generateTexture(this.staticKey,W,H);g.destroy();
   this.add.image(0,0,this.staticKey).setOrigin(0).setDepth(-300);
+  // The mural covers ONLY the back wall; not tiles or navigation targets.
+  // If an asset cannot be loaded, the existing Phaser mural is the fallback.
+  if(isV20IllustratedRoom(this.id)&&
+     this.textures.exists(environmentArtKey(this.id))){
+    this.add.image(48,86,environmentArtKey(this.id))
+      .setOrigin(0).setDisplaySize(W-96,98).setDepth(-299);
+  }
   this.add.text(W/2,55,bp.title.toUpperCase(),{
    fontFamily:"IBM Plex Mono,monospace",fontSize:"23px",fontStyle:"bold",
    color:"#f5e3c5",backgroundColor:"#101f28ee",padding:{x:13,y:7},
@@ -336,6 +353,10 @@ export class DistrictInteriorScene extends Phaser.Scene{
    g.lineStyle(2,bp.accent,.73).strokeCircle(p.x,p.y-height+25,12);
    g.fillStyle(bp.accent,.45).fillCircle(p.x,p.y-height+25,5);
   }
+  if(isV20IllustratedRoom(this.id)&&
+     this.textures.exists(environmentArtKey(this.id,prop.id)))
+    this.add.image(p.x,p.y-2,environmentArtKey(this.id,prop.id))
+      .setOrigin(.5,1).setDisplaySize(49,58).setDepth(p.y+129);
   this.add.text(p.x,p.y-height-11,label(prop.title).toUpperCase(),{
    fontFamily:"IBM Plex Mono,monospace",fontSize:"12px",
    color:"#f6ddae",backgroundColor:"#101c25ed",padding:{x:5,y:3},
