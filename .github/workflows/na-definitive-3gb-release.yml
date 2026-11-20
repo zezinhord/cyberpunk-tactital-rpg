@@ -1,0 +1,187 @@
+name: Nova Arcadia — FINAL verified 3GB distribution (manual release gate)
+
+# Intentionally manual: do not turn incomplete source packs into a public
+# "3GB final" release. Only a seven-district source manifest with all real
+# artwork and >=3GB audited shipped bytes can pass this workflow.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: nova-arcadia-v200-final-3gb
+  cancel-in-progress: false
+
+jobs:
+  validate-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Source in dedicated final-production branch
+        uses: actions/checkout@v4
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          python -m pip install -r tools/requirements-characters.txt
+      - name: AUDIT genuine art for 7 districts and require >=3,000,000,000 bytes
+        run: |
+          set -euo pipefail
+          test -d resourcepacks/source || {
+            echo "REAL ORIGINAL ART MISSING — no definitive release permitted" >&2
+            exit 1
+          }
+          python tools/build_3gb_asset_packs.py             --source resourcepacks/source             --output resourcepacks/release
+          test -s resourcepacks/release/manifest.json
+          test "$(find resourcepacks/release -maxdepth 1 -name 'NA20-*.zip' | wc -l)" -eq 7
+          node --experimental-strip-types scripts/test-asset-packs-v20.mjs
+      - name: Stamp definitive version AFTER content acceptance
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          for(const file of ['package.json','package-lock.json']){
+            const old=fs.readFileSync(file,'utf8');
+            if(!old.includes('"version": "2.0.0-rc.4"'))throw Error('Unexpected version');
+            fs.writeFileSync(file,old.replaceAll('"version": "2.0.0-rc.4"',
+              '"version": "2.0.0"'));
+          }
+          JS
+      - name: Verify TypeScript and all gameplay
+        run: |
+          npx tsc -b
+          node --experimental-strip-types scripts/test-tactics.mjs
+          node --experimental-strip-types scripts/test-cisma-v20.mjs
+          node --experimental-strip-types scripts/test-cisma-operations.mjs
+          node --experimental-strip-types scripts/test-inner-contracts-v20.mjs
+          node --experimental-strip-types scripts/test-cyberware-v20.mjs
+          node --experimental-strip-types scripts/test-companions-v20.mjs
+          node --experimental-strip-types scripts/test-stealth-v20.mjs
+          node --experimental-strip-types scripts/test-save-slots.mjs
+          node --experimental-strip-types scripts/test-indoor-expansion.mjs
+      - name: Restore verified original 1GB media without duplicating unused data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/nova-baseline"
+          gh release download nova-arcadia-v091-gameplay-full-qa             --repo "$GITHUB_REPOSITORY"             --pattern "NovaArcadia-0.9.1-rc.1-Full-1GB-QA.apk"             --dir "$RUNNER_TEMP/nova-baseline"
+          ORIGINAL="$RUNNER_TEMP/nova-baseline/NovaArcadia-0.9.1-rc.1-Full-1GB-QA.apk"
+          test "$(stat -c %s "$ORIGINAL")" -eq 1143065746
+          printf '%s  %s\n'             "af25764cb4a4f41b3b2677a7503230dafbaf026f551770125d721e41ad1c9915"             "$ORIGINAL" | sha256sum -c -
+          python tools/restore_media_from_apk.py "$ORIGINAL"
+          rm -f "$ORIGINAL"
+      - name: Verify original sound and ambience
+        run: |
+          node --experimental-strip-types scripts/test-expanded-ambience.mjs
+          node scripts/test-urban-ambience.mjs
+          node --experimental-strip-types scripts/test-soundscapes.mjs
+      - name: Build web assets and mobile app
+        run: |
+          npm run build
+          node scripts/test-v20-illustrations.mjs
+          node scripts/test-android-cold-boot.mjs
+          npx cap add android
+          npx cap sync android
+          node scripts/lock-android-landscape.mjs
+          node scripts/stamp-android-version.mjs
+          node scripts/enable-android-immersive.mjs
+          node scripts/install-asset-pack-plugin.mjs
+      - name: Restore SAME QA200 signing identity as RC4
+        id: signing
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: nova-arcadia-v200-qa-signing-v1
+      - name: Refuse invalid new signing identity
+        if: steps.signing.outputs.cache-hit != 'true'
+        run: exit 1
+      - name: Bind Android ID without losing user saves
+        run: |
+          node scripts/force-android-signing.mjs
+          NA_QA_VARIANT=v200 node scripts/prepare-android-compat.mjs
+      - name: Assemble signed full base APK (resource packs distributed separately)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - name: Audit final package, bytes and certificate
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          python tools/audit_apk_content.py "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          "$AAPT" dump badging "$APK" > qa/na-final-badging.txt
+          grep -Fq "name='com.cyberpunk.tacticalrpg.qa200'" qa/na-final-badging.txt
+          grep -Fq "versionCode='2000099'" qa/na-final-badging.txt
+          grep -Fq "versionName='2.0.0'" qa/na-final-badging.txt
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > qa/na-final-certs.txt
+          grep -Fq "43afabd6de5f33ebeb5958eb0d300d64e1012ddc9bcd98c1d302ae3101ce4404" qa/na-final-certs.txt
+          python - <<'PY'
+          import json,os
+          cat=json.load(open('resourcepacks/release/manifest.json'))
+          apk=os.path.getsize('android/app/build/outputs/apk/debug/app-debug.apk')
+          total=apk+sum(os.path.getsize('resourcepacks/release/'+p['file']) for p in cat['packs'])
+          print('REAL RELEASE SIZE:',total)
+          assert apk>=1_000_000_000
+          assert total>=3_000_000_000
+          assert len(cat['packs'])==7
+          PY
+      - name: Save build media and disk before Android emulator
+        run: |
+          rm -rf dist public/assets/ambient-expanded public/assets/ambient             public/assets/soundscapes public/assets/music node_modules
+          sync
+          df -h .
+      - name: Emulator KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Verify signed app launch and relaunch on Android 15 / 2GB
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          ram-size: 2048M
+          disk-size: 8192M
+          emulator-boot-timeout: 600
+          disable-animations: true
+          script: |
+            set -e
+            timeout 180 adb install -r -t android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n com.cyberpunk.tacticalrpg.qa200/com.cyberpunk.tacticalrpg.MainActivity
+            sleep 4
+            NA_TEST_PACKAGE=com.cyberpunk.tacticalrpg.qa200 node scripts/test-android-webview-startup.mjs
+            adb shell am force-stop com.cyberpunk.tacticalrpg.qa200
+            adb shell am start -W -n com.cyberpunk.tacticalrpg.qa200/com.cyberpunk.tacticalrpg.MainActivity
+            sleep 4
+            NA_TEST_PACKAGE=com.cyberpunk.tacticalrpg.qa200 node scripts/test-android-webview-startup.mjs
+      - name: Publish ONLY the complete authenticated seven-pack release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="nova-arcadia-v200-final-3gb-assets"
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          FILE="NovaArcadia-2.0.0-Final-Base-Android.apk"
+          cp "$APK" "$FILE"
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY"             --target "$GITHUB_SHA"             --title "Nova Arcádia 2.0 — 3GB+ / APK + 7 pacotes verificáveis"             --notes "Instale a APK base e baixe os sete packs offline pelo menu Conteúdo extra.
+            Só foi publicada após 3.000.000.000 bytes verificados, todos os assets
+            vinculados a mapas/documentos reais e validação Android 2GB."             --prerelease
+          gh release upload "$TAG" "$FILE" resourcepacks/release/NA20-*.zip             resourcepacks/release/manifest.json resourcepacks/release/SHA256SUMS.txt             --repo "$GITHUB_REPOSITORY"
+          # Physical-device acceptance remains the user's explicit final gate.
