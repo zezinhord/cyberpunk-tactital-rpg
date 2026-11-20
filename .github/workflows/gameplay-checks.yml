@@ -48,6 +48,8 @@ jobs:
         run: node --experimental-strip-types scripts/test-cyberware-v20.mjs
       - name: Testar quatro aliados e apoio tático no motor de combate
         run: node --experimental-strip-types scripts/test-companions-v20.mjs
+      - name: Testar rotas de infiltracao e efeito real nos tres encontros 2.0
+        run: node --experimental-strip-types scripts/test-stealth-v20.mjs
       - name: Testar backups e eliminacao de slots
         run: node --experimental-strip-types scripts/test-save-slots.mjs
       - name: Testar as 66 combinacoes de classe e origem
