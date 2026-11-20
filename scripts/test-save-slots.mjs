@@ -20,6 +20,8 @@ import {OPERATIONS_KEY,INITIAL_OPERATIONS,OPERATIONS_STAGES,startOperations,
  advanceOperation,readOperations,saveOperations} from "../src/game/story/cisma-operations.ts";
 import {PARTY_KEY,EMPTY_PARTY,recruitCompanion,readParty,saveParty} from "../src/game/companions.ts";
 import {STEALTH_KEY,INITIAL_STEALTH,planStealth,readStealth,saveStealth} from "../src/game/stealth.ts";
+import {CONTRACTS_KEY,EMPTY_CONTRACTS,startContract,readContracts,saveContracts}
+ from "../src/game/story/inner-contracts.ts";
 
 let db=new Map();
 globalThis.localStorage={
@@ -104,6 +106,8 @@ const stealthStage=planStealth(INITIAL_STEALTH,"cisma-intercept","assault",{
  classId:"netrunner",level:4,cyberware:[],party:partyStage,cisma:cismaStage,
 }).state;
 assert.equal(saveStealth(a.id,stealthStage),true);
+const contractStage=startContract(EMPTY_CONTRACTS,"baixada-observatorio").state;
+assert.equal(saveContracts(a.id,contractStage),true);
 const exported=exportCharacterBackup(a.id);
 assert.equal(loadCharacter()?.id,previouslyActive,"Exportar slot inativo não deve trocar protagonista");
 const parsed=JSON.parse(exported);
@@ -121,6 +125,7 @@ assert.ok(parsed.data.cisma,"Backup da 2.0 inclui as decisões do Cisma");
 assert.ok(parsed.data.operations,"Backup inclui a campanha dos atos II-IV");
 assert.ok(parsed.data.party,"Backup inclui os aliados recrutados da versão 2.0");
 assert.ok(parsed.data.stealth,"Backup inclui escolhas de aproximação furtiva");
+assert.ok(parsed.data.contracts,"Backup inclui contratos dos interiores 2.0");
 const beforeCount=listCharacterSlots().length;
 assert.equal(importCharacterBackup(exported).ok,false,"Mesmo ID exige confirmação");
 assert.equal(listCharacterSlots().length,beforeCount);
@@ -159,6 +164,9 @@ assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.dat
 assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,
  stealth:JSON.stringify({...stealthStage,records:{"../../admin":"hack"}})}})).ok,false,
  "Backup não pode introduzir operações ou chaves de infiltração falsas");
+assert.equal(importCharacterBackup(JSON.stringify({...parsed,data:{...parsed.data,
+ contracts:JSON.stringify({...contractStage,accepted:["../../bad"]})}})).ok,false,
+ "Backup não pode inventar contratos inexistentes");
 assert.equal(importCharacterBackup(exported.padEnd(1_000_002," ")).ok,false);
 // Recriar armazenamento de outro aparelho e importar backup exportado.
 db=new Map();
@@ -176,6 +184,7 @@ assert.deepEqual(readCisma(a.id),cismaStage,"Expansão 2.0 sobrevive à exporta�
 assert.deepEqual(readOperations(a.id),operationsStage,"Campanha completa preservada no backup");
 assert.deepEqual(readParty(a.id),partyStage,"Recrutamento preservado no backup JSON");
 assert.deepEqual(readStealth(a.id),stealthStage,"Aproximações táticas preservadas no backup");
+assert.deepEqual(readContracts(a.id),contractStage,"Contratos aceitos preservados no backup");
 const withoutEden={...parsed,data:{...parsed.data}};
 delete withoutEden.data.eden;
 assert.equal(importCharacterBackup(JSON.stringify(withoutEden),true).ok,true);
@@ -207,6 +216,12 @@ assert.equal(importCharacterBackup(JSON.stringify(withoutStealth),true).ok,true)
 assert.equal(db.has(STEALTH_KEY+a.id),false,"Backup sem infiltração limpa escolhas órfãs");
 assert.equal(importCharacterBackup(exported,true).ok,true);
 assert.deepEqual(readStealth(a.id),stealthStage);
+const withoutContracts={...parsed,data:{...parsed.data}};
+delete withoutContracts.data.contracts;
+assert.equal(importCharacterBackup(JSON.stringify(withoutContracts),true).ok,true);
+assert.equal(db.has(CONTRACTS_KEY+a.id),false,"Backup legado limpa progresso órfão de contratos");
+assert.equal(importCharacterBackup(exported,true).ok,true);
+assert.deepEqual(readContracts(a.id),contractStage);
 assert.deepEqual(readFavors(a.id).claimed,["triagem"]);
 assert.equal(readDistrictProgress(a.id,"aurea").started,true,"Áurea permanece iniciada após restauração");
 assert.deepEqual(loadDistrictPosition(a.id,"aurea"),{x:5,y:10},"Posição isométrica preservada");
@@ -229,6 +244,7 @@ assert.equal(db.get(CISMA_KEY+a.id),undefined,"Exclusão limpa somente o Cisma d
 assert.equal(db.get(OPERATIONS_KEY+a.id),undefined,"Exclusão limpa o estado dos atos II-IV");
 assert.equal(db.get(PARTY_KEY+a.id),undefined,"Exclusão limpa equipe deste protagonista");
 assert.equal(db.get(STEALTH_KEY+a.id),undefined,"Exclusão limpa aproximações deste protagonista");
+assert.equal(db.get(CONTRACTS_KEY+a.id),undefined,"Exclusão limpa contratos deste protagonista");
 assert.equal(loadCharacter(),null);
 assert.equal(listCharacterSlots().length,0);
 // Migração a partir da chave única v1 sem índice.
@@ -256,6 +272,7 @@ assert.equal(saveCisma(a.id,INITIAL_CISMA),false);
 assert.equal(saveOperations(a.id,INITIAL_OPERATIONS),false);
 assert.equal(saveParty(a.id,EMPTY_PARTY),false);
 assert.equal(saveStealth(a.id,INITIAL_STEALTH),false);
+assert.equal(saveContracts(a.id,EMPTY_CONTRACTS),false);
 assert.equal(setActiveRaw("save"),false);
 globalThis.localStorage=availableStorage;
 console.log("Saves: legado, slots independentes, limite, backup seguro, importação, Vida persistente e tratamento aprovados.");
