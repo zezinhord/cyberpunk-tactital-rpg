@@ -39,6 +39,7 @@ import {installCyberware,removeCyberware,type CyberwareId} from "./game/cyberwar
 import {readParty,activeCompanions} from "./game/companions.ts";
 import {readStealth,stealthCombatEntry} from "./game/stealth.ts";
 import {readContracts,INNER_CONTRACTS} from "./game/story/inner-contracts.ts";
+import {FORENSIC_CASES} from "./game/story/forensic-cases.ts";
 import { audioDirector } from "./audio/director";
 import { markV09Defeated,grantV09Experience } from "./game/story/v09";
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity} from "./game/character/slots";
@@ -347,6 +348,8 @@ export default function App() {
     const innerContracts=readContracts(active.id);
     for(const id of innerContracts.completed)
       if(!grantTrialXp("inner-contract-"+id,INNER_CONTRACTS[id].rewardXp))return false;
+    for(const id of innerContracts.analysed??[])
+      if(!grantTrialXp("inner-forensic-"+id,FORENSIC_CASES[id].rewardXp))return false;
     const cisma=readCisma(active.id);
     for(const id of cisma.history){
       const step=CISMA_STEPS.find(s=>s.id===id);
