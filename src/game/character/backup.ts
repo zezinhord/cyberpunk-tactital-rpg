@@ -13,6 +13,7 @@ import {CISMA_KEY,validateCismaBackup} from "../story/cisma-v20.ts";
 import {OPERATIONS_KEY,validOperationsBackup} from "../story/cisma-operations.ts";
 import {PARTY_KEY,validateParty} from "../companions.ts";
 import {STEALTH_KEY,validStealth} from "../stealth.ts";
+import {CONTRACTS_KEY,validateContracts} from "../story/inner-contracts.ts";
 import {URBAN_KEY,validateUrbanBackup} from "../story/urban-chronicles.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
@@ -37,6 +38,7 @@ export const CHARACTER_BACKUP_KEYS={
  operations:OPERATIONS_KEY,
  party:PARTY_KEY,
  stealth:STEALTH_KEY,
+ contracts:CONTRACTS_KEY,
  urban:URBAN_KEY,
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
@@ -100,6 +102,8 @@ export function importCharacterBackup(text:string,overwrite=false):
        return {ok:false,message:"Equipe da expansão 2.0 inválida no backup."};
      if(field==="stealth"&&!validStealth(decoded))
        return {ok:false,message:"Planos de infiltração inválidos no backup."};
+     if(field==="contracts"&&!validateContracts(decoded))
+       return {ok:false,message:"Dossiês e contratos de investigação inválidos no backup."};
      if(field==="area"&&!isSavedWorldArea(decoded))
        return {ok:false,message:"Área ativa inválida no backup."};
      if(field==="sewer"){
