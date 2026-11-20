@@ -40,6 +40,7 @@ export function isCompanionId(value:unknown):value is CompanionId{
 export function validateParty(input:unknown):input is PartyState{
  if(!input||typeof input!=="object"||Array.isArray(input))return false;
  const v=input as Record<string,unknown>;
+ if(!Array.isArray(v.recruited)||!Array.isArray(v.active))return false;
  return Object.keys(v).every(k=>["version","recruited","active"].includes(k))&&
   v.version===1&&Array.isArray(v.recruited)&&v.recruited.length<=COMPANION_IDS.length&&
   v.recruited.every(isCompanionId)&&
