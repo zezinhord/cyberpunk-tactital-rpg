@@ -179,6 +179,7 @@ export default function ExplorationScreen({
   const [ferrugemNotice,setFerrugemNotice] = useState("");
   const [ferrugemDecisionPending,setFerrugemDecisionPending] = useState(false);
   const [transitOpen,setTransitOpen]=useState(false);
+  const [interiorPicker,setInteriorPicker]=useState<"baixada"|"ferrugem"|DistrictId|null>(null);
   const [cityDecision,setCityDecision]=useState<DistrictId|null>(null);
   const [cityNotice,setCityNotice]=useState("");
   const [cityChapters,setCityChapters]=useState<Record<DistrictId,ChapterProgress>>(()=>({
@@ -479,10 +480,10 @@ export default function ExplorationScreen({
     }
     // Conteúdo realmente explorável: cenas internas carregadas uma por vez.
     if(id==="feira-casa-comum"){
-      setHubOpen(false);setInterior("baixada-community");audioDirector.effect("door");return;
+      setInteriorPicker("baixada");audioDirector.effect("door");return;
     }
     if(id==="ferrugem-foundry-access"){
-      setHubOpen(false);setInterior("ferrugem-foundry");audioDirector.effect("door");return;
+      setInteriorPicker("ferrugem");audioDirector.effect("door");return;
     }
     if(isInnerId(interior)){
       const blueprint=INNER_BLUEPRINTS[interior];
@@ -628,8 +629,7 @@ export default function ExplorationScreen({
         setInterior(null);return;
       }
       if(slot==="interior"){
-        const inner=INNER_IDS.find(area=>INNER_BLUEPRINTS[area].parent===district);
-        if(inner){audioDirector.effect("door");setInterior(inner);}return;
+        setInteriorPicker(district);audioDirector.effect("door");return;
       }
       if(slot==="discovery"){
         const discovery=DISCOVERY_REWARDS[district];
@@ -1334,6 +1334,38 @@ export default function ExplorationScreen({
         <small>{nearSewerAccess==="enter-city-transit"?"Explore Áurea, Subsolo, Setor Zero, Prisma e Periferia":nearSewerAccess==="enter-ferrugem"?"Terminal de transporte próximo":"Escada próxima · toque para descer"}</small>
       </button>}
 
+      {interiorPicker&&<div className="na-transit-shade">
+        <section className="na-transit-panel" role="dialog" aria-modal="true"
+          aria-label="Explorar os interiores do distrito">
+          <div className="na-transit-head">
+            <div>
+              <span>EXPANSÃO 2.0 · LOCAIS ACESSÍVEIS</span>
+              <h2>{sceneLabel(interiorPicker)} · Interiores</h2>
+            </div>
+            <button type="button" onClick={()=>setInteriorPicker(null)}>Fechar ×</button>
+          </div>
+          <p>Escolha uma localização. Cada uma tem geometria isométrica,
+             objetos examináveis, recompensa própria e registro no inventário.</p>
+          <div className="na-transit-grid">
+            {INNER_IDS.filter(area=>
+              INNER_BLUEPRINTS[area].parent===(interiorPicker==="baixada"?null:interiorPicker))
+              .map(area=>{
+                const room=INNER_BLUEPRINTS[area];
+                const expanded=!["baixada-community","ferrugem-foundry",
+                  "aurea-archive","subsolo-hideout","setor-zero-lab",
+                  "prisma-backstage","periferia-waterworks"].includes(area);
+                const locked=expanded&&interiorPicker==="baixada"&&!v09.defeated;
+                return <button key={area} type="button" disabled={locked} onClick={()=>{
+                  setInteriorPicker(null);setHubOpen(false);setInterior(area);
+                  audioDirector.effect("door");
+                }}>
+                  <strong>{room.title.toUpperCase()}</strong>
+                  <small>{locked?"Libera após a sentinela V-09":room.subtitle}</small>
+                </button>;
+              })}
+          </div>
+        </section>
+      </div>}
       {transitOpen&&<div className="na-transit-shade">
         <section className="na-transit-panel" role="dialog" aria-modal="true"
           aria-label="Central de Transporte Nova Arcádia">
