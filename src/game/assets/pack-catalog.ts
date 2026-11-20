@@ -51,7 +51,7 @@ export function validatePackCatalog(raw:unknown):raw is PackCatalog{
   if(!isPackId(p.id)||ids.has(p.id)||p.file!=="NA20-"+p.id+".zip"||
    !validSha(p.sha256)||!Number.isSafeInteger(p.compressedBytes)||
    Number(p.compressedBytes)<1024||Number(p.compressedBytes)>=RELEASE_ASSET_MAX_BYTES||
-   !Number.isSafeInteger(p.uncompressedBytes)||Number(p.uncompressedBytes)<Number(p.compressedBytes)||
+   !Number.isSafeInteger(p.uncompressedBytes)||Number(p.uncompressedBytes)<1024||Number(p.uncompressedBytes)>2_200_000_000||
    !Number.isSafeInteger(p.artworkCount)||Number(p.artworkCount)<1||
    !Number.isSafeInteger(p.locationCount)||Number(p.locationCount)<1||
    !Array.isArray(p.assets)||p.assets.length!==p.artworkCount||
