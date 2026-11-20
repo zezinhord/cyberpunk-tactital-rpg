@@ -88,7 +88,12 @@ jobs:
       - name: Compile real web runtime and character sheets
         run: npm run build
       - name: Audit original visual art in runtime (28 rooms, 84 interactables)
-        run: node scripts/test-v20-illustrations.mjs
+        run: |
+          node scripts/test-v20-illustrations.mjs
+          test -s dist/assets/v20-illustrations/manifest.json
+          test -s qa/v20-environments-art-matrix.png
+          # Never count artwork merely generated but omitted from the APK.
+          test "$(find dist/assets/v20-illustrations -name '*.png' | wc -l)" -eq 112
       - name: Smoke test Android-UI cold boot, character creation and first map
         run: node scripts/test-android-cold-boot.mjs
       - name: Validate generated artwork and web assets
