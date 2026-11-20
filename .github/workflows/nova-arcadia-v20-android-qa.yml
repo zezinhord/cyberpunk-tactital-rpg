@@ -48,6 +48,7 @@ jobs:
           node --experimental-strip-types scripts/test-eden-governance.mjs
           node --experimental-strip-types scripts/test-cisma-v20.mjs
           node --experimental-strip-types scripts/test-cisma-operations.mjs
+          node --experimental-strip-types scripts/test-indoor-expansion.mjs
           node --experimental-strip-types scripts/test-save-slots.mjs
           node --experimental-strip-types scripts/test-class-saves.mjs
           node --experimental-strip-types scripts/test-crafting.mjs
