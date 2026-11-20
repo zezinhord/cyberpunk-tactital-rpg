@@ -6,6 +6,7 @@ import BaixadaWorld from "../components/BaixadaWorld";
 // Carrega Phaser apenas quando o protagonista entra num interior/distrito.
  // A Baixada Android funciona com Canvas 2D sem o peso do motor Phaser.
  const InteriorWorld=lazy(()=>import("../components/InteriorWorld"));
+ const DossierGallery=lazy(()=>import("../components/DossierGallery"));
 import SceneRecovery from "../components/SceneRecovery";
 import { getOriginById, getOriginGameplay } from "../game/character";
 import CharacterMenu from "../components/CharacterMenu";
@@ -55,6 +56,7 @@ import {readFerrugem,saveFerrugem,startFerrugem,advanceFerrugem,
 import {DISTRICTS,isDistrictId,getDistrict,actorFromId,type DistrictId} from "../game/districts/catalog";
 import {isInnerId,isInnerInteract,INNER_BLUEPRINTS,INNER_IDS,type InnerId} from "../game/districts/interiors.ts";
 import {innerReceipt} from "../game/story/indoor-rewards.ts";
+import {packAssetUrl} from "../game/assets/native-pack-manager.ts";
 import {INNER_CONTRACTS,isContractId,readContracts,saveContracts,startContract,
  completeContract,contractObjective} from "../game/story/inner-contracts.ts";
 import {readDistrictProgress,saveDistrictProgress,beginDistrict,
@@ -191,6 +193,7 @@ export default function ExplorationScreen({
   const [ferrugemDecisionPending,setFerrugemDecisionPending] = useState(false);
   const [transitOpen,setTransitOpen]=useState(false);
   const [interiorPicker,setInteriorPicker]=useState<"baixada"|"ferrugem"|DistrictId|null>(null);
+const [dossierOpen,setDossierOpen]=useState(false);
   const [cityDecision,setCityDecision]=useState<DistrictId|null>(null);
   const [cityNotice,setCityNotice]=useState("");
   const [cityChapters,setCityChapters]=useState<Record<DistrictId,ChapterProgress>>(()=>({
@@ -1380,6 +1383,10 @@ export default function ExplorationScreen({
               "← RETORNAR AO DISTRITO":"← RETORNAR À BAIXADA"}
           </button>
         )}
+        {isInnerId(interior)&&packAssetUrl(interior,"dossier")&&
+          <button type="button" className="area-return" onClick={()=>setDossierOpen(true)}>
+            ◈ ABRIR ARQUIVO ILUSTRADO DO DISTRITO
+          </button>}
         {interior==="clinic"&&<section className="na-clinic-quick-treatment"
           aria-label="Atendimento médico da Clínica Comunitária">
           <span>✚ CLÍNICA COMUNITÁRIA · TRIAGEM</span>
@@ -1393,6 +1400,10 @@ export default function ExplorationScreen({
           </button>
         </section>}
       </section>
+      {dossierOpen&&isInnerId(interior)&&
+        <Suspense fallback={<div className="na-world-startup">Abrindo registros...</div>}>
+          <DossierGallery room={interior} onClose={()=>setDossierOpen(false)}/>
+        </Suspense>}
       {/* Um único HUD de objetivo por área: o painel principal já cobre os
           seis distritos; o lembrete extra existe apenas no esgoto labiríntico. */}
       {(interior==="sewer-drain"||interior==="sewer-deep")&&<button type="button"
