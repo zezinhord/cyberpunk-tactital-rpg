@@ -145,6 +145,11 @@ jobs:
           sync
           df -h .
           free -m
+      - name: Enable emulator KVM hardware acceleration
+        run: |
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+          ls -l /dev/kvm
       - name: Install full signed APK and prove WebView launch in 2GB Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
