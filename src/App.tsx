@@ -249,7 +249,8 @@ export default function App() {
   };
   const [inventory, setInventory] = useState<InventoryState>(() => loadInventory(loadCharacter()?.id ?? ""));
   const [selectedSupply,setSelectedSupply]=useState<ItemId>("curativo_campo");
-  const bonuses = useMemo(() => getEquipmentBonuses(inventory), [inventory]);
+  const bonuses = useMemo(() => getEquipmentBonuses(inventory),
+    [inventory.equipped.weapon,inventory.equipped.armor,inventory.equipped.implant,inventory.cyberware]);
   useEffect(() => {
     if (character && inventory.ownerId === character.id) saveInventory(inventory);
   }, [character?.id, inventory]);
