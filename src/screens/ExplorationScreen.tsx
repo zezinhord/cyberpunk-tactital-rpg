@@ -10,6 +10,9 @@ import SceneRecovery from "../components/SceneRecovery";
 import { getOriginById, getOriginGameplay } from "../game/character";
 import CharacterMenu from "../components/CharacterMenu";
 import {ITEM_CATALOG,type InventoryState,type ItemId} from "../game/inventory";
+import type {CyberwareId} from "../game/cyberware.ts";
+import {readParty,saveParty,recruitCompanion,toggleCompanion,
+  type CompanionId} from "../game/companions.ts";
 import type {RecipeId} from "../game/crafting";
 import type { PlayerCharacter } from "../game/character";
 import type { InteriorId } from "../game/baixada/InteriorScene";
@@ -85,6 +88,8 @@ interface Props {
   onCollectDistrictCache:(area:DiscoveryArea)=>boolean;
   onCollectInteriorProp:(area:InnerId,propId:string)=>boolean;
   onCraft:(id:RecipeId)=>string;
+  onInstallCyberware:(id:CyberwareId)=>string;
+  onRemoveCyberware:(id:CyberwareId)=>string;
 }
 
 const MISSION_KEY = "cyberpunk-tactical-rpg.mission.v1.";
@@ -161,6 +166,8 @@ export default function ExplorationScreen({
   onCollectDistrictCache,
   onCollectInteriorProp,
   onCraft,
+  onInstallCyberware,
+  onRemoveCyberware,
 }: Props) {
   const origin = getOriginById(character.originId);
   const [mission, setMission] = useState<MissionProgress>(() => readMission(character.id));
@@ -205,6 +212,8 @@ export default function ExplorationScreen({
   const [trial,setTrial]=useState(()=>reconcileTrial(readTrial(character.id),character.questRewards));
   const [eden,setEden]=useState(()=>readEden(character.id));
   const [cisma,setCisma]=useState(()=>readCisma(character.id));
+  const [party,setParty]=useState(()=>readParty(character.id));
+  const [partyNotice,setPartyNotice]=useState("");
   const [operations,setOperations]=useState(()=>readOperations(character.id));
   const [epilogueOpen,setEpilogueOpen]=useState(false);
   const [trialNotice,setTrialNotice]=useState("");
@@ -255,6 +264,11 @@ export default function ExplorationScreen({
   },reputation,Object.keys(urban.choices).length);
   const postgameImpact=eden.completed?endingDistrictImpact(eden.ending,cityArea):null;
   const cismaImpact=cismaDistrictImpact(cisma,cityArea);
+  const atCompanionContacts:readonly CompanionId[]=interior==="workshop"?["nilo"]:
+    interior==="canal"?["teo"]:
+    interior==="subsolo"||interior==="subsolo-hideout"?["mara"]:
+    interior===null||interior==="baixada-community"?["joana"]:[];
+  const canOperateCyberware=interior==="clinic"||interior==="workshop";
   const operationsImpact=operationsAreaStatus(operations,cityArea);
   useEffect(()=>{
     const post=eden.completed?endingDistrictImpact(eden.ending,cityArea):null;
@@ -1600,6 +1614,26 @@ export default function ExplorationScreen({
           inventory={inventory}
           onToggleEquipment={onToggleEquipment}
           onCraft={onCraft}
+          onInstallCyberware={id=>canOperateCyberware?onInstallCyberware(id):
+            "A instalação exige atendimento presencial na clínica ou na oficina do Nilo."}
+          onRemoveCyberware={id=>canOperateCyberware?onRemoveCyberware(id):
+            "Remoção exige clínica ou oficina do Nilo."}
+          canOperateCyberware={canOperateCyberware}
+          party={party}
+          availableCompanions={atCompanionContacts}
+          onRecruitCompanion={id=>{
+            const result=recruitCompanion(party,id,atCompanionContacts.includes(id));
+            if(!result.ok)return result.message;
+            if(!saveParty(character.id,result.state))return "Não foi possível salvar este recrutamento.";
+            setParty(result.state);setPartyNotice(result.message);return result.message;
+          }}
+          onToggleCompanion={id=>{
+            const result=toggleCompanion(party,id);
+            if(!result.ok)return result.message;
+            if(!saveParty(character.id,result.state))return "Não foi possível gravar a equipe.";
+            setParty(result.state);setPartyNotice(result.message);return result.message;
+          }}
+          partyNotice={partyNotice}
         />
       )}
 
