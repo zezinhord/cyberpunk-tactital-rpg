@@ -42,7 +42,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_4
-          ram-size: 3072M
+          ram-size: 2048M
           disk-size: 8192M
           emulator-boot-timeout: 600
           disable-animations: true
@@ -56,13 +56,13 @@ jobs:
             adb shell dumpsys activity activities | grep -E "mResumed|topResumed|ResumedActivity" || true
             adb exec-out screencap -p > qa/emulator-launch.png || true
             node scripts/test-android-webview-startup.mjs
-      - name: Save Android crash signatures and system activity for triage
-        if: always()
-        run: |
-          mkdir -p qa
-          adb logcat -d -v time > qa/android-logcat.txt || true
-          grep -Ei 'FATAL EXCEPTION|AndroidRuntime|am_crash|chromium.*(ERR_|crash)|WebView.*(crash|error)|com\.cyberpunk\.tacticalrpg' qa/android-logcat.txt | tail -n 350 > qa/boot-diagnostics.txt || true
-          adb exec-out screencap -p > qa/emulator-after.png || true
+            adb shell am force-stop com.cyberpunk.tacticalrpg.qa100
+            adb shell am start -W -n com.cyberpunk.tacticalrpg.qa100/com.cyberpunk.tacticalrpg.MainActivity
+            sleep 4
+            node scripts/test-android-webview-startup.mjs
+            adb logcat -d -v time > qa/android-logcat.txt || true
+            grep -Ei 'FATAL EXCEPTION|AndroidRuntime|am_crash|chromium.*(ERR_|crash)|WebView.*(crash|error)|com\.cyberpunk\.tacticalrpg' qa/android-logcat.txt | tail -n 350 > qa/boot-diagnostics.txt || true
+            adb exec-out screencap -p > qa/emulator-after.png || true
       - name: Upload emulator startup artifacts (diagnostic only)
         if: always()
         uses: actions/upload-artifact@v4
