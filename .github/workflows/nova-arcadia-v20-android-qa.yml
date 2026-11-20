@@ -87,6 +87,8 @@ jobs:
           node --experimental-strip-types scripts/test-soundscapes.mjs
       - name: Compile real web runtime and character sheets
         run: npm run build
+      - name: Audit original visual art in runtime (28 rooms, 84 interactables)
+        run: node scripts/test-v20-illustrations.mjs
       - name: Smoke test Android-UI cold boot, character creation and first map
         run: node scripts/test-android-cold-boot.mjs
       - name: Validate generated artwork and web assets
@@ -134,8 +136,8 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
           "$AAPT" dump badging "$APK" | tee qa/apk-badging.txt
           grep -Fq "name='com.cyberpunk.tacticalrpg.qa200'" qa/apk-badging.txt
-          grep -Fq "versionCode='2000003'" qa/apk-badging.txt
-          grep -Fq "versionName='2.0.0-rc.3'" qa/apk-badging.txt
+          grep -Fq "versionCode='2000004'" qa/apk-badging.txt
+          grep -Fq "versionName='2.0.0-rc.4'" qa/apk-badging.txt
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee qa/assinatura.txt
           grep -Fq "CN=Nova Arcadia 2 QA" qa/assinatura.txt
           grep -Fq "43afabd6de5f33ebeb5958eb0d300d64e1012ddc9bcd98c1d302ae3101ce4404" qa/assinatura.txt
@@ -181,7 +183,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: NovaArcadia-v200-rc3-boot-android-2GB
+          name: NovaArcadia-v200-rc4-boot-android-2GB
           path: qa/boot-android-2gb-v20.png
           if-no-files-found: ignore
           retention-days: 7
@@ -190,8 +192,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          TAG="nova-arcadia-v200-rc3-systems-qa"
-          FILE="NovaArcadia-2.0.0-rc.3-Systems-Full-1GB-QA.apk"
+          TAG="nova-arcadia-v200-rc4-illustrated-qa"
+          FILE="NovaArcadia-2.0.0-rc.4-Illustrated-Full-1GB-QA.apk"
           APK="android/app/build/outputs/apk/debug/app-debug.apk"
           cp "$APK" "$FILE"
           SIZE="$(stat -c %s "$FILE")"
@@ -199,13 +201,13 @@ jobs:
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
-              --title "Nova Arcádia 2.0.0-rc.3 — Cyberware, aliados, furtividade e contratos, QA" \
-              --notes "Prévia da 2.0 com 31 etapas, 28 contratos de investigação, 35 interiores, 8 cyberwares, 4 aliados e 3 operações com infiltração. É uma build de testes; NÃO são 3GB. Atualiza QA200 RC2 mantendo a assinatura." \
+              --title "Nova Arcádia 2.0.0-rc.4 — Cenários ilustrados e provas, QA" \
+              --notes "Prévia 2.0 com 112 recursos gráficos exclusivos (28 murais e 84 objetos), 31 etapas, 28 contratos, 35 interiores, 8 cyberwares, 4 aliados e infiltração. Atualiza QA200 RC3 sem apagar saves. NÃO é a versão final de 3GB." \
               --prerelease
           gh release upload "$TAG" "$FILE" --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
-            --title "Nova Arcádia 2.0.0-rc.3 — Cyberware, aliados, furtividade e contratos, QA" \
-            --notes "Prévia 2.0 com 31 etapas de campanha, 28 contratos adicionais, 35 interiores, cyberware com custos, quatro aliados recrutáveis e opções de infiltração com consequências no combate. Biblioteca original preservada; NÃO TEM 3GB. Android API35 2GB testado. Pacote Android separado com.cyberpunk.tacticalrpg.qa200. $SIZE bytes; SHA-256: $SHA; commit: $GITHUB_SHA. RC2 da família QA200 atualizável por cima com certificado idêntico. Usuário aprovou estabilidade da RC2 em aparelho real; a RC3 ainda precisa de teste físico, playthrough completo e QA das novas mecânicas. Salvos QA100 só por backup JSON." \
+            --title "Nova Arcádia 2.0.0-rc.4 — Cenários ilustrados e provas, QA" \
+            --notes "Prévia 2.0 com 31 etapas e 28 contratos em 35 interiores, 112 artes novas únicas verificadas por SHA-256 e carregadas sob demanda (até quatro por cena), cyberware, quatro aliados, infiltração. Biblioteca original preservada; não são 3GB. Android 15 2GB testado. Pacote Android separado com.cyberpunk.tacticalrpg.qa200. $SIZE bytes; SHA-256: $SHA; commit: $GITHUB_SHA. RC3 da família QA200 atualizável por cima com certificado idêntico. Usuário aprovou estabilidade da RC3 em aparelho real; a RC4 ainda precisa de teste físico, visual e playthrough completo. Salvamentos QA100 requerem backup JSON." \
             --prerelease
           echo "APK QA direto: https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/$FILE" >> "$GITHUB_STEP_SUMMARY"
           echo "SHA256: $SHA" >> "$GITHUB_STEP_SUMMARY"
