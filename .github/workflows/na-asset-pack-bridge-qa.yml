@@ -23,6 +23,10 @@ on:
       - scripts/test-council-reputation-v20.mjs
       - scripts/test-council-defenses-v20.mjs
       - src/game/TurnManager.ts
+      - src/game/map.ts
+      - src/game/BattleScene.ts
+      - src/game/combat/tactical-maps.ts
+      - scripts/test-council-tactical-maps-v20.mjs
       - src/components/Battlefield.tsx
       - tools/generate_council_enemy_art.py
       - tools/test_council_enemy_art.py
@@ -76,6 +80,9 @@ jobs:
           node --experimental-strip-types scripts/test-archive-progress-v20.mjs
           node --experimental-strip-types scripts/test-council-reputation-v20.mjs
           node --experimental-strip-types scripts/test-council-defenses-v20.mjs
+          node --experimental-strip-types scripts/test-council-tactical-maps-v20.mjs
+          node --experimental-strip-types scripts/test-tactics.mjs
+          node --experimental-strip-types scripts/test-battlefield-navigation.mjs
       - name: Generate original scene mural and test 12 authored dossier designs
         run: |
           python tools/generate_v20_illustrations.py
