@@ -1,6 +1,7 @@
 import {useEffect,useMemo,useRef,useState,type ReactNode} from "react";
 import {PACK_IDS,deliverySize,type PackId} from "../game/assets/pack-catalog.ts";
-import {formatAssetSize,hasCompleteThreeGigRelease,importDistrictPack,
+import {isCompleteGameCatalog,emptyContentStatus,hasInstalledEntireGame,installedGameBytes,fullGameProgress,nextMissingGameDistrict} from "../game/assets/complete-installation.ts";
+import {formatAssetSize,importDistrictPack,
  inspectPack,installDistrictPack,nativePackPlatform,verifiedCatalog,
  type PackInstallStatus} from "../game/assets/native-pack-manager.ts";
 import "../game-installation.css";
@@ -38,15 +39,11 @@ function informativeError(error:unknown,id:PackId):string{
  return "A instalação de "+NAMES[id]+" não foi concluída: "+detail.slice(0,230)+
   ". Nenhum personagem ou distrito instalado foi removido.";
 }
-function initialStats(){
- return Object.fromEntries(PACK_IDS.map(id=>[id,false])) as Record<PackId,boolean>;
-}
+const initialStats=emptyContentStatus;
 export default function GameInstallationGate({children}:{children:ReactNode}){
  const enabled=nativePackPlatform();
  const catalog=useMemo(()=>verifiedCatalog(),[]);
- const completeCatalog=hasCompleteThreeGigRelease()&&
-  catalog.packs.length===7&&catalog.packs.every(p=>p.artworkCount===544)&&
-  catalog.packs.reduce((sum,p)=>sum+p.artworkCount,0)===3808;
+ const completeCatalog=isCompleteGameCatalog(catalog);
  const [phase,setPhase]=useState<Phase>("checking");
  const [installed,setInstalled]=useState<Record<PackId,boolean>>(initialStats);
  const [transfer,setTransfer]=useState<Transfer|null>(null);
@@ -55,14 +52,11 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
  const [free,setFree]=useState(0);
  const busy=useRef(false);
  const total=deliverySize(catalog);
- const packed=catalog.packs;
- const installedBytes=packed.filter(p=>installed[p.id]).reduce((sum,p)=>sum+p.compressedBytes,0);
+ const installedBytes=installedGameBytes(catalog,installed);
  const transferBytes=transfer&&!installed[transfer.id]?
   Math.min(transfer.bytes,packed.find(p=>p.id===transfer.id)?.compressedBytes??0):0;
- const completed=PACK_IDS.every(id=>installed[id]);
- const next=PACK_IDS.find(id=>!installed[id])??null;
- const fraction=catalog.totalBytes>0?
-  Math.min(100,Math.round(100*(installedBytes+transferBytes)/catalog.totalBytes)):0;
+ const next=nextMissingGameDistrict(installed);
+ const fraction=fullGameProgress(catalog,installed,transfer);
 
  const refresh=async():Promise<Record<PackId,boolean>>=>{
   const entries=await Promise.all(PACK_IDS.map(async id=>{
@@ -97,7 +91,7 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
      if(Number.isFinite(entry.status.freeBytes))setFree(entry.status.freeBytes);
     }
     setInstalled(updated);
-    setPhase(PACK_IDS.every(id=>updated[id])?"ready":"needed");
+    setPhase(hasInstalledEntireGame(updated)?"ready":"needed");
    }catch(error){
     if(!alive)return;
     setMessage("Não foi possível verificar os arquivos instalados: "+
@@ -129,7 +123,7 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
     setTransfer(null);
    }
    const current=await refresh();
-   if(!PACK_IDS.every(id=>current[id]))throw new Error("A verificação final não confirmou os sete distritos.");
+   if(!hasInstalledEntireGame(current))throw new Error("A verificação final não confirmou os sete distritos.");
    setPhase("ready");
   }catch(error){
    setMessage(informativeError(error,selected??next??"baixada"));
@@ -151,9 +145,9 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
    });
    if(!status.installed)throw new Error("O ZIP selecionado não corresponde ao jogo.");
    const latest=await refresh();
-   setMessage(PACK_IDS.every(p=>latest[p])?"":"Arquivo oficial de "+NAMES[id]+
+   setMessage(hasInstalledEntireGame(latest)?"":"Arquivo oficial de "+NAMES[id]+
     " integrado. Continue a instalação dos distritos restantes.");
-   setPhase(PACK_IDS.every(p=>latest[p])?"ready":"needed");
+   setPhase(hasInstalledEntireGame(latest)?"ready":"needed");
   }catch(error){
    setMessage(informativeError(error,selected??next??"baixada"));
    setPhase("needed");
