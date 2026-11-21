@@ -7,9 +7,11 @@ export const FIRST_MILESTONE_RELEASE_TAG="nova-arcadia-v200-milestone-1474";
 export const SECOND_MILESTONE_RELEASE_TAG="nova-arcadia-v200-milestone-1774";
 export const THIRD_MILESTONE_RELEASE_TAG="nova-arcadia-v200-milestone-2074";
 export const FOURTH_MILESTONE_RELEASE_TAG="nova-arcadia-v200-milestone-2374";
+export const FIFTH_MILESTONE_RELEASE_TAG="nova-arcadia-v200-milestone-2674";
 export const TRUSTED_RELEASE_TAGS=[
  FIRST_MILESTONE_RELEASE_TAG,SECOND_MILESTONE_RELEASE_TAG,
- THIRD_MILESTONE_RELEASE_TAG,FOURTH_MILESTONE_RELEASE_TAG,PACK_RELEASE_TAG
+ THIRD_MILESTONE_RELEASE_TAG,FOURTH_MILESTONE_RELEASE_TAG,
+ FIFTH_MILESTONE_RELEASE_TAG,PACK_RELEASE_TAG
 ] as const;
 export function isTrustedReleaseTag(tag:unknown):tag is typeof TRUSTED_RELEASE_TAGS[number]{
  return typeof tag==="string"&&TRUSTED_RELEASE_TAGS.some(allowed=>allowed===tag);
