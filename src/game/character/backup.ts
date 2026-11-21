@@ -19,6 +19,7 @@ import {COUNCIL_KEY,validateCouncilProgress} from "../story/district-councils.ts
 import {RECOVERY_KEY,validateRecovery} from "../story/recovery-network.ts";
 import {SIMULATION_KEY,validateSimulations} from "../story/field-simulations.ts";
 import {PERIMETER_KEY,validatePerimeter} from "../story/perimeter-routes.ts";
+import {VIGIL_KEY,validVigil} from "../story/vigil-escorts.ts";
 import {URBAN_KEY,validateUrbanBackup} from "../story/urban-chronicles.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
@@ -49,6 +50,7 @@ export const CHARACTER_BACKUP_KEYS={
  recovery:RECOVERY_KEY,
  simulations:SIMULATION_KEY,
  perimeter:PERIMETER_KEY,
+ vigil:VIGIL_KEY,
  urban:URBAN_KEY,
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
@@ -124,6 +126,8 @@ export function importCharacterBackup(text:string,overwrite=false):
        return {ok:false,message:"Registros de simulações de campo inválidos no backup."};
      if(field==="perimeter"&&!validatePerimeter(decoded))
        return {ok:false,message:"Dados de patrulhas táticas inválidos no backup."};
+     if(field==="vigil"&&!validVigil(decoded))
+       return {ok:false,message:"Relatórios de evacuação inválidos no backup."};
      if(field==="area"&&!isSavedWorldArea(decoded))
        return {ok:false,message:"Área ativa inválida no backup."};
      if(field==="sewer"){
