@@ -90,6 +90,7 @@ jobs:
           node --experimental-strip-types scripts/test-soundscapes.mjs
       - name: Build web assets and mobile app
         run: |
+          python tools/generate_council_enemy_art.py
           npm run build
           node scripts/test-v20-illustrations.mjs
           node scripts/test-android-cold-boot.mjs
