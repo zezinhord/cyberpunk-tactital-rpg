@@ -35,7 +35,7 @@ GOAL_BYTES = 3_000_000_000
 GITHUB_ASSET_MAX_BYTES = 2 * (1024**3)
 RELEASE_TAG = "nova-arcadia-v200-final-3gb-assets"
 PATH_RE = re.compile(
-    r"^(murals|props|dossiers)/[a-z0-9-]+/(?:[a-z0-9-]+/)*[a-z0-9-]+\.(png|webp)$"
+    r"^(murals|props|dossiers|cutscenes)/[a-z0-9-]+/(?:[a-z0-9-]+/)*[a-z0-9-]+\.(png|webp)$"
 )
 MAX_IMAGE_BYTES = 70_000_000
 MAX_PIXELS = 65_536_000  # prevent malicious 80k x 80k dimensions
@@ -101,7 +101,7 @@ def list_pack(district: str, source: Path, rooms: list[dict]) -> tuple[list[dict
         if path in seen_paths or room not in approved_rooms:
             raise ValueError(f"Duplicate or irrelevant asset: {path}")
         if path.split("/")[1] != room or (
-            kind not in ("mural", "prop", "dossier")
+            kind not in ("mural", "prop", "dossier", "cutscene")
         ) or path.split("/")[0] != kind + "s":
             raise ValueError(f"Asset is not mapped to real interactive room: {path}")
         if not isinstance(caption, str) or len(caption.strip()) < 18 or len(caption) > 240:
@@ -135,6 +135,8 @@ def list_pack(district: str, source: Path, rooms: list[dict]) -> tuple[list[dict
             raise ValueError(f"{room}: all three physically interactive props required")
         if counts["dossier"] < 4:
             raise ValueError(f"{room}: at least 4 distinct explorable dossier pages required")
+        if counts["cutscene"] not in (0, 16):
+            raise ValueError(f"{room}: 16 original playable cinematic scenes are required if a storyboard is supplied")
     return entries, material_bytes
 
 
