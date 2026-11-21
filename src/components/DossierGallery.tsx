@@ -15,11 +15,17 @@ import {readPerimeter,savePerimeter,perimeterUnlocked,
 import {countEvacuated,
  readVigil,saveVigil,vigilUnlocked,mapForVigil,
  vigilGuards,vigilRun,startVigil,moveVigil,rescueVigil,
- divertVigil,reorganizeVigil,vigilFrame,
- type VigilProgress,type VigilApproach,type VigilResult}
+ divertVigil,reorganizeVigil,
+ type VigilProgress,type VigilApproach,type VigilResult,type VigilRun}
  from "../game/story/vigil-escorts.ts";
 import "../dossier-gallery.css";
 
+/** Changing a 2880×1620 picture on every tap exhausts low-RAM Android GPU
+ * image caches. Keep an active rescue plate for four turns or until a civilian
+ * group actually changes, then release the old image in one React update. */
+const rescuePlate=(run:VigilRun|null):number=>run?
+ Math.min(15,Math.min(3,countEvacuated(run.rescued))*4+
+  (Math.floor(run.turn/4)%4)):0;
 interface Props{room:string;characterId:string;onClose:()=>void;
  onQuestXp:(eventId:string,amount:number)=>boolean}
 export default function DossierGallery({room,characterId,onClose,onQuestXp}:Props){
@@ -61,7 +67,10 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
    }
    setVigil(result.state);setVigilNotice(result.message);
    const next=simulationRoom?vigilRun(result.state,simulationRoom):null;
-   if(next)setIndex(vigilFrame(next));
+   const prior=simulationRoom?vigilRun(vigil,simulationRoom):null;
+   if(next&&(!prior||countEvacuated(next.rescued)!==countEvacuated(prior.rescued)||
+     Math.floor(next.turn/4)!==Math.floor(prior.turn/4)))
+      setIndex(rescuePlate(next));
    else if(result.xp>0)setIndex(15);
    if(result.xp>0&&simulationRoom)
      onQuestXp("vigil-"+simulationRoom,result.xp);
@@ -91,7 +100,7 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
  const [zoom,setZoom]=useState(false);
  const [imageError,setImageError]=useState(false);
  const current=pages[index];
- const maxIndex=mode==="evac"&&!evacEnd?vigilFrame(evacRun):
+ const maxIndex=mode==="evac"&&!evacEnd?rescuePlate(evacRun):
    mode==="route"&&!patrolCompleted?
    routeFrame(patrol):mode==="spritesheet"&&!finished?
    Math.min(pages.length-1,solved*SIMULATION_FRAMES_PER_PHASE+
@@ -169,7 +178,7 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
          title={vigilAvailable?"Iniciar resgate de quatro grupos de civis":
            "Conclua a patrulha Limiar deste local para abrir o resgate"}
          onClick={()=>{
-           setMode("evac");setIndex(vigilFrame(evacRun));
+           setMode("evac");setIndex(rescuePlate(evacRun));
            setZoom(false);setImageError(false);setVigilNotice("");
          }}>Vigília · escolta 8×8</button>
      </nav>
