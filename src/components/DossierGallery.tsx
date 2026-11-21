@@ -12,13 +12,22 @@ import {readPerimeter,savePerimeter,perimeterUnlocked,
  layoutForRoom,startPerimeter,movePerimeter,answerPerimeter,
  currentRoute,routeGoal,routeBrief,routeFrame,PERIMETER_STAGES,
  type PerimeterState,type RouteMode} from "../game/story/perimeter-routes.ts";
+import {EMPTY_VIGIL,VIGIL_GROUPS,countEvacuated,
+ readVigil,saveVigil,vigilUnlocked,mapForVigil,
+ vigilGuards,vigilRun,startVigil,moveVigil,rescueVigil,
+ divertVigil,reorganizeVigil,vigilFrame,
+ type VigilProgress,type VigilApproach,type VigilResult}
+ from "../game/story/vigil-escorts.ts";
 import "../dossier-gallery.css";
 
 interface Props{room:string;characterId:string;onClose:()=>void;
  onQuestXp:(eventId:string,amount:number)=>boolean}
 export default function DossierGallery({room,characterId,onClose,onQuestXp}:Props){
  const [progress,setProgress]=useState<ArchiveProgress>(()=>readArchiveProgress(characterId));
- const [mode,setMode]=useState<"dossier"|"cutscene"|"spritesheet"|"route">("dossier");
+ const [mode,setMode]=useState<"dossier"|"cutscene"|"spritesheet"|"route"|"evac">("dossier");
+ const [vigil,setVigil]=useState<VigilProgress>(()=>readVigil(characterId));
+ const [vigilNotice,setVigilNotice]=useState("");
+ const [vigilApproach,setVigilApproach]=useState<VigilApproach>("normal");
  const [perimeter,setPerimeter]=useState<PerimeterState>(()=>readPerimeter(characterId));
  const [perimeterNotice,setPerimeterNotice]=useState("");
  const [routeMode,setRouteMode]=useState<RouteMode>("normal");
@@ -37,6 +46,27 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
  const atTarget=Boolean(patrol&&target&&patrol.x===target.x&&patrol.y===target.y);
  const routeQuestion=simulationRoom&&patrol&&atTarget&&
    patrol.stage<PERIMETER_STAGES?routeBrief(simulationRoom,patrol.stage):null;
+ const vigilAvailable=simulationRoom?vigilUnlocked(perimeter,simulationRoom):false;
+ const evacRun=simulationRoom?vigilRun(vigil,simulationRoom):null;
+ const evacMap=simulationRoom?mapForVigil(simulationRoom):null;
+ const evacEnd=simulationRoom?vigil.completed[simulationRoom]:null;
+ const evacGuards=simulationRoom&&evacRun?vigilGuards(simulationRoom,evacRun.turn):[];
+ const evacAtGroup=Boolean(evacRun&&evacMap&&evacMap.groups.some((p,i)=>
+    p.x===evacRun.x&&p.y===evacRun.y&&(evacRun.rescued&(1<<i))===0));
+ const commitVigil=(result:VigilResult)=>{
+   if(!result.ok){setVigilNotice(result.message);return;}
+   if(!saveVigil(characterId,result.state)){
+     setVigilNotice("Não foi possível salvar o turno. Libere espaço e tente novamente.");
+     return;
+   }
+   setVigil(result.state);setVigilNotice(result.message);
+   const next=simulationRoom?vigilRun(result.state,simulationRoom):null;
+   if(next)setIndex(vigilFrame(next));
+   else if(result.xp>0)setIndex(15);
+   if(result.xp>0&&simulationRoom)
+     onQuestXp("vigil-"+simulationRoom,result.xp);
+   setImageError(false);setZoom(false);
+ };
  const commitRoute=(result:{ok:boolean;state:PerimeterState;message:string;xp:number})=>{
    if(!result.ok){setPerimeterNotice(result.message);return;}
    if(!savePerimeter(characterId,result.state)){
@@ -61,7 +91,8 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
  const [zoom,setZoom]=useState(false);
  const [imageError,setImageError]=useState(false);
  const current=pages[index];
- const maxIndex=mode==="route"&&!patrolCompleted?
+ const maxIndex=mode==="evac"&&!evacEnd?vigilFrame(evacRun):
+   mode==="route"&&!patrolCompleted?
    routeFrame(patrol):mode==="spritesheet"&&!finished?
    Math.min(pages.length-1,solved*SIMULATION_FRAMES_PER_PHASE+
     SIMULATION_FRAMES_PER_PHASE-1):pages.length-1;
@@ -100,13 +131,16 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
          <small>{mode==="dossier"?"ARQUIVO INVESTIGATIVO":
            mode==="cutscene"?"CRÔNICAS VISUAIS · 16 QUADROS":
            mode==="spritesheet"?"A CIDADE RESPONDE · SIMULAÇÃO TÁTICA":
-           "OPERAÇÃO LIMIAR · PATRULHA INTERATIVA"} · NOVA ARCÁDIA 2.0</small>
+           mode==="route"?"OPERAÇÃO LIMIAR · PATRULHA INTERATIVA":
+           "OPERAÇÃO VIGÍLIA · RESGATE E ESCOLTA"} · NOVA ARCÁDIA 2.0</small>
          <strong>{room.replaceAll("-"," ").toUpperCase()}</strong>
          <span>{pages.length?index+1:0} / {pages.length} {mode==="dossier"?
            "PRANCHAS · "+read+" LIDAS":mode==="cutscene"?
            "CENAS ILUSTRADAS":mode==="spritesheet"?
            "QUADROS · FASE "+Math.min(6,solved+1)+"/6":
-           "PLANTA · POSTO "+(patrol?.stage??0)+"/5"}</span>
+           mode==="route"?"PLANTA · POSTO "+(patrol?.stage??0)+"/5":
+           "ESCOLTA · "+(evacRun?countEvacuated(evacRun.rescued):evacEnd?4:0)+
+           "/4 CIVIS"}</span>
        </div>
        <button type="button" onClick={onClose} aria-label="Fechar arquivo">Fechar ×</button>
      </header>
@@ -131,6 +165,13 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
            setMode("route");setIndex(routeFrame(patrol));setZoom(false);
            setImageError(false);setPerimeterNotice("");
          }}>Limiar · mapa 8×8</button>
+       <button type="button" aria-pressed={mode==="evac"} disabled={!vigilAvailable}
+         title={vigilAvailable?"Iniciar resgate de quatro grupos de civis":
+           "Conclua a patrulha Limiar deste local para abrir o resgate"}
+         onClick={()=>{
+           setMode("evac");setIndex(vigilFrame(evacRun));
+           setZoom(false);setImageError(false);setVigilNotice("");
+         }}>Vigília · escolta 8×8</button>
      </nav>
      <div className="na-dossier-visual">
        {mode==="route"&&routeMap&&<div className="na-perimeter-hud">
@@ -171,6 +212,68 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
            Iniciar patrulha
          </button>}
        </div>}
+       {mode==="evac"&&evacMap&&<div className="na-perimeter-hud na-vigil-hud">
+         <strong>OPERAÇÃO VIGÍLIA {evacEnd?"· RESGATE CONCLUÍDO":""}</strong>
+         {evacRun?<div className="na-perimeter-data">
+           <span>CIVIS {countEvacuated(evacRun.rescued)}/4</span>
+           <span>ALERTA {evacRun.alert}/6</span>
+           <span>ENERGIA {evacRun.energy}/8</span>
+           <span>INCIDENTES {evacRun.incidents}</span>
+         </div>:<p>{evacEnd?
+           "Quatro grupos protegidos; missão registrada no histórico deste personagem.":
+           "Extraia quatro grupos civis. Os vigias mudam de posição a cada ação."}</p>}
+         {evacRun&&<div className="na-perimeter-modes">
+           {(["normal","furtivo","corrida"] as const).map(kind=>
+             <button type="button" key={kind} aria-pressed={vigilApproach===kind}
+               onClick={()=>setVigilApproach(kind)}>{kind==="normal"?"Normal":
+                kind==="furtivo"?"Furtivo":"Corrida"}</button>)}
+         </div>}
+         {evacRun&&<div className="na-perimeter-grid" role="group"
+           aria-label="Mapa de extração 8 por 8 com civis e patrulhas móveis">
+           {Array.from({length:64},(_,i)=>{
+             const x=i%8,y=Math.floor(i/8);
+             const wall=evacMap.blocked.has(x+","+y);
+             const guard=evacGuards.some(p=>p.x===x&&p.y===y);
+             const citizen=evacMap.groups.findIndex(p=>p.x===x&&p.y===y);
+             const waiting=citizen>=0&&(evacRun.rescued&(1<<citizen))===0;
+             const operator=x===evacRun.x&&y===evacRun.y;
+             const exit=x===evacMap.exit.x&&y===evacMap.exit.y;
+             const hazard=evacMap.hotspots.has(x+","+y);
+             const distance=Math.abs(x-evacRun.x)+Math.abs(y-evacRun.y);
+             const reachable=distance===1||(vigilApproach==="corrida"&&distance===2&&
+               (x===evacRun.x||y===evacRun.y));
+             return <button type="button" key={i}
+               disabled={wall||!reachable}
+               className={"na-route-cell"+(operator?" player":"")+
+                (exit?" goal":"")+(waiting?" civilian":"")+
+                (guard?" guard":"")+(hazard?" hazard":"")+(wall?" blocked":"")}
+               aria-label={operator?"Protagonista":wall?"Barreira":waiting?
+                "Civis aguardando resgate":guard?"Sentinela móvel":exit?
+                "Ponto de extração":hazard?"Zona de vigilância":"Corredor livre"}
+               onClick={()=>commitVigil(moveVigil(vigil,simulationRoom!,
+                 x,y,vigilApproach))}>{operator?"◆":waiting?"◈":guard?"✣":
+                 wall?"■":exit?"◎":hazard?"!":"·"}</button>;
+           })}
+         </div>}
+         {evacRun&&<div className="na-vigil-actions">
+           <button type="button" disabled={!evacAtGroup||evacRun.energy===0}
+             onClick={()=>commitVigil(rescueVigil(vigil,simulationRoom!))}>
+             ◈ Socorrer grupo
+           </button>
+           <button type="button" disabled={evacRun.energy<2}
+             onClick={()=>commitVigil(divertVigil(vigil,simulationRoom!))}>
+             ◇ Distrair vigias
+           </button>
+           <button type="button" disabled={evacRun.energy>=8}
+             onClick={()=>commitVigil(reorganizeVigil(vigil,simulationRoom!))}>
+             ⟳ Reorganizar
+           </button>
+         </div>}
+         {!evacRun&&!evacEnd&&<button type="button" className="na-route-start"
+           onClick={()=>commitVigil(startVigil(vigil,perimeter,simulationRoom!))}>
+           Iniciar resgate
+         </button>}
+       </div>}
        {!current||!src?
          <p>Pacote de evidências não instalado. O mapa e as missões continuam
            disponíveis sem estes arquivos.</p>:
@@ -191,6 +294,8 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
        {simulationNotice&&<p className="na-simulation-feedback">{simulationNotice}</p>}
        {mode==="route"&&perimeterNotice&&<p className="na-simulation-feedback">
          {perimeterNotice}</p>}
+       {mode==="evac"&&vigilNotice&&<p className="na-simulation-feedback">
+         {vigilNotice}</p>}
      </div>
      {routeQuestion&&simulationRoom&&mode==="route"&&<section
          className="na-simulation-puzzle" aria-label="Decisão tática da patrulha">
@@ -212,11 +317,11 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
      </section>}
      <footer className="na-dossier-footer">
        <button type="button" onClick={()=>{setIndex(v=>Math.max(0,v-1));
-         setZoom(false);setImageError(false);}} disabled={index===0||(mode==="route"&&!patrolCompleted)}>Anterior</button>
+         setZoom(false);setImageError(false);}} disabled={index===0||(mode==="route"&&!patrolCompleted)||(mode==="evac"&&!evacEnd)}>Anterior</button>
        <button type="button" onClick={()=>setZoom(v=>!v)} disabled={!src||imageError}
          aria-pressed={zoom}>{zoom?"Enquadrar":"Ampliar"}</button>
        <button type="button" onClick={()=>{setIndex(v=>Math.min(maxIndex,v+1));
-         setZoom(false);setImageError(false);}} disabled={index>=maxIndex||(mode==="route"&&!patrolCompleted)}>Próxima</button>
+         setZoom(false);setImageError(false);}} disabled={index>=maxIndex||(mode==="route"&&!patrolCompleted)||(mode==="evac"&&!evacEnd)}>Próxima</button>
      </footer>
    </div>
  </div>;
