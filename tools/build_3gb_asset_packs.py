@@ -35,9 +35,12 @@ GOAL_BYTES = 3_000_000_000
 GITHUB_ASSET_MAX_BYTES = 2 * (1024**3)
 RELEASE_TAG = "nova-arcadia-v200-final-3gb-assets"
 MILESTONE_TAG = "nova-arcadia-v200-milestone-1474"
+SECOND_MILESTONE_TAG = "nova-arcadia-v200-milestone-1774"
+SECOND_MILESTONE_BYTES = 1_775_365_848  # at least +300 MB beyond first signed QA201
+
 FIRST_MILESTONE_BYTES = 1_474_082_151
 PATH_RE = re.compile(
-    r"^(murals|props|dossiers|cutscenes)/[a-z0-9-]+/(?:[a-z0-9-]+/)*[a-z0-9-]+\.(png|webp)$"
+    r"^(murals|props|dossiers|cutscenes|spritesheets)/[a-z0-9-]+/(?:[a-z0-9-]+/)*[a-z0-9-]+\.(png|webp)$"
 )
 MAX_IMAGE_BYTES = 70_000_000
 MAX_PIXELS = 65_536_000  # prevent malicious 80k x 80k dimensions
@@ -103,7 +106,7 @@ def list_pack(district: str, source: Path, rooms: list[dict]) -> tuple[list[dict
         if path in seen_paths or room not in approved_rooms:
             raise ValueError(f"Duplicate or irrelevant asset: {path}")
         if path.split("/")[1] != room or (
-            kind not in ("mural", "prop", "dossier", "cutscene")
+            kind not in ("mural", "prop", "dossier", "cutscene", "spritesheet")
         ) or path.split("/")[0] != kind + "s":
             raise ValueError(f"Asset is not mapped to real interactive room: {path}")
         if not isinstance(caption, str) or len(caption.strip()) < 18 or len(caption) > 240:
@@ -139,11 +142,14 @@ def list_pack(district: str, source: Path, rooms: list[dict]) -> tuple[list[dict
             raise ValueError(f"{room}: at least 4 distinct explorable dossier pages required")
         if counts["cutscene"] not in (0, 16):
             raise ValueError(f"{room}: 16 original playable cinematic scenes are required if a storyboard is supplied")
+        if counts["spritesheet"] not in (0, 24):
+            raise ValueError(f"{room}: each tactical simulation must have 24 unique playable frames")
     return entries, material_bytes
 
 
-def build(source: Path, output: Path, require_3gb=True, milestone_1474=False):
-    if require_3gb and milestone_1474:
+def build(source: Path, output: Path, require_3gb=True,
+          milestone_1474=False, milestone_1774=False):
+    if (milestone_1474 and milestone_1774) or (require_3gb and (milestone_1474 or milestone_1774)):
         raise ValueError("Final and QA milestone gates cannot be combined")
     all_rooms = rooms_by_district()
     output.mkdir(parents=True, exist_ok=True)
@@ -175,7 +181,8 @@ def build(source: Path, output: Path, require_3gb=True, milestone_1474=False):
             assets=entries,
         ))
         total_zips += size
-    catalog = dict(version=2,tag=MILESTONE_TAG if milestone_1474 else RELEASE_TAG,
+    catalog = dict(version=2,tag=SECOND_MILESTONE_TAG if milestone_1774 else
+                   MILESTONE_TAG if milestone_1474 else RELEASE_TAG,
                    totalBytes=total_zips,packs=packs)
     delivery_bytes = BASELINE_BYTES + total_zips
     (output / "manifest.json").write_text(
@@ -203,6 +210,23 @@ def build(source: Path, output: Path, require_3gb=True, milestone_1474=False):
         )
         print(f"QA milestone reached: {delivery_bytes:,} source-audited bytes; "
               "Android signing and installation are separate mandatory gates.")
+    if milestone_1774:
+        if delivery_bytes < SECOND_MILESTONE_BYTES:
+            raise ValueError(f"QA +600 MB MILESTONE BLOCKED: missing "
+                             f"{SECOND_MILESTONE_BYTES-delivery_bytes:,} original playable bytes")
+        for pack in packs:
+            if pack["artworkCount"] != 224 or pack["locationCount"] != 4:
+                raise ValueError("Second milestone requires 4 rooms x (32 original images + 24 simulations)")
+        target = BASE / "src/game/assets/published-packs.ts"
+        target.write_text(
+            'import type {PackCatalog} from "./pack-catalog.ts";\n'
+            '/** Authenticated +600MB QA, NOT the final 3GB edition. */\n'
+            'export const FINAL_ASSET_CATALOG:PackCatalog='+
+            json.dumps(catalog,ensure_ascii=False,indent=2)+';\n',
+            encoding="utf-8",
+        )
+        print(f"SECOND QA MILESTONE: {delivery_bytes:,} signed-baseline plus audited source bytes; "
+              "new Android build/signature/emulator acceptance still required.")
     if require_3gb and delivery_bytes < GOAL_BYTES:
         raise ValueError(f"Definitive 3GB delivery BLOCKED: missing "
                          f"{GOAL_BYTES-delivery_bytes:,} bytes of ORIGINAL, USED content")
@@ -229,7 +253,11 @@ if __name__ == "__main__":
     choices.add_argument("--test-only-skip-size-gate",action="store_true")
     choices.add_argument("--milestone-1474",action="store_true",
                          help="Audited >=1.474GB QA artifact, never 3GB final")
+    choices.add_argument("--milestone-1774",action="store_true",
+                         help="Second +300MB signed content milestone, never final")
     args = cli.parse_args()
     build(args.source,args.output,
-          require_3gb=not (args.test_only_skip_size_gate or args.milestone_1474),
-          milestone_1474=args.milestone_1474)
+          require_3gb=not (args.test_only_skip_size_gate or
+                           args.milestone_1474 or args.milestone_1774),
+          milestone_1474=args.milestone_1474,
+          milestone_1774=args.milestone_1774)
