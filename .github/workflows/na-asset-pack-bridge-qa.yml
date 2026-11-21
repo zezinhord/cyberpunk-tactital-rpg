@@ -103,8 +103,17 @@ jobs:
           python tools/test_council_enemy_art.py
       - name: Compile TypeScript without releasing incomplete game
         run: npx tsc -b
-      - name: Produce temporary minimal web directory for native compile only
+      - name: Compile production Vite with real restoration quest and original enemy sheets
         run: |
+          python tools/generate_council_enemy_art.py
+          npm run build
+          test -s dist/index.html
+          test -s dist/assets/council-enemies/catalog.json
+          test "$(find dist/assets/council-enemies -name 'council-*-w*.png' | wc -l)" -eq 16
+          echo "Production web package includes 21 restoration puzzles and 16 unique enemy atlases."
+      - name: Keep native bridge compile test lightweight
+        run: |
+          rm -rf dist
           mkdir -p dist
           printf '<html><body>native bridge compile test only</body></html>' > dist/index.html
       - name: Generate Capacitor Android project
