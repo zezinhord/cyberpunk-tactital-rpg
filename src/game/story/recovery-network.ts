@@ -279,7 +279,6 @@ export function recoveryCombatSupport(state:RecoveryProgress,encounter:string):
  UrbanCombatSupport|null{
  const region=COUNCIL_IDS.find(id=>encounter==="district-"+id||
   encounter==="council-"+id);
- if(!region)return null;
  if(region){
   const method=state.outcomes[region];
   if(method)return RECOVERY_LINES[region].finalOptions[method].support;
