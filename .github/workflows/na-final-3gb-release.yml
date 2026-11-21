@@ -7,6 +7,14 @@ on:
       - feature/nova-arcadia-3gb-final-assets
     paths:
       - .github/workflows/na-final-3gb-release.yml
+      - tools/restore_verified_art_sources.py
+      - tools/produce_nexus_eden.py
+      - tools/test_nexus_eden.py
+      - tools/build_3gb_asset_packs.py
+      - src/game/story/nexus-eden.ts
+      - src/components/NexusPanel.tsx
+      - scripts/test-nexus-eden-v20.mjs
+      - native/NovaAssetPacks.java
   workflow_dispatch:
 
 permissions:
