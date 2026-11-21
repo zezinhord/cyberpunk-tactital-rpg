@@ -3,7 +3,7 @@ import {PACK_IDS,deliverySize,type PackId} from "../game/assets/pack-catalog.ts"
 import {isCompleteGameCatalog,emptyContentStatus,hasInstalledEntireGame,installedGameBytes,fullGameProgress,nextMissingGameDistrict} from "../game/assets/complete-installation.ts";
 import {formatAssetSize,importDistrictPack,
  inspectPack,installDistrictPack,nativePackPlatform,verifiedCatalog,
- type PackInstallStatus} from "../game/assets/native-pack-manager.ts";
+} from "../game/assets/native-pack-manager.ts";
 import "../game-installation.css";
 
 /** One mandatory, non-optional first-run installation.
@@ -54,7 +54,7 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
  const total=deliverySize(catalog);
  const installedBytes=installedGameBytes(catalog,installed);
  const transferBytes=transfer&&!installed[transfer.id]?
-  Math.min(transfer.bytes,packed.find(p=>p.id===transfer.id)?.compressedBytes??0):0;
+  Math.min(transfer.bytes,catalog.packs.find(p=>p.id===transfer.id)?.compressedBytes??0):0;
  const next=nextMissingGameDistrict(installed);
  const fraction=fullGameProgress(catalog,installed,transfer);
 
