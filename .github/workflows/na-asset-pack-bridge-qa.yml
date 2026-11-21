@@ -58,6 +58,8 @@ on:
       - tools/produce_tactical_simulations.py
       - tools/produce_perimeter_routes.py
       - tools/test_perimeter_routes.py
+      - tools/produce_vigil_escorts.py
+      - tools/test_vigil_escorts.py
       - tools/test_tactical_simulations.py
       - tools/test_story_cinematics.py
       - src/dossier-gallery.css
@@ -119,6 +121,7 @@ jobs:
           python tools/test_story_cinematics.py
           python tools/test_tactical_simulations.py
           python tools/test_perimeter_routes.py
+          python tools/test_vigil_escorts.py
           python tools/test_council_enemy_art.py
       - name: Compile TypeScript without releasing incomplete game
         run: npx tsc -b
