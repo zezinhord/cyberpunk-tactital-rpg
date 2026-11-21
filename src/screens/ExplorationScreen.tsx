@@ -1201,6 +1201,40 @@ const [dossierOpen,setDossierOpen]=useState(false);
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    const calibration=/^calibrate:([a-z0-9-]+):([0-2])$/.exec(choice.id);
+    if(calibration){
+      const room=calibration[1],answer=Number(calibration[2]);
+      if(!isContractId(room)||interior!==room){
+        setDialogue(null);return;
+      }
+      const puzzle=calibrationPuzzle(room);
+      const task=repairRecoveryEquipment(recovery,councils,room,"sistema");
+      if(!puzzle||!task.ok){
+        say([{speaker:INNER_BLUEPRINTS[room].guide,role:"CIRCUITO NÃO DISPONÍVEL",
+          portrait:"!",text:task.message}]);return;
+      }
+      if(!correctCalibration(room,answer)){
+        say([{speaker:INNER_BLUEPRINTS[room].guide,role:"CALIBRAÇÃO INSEGURA · TENTE OUTRA OPÇÃO",
+          portrait:"!",text:puzzle.hint+"\n\n"+puzzle.prompt,
+          choices:puzzle.options.map((option,index)=>({
+            id:"calibrate:"+room+":"+index,label:option,reply:option,
+          }))}]);return;
+      }
+      if(!saveRecovery(character.id,task.state)){
+        say([{speaker:"ARQUIVO LOCAL",role:"MANUTENÇÃO NÃO SALVA",portrait:"!",
+          text:"Sem espaço para registrar o reparo. Nenhum avanço ou XP foi concedido. "+
+            "Libere armazenamento e tente novamente."}]);return;
+      }
+      setRecovery(task.state);
+      onQuestXp("recovery-repair-"+room,task.xp);
+      audioDirector.effect("machine");
+      setCityNotice("OPERAÇÃO RETOMADA · "+INNER_BLUEPRINTS[room].title+
+        " reparado · +"+task.xp+" XP.");
+      say([{speaker:INNER_BLUEPRINTS[room].guide,role:"CALIBRAÇÃO CONFIRMADA",
+        portrait:"⚙",text:puzzle.explanation+"\n\n"+task.message+
+          " Recompensa única: "+task.xp+" XP."}]);
+      return;
+    }
     const recoveryChoice=/^recovery:([a-z0-9-]+):([a-z]+)$/.exec(choice.id);
     if(recoveryChoice){
       const region=recoveryChoice[1],method=recoveryChoice[2];
