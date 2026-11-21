@@ -60,6 +60,10 @@ import {packAssetUrl} from "../game/assets/native-pack-manager.ts";
 import {INNER_CONTRACTS,isContractId,readContracts,saveContracts,startContract,
  completeContract,contractObjective,solveForensicCase} from "../game/story/inner-contracts.ts";
 import {FORENSIC_CASES} from "../game/story/forensic-cases.ts";
+import {DISTRICT_COUNCILS,COUNCIL_IDS,isCouncilId,isCouncilMethod,
+ councilUnlocked,councilObjective,councilImpact,districtOfRoom,
+ readCouncils,saveCouncils,resolveCouncil,
+ type CouncilId} from "../game/story/district-councils.ts";
 import type {ExpansionInnerId} from "../game/districts/expansion-interiors.ts";
 import {readDistrictProgress,saveDistrictProgress,beginDistrict,
  districtCurrentStep,districtObjective,advanceDistrict,type ChapterProgress,
@@ -224,6 +228,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
   const [party,setParty]=useState(()=>readParty(character.id));
   const [stealth,setStealth]=useState(()=>readStealth(character.id));
   const [contracts,setContracts]=useState(()=>readContracts(character.id));
+  const [councils,setCouncils]=useState(()=>readCouncils(character.id));
   const [partyNotice,setPartyNotice]=useState("");
   const [operations,setOperations]=useState(()=>readOperations(character.id));
   const [epilogueOpen,setEpilogueOpen]=useState(false);
@@ -247,6 +252,14 @@ const [dossierOpen,setDossierOpen]=useState(false);
       portrait:"▤",text:prefix+c.question,
       choices:c.options.map((label,i)=>({id:"forensic:"+id+":"+i,
         label,reply:"Analisar evidências."}))}]);
+  };
+  const openCouncilQuestion=(region:CouncilId,prefix=""):void=>{
+    const council=DISTRICT_COUNCILS[region];
+    say([{speaker:council.guide,role:"CONSELHO DISTRITAL · QUATRO PERÍCIAS",
+      portrait:"◆",text:prefix+council.question,
+      choices:council.choices.map(option=>({
+        id:"council:"+region+":"+option.id,label:option.label,
+        reply:"Registrar a decisão pública."}))}]);
   };
   // O tratamento é uma ação médica do cenário, não uma recompensa de missão.
   // A mesma ação atende o botão visível da clínica e a conversa com Amara.
@@ -288,14 +301,16 @@ const [dossierOpen,setDossierOpen]=useState(false);
     interior===null||interior==="baixada-community"?["joana"]:[];
   const canOperateCyberware=interior==="clinic"||interior==="workshop";
   const operationsImpact=operationsAreaStatus(operations,cityArea);
+  const councilLocalImpact=isCouncilId(cityArea)?councilImpact(councils,cityArea):null;
   useEffect(()=>{
     const post=eden.completed?endingDistrictImpact(eden.ending,cityArea):null;
     const cismaLocal=cismaDistrictImpact(cisma,cityArea);
     const operationLocal=operationsAreaStatus(operations,cityArea);
+    const councilPressure=isCouncilId(cityArea)?councilImpact(councils,cityArea)?.pressure??0:0;
     const pressure=urbanPressure(urban,cityArea)+Math.floor(market.heat/3)+
-      (post?.pressure??0)+(cismaLocal?.pressure??0)+(operationLocal?.pressure??0);
+      (post?.pressure??0)+(cismaLocal?.pressure??0)+(operationLocal?.pressure??0)+councilPressure;
     audioDirector.setUrbanPressure(Math.max(0,Math.min(3,pressure)));
-  },[urban,cityArea,market.heat,eden.completed,eden.ending,cisma.completed,cisma.ending,operations.completed,operations.ending]);
+  },[urban,cityArea,market.heat,eden.completed,eden.ending,cisma.completed,cisma.ending,operations.completed,operations.ending,councils]);
   useEffect(()=>{
     if(!epilogueOpen)return;
     const close=(event:KeyboardEvent)=>{
@@ -549,6 +564,10 @@ const [dossierOpen,setDossierOpen]=useState(false);
           }else if(contracts.completed.includes(interior)&&
             !(contracts.analysed??[]).includes(interior)){
             openForensicQuestion(interior,"Dossiê entregue. Falta interpretar as três evidências.\n\n");
+          }else if(councilUnlocked(districtOfRoom(interior),contracts)&&
+            !councils.choices[districtOfRoom(interior)]){
+            openCouncilQuestion(districtOfRoom(interior),
+              "As quatro perícias independentes estão reunidas. O bairro exige uma deliberação.\n\n");
           }else say([{speaker:contract.guide,role:"CONTRATO · EM INVESTIGAÇÃO",
             portrait:"◆",text:finished.message}]);
           return;
@@ -1141,6 +1160,29 @@ const [dossierOpen,setDossierOpen]=useState(false);
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    const councilAnswer=/^council:([a-z0-9-]+):([a-z]+)$/.exec(choice.id);
+    if(councilAnswer){
+      const region=councilAnswer[1],method=councilAnswer[2];
+      if(!isCouncilId(region)||!isCouncilMethod(method)||!isContractId(interior)||
+         districtOfRoom(interior)!==region){setDialogue(null);return;}
+      const result=resolveCouncil(councils,contracts,region,method);
+      if(!result.ok){
+        say([{speaker:DISTRICT_COUNCILS[region].guide,role:"AUDIÊNCIA NÃO CONCLUÍDA",
+          portrait:"!",text:result.message}]);return;
+      }
+      if(!saveCouncils(character.id,result.state)){
+        say([{speaker:"ARQUIVO LOCAL",role:"DECISÃO NÃO SALVA",portrait:"!",
+          text:"Não foi possível registrar o conselho. Libere espaço e tente novamente."}]);return;
+      }
+      setCouncils(result.state);
+      onQuestXp("district-council-"+region,result.xp);
+      setCityNotice("Conselho de "+DISTRICT_COUNCILS[region].title+
+        " · +"+result.xp+" XP.");
+      audioDirector.effect("archive");
+      say([{speaker:DISTRICT_COUNCILS[region].guide,role:"DELIBERAÇÃO DISTRITAL REGISTRADA",
+        portrait:"◆",text:result.message+"\n\nEsta escolha altera a pressão ambiental do distrito e permanece no histórico do protagonista."}]);
+      return;
+    }
     const forensic=/^forensic:([a-z0-9-]+):([0-2])$/.exec(choice.id);
     if(forensic){
       const id=forensic[1];
@@ -1162,7 +1204,12 @@ const [dossierOpen,setDossierOpen]=useState(false);
       setCityNotice("Parecer forense aprovado em "+INNER_BLUEPRINTS[id].title+
         " · +"+result.xp+" XP.");
       audioDirector.effect("archive");
-      say([{speaker:INNER_CONTRACTS[id].guide,role:"PARECER FORENSE HOMOLOGADO",
+      const district=districtOfRoom(id);
+      if(councilUnlocked(district,result.state)&&!councils.choices[district]){
+        openCouncilQuestion(district,result.message+"\n\nParecer registrado: +"+
+          result.xp+" XP. Os quatro dossiês deste distrito foram analisados.\n"+
+          "O conselho pode agora decidir o destino dos recursos.\n\n");
+      }else say([{speaker:INNER_CONTRACTS[id].guide,role:"PARECER FORENSE HOMOLOGADO",
         portrait:"▤",text:result.message+"\n\nRecompensa única: "+result.xp+
         " XP. Os registros permanecem no dossiê deste protagonista."}]);
       return;
@@ -1651,6 +1698,17 @@ const [dossierOpen,setDossierOpen]=useState(false);
                 <small>{contracts.completed.length}/28 dossiês concluídos ·
                   três provas físicas por interior</small>
               </article>}
+            {isCouncilId(cityArea)&&<article className="na-favor-row"
+              aria-label="Conselho distrital e decisões persistentes">
+              <strong>CONSELHO DISTRITAL · {DISTRICT_COUNCILS[cityArea].title}</strong>
+              <p>{councilObjective(cityArea,contracts,councils)}</p>
+              <small>{councils.choices[cityArea]?
+                councilLocalImpact?.pressure===-1?"Proteção local reforçada · vigilância reduzida":
+                councilLocalImpact?.pressure===1?"Controle reforçado · pressão aumentada":
+                "Fiscalização equilibrada · pressão estável":
+                "Investigue as quatro áreas e retorne ao contato"}
+              </small>
+            </article>}
             {operationsImpact&&<article className="na-favor-row" aria-label="Repercussão da conclusão da campanha 2.0">
               <strong>DEPOIS DO CISMA · {operationsImpact.title}</strong>
               <p>{operationsImpact.message}</p>
