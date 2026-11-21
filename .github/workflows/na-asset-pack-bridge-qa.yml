@@ -20,6 +20,8 @@ on:
       - src/game/story/forensic-cases.ts
       - src/game/story/district-councils.ts
       - src/game/story/recovery-network.ts
+      - src/game/story/field-simulations.ts
+      - scripts/test-field-simulations-v20.mjs
       - src/game/story/recovery-calibrations.ts
       - scripts/test-recovery-calibrations-v20.mjs
       - scripts/test-recovery-network-v20.mjs
@@ -49,6 +51,8 @@ on:
       - tools/test_3gb_pack_builder.py
       - tools/produce_district_archives.py
       - tools/produce_story_cinematics.py
+      - tools/produce_tactical_simulations.py
+      - tools/test_tactical_simulations.py
       - tools/test_story_cinematics.py
       - src/dossier-gallery.css
       - tools/test_authored_archives.py
@@ -95,6 +99,7 @@ jobs:
           node --experimental-strip-types scripts/test-council-defenses-v20.mjs
           node --experimental-strip-types scripts/test-recovery-network-v20.mjs
           node --experimental-strip-types scripts/test-recovery-calibrations-v20.mjs
+          node --experimental-strip-types scripts/test-field-simulations-v20.mjs
           node --experimental-strip-types scripts/test-council-tactical-maps-v20.mjs
           node --experimental-strip-types scripts/test-siege-terminals-v20.mjs
           node --experimental-strip-types scripts/test-tactics.mjs
@@ -104,6 +109,7 @@ jobs:
           python tools/generate_v20_illustrations.py
           python tools/test_authored_archives.py
           python tools/test_story_cinematics.py
+          python tools/test_tactical_simulations.py
           python tools/test_council_enemy_art.py
       - name: Compile TypeScript without releasing incomplete game
         run: npx tsc -b
@@ -118,7 +124,7 @@ jobs:
           test -s dist/index.html
           test -s dist/assets/council-enemies/catalog.json
           test "$(find dist/assets/council-enemies -name 'council-*-w*.png' | wc -l)" -eq 16
-          echo "Production web package includes 21 restoration puzzles and 16 unique enemy atlases."
+          echo "Production web includes 21 restoration puzzles, 168 tactical decisions and 16 enemy atlases."
       - name: Keep native bridge compile test lightweight
         run: |
           rm -rf dist
