@@ -172,7 +172,7 @@ export const RECOVERY_TASKS:Readonly<Record<CouncilId,readonly {
     detail:"RECONSTRUÇÃO "+(index+1)+"/3 · "+room.machineDetail,
     xp:24+index*3,
   })),
-])) as Record<CouncilId,readonly {
+])) as unknown as Record<CouncilId,readonly {
  room:ExpansionInnerId;machine:"sistema";title:string;detail:string;xp:number
 }[]>;
 export function isRecoveryMethod(x:unknown):x is RecoveryMethod{
