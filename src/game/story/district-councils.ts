@@ -182,3 +182,55 @@ export function councilImpact(state:CouncilProgress,region:CouncilId):
  if(!selected)return null;
  return DISTRICT_COUNCILS[region].choices.find(x=>x.id===selected)??null;
 }
+
+
+/** Every completed council changes real faction relations. Derived from the
+ * saved decision; no extra mutable reputation wallet and no repeat rewards.
+ * Trade-offs are distinct by district to prevent all councils feeling alike.
+ */
+export type CouncilFaction="helix"|"movimento_livre"|"mercado_cinzento"|"consorcio_civico";
+export type CouncilFactionDelta=Readonly<Partial<Record<CouncilFaction,number>>>;
+export const COUNCIL_FACTION_EFFECTS:Readonly<Record<CouncilId,
+ Readonly<Record<CouncilMethod,CouncilFactionDelta>>>>={
+ baixada:{
+  solidarity:{movimento_livre:3,helix:-2},
+  oversight:{consorcio_civico:2,movimento_livre:1,helix:-1},
+  centralized:{helix:2,movimento_livre:-2},
+ },
+ ferrugem:{
+  solidarity:{movimento_livre:3,helix:-2},
+  oversight:{consorcio_civico:2,movimento_livre:1},
+  centralized:{helix:2,movimento_livre:-2,consorcio_civico:-1},
+ },
+ aurea:{
+  solidarity:{movimento_livre:2,helix:-2,consorcio_civico:1},
+  oversight:{consorcio_civico:3,helix:-1},
+  centralized:{helix:3,consorcio_civico:-1,movimento_livre:-2},
+ },
+ subsolo:{
+  solidarity:{movimento_livre:2,mercado_cinzento:2,helix:-2},
+  oversight:{consorcio_civico:2,mercado_cinzento:1},
+  centralized:{helix:2,mercado_cinzento:-2,movimento_livre:-1},
+ },
+ "setor-zero":{
+  solidarity:{movimento_livre:2,consorcio_civico:1,helix:-3},
+  oversight:{consorcio_civico:3,helix:-1},
+  centralized:{helix:3,movimento_livre:-2},
+ },
+ prisma:{
+  solidarity:{movimento_livre:2,mercado_cinzento:1,helix:-2},
+  oversight:{consorcio_civico:2,movimento_livre:1},
+  centralized:{helix:2,movimento_livre:-2,mercado_cinzento:-1},
+ },
+ periferia:{
+  solidarity:{movimento_livre:2,mercado_cinzento:2,helix:-2},
+  oversight:{consorcio_civico:2,movimento_livre:1},
+  centralized:{helix:2,movimento_livre:-2,mercado_cinzento:-1},
+ },
+};
+export function councilFactionEffects(progress:CouncilProgress):CouncilFactionDelta[]{
+ return COUNCIL_IDS.flatMap(region=>{
+  const method=progress.choices[region];
+  return method?[COUNCIL_FACTION_EFFECTS[region][method]]:[];
+ });
+}
