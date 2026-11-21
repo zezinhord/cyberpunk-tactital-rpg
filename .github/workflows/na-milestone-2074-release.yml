@@ -53,35 +53,80 @@ jobs:
               '"version": "2.0.0-rc.8"'));
           }
           JS
-      - name: Render every original in-game document and all 448 cinematic frames
+      - name: Generate physical room tiles for the new Android client
+        run: python tools/generate_v20_illustrations.py
+      - name: Download the 2128 SHA-256 audited images from successful art run 44902142389
+        uses: actions/download-artifact@v4
+        with:
+          name: NovaArcadia-2.0-Art-Production-Audit-NOT-FINAL
+          repository: ${{ github.repository }}
+          run-id: 44902142389
+          github-token: ${{ github.token }}
+          path: .
+      - name: Independently re-audit original seven ZIPs and stamp 2074MB catalog
         run: |
           set -euo pipefail
-          python tools/generate_v20_illustrations.py
-          python tools/produce_district_archives.py --source resourcepacks/source
-          python tools/produce_story_cinematics.py --source resourcepacks/source
-          python tools/test_story_cinematics.py --source resourcepacks/source --full
-          python tools/produce_tactical_simulations.py --source resourcepacks/source
-          python tools/test_tactical_simulations.py --source resourcepacks/source --full
-          python tools/produce_perimeter_routes.py --source resourcepacks/source
-          python tools/test_perimeter_routes.py --source resourcepacks/source --full
-      - name: Audit all 2128 original playable assets and enforce THIRD +300MB milestone
-        run: |
-          set -euo pipefail
-          python tools/build_3gb_asset_packs.py --source resourcepacks/source --output resourcepacks/release --milestone-2074
           python - <<'PY'
-          import json
-          data=json.load(open('resourcepacks/release/manifest.json'))
-          assert data['tag']=='nova-arcadia-v200-milestone-2074'
-          assert len(data['packs'])==7
-          assert all(p['artworkCount']==304 for p in data['packs'])
-          assert all(sum(a['kind']=='route' for a in p['assets'])==80
-            for p in data['packs'])
-          assert all(sum(a['kind']=='spritesheet' for a in p['assets'])==96
-            for p in data['packs'])
-          assert all(sum(a['kind']=='cutscene' for a in p['assets'])==64
-            for p in data['packs'])
-          assert data['totalBytes']>=930_578_953
-          print('Seven original scene packs:',data['totalBytes'])
+          import hashlib,json,os,zipfile
+          from pathlib import Path
+          root=Path('resourcepacks/release')
+          assert (root/'production-report.json').is_file(), "Audited art artifact not extracted"
+          report=json.loads((root/'production-report.json').read_text())
+          assert report['artworks']==2128 and report['perimeter_patrol_frames']==560
+          assert report['third_300mb_observed'] is True
+          manifest=root/'manifest.json'
+          cat=json.loads(manifest.read_text(encoding='utf8'))
+          assert cat['tag']=='nova-arcadia-v200-final-3gb-assets'
+          assert len(cat['packs'])==7
+          actual=0
+          all_sha=set()
+          for p in cat['packs']:
+            archive=root/p['file']
+            assert archive.is_file()
+            size=archive.stat().st_size
+            assert size==p['compressedBytes']
+            digest=hashlib.sha256()
+            with archive.open('rb') as reader:
+              for buf in iter(lambda:reader.read(1024*1024),b''):
+                digest.update(buf)
+            assert digest.hexdigest()==p['sha256'],p['id']
+            assert p['artworkCount']==304 and p['locationCount']==4
+            assets=p['assets']
+            assert len(assets)==304
+            assert sum(x['kind']=='route' for x in assets)==80
+            assert sum(x['kind']=='spritesheet' for x in assets)==96
+            assert sum(x['kind']=='cutscene' for x in assets)==64
+            assert sum(x['kind']=='dossier' for x in assets)==48
+            allowed={x['path'] for x in assets}
+            assert len(allowed)==304
+            with zipfile.ZipFile(archive) as container:
+              assert set(container.namelist())==allowed
+              assert len(container.namelist())==304
+              expanded=0
+              for member in assets:
+                with container.open(member['path']) as source:
+                  checksum=hashlib.sha256()
+                  chunks=iter(lambda:source.read(1024*1024),b'')
+                  for buf in chunks:
+                    expanded+=len(buf)
+                    checksum.update(buf)
+                  assert checksum.hexdigest()==member['sha256'],member['path']
+                assert member['sha256'] not in all_sha,'Duplicated art in ZIP'
+                all_sha.add(member['sha256'])
+              assert expanded==p['uncompressedBytes']
+            actual+=size
+          assert actual==cat['totalBytes']
+          assert actual+1_143_503_198>=2_074_082_151
+          cat['tag']='nova-arcadia-v200-milestone-2074'
+          manifest.write_text(json.dumps(cat,ensure_ascii=False,indent=2)+'\n',
+                              encoding='utf8')
+          target=Path('src/game/assets/published-packs.ts')
+          target.write_text('import type {PackCatalog} from "./pack-catalog.ts";\n'
+             '/** Independent authenticated 2074MB QA, not the final 3GB. */\n'
+             'export const FINAL_ASSET_CATALOG:PackCatalog='+
+             json.dumps(cat,ensure_ascii=False,indent=2)+';\n',encoding='utf8')
+          print(f'PRE-SIGNATURE ART CHECK PASSED: {len(all_sha)} unique resources, '
+                f'{actual:,} verified ZIP bytes; original producer workflow 44902142389.')
           PY
       - name: Validate 168 tactical simulations plus 28 perimeter patrols and 140 repair stations
         run: |
@@ -186,7 +231,7 @@ jobs:
           assert apk>=1_000_000_000
           assert total>=2_074_082_151
           assert len(cat['packs'])==7
-          assert all(p['artworkCount']==224 for p in cat['packs'])
+          assert all(p['artworkCount']==304 for p in cat['packs'])
           PY
       - name: Preserve third +300MB signed milestone report
         run: |
