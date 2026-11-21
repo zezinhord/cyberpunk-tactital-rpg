@@ -162,7 +162,15 @@ export function councilUnlocked(region:CouncilId,contracts:InnerContractsState):
 export function councilObjective(region:CouncilId,contracts:InnerContractsState,
  progress:CouncilProgress):string{
  const decision=progress.choices[region];
- if(decision)return DISTRICT_COUNCILS[region].choices.find(c=>c.id===decision)!.outcome;
+ if(decision){
+  const outcome=DISTRICT_COUNCILS[region].choices.find(c=>c.id===decision)!.outcome;
+  return (progress.defended??[]).includes(region)?
+   "ACORDO DEFENDIDO · "+COUNCIL_DEFENSES[region].title+". "+outcome:
+   "DEFESA PENDENTE · "+COUNCIL_DEFENSES[region].title+
+   ". Volte ao contato em qualquer um dos quatro interiores do distrito e escolha "+
+   "'Defender o acordo' para iniciar o confronto tático de "+
+   COUNCIL_DEFENSES[region].waves+" ondas. "+outcome;
+ }
  const analysed=new Set(contracts.analysed??[]);
  const matching=EXPANSION_ROOM_DESIGNS.filter(room=>room.id.startsWith(region+"-"));
  const count=matching.filter(room=>analysed.has(room.id)).length;
