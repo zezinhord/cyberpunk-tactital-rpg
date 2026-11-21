@@ -66,6 +66,9 @@ import {DISTRICT_COUNCILS,COUNCIL_DEFENSES,isCouncilId,isCouncilMethod,
  readCouncils,saveCouncils,resolveCouncil,
  type CouncilId} from "../game/story/district-councils.ts";
 import type {ExpansionInnerId} from "../game/districts/expansion-interiors.ts";
+import {RECOVERY_LINES,RECOVERY_METHODS,isRecoveryMethod,
+ readRecovery,saveRecovery,repairRecoveryEquipment,resolveRecovery,
+ recoveryObjective} from "../game/story/recovery-network.ts";
 import {readDistrictProgress,saveDistrictProgress,beginDistrict,
  districtCurrentStep,districtObjective,advanceDistrict,type ChapterProgress,
  type DistrictEnding} from "../game/districts/progress";
@@ -230,6 +233,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
   const [stealth,setStealth]=useState(()=>readStealth(character.id));
   const [contracts,setContracts]=useState(()=>readContracts(character.id));
   const [councils,setCouncils]=useState(()=>readCouncils(character.id));
+  const [recovery,setRecovery]=useState(()=>readRecovery(character.id));
   const [partyNotice,setPartyNotice]=useState("");
   const [operations,setOperations]=useState(()=>readOperations(character.id));
   const [epilogueOpen,setEpilogueOpen]=useState(false);
@@ -285,7 +289,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
         ...favorChoicesFor("dra-amara")]}:page));
   };
   const v09=readV09(character.id);
-  const reputation=calculateReputation({favors,market,ferrugem,eden,cisma,operations,chapters:cityChapters,urban,councils});
+  const reputation=calculateReputation({favors,market,ferrugem,eden,cisma,operations,chapters:cityChapters,urban,councils,recovery});
   const cityArea:RadioDistrict=isInnerId(interior)?
     INNER_BLUEPRINTS[interior].parent??"baixada":
     isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":"baixada";
@@ -573,15 +577,23 @@ const [dossierOpen,setDossierOpen]=useState(false);
             const region=districtOfRoom(interior);
             const regional=councilImpact(councils,region);
             const pending=councilDefenseAvailable(councils,region);
+            const repairs=recovery.repairs[region]??[];
+            const needsPolicy=!pending&&repairs.length===3&&!recovery.outcomes[region];
+            const choices:readonly ConversationOption[]=pending?
+              [{id:"council-defense:"+region,
+                label:"Defender o acordo · "+COUNCIL_DEFENSES[region].waves+" ondas táticas",
+                reply:"Proteger o conselho e seus recursos."}]:
+              needsPolicy?RECOVERY_METHODS.map(method=>({
+                id:"recovery:"+region+":"+method,
+                label:RECOVERY_LINES[region].finalOptions[method].label,
+                reply:RECOVERY_LINES[region].finalOptions[method].outcome,
+              })):[];
             say([{speaker:contract.guide,role:"DEPOIS DA AUDIÊNCIA · "+blueprint.title,
               portrait:"◆",text:(regional?.outcome??finished.message)+
-              (pending?"\n\nUma força hostil pretende reverter o acordo. "
-                +COUNCIL_DEFENSES[region].briefing:
-                "\n\nA defesa do acordo foi concluída. As relações entre facções e "
-                +"a segurança local refletem essa vitória."),
-              choices:pending?[{id:"council-defense:"+region,
-                label:"Defender o acordo · "+COUNCIL_DEFENSES[region].waves+" ondas táticas",
-                reply:"Proteger o conselho e seus recursos."}]:[]}]);
+              (pending?"\n\nUma força hostil pretende reverter o acordo. "+
+                COUNCIL_DEFENSES[region].briefing:
+                "\n\n"+recoveryObjective(recovery,councils,region)),
+              choices}]);
           }else say([{speaker:contract.guide,role:"CONTRATO · EM INVESTIGAÇÃO",
             portrait:"◆",text:finished.message}]);
           return;
