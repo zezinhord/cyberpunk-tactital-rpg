@@ -43,8 +43,9 @@ public class NovaAssetPacks extends Plugin {
     private static final String RELEASE_FINAL = "nova-arcadia-v200-final-3gb-assets";
     private static final String RELEASE_MILESTONE = "nova-arcadia-v200-milestone-1474";
     private static final String RELEASE_SECOND = "nova-arcadia-v200-milestone-1774";
+    private static final String RELEASE_THIRD = "nova-arcadia-v200-milestone-2074";
     private static boolean validReleaseTag(String tag) {
-        return RELEASE_FINAL.equals(tag) || RELEASE_MILESTONE.equals(tag) || RELEASE_SECOND.equals(tag);
+        return RELEASE_FINAL.equals(tag) || RELEASE_MILESTONE.equals(tag) || RELEASE_SECOND.equals(tag) || RELEASE_THIRD.equals(tag);
     }
     private static final long MIN_ZIP_SIZE = 1024L;
     private static final long MAX_ZIP_SIZE = 1_900_000_000L;
@@ -212,7 +213,7 @@ public class NovaAssetPacks extends Plugin {
                         if (entry.isDirectory()) continue;
                         if (++artworks > expectedCount) throw new IllegalStateException("Too many assets");
                         String path = entry.getName();
-                        if (!path.matches("^(murals|props|dossiers|cutscenes|spritesheets)/[a-z0-9/_-]+\\.(png|webp|webm)$") ||
+                        if (!path.matches("^(murals|props|dossiers|cutscenes|spritesheets|routes)/[a-z0-9/_-]+\\.(png|webp|webm)$") ||
                                 path.contains(".."))
                             throw new IllegalStateException("Unsafe image path");
                         File file = new File(staged, path);
@@ -278,7 +279,7 @@ public class NovaAssetPacks extends Plugin {
     public void asset(PluginCall call) {
         String id = call.getString("id"), path = call.getString("path");
         if (!validId(id) || path == null ||
-            !path.matches("^(murals|props|dossiers|cutscenes|spritesheets)/[a-z0-9/_-]+\\.(png|webp|webm)$") ||
+            !path.matches("^(murals|props|dossiers|cutscenes|spritesheets|routes)/[a-z0-9/_-]+\\.(png|webp|webm)$") ||
             path.contains("..")) { call.reject("Invalid asset location"); return; }
         try {
             File dir = installedDir(id), receipt = new File(dir, "na-install.json");
