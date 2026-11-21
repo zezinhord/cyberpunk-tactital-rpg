@@ -14,8 +14,8 @@ export const PERIMETER_STAGES=5;
 export const PERIMETER_FRAMES=20;
 export const PERIMETER_XP=138;
 const ROOM_IDS=new Set<string>(EXPANSION_ROOM_DESIGNS.map(r=>r.id));
-const ROOMS=Object.fromEntries(EXPANSION_ROOM_DESIGNS.map(r=>[r.id,r]))
- as Record<ExpansionInnerId,(typeof EXPANSION_ROOM_DESIGNS)[number]>;
+const ROOMS=Object.fromEntries(EXPANSION_ROOM_DESIGNS.map(r=>[r.id,r])) as
+ Record<ExpansionInnerId,(typeof EXPANSION_ROOM_DESIGNS)[number]>;
 export type RouteMode="careful"|"normal"|"fast";
 export interface Cell{x:number;y:number}
 export interface RouteRun{
