@@ -1800,6 +1800,14 @@ const [dossierOpen,setDossierOpen]=useState(false);
                 "Investigue as quatro áreas e retorne ao contato"}
               </small>
             </article>}
+            {isCouncilId(cityArea)&&<article className="na-favor-row"
+              aria-label="Operação Retomada · 21 serviços técnicos distritais">
+              <strong>OPERAÇÃO RETOMADA · {RECOVERY_LINES[cityArea].title}</strong>
+              <p>{recoveryObjective(recovery,councils,cityArea)}</p>
+              <small>{(recovery.repairs[cityArea]??[]).length}/3 máquinas recuperadas ·
+                {recovery.outcomes[cityArea]?" decisão final registrada":
+                 " gestão ainda pendente"}</small>
+            </article>}
             {operationsImpact&&<article className="na-favor-row" aria-label="Repercussão da conclusão da campanha 2.0">
               <strong>DEPOIS DO CISMA · {operationsImpact.title}</strong>
               <p>{operationsImpact.message}</p>
