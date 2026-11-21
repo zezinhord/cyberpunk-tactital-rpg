@@ -17,6 +17,7 @@ import {CONTRACTS_KEY,validateContracts} from "../story/inner-contracts.ts";
 import {ARCHIVE_KEY,validateArchiveProgress} from "../story/archive-progress.ts";
 import {COUNCIL_KEY,validateCouncilProgress} from "../story/district-councils.ts";
 import {RECOVERY_KEY,validateRecovery} from "../story/recovery-network.ts";
+import {SIMULATION_KEY,validateSimulations} from "../story/field-simulations.ts";
 import {URBAN_KEY,validateUrbanBackup} from "../story/urban-chronicles.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
@@ -45,6 +46,7 @@ export const CHARACTER_BACKUP_KEYS={
  archives:ARCHIVE_KEY,
  councils:COUNCIL_KEY,
  recovery:RECOVERY_KEY,
+ simulations:SIMULATION_KEY,
  urban:URBAN_KEY,
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
