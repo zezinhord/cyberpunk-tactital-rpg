@@ -118,3 +118,25 @@
 @media(max-width:710px){.na-perimeter-hud{flex-basis:min(225px,52%);
  padding:5px}.na-perimeter-modes button{font-size:9px}
 .na-perimeter-grid{max-width:180px;max-height:180px;margin-inline:auto}}
+
+/* Fourth expansion: touch-native escort HUD with active sentries, 4 civilian
+ * groups and 3 tactical action buttons; keep map clickable on 540px landscape. */
+.na-dossier-modes{overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin}
+.na-dossier-modes button{flex:1 0 18%;min-width:125px;padding:5px 6px;font-size:10px}
+.na-vigil-hud{border-color:#70aab5;max-height:min(66dvh,385px);overflow-y:auto}
+.na-vigil-hud .na-perimeter-grid{max-width:196px;margin-inline:auto}
+.na-perimeter-grid .na-route-cell.civilian{background:#745d35;color:#ffe3a1;
+ border-color:#edc27b}
+.na-perimeter-grid .na-route-cell.guard{background:#6d294d;color:#ffbada;
+ border-color:#e85da3}
+.na-perimeter-grid .na-route-cell.guard.player{background:#2b7882;color:#eef9ff}
+.na-vigil-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:4px;padding:4px 0}
+.na-vigil-actions button{min-width:0;min-height:42px;padding:4px 2px;
+ white-space:normal;font-size:9px;line-height:1.25}
+.na-vigil-hud .na-perimeter-data{font-size:9px}
+@media(max-height:520px){.na-vigil-hud{max-height:calc(97dvh - 132px)}
+ .na-vigil-hud .na-perimeter-grid{max-width:171px;max-height:171px}
+ .na-vigil-actions button{min-height:37px}}
+@media(max-width:690px){.na-dossier-modes button{min-width:132px}
+ .na-vigil-hud .na-perimeter-grid{max-width:160px;max-height:160px}}
