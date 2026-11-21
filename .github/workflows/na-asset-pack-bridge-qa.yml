@@ -23,6 +23,9 @@ on:
       - scripts/test-council-reputation-v20.mjs
       - scripts/test-council-defenses-v20.mjs
       - src/game/TurnManager.ts
+      - src/components/Battlefield.tsx
+      - tools/generate_council_enemy_art.py
+      - tools/test_council_enemy_art.py
       - src/game/tactics.ts
       - src/game/types.ts
       - scripts/test-forensic-cases-v20.mjs
@@ -77,6 +80,7 @@ jobs:
         run: |
           python tools/generate_v20_illustrations.py
           python tools/test_authored_archives.py
+          python tools/test_council_enemy_art.py
       - name: Compile TypeScript without releasing incomplete game
         run: npx tsc -b
       - name: Produce temporary minimal web directory for native compile only
