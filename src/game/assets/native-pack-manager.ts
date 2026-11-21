@@ -15,7 +15,7 @@ interface NativePackStatus{id:string;installed:boolean;sha256?:string;
 interface NativePackInstall{id:string;installed:true;storedBytes:number;baseUri:string}
 interface NativePackApi{
  status(options:{id:PackId}):Promise<NativePackStatus>;
- install(options:{id:PackId;sha256:string;compressedBytes:number;
+ install(options:{id:PackId;releaseTag:string;sha256:string;compressedBytes:number;
   uncompressedBytes:number;artworkCount:number}):Promise<NativePackInstall>;
  asset(options:{id:PackId;path:string}):Promise<{uri:string;bytes:number}>;
  remove(options:{id:PackId}):Promise<{removedBytes:number}>;
@@ -73,12 +73,12 @@ export async function installDistrictPack(id:PackId,
  const pack=verifiedCatalog().packs.find(p=>p.id===id);
  if(!pack)throw new Error("Este conteúdo ainda não foi publicado e auditado.");
  // URL is fixed by the native plugin and never controlled by the caller.
- if(!packDownloadUrl(pack.id).startsWith("https://github.com/"))
+ if(!packDownloadUrl(pack.id,verifiedCatalog().tag).startsWith("https://github.com/"))
   throw new Error("Origem de download não confiável.");
  const listener=onProgress?await plugin.addListener("progress",onProgress):null;
  try{
   const result=await plugin.install({
-   id,sha256:pack.sha256,compressedBytes:pack.compressedBytes,
+   id,releaseTag:verifiedCatalog().tag,sha256:pack.sha256,compressedBytes:pack.compressedBytes,
    uncompressedBytes:pack.uncompressedBytes,artworkCount:pack.artworkCount,
   });
   if(!result.installed||!trustedBaseUri(result.baseUri))
