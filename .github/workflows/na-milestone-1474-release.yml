@@ -91,6 +91,11 @@ jobs:
           node --experimental-strip-types scripts/test-save-slots.mjs
           node --experimental-strip-types scripts/test-companions-v20.mjs
           node --experimental-strip-types scripts/test-stealth-v20.mjs
+      - name: Install ffprobe for verification of original sound archives
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          command -v ffprobe
       - name: Restore verified original 1GB media without duplicating unused data
         env:
           GH_TOKEN: ${{ github.token }}
