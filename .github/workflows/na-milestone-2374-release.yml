@@ -275,7 +275,7 @@ jobs:
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Nova Arcádia 2.0 — Marco +1,2GB / Android QA" \
-            --notes "Quarto marco auditado. Nova Operação Vigília: 28 resgates jogáveis em mapa 8x8, 112 grupos civis, 84 patrulheiros dinâmicos, furtividade, corrida, distração eletrônica e consequências por ferimentos. 448 cenas originais novas, 2576 assets únicos nos 7 distritos, SHA-256. APK QA201 assinado com a mesma chave, upgrade RC8, boot/reboot Android 15 com 2GB. Não é a edição final de 3 GB." \
+            --notes "Quarto marco auditado. Nova Operação Vigília: 28 resgates jogáveis em mapa 8x8, 112 grupos civis, 84 patrulheiros dinâmicos, furtividade, corrida, distração eletrônica e consequências por ferimentos. 448 cenas originais novas, 2576 assets únicos nos 7 distritos, SHA-256. APK QA201 assinado com a mesma chave, upgrade RC8, boot/reboot Android 15 com 2GB. Para jogar: conclua a Operação Limiar em um interior, instale seu pacote em Configurações > Conteúdo extra e abra a aba Vigília no arquivo. Faça backup antes do upgrade. O tamanho inclui APK mais 7 pacotes, não um APK único. Não é a edição final de 3 GB." \
             --prerelease
           gh release upload "$TAG" "$FILE" resourcepacks/release/NA20-*.zip \
             resourcepacks/release/manifest.json resourcepacks/release/SHA256SUMS.txt \
