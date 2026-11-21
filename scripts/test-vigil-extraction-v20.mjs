@@ -7,7 +7,7 @@ registerHooks({resolve(path,ctx,next){
 }});
 const {EXPANSION_ROOM_DESIGNS}=await import("../src/game/districts/expansion-interiors.ts");
 const {EMPTY_VIGIL,mapForVigil,vigilGuards,startVigil,rescueVigil,
- divertVigil,vigilRun,validVigil,planVigilRoute}=await import("../src/game/story/vigil-escorts.ts");
+ divertVigil,vigilRun,validVigil,planVigilRoute,planVigilMission}=await import("../src/game/story/vigil-escorts.ts");
 const distance=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 let exposed=0,concealed=0,retreats=0;
 for(const room of EXPANSION_ROOM_DESIGNS){
@@ -15,6 +15,21 @@ for(const room of EXPANSION_ROOM_DESIGNS){
  const perimeter={version:1,active:{},completed:{[id]:true}};
  const initial=startVigil(EMPTY_VIGIL,perimeter,id).state;
  const origin=vigilRun(initial,id);
+ const mission=planVigilMission(id,origin,"normal");
+ assert.ok(mission,"Every interior must support full civilian evacuation");
+ assert.equal(mission.objectives.length,5);
+ assert.deepEqual(mission.objectives.at(-1),map.exit);
+ assert.equal(new Set(mission.objectives.slice(0,-1).map(p=>p.x+","+p.y)).size,4);
+ for(const group of map.groups)assert.ok(mission.objectives.some(p=>
+   p.x===group.x&&p.y===group.y));
+ const halfway={...origin,rescued:3};
+ const partial=planVigilMission(id,halfway,"furtivo");
+ assert.ok(partial);
+ assert.equal(partial.objectives.length,3);
+ const complete=planVigilMission(id,{...origin,rescued:15},"normal");
+ assert.ok(complete);
+ assert.equal(complete.objectives.length,1);
+
  for(const approach of ["normal","furtivo","corrida"]){
   const plan=planVigilRoute(id,origin,map.exit,approach);
   assert.ok(plan,"All authored missions must have an escape route");
