@@ -1,4 +1,5 @@
 import type { Position, Unit } from "./types";
+import type {TacticalLayout} from "./combat/tactical-maps.ts";
 
 export const BOARD_WIDTH = 8;
 export const BOARD_HEIGHT = 8;
@@ -18,8 +19,8 @@ export function isInsideBoard({ x, y }: Position): boolean {
   return x >= 0 && y >= 0 && x < BOARD_WIDTH && y < BOARD_HEIGHT;
 }
 
-export function isBlocked({ x, y }: Position): boolean {
-  return blockedCells.has(`${x},${y}`);
+export function isBlocked({ x, y }: Position, layout:TacticalLayout|null=null): boolean {
+  return (layout?.blocked??blockedCells).has(`${x},${y}`);
 }
 
 function positionKey({ x, y }: Position): string {
@@ -31,8 +32,9 @@ export function findPath(
   target: Position,
   units: Unit[],
   movingUnitId: string,
+  layout:TacticalLayout|null=null,
 ): Position[] | null {
-  if (!isInsideBoard(target) || isBlocked(target)) return null;
+  if (!isInsideBoard(target) || isBlocked(target,layout)) return null;
 
   const occupied = new Set(
     units
@@ -61,7 +63,7 @@ export function findPath(
       const next = { x: current.x + direction.x, y: current.y + direction.y };
       const key = positionKey(next);
 
-      if (!isInsideBoard(next) || isBlocked(next) || occupied.has(key) || previous.has(key)) {
+      if (!isInsideBoard(next) || isBlocked(next,layout) || occupied.has(key) || previous.has(key)) {
         continue;
       }
 
@@ -85,13 +87,14 @@ export function findPath(
   return path;
 }
 
-export function getReachableCells(units: Unit[], unit: Unit, movement: number): Position[] {
+export function getReachableCells(units: Unit[], unit: Unit, movement: number,
+  layout:TacticalLayout|null=null): Position[] {
   const reachable: Position[] = [];
 
   for (let y = 0; y < BOARD_HEIGHT; y += 1) {
     for (let x = 0; x < BOARD_WIDTH; x += 1) {
       if (x === unit.x && y === unit.y) continue;
-      const path = findPath(unit, { x, y }, units, unit.id);
+      const path = findPath(unit, { x, y }, units, unit.id,layout);
       if (path && path.length - 1 <= movement) reachable.push({ x, y });
     }
   }
@@ -102,9 +105,10 @@ export function getReachableCells(units: Unit[], unit: Unit, movement: number): 
 /** Visibilidade entre os centros das células. O algoritmo supercover
  * impede que disparos atravessem paredes ou cantos de duas paredes.
  * É puro e usa a mesma malha de colisão do movimento. */
-export function hasLineOfSight(start:Position,target:Position):boolean{
+export function hasLineOfSight(start:Position,target:Position,
+ layout:TacticalLayout|null=null):boolean{
  if(!isInsideBoard(start)||!isInsideBoard(target)||
-    isBlocked(start)||isBlocked(target))return false;
+    isBlocked(start,layout)||isBlocked(target,layout))return false;
  let x=start.x,y=start.y,ix=0,iy=0;
  const dx=target.x-x,dy=target.y-y;
  const nx=Math.abs(dx),ny=Math.abs(dy);
@@ -113,24 +117,26 @@ export function hasLineOfSight(start:Position,target:Position):boolean{
    const a=(1+2*ix)*ny,b=(1+2*iy)*nx;
    if(a===b){
      // No cruzamento de quina, ambas as células vizinhas devem estar livres.
-     if(isBlocked({x:x+sx,y})||isBlocked({x,y:y+sy}))return false;
+     if(isBlocked({x:x+sx,y},layout)||isBlocked({x,y:y+sy},layout))return false;
      x+=sx;y+=sy;ix++;iy++;
    }else if(a<b){x+=sx;ix++;}
    else{y+=sy;iy++;}
-   if(isBlocked({x,y}))return false;
+   if(isBlocked({x,y},layout))return false;
  }
  return true;
 }
 export type CoverGrade="none"|"partial"|"full";
-export function coverBetween(attacker:Position,target:Position):CoverGrade{
- if(!hasLineOfSight(attacker,target))return "full";
+export function coverBetween(attacker:Position,target:Position,
+ layout:TacticalLayout|null=null):CoverGrade{
+ if(!hasLineOfSight(attacker,target,layout))return "full";
  const dx=attacker.x-target.x,dy=attacker.y-target.y;
  if(Math.abs(dx)+Math.abs(dy)<=1)return "none";
  const offsets=[{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
  return offsets.some(dir=>
-   (dir.x*dx+dir.y*dy)>0&&isBlocked({x:target.x+dir.x,y:target.y+dir.y}))
+   (dir.x*dx+dir.y*dy)>0&&isBlocked({x:target.x+dir.x,y:target.y+dir.y},layout))
      ?"partial":"none";
 }
-export function coverArmorBonus(attacker:Position,target:Position):number{
- return coverBetween(attacker,target)==="partial"?2:0;
+export function coverArmorBonus(attacker:Position,target:Position,
+ layout:TacticalLayout|null=null):number{
+ return coverBetween(attacker,target,layout)==="partial"?2:0;
 }
