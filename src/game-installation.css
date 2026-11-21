@@ -1,0 +1,68 @@
+/* Nova Arcádia — obligatory, one-time installation of the COMPLETE game.
+ * Visible and recoverable in 960x540 and narrow 914x411 Android landscape.
+ * No world engine/Phaser initialization until all authenticated data exists.
+ */
+.na-install-root{
+ min-height:100dvh;width:100%;box-sizing:border-box;
+ display:grid;place-items:center;overflow-y:auto;
+ background:radial-gradient(ellipse at 18% 6%,#15374c 0%,#0b1a27 65%,#060d17 100%);
+ color:#e3f5f8;padding:clamp(12px,2vw,28px);
+ font-family:system-ui,-apple-system,sans-serif;
+}
+.na-install-window{
+ box-sizing:border-box;width:min(970px,100%);margin:auto;
+ display:grid;gap:clamp(10px,1.8vw,18px);padding:clamp(14px,2vw,30px);
+ border:1px solid #40869c;border-radius:16px;
+ background:linear-gradient(120deg,rgba(19,45,59,.96),rgba(6,18,30,.98));
+ box-shadow:0 12px 45px #0009;
+}
+.na-install-heading small{
+ display:block;color:#8bd5df;font-size:11px;font-weight:700;
+ letter-spacing:.14em;margin:0 0 5px;
+}
+.na-install-heading h1{font-size:clamp(20px,3.4vw,34px);line-height:1.2;margin:0 0 6px}
+.na-install-heading p{
+ font-size:clamp(12px,1.55vw,15px);line-height:1.45;
+ margin:0;color:#c5d6df;max-width:80ch;
+}
+.na-install-meter{display:grid;gap:7px}
+.na-install-meter>div:first-child{display:flex;flex-wrap:wrap;gap:6px;justify-content:space-between;font-size:13px}
+.na-install-meter span{color:#b6cad5}
+.na-install-track{width:100%;height:13px;background:#213b4d;border-radius:14px;overflow:hidden;border:1px solid #44677c}
+.na-install-track span{height:100%;display:block;background:linear-gradient(90deg,#148d9d,#8be5e9);transition:width .2s linear}
+.na-install-meter small{font-size:11px;color:#aabfc8}
+.na-install-districts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.na-install-district{
+ padding:8px;display:grid;grid-template-columns:20px 1fr;column-gap:5px;
+ background:#152a38;border:1px solid #28495b;border-radius:9px;min-width:0;
+}
+.na-install-district>span{grid-row:span 2;line-height:1.1;color:#97c9d7;font-size:17px}
+.na-install-district strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.na-install-district small{font-size:10px;line-height:1.3;color:#a2bac6}
+.na-install-district.done{border-color:#477d8d;background:#19353d}
+.na-install-district.done>span{color:#8de7ef}
+.na-install-actions{display:flex;flex-wrap:wrap;gap:8px}
+.na-install-actions button{
+ min-height:48px;padding:9px 15px;border-radius:9px;
+ font-size:13px;line-height:1.2;font-weight:700;touch-action:manipulation;
+}
+.na-install-actions .primary{border:1px solid #7fdfeb;background:#116b80;color:#fff}
+.na-install-actions .secondary{border:1px solid #7cb5c6;background:#122d41;color:#d9f5fb}
+.na-install-message{font-size:12px;color:#e4eeb2;margin:0}
+.na-install-error{font-size:12px;color:#ffe2cb;background:#5b251f;padding:10px;border-radius:8px;margin:0}
+.na-install-window footer{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:10px;color:#acc4cd;border-top:1px solid #254456;padding-top:7px}
+@media(max-width:680px){
+ .na-install-root{display:block}
+ .na-install-window{width:100%;padding:12px}
+ .na-install-districts{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .na-install-actions button{width:100%}
+}
+@media(max-height:430px){
+ .na-install-root{display:block;padding:8px}
+ .na-install-window{gap:7px;padding:11px;margin:auto}
+ .na-install-district{padding:6px}
+ .na-install-actions button{min-height:42px}
+}
+@media(prefers-reduced-motion:reduce){
+ .na-install-track span{transition:none}
+}
