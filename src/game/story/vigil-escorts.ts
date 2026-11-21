@@ -276,11 +276,16 @@ export function rescueVigil(state:VigilProgress,room:ExpansionInnerId):VigilResu
  if((run.rescued&(1<<index))!==0)
   return fail(state,"Este grupo já está protegido.");
  if(run.energy===0)return fail(state,"Energia insuficiente para estabilizar o grupo.");
+ // Rescue consumes a turn. Sentries can detect the extraction unless a decoy
+ // is active; an exposed rescue may force a retreat, but never loses civilians.
  const rescued=run.rescued|(1<<index), names=vigilGroupNames(room);
- const next:VigilRun={...run,turn:run.turn+1,rescued,energy:Math.min(8,run.energy+2),
-  alert:Math.max(0,run.alert-1)};
- return commit(state,room,next,names[index]+
-  " incorporados à escolta. Reorganização de suprimentos: energia +2, alerta -1. "+
+ const turn=run.turn+1;
+ const exposed=turn>run.decoyUntil&&intensity(room,{x:run.x,y:run.y},turn)>=2;
+ const next:VigilRun={...run,turn,rescued,energy:Math.min(8,run.energy+2),
+  alert:Math.min(7,Math.max(0,run.alert-1)+(exposed?2:0))};
+ return postPressure(state,room,next,names[index]+
+  " incorporados à escolta. Reorganização de suprimentos: energia +2. "+
+  (exposed?"Extração observada por sentinelas: alerta +2 líquido. ":"Alerta -1. ")+
   countEvacuated(rescued)+"/4 grupos protegidos.");
 }
 export function divertVigil(state:VigilProgress,room:ExpansionInnerId):VigilResult{
