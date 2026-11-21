@@ -5,6 +5,7 @@ import type {TurnManager} from "../game/TurnManager";
 import type {TestAppearance} from "../game/test-arena/appearance";
 import type {OriginId} from "../game/character/origins";
 import type {TacticalSite} from "../game/combat/tactical-maps.ts";
+import {SIEGE_TERMINAL_NAMES} from "../game/combat/siege-terminals.ts";
 
 /** Campo tático SVG: dispensa WebGL/Canvas em Android, sem substituir a lógica
  * de turno, cobertura, IA ou as spritesheets das seis origens. */
@@ -212,7 +213,7 @@ export default function Battlefield({manager,appearance,originId}:{
             fill="#29343f" stroke="#ffd166" strokeWidth="1.5"/>
           <rect x={x-5} y={y-13} width="10" height="5"
              fill={state.terminalUsed?"#63717b":"#ffd166"}/>
-          <text x={x} y={y-22} textAnchor="middle" fontSize="7" fill="#ffd166">ENERGIA</text>
+          <text x={x} y={y-22} textAnchor="middle" fontSize="7" fill="#ffd166">{site?SIEGE_TERMINAL_NAMES[site]:"ENERGIA"}</text>
         </g>}
       </g>;
     })}
