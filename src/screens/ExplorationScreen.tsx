@@ -57,6 +57,8 @@ import {DISTRICTS,isDistrictId,getDistrict,actorFromId,type DistrictId} from "..
 import {isInnerId,isInnerInteract,INNER_BLUEPRINTS,INNER_IDS,type InnerId} from "../game/districts/interiors.ts";
 import {innerReceipt} from "../game/story/indoor-rewards.ts";
 import {packAssetUrl} from "../game/assets/native-pack-manager.ts";
+import {readPerimeter} from "../game/story/perimeter-routes.ts";
+import {readVigil} from "../game/story/vigil-escorts.ts";
 import {INNER_CONTRACTS,isContractId,readContracts,saveContracts,startContract,
  completeContract,contractObjective,solveForensicCase} from "../game/story/inner-contracts.ts";
 import {FORENSIC_CASES} from "../game/story/forensic-cases.ts";
@@ -1593,7 +1595,10 @@ const [dossierOpen,setDossierOpen]=useState(false);
         )}
         {isInnerId(interior)&&packAssetUrl(interior,"dossier")&&
           <button type="button" className="area-return" onClick={()=>setDossierOpen(true)}>
-            ◈ ABRIR ARQUIVO ILUSTRADO DO DISTRITO
+            {isContractId(interior)&&readPerimeter(character.id).completed[interior]&&
+             !readVigil(character.id).completed[interior]?
+              "◈ NOVA MISSÃO: OPERAÇÃO VIGÍLIA — RESGATE":
+              "◈ ABRIR ARQUIVO ILUSTRADO DO DISTRITO"}
           </button>}
         {interior==="clinic"&&<section className="na-clinic-quick-treatment"
           aria-label="Atendimento médico da Clínica Comunitária">
