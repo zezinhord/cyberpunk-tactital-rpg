@@ -20,8 +20,9 @@ function diamond(x:number,y:number,w=56,h=28){
  return [[x,y-h/2],[x+w/2,y],[x,y+h/2],[x-w/2,y]]
   .map(p=>p.join(",")).join(" ");
 }
-function UnitSprite({unit,isPlayer,url,appearance}:{
- unit:Unit;isPlayer:boolean;url:string|undefined;appearance:TestAppearance
+function UnitSprite({unit,isPlayer,url,appearance,enemySheet,facing,pose}:{
+ unit:Unit;isPlayer:boolean;url:string|undefined;appearance:TestAppearance;
+ enemySheet?:string;facing:number;pose:number
 }){
  if(unit.hp<=0)return null;
  const p=point(unit),accent=isPlayer?"#00e5ff":"#ff2e88";
@@ -35,6 +36,12 @@ function UnitSprite({unit,isPlayer,url,appearance}:{
        overflow="hidden">
        <image href={url} x="0" y="0" width="768" height="320"/>
      </svg>:
+     !isPlayer&&enemySheet?
+      <svg x="-24" y="-70" width="48" height="70"
+        viewBox={String(facing*128)+" "+String(pose*192)+" 128 192"}
+        overflow="hidden" aria-label="Inimigo de defesa distrital com visual próprio">
+        <image href={enemySheet} x="0" y="0" width="1024" height="768"/>
+      </svg>:
      <image x="-23" y="-66" width="46" height="64"
        href={isPlayer?"/assets/arena/operative-"+(appearance==="feminine"?"f":"m")+".svg":
          "/assets/arena/sentinel.svg"}/>}
@@ -59,6 +66,12 @@ export default function Battlefield({manager,appearance,originId}:{
  const enemy=state.units.find(u=>u.id==="drone");
  const active=!state.combatComplete&&state.activeSide==="player";
  const spriteUrl=SPRITES["../assets/characters/player-"+originId+"-"+appearance+".png"];
+ // Only the current battle/wave image is fetched; others remain on disk.
+ const enemySheet=state.encounterId.startsWith("council-")?
+   "/assets/council-enemies/"+state.encounterId+"-w"+state.wave+".png":undefined;
+ const enemyFacing=player&&enemy?
+   (Math.round(Math.atan2(player.y-enemy.y,player.x-enemy.x)*4/Math.PI)+8)%8:0;
+ const enemyPose=state.activeSide==="enemy"?3:(state.round+state.wave)%3;
  function tap(cell:{x:number;y:number;blocked:boolean}){
    if(!active||cell.blocked)return;
    if(cell.x===0&&cell.y===6){manager.interactWithTerminal(0,6);return;}
@@ -128,7 +141,9 @@ export default function Battlefield({manager,appearance,originId}:{
       .sort((a,b)=>a.x+a.y-b.x-b.y)
       .map(unit=><UnitSprite key={unit.id} unit={unit}
         isPlayer={unit.id==="runner"}
-        url={unit.id==="runner"?spriteUrl:undefined} appearance={appearance}/>)}
+        url={unit.id==="runner"?spriteUrl:undefined}
+        enemySheet={unit.id==="drone"?enemySheet:undefined}
+        facing={enemyFacing} pose={enemyPose} appearance={appearance}/>)}
     <text x="15" y="16" fill="#b9d3d8" fontSize="9" letterSpacing="1">
       NOVA ARCÁDIA · COMBATE TÁTICO</text>
     <text x="460" y="16" fill="#ffd166" fontSize="9" textAnchor="end">
