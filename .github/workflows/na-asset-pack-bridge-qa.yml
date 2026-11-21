@@ -69,6 +69,8 @@ on:
       - tools/test_vigil_escorts.py
       - tools/produce_shelter_network.py
       - tools/test_shelter_network.py
+      - tools/produce_nexus_eden.py
+      - tools/test_nexus_eden.py
       - tools/test_tactical_simulations.py
       - tools/test_story_cinematics.py
       - src/dossier-gallery.css
@@ -135,6 +137,7 @@ jobs:
           python tools/test_perimeter_routes.py
           python tools/test_vigil_escorts.py
           python tools/test_shelter_network.py
+          python tools/test_nexus_eden.py
           python tools/test_council_enemy_art.py
       - name: Compile TypeScript without releasing incomplete game
         run: npx tsc -b
