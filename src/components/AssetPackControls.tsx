@@ -1,6 +1,6 @@
 import {useEffect,useMemo,useState} from "react";
 import {PACK_IDS,deliverySize,type PackId} from "../game/assets/pack-catalog.ts";
-import {formatAssetSize,installDistrictPack,inspectPack,removeDistrictPack,
+import {formatAssetSize,installDistrictPack,importDistrictPack,inspectPack,removeDistrictPack,
  verifiedCatalog,nativePackPlatform} from "../game/assets/native-pack-manager.ts";
 
 interface InstallState{stage:string;bytes:number;total:number}
@@ -62,6 +62,22 @@ export default function AssetPackControls(){
     (error instanceof Error?error.message:"erro de transferência"));
   }finally{setBusy(null);setTransfer(null);}
  }
+ async function importZip(id:PackId){
+  if(busy)return;
+  setBusy(id);setNotice("");setTransfer({stage:"import",bytes:0,total:0});
+  try{
+   const status=await importDistrictPack(id,event=>{
+    setTransfer({stage:event.stage,bytes:event.bytes,total:event.total});
+   });
+   setInstalled(prev=>({...prev,[id]:status.installed}));
+   setFree(status.freeBytes);
+   setNotice(DISTRICT_LABELS[id]+": ZIP autenticado instalado e disponível offline.");
+  }catch(error){
+   setNotice("Não foi possível importar "+DISTRICT_LABELS[id]+": "+
+    (error instanceof Error?error.message:"arquivo inválido ou seleção cancelada")+
+    ". Se o arquivo veio de Actions, extraia somente o ZIP externo para selecionar NA20-"+id+".zip.");
+  }finally{setBusy(null);setTransfer(null);}
+ }
  async function drop(id:PackId){
   if(busy)return;
   setBusy(id);setNotice("");
@@ -86,6 +102,10 @@ export default function AssetPackControls(){
      <h4>{formatAssetSize(total.totalBytes)} de conteúdo auditado</h4>
      <p>{total.targetReached?"Edição definitiva com os sete distritos.":
        "Marco intermediário de produção; a edição final de 3 GB ainda não foi publicada."}
+       Os ZIPs podem ser instalados pelo botão de download ou importados com o
+       seletor de arquivos Android. Para artefatos do GitHub Actions, extraia
+       o arquivo ZIP externo da ação e escolha o arquivo NA20-DISTRITO.zip,
+       sem extrair seu conteúdo.
        O aplicativo base é instalado normalmente. As artes adicionais são
        transferidas por distrito, uma única vez, com SHA-256 e salvamento
        no armazenamento privado do Android. Depois funcionam sem rede.</p>
@@ -106,15 +126,22 @@ export default function AssetPackControls(){
            <p>{pack.artworkCount} arquivos vinculados ao jogo.
             Download: {formatAssetSize(pack.compressedBytes)}.</p>
            {working&&transfer&&<small role="status">
-              {transfer.stage==="download"?"Baixando":
+              {transfer.stage==="download"?"Baixando":transfer.stage==="import"?"Importando ZIP":
                transfer.stage==="unpack"?"Verificando e instalando":
                "Processando"}: {formatAssetSize(transfer.bytes)} de
                {formatAssetSize(transfer.total)}
             </small>}
          </div>
-         <button type="button" disabled={busy!==null} onClick={()=>done?drop(id):add(id)}>
-           {working?"Aguarde":done?"Remover extras":"Baixar conteúdo"}
-         </button>
+         <div className="na-local-pack-actions">
+          <button type="button" disabled={busy!==null}
+           onClick={()=>done?drop(id):add(id)}>
+           {working?"Processando":done?"Remover extras":"Baixar da release"}
+          </button>
+          {!done&&<button type="button" disabled={busy!==null}
+            onClick={()=>importZip(id)} aria-label={"Importar ZIP local do distrito "+DISTRICT_LABELS[id]}>
+            Importar ZIP local
+          </button>}
+         </div>
        </article>;
      })}
    </section>

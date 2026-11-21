@@ -18,6 +18,8 @@ interface NativePackApi{
  install(options:{id:PackId;releaseTag:string;sha256:string;compressedBytes:number;
   uncompressedBytes:number;artworkCount:number}):Promise<NativePackInstall>;
  asset(options:{id:PackId;path:string}):Promise<{uri:string;bytes:number}>;
+ importLocal(options:{id:PackId;sha256:string;compressedBytes:number;
+  uncompressedBytes:number;artworkCount:number}):Promise<NativePackInstall>;
  remove(options:{id:PackId}):Promise<{removedBytes:number}>;
  addListener(eventName:"progress",
   callback:(progress:NativePackProgress)=>void):Promise<PluginListenerHandle>;
@@ -84,6 +86,28 @@ export async function installDistrictPack(id:PackId,
   if(!result.installed||!trustedBaseUri(result.baseUri))
    throw new Error("O instalador não confirmou um diretório válido.");
   // Only update the local asset resolver after native SHA verification.
+  globalThis.localStorage?.setItem(URI_PREFIX+id,result.baseUri);
+  return await inspectPack(id);
+ }finally{await listener?.remove();}
+}
+/** System picker import of the exact authenticated district ZIP, without
+ * depending on the ability to publish GitHub Releases. The native bridge
+ * validates size + SHA256 and uses the same private atomic installation path.
+ */
+export async function importDistrictPack(id:PackId,
+ onProgress?:(progress:NativePackProgress)=>void):Promise<PackInstallStatus>{
+ if(!nativePackPlatform())throw new Error("Importação local disponível apenas no Android.");
+ if(!isPackId(id))throw new Error("Distrito inválido.");
+ const pack=verifiedCatalog().packs.find(p=>p.id===id);
+ if(!pack)throw new Error("Catálogo de conteúdo autenticado indisponível.");
+ const listener=onProgress?await plugin.addListener("progress",onProgress):null;
+ try{
+  const result=await plugin.importLocal({
+   id,sha256:pack.sha256,compressedBytes:pack.compressedBytes,
+   uncompressedBytes:pack.uncompressedBytes,artworkCount:pack.artworkCount,
+  });
+  if(!result.installed||!trustedBaseUri(result.baseUri))
+   throw new Error("O Android não confirmou um diretório seguro.");
   globalThis.localStorage?.setItem(URI_PREFIX+id,result.baseUri);
   return await inspectPack(id);
  }finally{await listener?.remove();}
