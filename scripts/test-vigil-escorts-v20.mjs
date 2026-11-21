@@ -40,6 +40,9 @@ for(const room of EXPANSION_ROOM_DESIGNS){
   visible.map(p=>p.x+","+p.y).join(">");
  signatures.add(signature);
  for(let t=0;t<5;t++)assert.equal(vigilGuards(id,t).length,3);
+ const patrolState=new Set(Array.from({length:8},(_,t)=>
+   vigilGuards(id,t).map(g=>g.x+","+g.y).join(";")));
+ assert.ok(patrolState.size>=2,"Sentries must actually change positions "+id);
  const perimeter={version:1,active:{},completed:{[id]:true}};
  assert.equal(vigilUnlocked(perimeter,id),true);
  assert.equal(vigilUnlocked({version:1,active:{},completed:{}},id),false);
@@ -105,6 +108,19 @@ assert.ok(run);
 assert.equal(moveVigil(active,id,-1,9).ok,false);
 assert.equal(moveVigil(active,id,2,5,"corrida").ok,false);
 assert.equal(moveVigil(active,id,1,7,"teleport").ok,false);
+const map0=mapForVigil(id);
+let sprintRoom=EXPANSION_ROOM_DESIGNS.find(room=>{
+ const p=mapForVigil(room.id).corridor;
+ return p[0].x===p[2].x||p[0].y===p[2].y;
+});
+assert.ok(sprintRoom,"At least one authored route must allow two-tile sprint");
+const sprId=sprintRoom.id;
+const sprStart=startVigil(EMPTY_VIGIL,{version:1,active:{},completed:{[sprId]:true}},sprId).state;
+const sprintTarget=mapForVigil(sprId).corridor[2];
+const sprint=moveVigil(sprStart,sprId,sprintTarget.x,sprintTarget.y,"corrida");
+assert.equal(sprint.ok,true);
+assert.equal(vigilRun(sprint.state,sprId).turn,1,"Sprint crosses two cells in one turn");
+
 assert.equal(rescueVigil(active,id).ok,false);
 assert.equal(divertVigil(active,id).ok,true);
 assert.equal(reorganizeVigil(active,id).ok,true);
