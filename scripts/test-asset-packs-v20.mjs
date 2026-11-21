@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {BASELINE_APK_BYTES,FINAL_DELIVERY_MIN_BYTES,
- EMPTY_CATALOG,PACK_IDS,PACK_RELEASE_TAG,
+ EMPTY_CATALOG,PACK_IDS,PACK_RELEASE_TAG,FIRST_MILESTONE_RELEASE_TAG,isTrustedReleaseTag,
  packDownloadUrl,isPackId,isAssetPath,validatePackCatalog,deliverySize}
  from "../src/game/assets/pack-catalog.ts";
 const sha="a".repeat(64);
@@ -33,6 +33,14 @@ function candidate(compressedBytes=280_000_000){
 }
 const done=candidate();
 assert.equal(validatePackCatalog(done),true);
+const firstMilestone={...done,tag:FIRST_MILESTONE_RELEASE_TAG};
+assert.equal(validatePackCatalog(firstMilestone),true);
+assert.equal(isTrustedReleaseTag(FIRST_MILESTONE_RELEASE_TAG),true);
+assert.equal(isTrustedReleaseTag("../unsafe"),false);
+assert.ok(packDownloadUrl("baixada",FIRST_MILESTONE_RELEASE_TAG)
+ .includes("/releases/download/nova-arcadia-v200-milestone-1474/"));
+assert.throws(()=>packDownloadUrl("baixada","../evil"));
+
 assert.equal(deliverySize(done).targetReached,true);
 assert.equal(deliverySize(done).shortfallBytes,0);
 assert.ok(deliverySize(done).totalBytes>3_000_000_000,
