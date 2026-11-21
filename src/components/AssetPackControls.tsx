@@ -1,4 +1,5 @@
 import {useEffect,useMemo,useState} from "react";
+import "../asset-pack-controls.css";
 import {PACK_IDS,deliverySize,type PackId} from "../game/assets/pack-catalog.ts";
 import {formatAssetSize,installDistrictPack,importDistrictPack,inspectPack,removeDistrictPack,
  verifiedCatalog,nativePackPlatform} from "../game/assets/native-pack-manager.ts";
