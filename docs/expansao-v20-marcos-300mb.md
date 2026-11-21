@@ -68,3 +68,34 @@ GitHub Actions: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs
 - Inicialização e reinicialização confirmadas no emulador Android 15 com configuração de 2 GB.
 
 **Instalação:** o APK RC7 substitui a instalação QA201 (mesmo ID e chave), sem excluir salvamentos locais. Quem utiliza QA200 ou outra variante precisa preservar o backup, pois seu package ID é diferente. Abra *Configurações → Conteúdo extra* e baixe novamente os sete ZIPs, pois as assinaturas SHA dos pacotes foram atualizadas. Os extras ficam offline depois da transferência; mantenha espaço livre adicional durante extração. Os testes físicos no Galaxy A07 e Redmi Note 12s continuam recomendados.
+
+## Marco 3 — Operação Limiar (publicado em 21/11/2026)
+
+**STATUS: homologado no Android 15 / 2GB e distribuído (não definitivo).**
+
+- Release oficial: https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/tag/nova-arcadia-v200-milestone-2074
+- Build e instalação: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44903444904 — sucesso em todas as etapas.
+- Auditoria das ilustrações originais: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44902142389 — sucesso.
+- APK assinado QA201, versão 2.0.0-rc.8: **1.144.096.471 bytes**.
+- Sete ZIPs autenticados: **1.053.830.005 bytes**.
+- Tamanho realmente publicado (APK + 7 packs): **2.197.926.476 bytes** (2.197,93 MB).
+- Aumento sobre a release QA201 RC7: **328.854.804 bytes** (328,85 MB).
+- Próxima meta sequencial: **2.374.082.151 bytes**; faltam **176.155.675 bytes**.
+- Restante para 3.000.000.000 bytes: **802.073.524 bytes**.
+- Fração da meta final: **73,26%**.
+
+### Mecânica integrada: Operação Limiar
+
+São 28 novas patrulhas exploráveis, uma por cada interior de investigação, desbloqueadas após concluir as seis etapas de A Cidade Responde. A exploração utiliza **mapas clicáveis reais de 8×8**, com **28 layouts independentes**, paredes bloqueantes, áreas de vigilância, risco, ferramentas de proteção e pressão de alarme. A patrulha exige movimentar o personagem ortogonalmente, alcançar cinco equipamentos em sequência e resolver as intervenções por decisões contextuais; ao atingir alerta crítico, a equipe recua ao posto seguro sem apagar as provas.
+
+**140 postos de intervenção**, com 35 desafios técnicos regionais específicos, aplicados aos quatro interiores de cada distrito. Conclusão gera **138 XP por interior uma única vez**, reconciliados com o salvamento em caso de reinício/crash. Integrado a importação/exportação JSON de backup sem invalidar personagens antigos.
+
+### Arte efetivamente jogável, sem enchimento por áudio
+
+**560 mapas originais** de patrulha a 2880×1620, com paredes, zonas de risco e postos correspondentes aos dados de gameplay; **328.722.348 bytes** de imagens novas WebP, sem duplicação. Os pacotes contêm **2.128 artes** no total (28 murais, 84 objetos, 336 dossiês, 448 cinemáticas, 672 quadros de simulação e 560 plantas da Operação Limiar), usadas nas 28 salas. Um quadro de cada vez é carregado no Android.
+
+### Homologação
+
+Validações de roteiros, mapa, deslocamento, bloqueios, 140 escolhas, SHA-256 de cada asset e de cada ZIP, proteção contra URLs arbitrárias, TypeScript, Vite, Gradle, identidade de assinatura QA201, APK, teste de abertura e de reinicialização em emulador Android 15 configurado com 2 GB de RAM: **todas aprovadas**. A atualização usa a mesma identificação Android e chave de assinatura QA201 para upgrade sobre RC7. Testes físicos em Galaxy A07 e Redmi Note 12s seguem recomendados: emulador não valida todas as GPUs nem o desempenho em campo.
+
+A edição final de 3 GB ainda não foi lançada; o status desta entrega é **QA RC8 — marco 3**.
