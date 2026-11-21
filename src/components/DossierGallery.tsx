@@ -190,7 +190,7 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
          "A CIDADE RESPONDE · avance pelos quatro registros da fase, analise os indícios e decida como proceder."}</p>}
        {simulationNotice&&<p className="na-simulation-feedback">{simulationNotice}</p>}
        {mode==="route"&&perimeterNotice&&<p className="na-simulation-feedback">
-         {perimeterNotice}</p>}}
+         {perimeterNotice}</p>}
      </div>
      {routeQuestion&&simulationRoom&&mode==="route"&&<section
          className="na-simulation-puzzle" aria-label="Decisão tática da patrulha">
