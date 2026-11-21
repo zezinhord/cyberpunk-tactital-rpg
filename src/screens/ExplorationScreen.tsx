@@ -56,7 +56,7 @@ import {readFerrugem,saveFerrugem,startFerrugem,advanceFerrugem,
 import {DISTRICTS,isDistrictId,getDistrict,actorFromId,type DistrictId} from "../game/districts/catalog";
 import {isInnerId,isInnerInteract,INNER_BLUEPRINTS,INNER_IDS,type InnerId} from "../game/districts/interiors.ts";
 import {innerReceipt} from "../game/story/indoor-rewards.ts";
-import {packAssetUrl} from "../game/assets/native-pack-manager.ts";
+
 import {readPerimeter} from "../game/story/perimeter-routes.ts";
 import {readVigil} from "../game/story/vigil-escorts.ts";
 import {INNER_CONTRACTS,isContractId,readContracts,saveContracts,startContract,
@@ -1593,12 +1593,12 @@ const [dossierOpen,setDossierOpen]=useState(false);
               "← RETORNAR AO DISTRITO":"← RETORNAR À BAIXADA"}
           </button>
         )}
-        {isInnerId(interior)&&packAssetUrl(interior,"dossier")&&
+        {isContractId(interior)&&
           <button type="button" className="area-return" onClick={()=>setDossierOpen(true)}>
             {isContractId(interior)&&readPerimeter(character.id).completed[interior]&&
              !readVigil(character.id).completed[interior]?
               "◈ NOVA MISSÃO: OPERAÇÃO VIGÍLIA — RESGATE":
-              "◈ ABRIR ARQUIVO ILUSTRADO DO DISTRITO"}
+              "◈ ABRIR MISSÕES E ARQUIVO DO DISTRITO"}
           </button>}
         {interior==="clinic"&&<section className="na-clinic-quick-treatment"
           aria-label="Atendimento médico da Clínica Comunitária">
