@@ -7,13 +7,32 @@ registerHooks({resolve(path,ctx,next){
 }});
 const {EXPANSION_ROOM_DESIGNS}=await import("../src/game/districts/expansion-interiors.ts");
 const {EMPTY_VIGIL,mapForVigil,vigilGuards,startVigil,rescueVigil,
- divertVigil,vigilRun,validVigil}=await import("../src/game/story/vigil-escorts.ts");
+ divertVigil,vigilRun,validVigil,planVigilRoute}=await import("../src/game/story/vigil-escorts.ts");
 const distance=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 let exposed=0,concealed=0,retreats=0;
 for(const room of EXPANSION_ROOM_DESIGNS){
  const id=room.id,map=mapForVigil(id),group=map.groups[0];
  const perimeter={version:1,active:{},completed:{[id]:true}};
  const initial=startVigil(EMPTY_VIGIL,perimeter,id).state;
+ const origin=vigilRun(initial,id);
+ for(const approach of ["normal","furtivo","corrida"]){
+  const plan=planVigilRoute(id,origin,map.exit,approach);
+  assert.ok(plan,"All authored missions must have an escape route");
+  let cursor={x:origin.x,y:origin.y};
+  for(const next of plan.steps){
+   const delta=distance(cursor,next);
+   assert.ok(delta===1||(approach==="corrida"&&delta===2&&
+     (cursor.x===next.x||cursor.y===next.y)));
+   assert.ok(!map.blocked.has(next.x+","+next.y));
+   if(delta===2)assert.ok(!map.blocked.has(
+     ((cursor.x+next.x)/2)+","+((cursor.y+next.y)/2)));
+   cursor=next;
+  }
+  assert.deepEqual(cursor,map.exit);
+  assert.equal(plan.turns,plan.steps.length);
+ }
+ assert.equal(planVigilRoute(id,origin,{x:-1,y:99}),null);
+
  for(let turn=0;turn<8;turn++){
   const guards=vigilGuards(id,turn+1);
   const spotted=guards.some(g=>distance(g,group)<=1);
