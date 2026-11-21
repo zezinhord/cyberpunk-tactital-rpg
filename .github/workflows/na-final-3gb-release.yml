@@ -55,20 +55,27 @@ jobs:
           JS
       - name: Generate physical room tiles for the new Android client
         run: python tools/generate_v20_illustrations.py
-      - name: Produce all 3808 independent art plates across seven playable districts
+      - name: Preflight all new campaigns before expensive art transfer
         run: |
-          set -euo pipefail
-          python tools/produce_district_archives.py --source resourcepacks/source
-          python tools/produce_story_cinematics.py --source resourcepacks/source
-          python tools/test_story_cinematics.py --source resourcepacks/source --full
-          python tools/produce_tactical_simulations.py --source resourcepacks/source
-          python tools/test_tactical_simulations.py --source resourcepacks/source --full
-          python tools/produce_perimeter_routes.py --source resourcepacks/source
-          python tools/test_perimeter_routes.py --source resourcepacks/source --full
-          python tools/produce_vigil_escorts.py --source resourcepacks/source
-          python tools/test_vigil_escorts.py --source resourcepacks/source --full
-          python tools/produce_shelter_network.py --source resourcepacks/source
-          python tools/test_shelter_network.py --source resourcepacks/source --full
+          npx tsc -b
+          node --experimental-strip-types scripts/test-shelter-network-v20.mjs
+          node --experimental-strip-types scripts/test-nexus-eden-v20.mjs
+          node --experimental-strip-types scripts/test-asset-packs-v20.mjs
+          python tools/test_3gb_pack_builder.py
+      - name: Download 3136 SHA-256 authenticated original art resources
+        uses: actions/download-artifact@v4
+        with:
+          name: NovaArcadia-2.0-Art-Production-Audit-NOT-FINAL
+          repository: ${{ github.repository }}
+          run-id: 44939541072
+          github-token: ${{ github.token }}
+          path: .
+      - name: Verify and recover art sources without regenerating earlier 3136 originals
+        run: |
+          python tools/restore_verified_art_sources.py \
+            --packs resourcepacks/release --source resourcepacks/source
+      - name: Render 672 extra Éden infiltration panels for six live relays per room
+        run: |
           python tools/produce_nexus_eden.py --source resourcepacks/source
           python tools/test_nexus_eden.py --source resourcepacks/source --full
       - name: Enforce REAL 3GB original-content and all nine playable visual families
