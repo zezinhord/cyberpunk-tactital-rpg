@@ -140,6 +140,10 @@ assert.ok(gallery.includes('mode==="evac"'));
 assert.ok(gallery.includes("moveVigil(vigil"));
 assert.ok(gallery.includes("rescueVigil(vigil"));
 assert.ok(gallery.includes("onQuestXp("+'"vigil-"+simulationRoom'));
+const exploration=readFileSync("src/screens/ExplorationScreen.tsx","utf8");
+assert.ok(exploration.includes("{isContractId(interior)&&"));
+assert.ok(!exploration.includes('packAssetUrl(interior,"dossier")'),
+ "New missions must remain playable without optional Android ZIP image packs");
 const backup=readFileSync("src/game/character/backup.ts","utf8");
 assert.ok(backup.includes("vigil:VIGIL_KEY"));
 assert.ok(backup.includes("validVigil(decoded)"));
