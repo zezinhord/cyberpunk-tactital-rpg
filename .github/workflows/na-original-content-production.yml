@@ -10,6 +10,8 @@ on:
       - tools/generate_v20_illustrations.py
       - tools/generate_council_enemy_art.py
       - tools/test_council_enemy_art.py
+      - tools/na_milestones.py
+      - tools/test_na_milestones.py
       - tools/build_3gb_asset_packs.py
       - src/game/districts/expansion-interiors.ts
   workflow_dispatch:
@@ -72,6 +74,11 @@ jobs:
             json.dumps(report,ensure_ascii=False,indent=2))
           print(json.dumps(report,ensure_ascii=False,indent=2))
           PY
+      - name: Calculate real sequential 300 MB release gates
+        run: |
+          python tools/test_na_milestones.py
+          TOTAL="$(python -c "import json; print(json.load(open('resourcepacks/release/production-report.json'))['total_bytes'])")"
+          python tools/na_milestones.py --total-bytes "$TOTAL" --signed-apk --audited-packs --output resourcepacks/release/milestones.json
       - name: Preserve actual audit and all seven inspectable art packs
         uses: actions/upload-artifact@v4
         with:
@@ -81,6 +88,7 @@ jobs:
             resourcepacks/release/manifest.json
             resourcepacks/release/SHA256SUMS.txt
             resourcepacks/release/production-report.json
+            resourcepacks/release/milestones.json
             public/assets/council-enemies/*.png
             public/assets/council-enemies/catalog.json
           retention-days: 5
@@ -90,6 +98,7 @@ jobs:
           python - <<'PY'
           import json
           x=json.load(open('resourcepacks/release/production-report.json'))
+          m=json.load(open('resourcepacks/release/milestones.json'))
           with open(__import__('os').environ['GITHUB_STEP_SUMMARY'],'a') as out:
             out.write('# Nova Arcádia — arte autoral produzida\n')
             out.write(f"**{x['artworks']}** arquivos gráficos usados em 28 salas; "
@@ -99,7 +108,11 @@ jobs:
                       f"{x['generated_enemy_bytes']:,} bytes de arte original. "
                       "Esses bytes só serão contabilizados na meta quando "
                       "a nova APK assinada for gerada.\n\n")
-            out.write(f"Bytes reais (APK RC4 + conteúdo instalado): **{x['total_bytes']:,}**.\n\n")
+            out.write(f"Bytes auditados (APK RC4 + pacotes): **{x['total_bytes']:,}**.\n\n")
+            out.write(f"Marcos de +300 MB concluídos após a linha inicial: "
+                      f"**{m['verifiedMilestones']}**. "
+                      f"Próxima meta: **{m['nextTargetBytes']:,}** bytes. "
+                      f"Restam **{m['remainingToNextBytes']:,}** bytes.\n\n")
             if x['still_missing_bytes']:
               out.write(f"**NÃO FINAL**: faltam {x['still_missing_bytes']:,} bytes "
                         "de recursos originais para a distribuição de 3 GB.\n")
