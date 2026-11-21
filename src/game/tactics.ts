@@ -32,6 +32,37 @@ export function enemyProfile(encounter:EncounterId,wave:number):EnemyProfile{
  if(encounter==="eden-core")return wave>=2
   ?{role:"hunter",name:"Guardião do Éden",range:4,mobility:3,preferredDistance:3}
   :{role:"helix",name:"Escolta autônoma",range:3,mobility:2,preferredDistance:2};
+ if(encounter.startsWith("council-")){
+   // Distinct narrative threats for each community's chosen infrastructure.
+   // Each follow-up wave deliberately changes role/range/priority, not just HP.
+   switch(encounter){
+     case "council-baixada":return wave>=2
+       ?{role:"suppressor",name:"Dreno automatizado de cisternas",range:4,mobility:2,preferredDistance:3}
+       :{role:"drone",name:"Drone de corte hídrico",range:2,mobility:3,preferredDistance:1};
+     case "council-ferrugem":return wave>=2
+       ?{role:"hunter",name:"Executor de produção Helix",range:4,mobility:3,preferredDistance:3}
+       :{role:"saboteur",name:"Sabotador do freio industrial",range:3,mobility:3,preferredDistance:2};
+     case "council-aurea":return wave===1
+       ?{role:"sniper",name:"Atirador de arquivo clínico",range:5,mobility:1,preferredDistance:4}
+       :wave===2
+        ?{role:"saboteur",name:"Apagador de prontuários",range:3,mobility:3,preferredDistance:2}
+        :{role:"hunter",name:"Guarda de auditoria blindado",range:4,mobility:3,preferredDistance:3};
+     case "council-subsolo":return wave>=2
+       ?{role:"suppressor",name:"Bloqueador de ar pressurizado",range:4,mobility:2,preferredDistance:3}
+       :{role:"saboteur",name:"Contaminador do duto",range:3,mobility:3,preferredDistance:2};
+     case "council-setor-zero":return wave===1
+       ?{role:"helix",name:"Escolta de isolamento",range:3,mobility:2,preferredDistance:2}
+       :wave===2
+        ?{role:"suppressor",name:"Vigia do reator",range:4,mobility:2,preferredDistance:3}
+        :{role:"sniper",name:"Executor do último veto",range:5,mobility:2,preferredDistance:4};
+     case "council-prisma":return wave>=2
+       ?{role:"sniper",name:"Atirador antitransmissão",range:5,mobility:1,preferredDistance:4}
+       :{role:"suppressor",name:"Censor de sinal",range:4,mobility:2,preferredDistance:3};
+     case "council-periferia":return wave>=2
+       ?{role:"hunter",name:"Perseguidor de caravanas",range:4,mobility:3,preferredDistance:3}
+       :{role:"helix",name:"Bloqueador de estrada",range:3,mobility:2,preferredDistance:2};
+   }
+ }
  if(encounter.startsWith("district-")){
    if(wave>=3)return {role:"hunter",name:"Caçador Helix",range:4,mobility:3,preferredDistance:3};
    if(wave===1&&(encounter==="district-aurea"||encounter==="district-prisma"))
