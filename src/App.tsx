@@ -64,6 +64,7 @@ import {collectInnerProp,reconcileInnerExperience} from "./game/story/indoor-rew
 import {readReputation,syncFactionAids} from "./game/story/reputation";
 import {SIEGE_TERMINAL_NAMES} from "./game/combat/siege-terminals.ts";
 import {readSimulations,SIMULATION_PHASES,SIMULATION_REWARD_XP} from "./game/story/field-simulations.ts";
+import {readPerimeter,PERIMETER_XP} from "./game/story/perimeter-routes.ts";
 import {readRecovery,RECOVERY_TASKS,mergeRecoverySupport,
  recoveryCombatSupport} from "./game/story/recovery-network.ts";
 import {readUrban,urbanCombatSupport} from "./game/story/urban-chronicles.ts";
@@ -382,6 +383,10 @@ export default function App() {
     for(const [room,phase] of Object.entries(scenes.solved)){
       if(phase===SIMULATION_PHASES&&
         !grantTrialXp("field-simulation-"+room,SIMULATION_REWARD_XP))return false;
+    }
+    const perimeter=readPerimeter(active.id);
+    for(const room of Object.keys(perimeter.completed)){
+      if(!grantTrialXp("perimeter-"+room,PERIMETER_XP))return false;
     }
     const cisma=readCisma(active.id);
     for(const id of cisma.history){
