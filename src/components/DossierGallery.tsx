@@ -1,9 +1,13 @@
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
+import {readArchiveProgress,saveArchiveProgress,markArchivePage,archiveReadCount,
+ type ArchiveProgress} from "../game/story/archive-progress.ts";
+import {isContractId} from "../game/story/inner-contracts.ts";
 import {packForRoom,packAssetUrl} from "../game/assets/native-pack-manager.ts";
 import "../dossier-gallery.css";
 
-interface Props{room:string;onClose:()=>void}
-export default function DossierGallery({room,onClose}:Props){
+interface Props{room:string;characterId:string;onClose:()=>void}
+export default function DossierGallery({room,characterId,onClose}:Props){
+ const [progress,setProgress]=useState<ArchiveProgress>(()=>readArchiveProgress(characterId));
  const pages=useMemo(()=>{
   const pack=packForRoom(room);
   return (pack?.assets??[])
@@ -14,6 +18,14 @@ export default function DossierGallery({room,onClose}:Props){
  const [zoom,setZoom]=useState(false);
  const [imageError,setImageError]=useState(false);
  const current=pages[index];
+ useEffect(()=>{
+   if(!current||!isContractId(room))return;
+   const next=markArchivePage(progress,room,index);
+   if(next===progress)return;
+   // Page reading is an optional codex; never prevent visual browsing on low storage.
+   if(saveArchiveProgress(characterId,next))setProgress(next);
+ },[index,current,room,characterId,progress]);
+ const read=isContractId(room)?archiveReadCount(progress,room):0;
  const src=current?packAssetUrl(room,"dossier",
   current.path.split("/").at(-1)?.split(".")[0]):null;
  return <div className="na-dossier-overlay" role="dialog" aria-modal="true"
@@ -23,7 +35,7 @@ export default function DossierGallery({room,onClose}:Props){
        <div>
          <small>ARQUIVO INVESTIGATIVO · NOVA ARCÁDIA 2.0</small>
          <strong>{room.replaceAll("-"," ").toUpperCase()}</strong>
-         <span>{pages.length?index+1:0} / {pages.length} PRANCHAS</span>
+         <span>{pages.length?index+1:0} / {pages.length} PRANCHAS · {read} LIDAS</span>
        </div>
        <button type="button" onClick={onClose} aria-label="Fechar arquivo">Fechar ×</button>
      </header>
