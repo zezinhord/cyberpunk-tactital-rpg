@@ -106,7 +106,11 @@ jobs:
       - name: Compile production Vite with real restoration quest and original enemy sheets
         run: |
           python tools/generate_council_enemy_art.py
-          npm run build
+          # The regular npm prebuild creates 1GB+ of audio and needs FFmpeg.
+          # Only generate game sprites and bundle the current web gameplay:
+          # this is a content smoke test, not an artificial APK size exercise.
+          python tools/generate_character_sprites.py
+          npx vite build
           test -s dist/index.html
           test -s dist/assets/council-enemies/catalog.json
           test "$(find dist/assets/council-enemies -name 'council-*-w*.png' | wc -l)" -eq 16
