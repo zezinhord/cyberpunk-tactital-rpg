@@ -84,7 +84,7 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
  const pages=useMemo(()=>{
   const pack=packForRoom(room);
   return (pack?.assets??[])
-   .filter(a=>a.room===room&&a.kind===mode)
+   .filter(a=>a.room===room&&(a.kind===mode||(mode==="evac"&&a.kind==="route")))
    .sort((a,b)=>a.path.localeCompare(b.path));
  },[room,mode]);
  const [index,setIndex]=useState(0);
