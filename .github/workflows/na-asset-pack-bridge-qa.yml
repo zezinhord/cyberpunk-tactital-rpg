@@ -28,6 +28,8 @@ on:
       - src/game/combat/tactical-maps.ts
       - src/game/combat/siege-terminals.ts
       - scripts/test-siege-terminals-v20.mjs
+      - tools/na_milestones.py
+      - tools/test_na_milestones.py
       - scripts/test-council-tactical-maps-v20.mjs
       - src/components/Battlefield.tsx
       - tools/generate_council_enemy_art.py
@@ -74,7 +76,9 @@ jobs:
       - name: Verify manifest security and real 3GB release acceptance
         run: node --experimental-strip-types scripts/test-asset-packs-v20.mjs
       - name: Verify 7 offline pack archives with 224 disposable art fixtures
-        run: python tools/test_3gb_pack_builder.py
+        run: |
+          python tools/test_3gb_pack_builder.py
+          python tools/test_na_milestones.py
       - name: Play through 28 forensic investigations and validate backwards compatible saves
         run: |
           node --experimental-strip-types scripts/test-inner-contracts-v20.mjs
