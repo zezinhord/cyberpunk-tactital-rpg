@@ -42,8 +42,9 @@ public class NovaAssetPacks extends Plugin {
             "https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/download/";
     private static final String RELEASE_FINAL = "nova-arcadia-v200-final-3gb-assets";
     private static final String RELEASE_MILESTONE = "nova-arcadia-v200-milestone-1474";
+    private static final String RELEASE_SECOND = "nova-arcadia-v200-milestone-1774";
     private static boolean validReleaseTag(String tag) {
-        return RELEASE_FINAL.equals(tag) || RELEASE_MILESTONE.equals(tag);
+        return RELEASE_FINAL.equals(tag) || RELEASE_MILESTONE.equals(tag) || RELEASE_SECOND.equals(tag);
     }
     private static final long MIN_ZIP_SIZE = 1024L;
     private static final long MAX_ZIP_SIZE = 1_900_000_000L;
