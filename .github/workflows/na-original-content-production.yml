@@ -9,6 +9,8 @@ on:
       - tools/produce_district_archives.py
       - tools/produce_story_cinematics.py
       - tools/produce_tactical_simulations.py
+      - tools/produce_perimeter_routes.py
+      - tools/test_perimeter_routes.py
       - tools/test_tactical_simulations.py
       - tools/test_story_cinematics.py
       - tools/generate_v20_illustrations.py
@@ -56,6 +58,10 @@ jobs:
         run: |
           python tools/produce_tactical_simulations.py --source resourcepacks/source
           python tools/test_tactical_simulations.py --source resourcepacks/source --full
+      - name: Render 560 real patrol floorplan viewpoints for 28 active mission maps
+        run: |
+          python tools/produce_perimeter_routes.py --source resourcepacks/source
+          python tools/test_perimeter_routes.py --source resourcepacks/source --full
       - name: Audit 7 district manifests and build 7 original ZIP packs
         run: |
           set -euo pipefail
@@ -68,21 +74,23 @@ jobs:
           cat=json.loads(Path('resourcepacks/release/manifest.json').read_text())
           assert len(cat['packs'])==7
           assert all(p['locationCount']==4 for p in cat['packs'])
-          assert all(p['artworkCount']==224 for p in cat['packs'])
-          assert sum(p['artworkCount'] for p in cat['packs'])==1568
+          assert all(p['artworkCount']==304 for p in cat['packs'])
+          assert sum(p['artworkCount'] for p in cat['packs'])==2128
           sprite=json.loads(Path('public/assets/council-enemies/catalog.json').read_text())
           assert sprite['artworks']==16 and sprite['frames']==512
           # The extra original enemy sprites count in production but NOT in
           # the audited base APK total until a signed build includes them.
           total=1_143_503_198+cat['totalBytes']
-          report=dict(audited=True,artworks=1568,cinematic_scenes=448,
+          report=dict(audited=True,artworks=2128,cinematic_scenes=448,
                       tactical_simulation_frames=672,simulation_decisions=168,
+                      perimeter_patrol_frames=560,perimeter_objectives=140,
                       enemy_sprites=16,
                       enemy_animation_frames=512,
                       generated_enemy_bytes=sprite['totalBytes'],interactive_rooms=28,
                       documents=336,total_bytes=total,
                       first_300mb_observed=total>=1_474_082_151,
                       second_300mb_observed=total>=1_775_365_848,
+                      third_300mb_observed=total>=2_074_082_151,
                       target_bytes=3_000_000_000,
                       still_missing_bytes=max(0,3_000_000_000-total),
                       ready_for_final_release=total>=3_000_000_000)
@@ -120,7 +128,9 @@ jobs:
             out.write(f"**{x['artworks']}** arquivos originais em 28 salas; "
                       f"{x['documents']} pranchas e "
                       f"{x['cinematic_scenes']} quadros cinematográficos e "
-                      f"{x['tactical_simulation_frames']} cenas de operações táticas.\n\n")
+                      f"{x['tactical_simulation_frames']} cenas de operações táticas e "
+                      f"{x['perimeter_patrol_frames']} plantas navegáveis para "
+                      f"{x['perimeter_objectives']} objetivos de patrulha.\n\n")
             out.write(f"Novos sprites: {x['enemy_sprites']} atlases, "
                       f"{x['enemy_animation_frames']} poses/direções, "
                       f"{x['generated_enemy_bytes']:,} bytes de arte original. "
