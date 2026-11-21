@@ -306,7 +306,84 @@ jobs:
             adb shell am start -W -n "$NA_PACKAGE"/com.cyberpunk.tacticalrpg.MainActivity
             sleep 4
             NA_TEST_PACKAGE="$NA_PACKAGE" node scripts/test-android-webview-startup.mjs
+      - name: Preserve independently tested signed RC11-3GB Android APK even without release-write permission
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-RC11-3GB-Android-QA201-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+      - name: Preserve authenticated baixada district ZIP separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-RC11-3GB-Pack-baixada
+          path: resourcepacks/release/NA20-baixada.zip
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+      - name: Preserve authenticated ferrugem district ZIP separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-RC11-3GB-Pack-ferrugem
+          path: resourcepacks/release/NA20-ferrugem.zip
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+      - name: Preserve authenticated aurea district ZIP separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-RC11-3GB-Pack-aurea
+          path: resourcepacks/release/NA20-aurea.zip
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+      - name: Preserve authenticated subsolo district ZIP separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-RC11-3GB-Pack-subsolo
+          path: resourcepacks/release/NA20-subsolo.zip
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+      - name: Preserve authenticated setor-zero district ZIP separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-RC11-3GB-Pack-setor-zero
+          path: resourcepacks/release/NA20-setor-zero.zip
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+      - name: Preserve authenticated prisma district ZIP separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-RC11-3GB-Pack-prisma
+          path: resourcepacks/release/NA20-prisma.zip
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+      - name: Preserve authenticated periferia district ZIP separately
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-RC11-3GB-Pack-periferia
+          path: resourcepacks/release/NA20-periferia.zip
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
+      - name: Preserve checksums, catalog and signed size report for RC11-3GB
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-RC11-3GB-SHA256-Manifest-Reports
+          path: |
+            resourcepacks/release/manifest.json
+            resourcepacks/release/SHA256SUMS.txt
+            resourcepacks/release/qa-*.json
+          retention-days: 14
+          compression-level: 0
+          if-no-files-found: error
       - name: Publish VERIFIED Android 3GB content QA201 only after emulator succeeds
+        id: github_release
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -325,4 +402,18 @@ jobs:
             resourcepacks/release/qa-2674-signed-report.json \
             resourcepacks/release/qa-2674-milestones.json \
             --repo "$GITHUB_REPOSITORY"
-          echo "Verified >=3GB source content published only after signed Android acceptance."
+          echo "Optional GitHub Releases upload attempted after passing Android QA."
+      - name: Report independently downloadable signed Android artifacts
+        if: always()
+        run: |
+          {
+            echo "## Nova Arcádia RC11-3GB — verified QA delivery"
+            echo "GitHub Actions provides a signed APK artifact and seven separate authenticated ZIP district packs."
+            echo "To install: download Android-QA201-APK, extract its wrapper ZIP, install app-debug.apk; then download/extract district artifact wrappers to get NA20-<district>.zip for the in-app installer. Do not unzip the internal district files."
+            echo "The standalone APK is NOT the combined distribution size."
+            if [ "${{ steps.github_release.outcome }}" = "failure" ]; then
+              echo "**GitHub Releases permission not granted (HTTP 403).** Actions artifacts remain available for 14 days and are the delivery channel for this QA run."
+            else
+              echo "GitHub Releases publishing step completed."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
