@@ -4,7 +4,7 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.annotation.ActivityCallback;
-import com.getcapacitor.ActivityResult;
+import androidx.activity.result.ActivityResult;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.PluginMethod;
 
@@ -271,7 +271,7 @@ public class NovaAssetPacks extends Plugin {
     JSONObject receipt = new JSONObject();
     receipt.put("id", id);
     receipt.put("sha256", sha);
-    receipt.put("compressedBytes", compressed);
+    receipt.put("compressedBytes", download.length());
     receipt.put("uncompressedBytes", uncompressed);
     receipt.put("artworkCount", artworks);
     try (OutputStream out = new FileOutputStream(new File(staged, "na-install.json"))) {
