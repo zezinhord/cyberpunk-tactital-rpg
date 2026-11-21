@@ -12,6 +12,10 @@ on:
       - src/game/districts/DistrictInteriorScene.ts
       - src/screens/ExplorationScreen.tsx
       - src/App.tsx
+      - src/game/story/archive-progress.ts
+      - src/game/character/backup.ts
+      - src/components/DossierGallery.tsx
+      - scripts/test-archive-progress-v20.mjs
       - src/game/story/inner-contracts.ts
       - src/game/story/forensic-cases.ts
       - scripts/test-forensic-cases-v20.mjs
@@ -59,6 +63,7 @@ jobs:
         run: |
           node --experimental-strip-types scripts/test-inner-contracts-v20.mjs
           node --experimental-strip-types scripts/test-forensic-cases-v20.mjs
+          node --experimental-strip-types scripts/test-archive-progress-v20.mjs
       - name: Generate original scene mural and test 12 authored dossier designs
         run: |
           python tools/generate_v20_illustrations.py
