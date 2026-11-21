@@ -62,6 +62,7 @@ import {readCisma,CISMA_STEPS} from "./game/story/cisma-v20.ts";
 import {claimDiscovery,DISCOVERY_AREAS,DISCOVERY_REWARDS} from "./game/story/discoveries.ts";
 import {collectInnerProp,reconcileInnerExperience} from "./game/story/indoor-rewards.ts";
 import {readReputation,syncFactionAids} from "./game/story/reputation";
+import {SIEGE_TERMINAL_NAMES} from "./game/combat/siege-terminals.ts";
 import {readUrban,urbanCombatSupport} from "./game/story/urban-chronicles.ts";
 import {readDistrictProgress,saveDistrictProgress,advanceDistrict,
  districtCurrentStep} from "./game/districts/progress";
@@ -859,7 +860,9 @@ export default function App() {
         <section className="battle-panel" aria-label="Combate tático isométrico">
           <div className="map-label"><span>{battleMode.startsWith("council-")?"DEFESA DO CONSELHO · ONDA "+state.wave+" / "+state.totalWaves:
              battleMode.startsWith("district-")?"AGENTES HELIX · ONDA "+state.wave+" / "+state.totalWaves: battleMode==="v09"?"UNIDADE HOSTIL · V-09":
-             isTrialEncounter(battleMode)?"ONDA "+state.wave+" DE "+state.totalWaves+" · 8 × 8":"SIMULAÇÃO 01 · 8 × 8"}</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
+             isTrialEncounter(battleMode)?"ONDA "+state.wave+" DE "+state.totalWaves+" · 8 × 8":"SIMULAÇÃO 01 · 8 × 8"}</span><span>{manager.getArenaLayout()?"TERMINAL: "+
+              SIEGE_TERMINAL_NAMES[manager.getArenaLayout()!.site]+" (1 USO)":
+              "TERMINAL ÂMBAR: +3 EN (1 USO)"}</span></div>
           <SceneRecovery name="arena de combate"><Suspense fallback={<div className="battlefield-canvas" role="status">
             Preparando arena tática sem bloquear a exploração…
           </div>}>
