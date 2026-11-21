@@ -189,7 +189,8 @@ export function layoutForRoom(room:ExpansionInnerId):PerimeterMap{
  const blocked=new Set<string>();
  for(let i=0;i<EXTRA_COVER.length;i++){
   const pair=EXTRA_COVER[i]!;
-  if((hashRoom+(i*13)+((hashRoom>>4)&7))%5<2){
+  const local=(hashRoom^Math.imul(i+1,0x9E3779B1))>>>0;
+  if((local+i*13)%7<3){
    const key=mark(pair[0],pair[1]);
    if(!SAFE_CELLS.has(key))blocked.add(key);
   }
@@ -201,7 +202,8 @@ export function layoutForRoom(room:ExpansionInnerId):PerimeterMap{
  ] as const;
  for(let i=0;i<candidates.length;i++){
   const [x,y]=candidates[i]!;
-  if((hashRoom+i*11)%4===0&&!blocked.has(mark(x,y))&&
+  const local=(hashRoom^Math.imul(i+7,0x85EBCA6B))>>>0;
+  if((local+i*11)%4===0&&!blocked.has(mark(x,y))&&
     !TASKS.some(a=>a.x===x&&a.y===y))hazards.add(mark(x,y));
  }
  return {id:room,name:ROOMS[room].title,blocked,hazards,
