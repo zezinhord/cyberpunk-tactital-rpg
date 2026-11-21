@@ -60,7 +60,7 @@ import {packAssetUrl} from "../game/assets/native-pack-manager.ts";
 import {INNER_CONTRACTS,isContractId,readContracts,saveContracts,startContract,
  completeContract,contractObjective,solveForensicCase} from "../game/story/inner-contracts.ts";
 import {FORENSIC_CASES} from "../game/story/forensic-cases.ts";
-import {DISTRICT_COUNCILS,COUNCIL_DEFENSES,COUNCIL_IDS,isCouncilId,isCouncilMethod,
+import {DISTRICT_COUNCILS,COUNCIL_DEFENSES,isCouncilId,isCouncilMethod,
   councilDefenseAvailable,
  councilUnlocked,councilObjective,councilImpact,districtOfRoom,
  readCouncils,saveCouncils,resolveCouncil,
