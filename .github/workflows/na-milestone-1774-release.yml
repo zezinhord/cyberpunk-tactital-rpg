@@ -72,6 +72,10 @@ jobs:
           assert data['tag']=='nova-arcadia-v200-milestone-1774'
           assert len(data['packs'])==7
           assert all(p['artworkCount']==224 for p in data['packs'])
+          assert all(sum(a['kind']=='spritesheet' for a in p['assets'])==96
+            for p in data['packs'])
+          assert all(sum(a['kind']=='cutscene' for a in p['assets'])==64
+            for p in data['packs'])
           assert data['totalBytes']>=631_862_650
           print('Seven original scene packs:',data['totalBytes'])
           PY
