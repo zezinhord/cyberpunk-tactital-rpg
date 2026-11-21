@@ -1,6 +1,7 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
+import GameInstallationGate from "./components/GameInstallationGate";
 import "./styles.css";
 import "./landscape.css";
 import "./immersive-ui.css";
@@ -54,7 +55,7 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <React.StrictMode>
     <AndroidStartupBoundary>
-      <App />
+      <GameInstallationGate><App /></GameInstallationGate>
     </AndroidStartupBoundary>
   </React.StrictMode>,
 );
