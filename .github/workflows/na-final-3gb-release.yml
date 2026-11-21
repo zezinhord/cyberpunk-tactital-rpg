@@ -275,7 +275,7 @@ jobs:
           PY
       - name: Preserve independently verified 3GB signed distribution report
         run: |
-          python tools/na_milestones.py --total-bytes "$(python -c "import json;print(json.load(open('resourcepacks/release/qa-2674-signed-report.json'))['totalBytes'])")" --signed-apk --audited-packs --output resourcepacks/release/qa-3000-milestones.json
+          python tools/na_milestones.py --total-bytes "$(python -c "import json;print(json.load(open('resourcepacks/release/qa-3000-signed-report.json'))['totalBytes'])")" --signed-apk --audited-packs --output resourcepacks/release/qa-3000-milestones.json
       - name: Save build media and disk before Android emulator
         run: |
           rm -rf dist public/assets/ambient-expanded public/assets/ambient             public/assets/soundscapes public/assets/music node_modules
@@ -399,8 +399,8 @@ jobs:
             --prerelease
           gh release upload "$TAG" "$FILE" resourcepacks/release/NA20-*.zip \
             resourcepacks/release/manifest.json resourcepacks/release/SHA256SUMS.txt \
-            resourcepacks/release/qa-2674-signed-report.json \
-            resourcepacks/release/qa-2674-milestones.json \
+            resourcepacks/release/qa-3000-signed-report.json \
+            resourcepacks/release/qa-3000-milestones.json \
             --repo "$GITHUB_REPOSITORY"
           echo "Optional GitHub Releases upload attempted after passing Android QA."
       - name: Report independently downloadable signed Android artifacts
