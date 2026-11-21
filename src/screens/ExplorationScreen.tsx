@@ -66,6 +66,7 @@ import {DISTRICT_COUNCILS,COUNCIL_DEFENSES,isCouncilId,isCouncilMethod,
  readCouncils,saveCouncils,resolveCouncil,
  type CouncilId} from "../game/story/district-councils.ts";
 import type {ExpansionInnerId} from "../game/districts/expansion-interiors.ts";
+import {calibrationPuzzle,correctCalibration} from "../game/story/recovery-calibrations.ts";
 import {RECOVERY_LINES,RECOVERY_METHODS,isRecoveryMethod,
  readRecovery,saveRecovery,repairRecoveryEquipment,resolveRecovery,
  recoveryObjective} from "../game/story/recovery-network.ts";
@@ -615,24 +616,21 @@ const [dossierOpen,setDossierOpen]=useState(false);
         }
         const repair=found.prop.kind==="machine"&&isContractId(found.area)?
           repairRecoveryEquipment(recovery,councils,found.area,found.prop.id):null;
-        let restored=false;
-        if(repair?.ok){
-          if(saveRecovery(character.id,repair.state)){
-            setRecovery(repair.state);
-            onQuestXp("recovery-repair-"+found.area,repair.xp);
-            setCityNotice("Operação Retomada · reparo concluído em "+blueprint.title+
-              " · +"+repair.xp+" XP.");
-            audioDirector.effect("machine");
-            restored=true;
-          }else setCityNotice("Falha ao salvar o reparo. Libere espaço e tente novamente.");
+        const puzzle=isContractId(found.area)?calibrationPuzzle(found.area):null;
+        if(repair?.ok&&puzzle){
+          say([{speaker:blueprint.title,role:"OPERAÇÃO RETOMADA · CALIBRAÇÃO",
+            portrait:"⚙",text:"EQUIPAMENTO: "+found.prop.title+"\n\n"+
+            puzzle.prompt+"\n\nConsulte os três vestígios originais para escolher a intervenção segura.",
+            choices:puzzle.options.map((option,index)=>({
+              id:"calibrate:"+found.area+":"+index,label:option,
+              reply:option,
+            }))}]);
+          return;
         }
-        say([{speaker:blueprint.title,
-          role:restored?"RECONSTRUÇÃO · "+found.prop.title:"DESCOBERTA · "+found.prop.title,
-          portrait:"▤",text:
-            (claimed?found.prop.detail+" +"+found.prop.xp+" XP; "+
-              found.prop.item.replaceAll("_"," ")+" recolhido.":
-              "Este recurso já foi coletado ou o inventário não pôde ser salvo.")+
-            (restored?"\n\n"+repair!.message+" +"+repair!.xp+" XP.":"")}]);
+        say([{speaker:blueprint.title,role:"DESCOBERTA · "+found.prop.title,portrait:"▤",
+          text:claimed?found.prop.detail+" +"+found.prop.xp+" XP; "+found.prop.item.replaceAll("_"," ")+" recolhido."
+           :repair&&!repair.ok?repair.message:
+            "Este recurso já foi coletado ou o inventário não pôde ser salvo."}]);
         return;
       }
     }
