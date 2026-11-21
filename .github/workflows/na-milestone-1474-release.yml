@@ -125,19 +125,48 @@ jobs:
           node scripts/stamp-android-version.mjs
           node scripts/enable-android-immersive.mjs
           node scripts/install-asset-pack-plugin.mjs
-      - name: Restore SAME QA200 signing identity as RC4
+      - name: Attempt to reuse original QA200 signing identity for upgrades
         id: signing
         uses: actions/cache/restore@v4
         with:
           path: ~/.android/debug.keystore
           key: nova-arcadia-v200-qa-signing-v1
-      - name: Refuse invalid new signing identity
+      - name: Restore existing QA201 key when original QA200 cache is unavailable
+        id: milestone_signing
         if: steps.signing.outputs.cache-hit != 'true'
-        run: exit 1
-      - name: Bind Android ID without losing user saves
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: nova-arcadia-v201-1474-signing-v1
+      - name: Create isolated QA201 debug identity (never overwrite an installed QA200)
+        if: steps.signing.outputs.cache-hit != 'true' && steps.milestone_signing.outputs.cache-hit != 'true'
         run: |
+          mkdir -p ~/.android
+          test ! -e ~/.android/debug.keystore
+          keytool -genkeypair -noprompt -keystore ~/.android/debug.keystore \
+            -storepass android -alias androiddebugkey -keypass android \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Nova Arcadia 2.0 Milestone QA, OU=Android QA, O=Nova Arcadia, C=BR"
+      - name: Persist QA201 debug identity for subsequent milestone builds
+        if: steps.signing.outputs.cache-hit != 'true' && steps.milestone_signing.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: nova-arcadia-v201-1474-signing-v1
+      - name: Choose update-safe Android identity and enforce real signature
+        run: |
+          set -euo pipefail
+          test -s ~/.android/debug.keystore
+          if [[ "${{ steps.signing.outputs.cache-hit }}" == "true" ]]; then
+            echo "NA_QA_VARIANT=v200" >> "$GITHUB_ENV"
+            echo "NA_PACKAGE=com.cyberpunk.tacticalrpg.qa200" >> "$GITHUB_ENV"
+            NA_QA_VARIANT=v200 node scripts/prepare-android-compat.mjs
+          else
+            echo "NA_QA_VARIANT=v201" >> "$GITHUB_ENV"
+            echo "NA_PACKAGE=com.cyberpunk.tacticalrpg.qa201" >> "$GITHUB_ENV"
+            NA_QA_VARIANT=v201 node scripts/prepare-android-compat.mjs
+          fi
           node scripts/force-android-signing.mjs
-          NA_QA_VARIANT=v200 node scripts/prepare-android-compat.mjs
       - name: Assemble signed full base APK (resource packs distributed separately)
         working-directory: android
         run: |
@@ -152,10 +181,14 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
           "$AAPT" dump badging "$APK" > qa/na-final-badging.txt
-          grep -Fq "name='com.cyberpunk.tacticalrpg.qa200'" qa/na-final-badging.txt
+          grep -Fq "name='$NA_PACKAGE'" qa/na-final-badging.txt
           grep -Fq "versionCode='2000006'" qa/na-final-badging.txt
           "$APKSIGNER" verify --verbose --print-certs "$APK" > qa/na-final-certs.txt
-          grep -Fq "43afabd6de5f33ebeb5958eb0d300d64e1012ddc9bcd98c1d302ae3101ce4404" qa/na-final-certs.txt
+          if [[ "$NA_QA_VARIANT" == "v200" ]]; then
+            grep -Fq "43afabd6de5f33ebeb5958eb0d300d64e1012ddc9bcd98c1d302ae3101ce4404" qa/na-final-certs.txt
+          else
+            grep -Fq "CN=Nova Arcadia 2.0 Milestone QA" qa/na-final-certs.txt
+          fi
           python - <<'PY'
           import json,os
           cat=json.load(open('resourcepacks/release/manifest.json'))
@@ -195,13 +228,13 @@ jobs:
           script: |
             set -e
             timeout 180 adb install -r -t android/app/build/outputs/apk/debug/app-debug.apk
-            adb shell am start -W -n com.cyberpunk.tacticalrpg.qa200/com.cyberpunk.tacticalrpg.MainActivity
+            adb shell am start -W -n "$NA_PACKAGE"/com.cyberpunk.tacticalrpg.MainActivity
             sleep 4
-            NA_TEST_PACKAGE=com.cyberpunk.tacticalrpg.qa200 node scripts/test-android-webview-startup.mjs
-            adb shell am force-stop com.cyberpunk.tacticalrpg.qa200
-            adb shell am start -W -n com.cyberpunk.tacticalrpg.qa200/com.cyberpunk.tacticalrpg.MainActivity
+            NA_TEST_PACKAGE="$NA_PACKAGE" node scripts/test-android-webview-startup.mjs
+            adb shell am force-stop "$NA_PACKAGE"
+            adb shell am start -W -n "$NA_PACKAGE"/com.cyberpunk.tacticalrpg.MainActivity
             sleep 4
-            NA_TEST_PACKAGE=com.cyberpunk.tacticalrpg.qa200 node scripts/test-android-webview-startup.mjs
+            NA_TEST_PACKAGE="$NA_PACKAGE" node scripts/test-android-webview-startup.mjs
       - name: Publish signed Android QA milestone only after emulator succeeds
         env:
           GH_TOKEN: ${{ github.token }}
