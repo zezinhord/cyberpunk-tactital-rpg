@@ -79,7 +79,8 @@ export default function AssetPackControls(){
    <section className="menu-info-panel">
      <span className="menu-panel-kicker">{total.targetReached?
        "EDIÇÃO COMPLETA · PACOTES VERIFICADOS":
-       (catalog.tag.includes("2074")?"MARCO +900 MB":
+       (catalog.tag.includes("2374")?"MARCO +1,2 GB":
+       catalog.tag.includes("2074")?"MARCO +900 MB":
        catalog.tag.includes("1774")?"MARCO +600 MB":"MARCO +300 MB")+
          " · PACOTES DE TESTE VERIFICADOS"}</span>
      <h4>{formatAssetSize(total.totalBytes)} de conteúdo auditado</h4>
