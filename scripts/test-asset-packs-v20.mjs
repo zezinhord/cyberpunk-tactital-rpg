@@ -43,6 +43,8 @@ assert.equal(validatePackCatalog({...done,tag:FOURTH_MILESTONE_RELEASE_TAG}),tru
 assert.ok(packDownloadUrl("ferrugem",FOURTH_MILESTONE_RELEASE_TAG)
  .includes("/releases/download/nova-arcadia-v200-milestone-2374/"));
 assert.equal(isAssetPath("evacs/baixada-observatorio/resgate-01.webp"),true);
+assert.equal(isAssetPath("shelters/baixada-observatorio/abrigo-01.webp"),true);
+assert.equal(isAssetPath("nexus/baixada-observatorio/rele-01.webp"),true);
 assert.equal(validatePackCatalog({...done,tag:THIRD_MILESTONE_RELEASE_TAG}),true);
 assert.ok(packDownloadUrl("prisma",THIRD_MILESTONE_RELEASE_TAG)
  .includes("/releases/download/nova-arcadia-v200-milestone-2074/"));
