@@ -101,7 +101,10 @@ export const DISTRICT_COUNCILS:Readonly<Record<CouncilId,RegionalCouncil>>={
   ],
  },
 };
-export interface CouncilProgress{version:1;choices:Partial<Record<CouncilId,CouncilMethod>>}
+export interface CouncilProgress{version:1;choices:Partial<Record<CouncilId,CouncilMethod>>;
+ /** Original saves before defense battles omit this property. */
+ defended?:readonly CouncilId[];
+}
 export const EMPTY_COUNCILS:Readonly<CouncilProgress>={version:1,choices:{}};
 export function isCouncilId(id:unknown):id is CouncilId{
  return typeof id==="string"&&COUNCIL_IDS.some(x=>x===id);
@@ -120,11 +123,17 @@ export function councilForRoom(id:ExpansionInnerId):RegionalCouncil{
 export function validateCouncilProgress(raw:unknown):raw is CouncilProgress{
  if(!raw||typeof raw!=="object"||Array.isArray(raw))return false;
  const v=raw as Record<string,unknown>;
- if(v.version!==1||Object.keys(v).some(key=>key!=="version"&&key!=="choices")||
+ if(v.version!==1||Object.keys(v).some(key=>!["version","choices","defended"].includes(key))||
   !v.choices||typeof v.choices!=="object"||Array.isArray(v.choices))return false;
  const entries=Object.entries(v.choices);
+ const defended=v.defended;
  return entries.length<=COUNCIL_IDS.length&&
-  entries.every(([region,choice])=>isCouncilId(region)&&isCouncilMethod(choice));
+  entries.every(([region,choice])=>isCouncilId(region)&&isCouncilMethod(choice))&&
+  (defended===undefined||(Array.isArray(defended)&&
+   defended.length<=COUNCIL_IDS.length&&
+   new Set(defended).size===defended.length&&
+   defended.every(region=>isCouncilId(region)&&
+    Object.prototype.hasOwnProperty.call(v.choices,region))));
 }
 export function readCouncils(characterId:string):CouncilProgress{
  if(!characterId)return {version:1,choices:{}};
@@ -173,7 +182,7 @@ export function resolveCouncil(state:CouncilProgress,contracts:InnerContractsSta
    xp:0,pressure:0};
  const council=DISTRICT_COUNCILS[region];
  const choice=council.choices.find(x=>x.id===method)!;
- return {ok:true,state:{version:1,choices:{...state.choices,[region]:method}},
+ return {ok:true,state:{...state,version:1,choices:{...state.choices,[region]:method}},
   message:choice.outcome,xp:council.rewardXp,pressure:choice.pressure};
 }
 export function councilImpact(state:CouncilProgress,region:CouncilId):
@@ -233,4 +242,55 @@ export function councilFactionEffects(progress:CouncilProgress):CouncilFactionDe
   const method=progress.choices[region];
   return method?[COUNCIL_FACTION_EFFECTS[region][method]]:[];
  });
+}
+
+
+/** The outcome becomes a playable defense encounter only after an authorized
+ * four-investigation council vote. These are *new* seven fights, not reused
+ * campaign district intercepts. One grant per protagonist save.
+ */
+export const COUNCIL_DEFENSES:Readonly<Record<CouncilId,{title:string;
+ briefing:string;victory:string;xp:number;waves:2|3}>>={
+ baixada:{title:"A noite das cisternas",
+  briefing:"Uma unidade contratada tenta fechar novamente as válvulas e recuperar as listas de moradia. Proteja o acordo sobre a distribuição de água.",
+  victory:"A rede comunitária mantém o abastecimento e o memorial protegido. A Baixada registra os nomes de quem defendeu as cisternas.",
+  xp:85,waves:2},
+ ferrugem:{title:"Piquete de Caldeira Nove",
+  briefing:"Drones de produção avançam sobre o sistema de parada emergencial. Os trabalhadores precisam de tempo para assumir o controle do forno.",
+  victory:"A caldeira é desligada sem ferir a equipe. O livro de turnos permanece com o sindicato, e o acordo segue em vigor.",
+  xp:90,waves:2},
+ aurea:{title:"Cerco ao arquivo clínico",
+  briefing:"Um destacamento corporativo exige apagar as cópias que permitem contestar a triagem e a cobrança hospitalar. Proteja o cofre de auditoria.",
+  victory:"Os registros permanecem verificáveis; funcionários e pacientes podem confrontar decisões sem expor prontuários.",
+  xp:100,waves:3},
+ subsolo:{title:"O ar pertence aos vivos",
+  briefing:"Sabotadores invadiram o filtro comunitário. Impedir a contenção exige preservar a enfermaria e o corredor de ventilação.",
+  victory:"As rotas de ar são restabelecidas. A rede subterrânea mantém seu acordo sem entregar endereços ou prontuários.",
+  xp:95,waves:2},
+ "setor-zero":{title:"Último veto",
+  briefing:"Três ondas tentam reativar uma ordem de confinamento sem assinatura humana. Defenda a enfermaria até a equipe recuperar os controles.",
+  victory:"O veto clínico é aceito e as portas de evacuação permanecem desbloqueadas. A decisão humana substitui a ordem automática.",
+  xp:115,waves:3},
+ prisma:{title:"O sinal não pode morrer",
+  briefing:"Uma escolta de censura invadiu o estúdio para tomar os registros de publicação e silenciar as testemunhas.",
+  victory:"A transmissão independente continua. As fontes preservam o direito de corrigir e proteger seus depoimentos.",
+  xp:100,waves:2},
+ periferia:{title:"Corredor de socorro",
+  briefing:"Guardas de fronteira automatizados bloqueiam a estrada usada por ambulâncias e caravanas. Escolte a passagem do acordo.",
+  victory:"O corredor de emergência permanece aberto. As caravanas passam sem cadastro permanente de seus passageiros.",
+  xp:105,waves:2},
+};
+export function councilDefenseAvailable(state:CouncilProgress,region:CouncilId):boolean{
+ return isCouncilId(region)&&Boolean(state.choices[region])&&
+  !(state.defended??[]).includes(region);
+}
+export function finishCouncilDefense(state:CouncilProgress,region:CouncilId):
+ {ok:boolean;state:CouncilProgress;message:string;xp:number}{
+ if(!isCouncilId(region)||!state.choices[region])return {ok:false,state,
+  message:"Conclua a audiência antes de defender o acordo.",xp:0};
+ if((state.defended??[]).includes(region))return {ok:false,state,
+  message:"A defesa deste acordo já está registrada. Nenhuma recompensa repetida.",xp:0};
+ const battle=COUNCIL_DEFENSES[region];
+ return {ok:true,state:{...state,defended:[...(state.defended??[]),region]},
+  message:battle.victory,xp:battle.xp};
 }
