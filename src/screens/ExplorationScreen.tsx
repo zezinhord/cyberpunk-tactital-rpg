@@ -1611,7 +1611,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
       {dossierOpen&&isInnerId(interior)&&
         <Suspense fallback={<div className="na-world-startup">Abrindo registros...</div>}>
           <DossierGallery room={interior} characterId={character.id}
-             onClose={()=>setDossierOpen(false)}/>
+             onQuestXp={onQuestXp} onClose={()=>setDossierOpen(false)}/>
         </Suspense>}
       {/* Um único HUD de objetivo por área: o painel principal já cobre os
           seis distritos; o lembrete extra existe apenas no esgoto labiríntico. */}
