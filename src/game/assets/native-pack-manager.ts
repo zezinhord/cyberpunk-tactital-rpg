@@ -38,7 +38,7 @@ export function nativePackPlatform():boolean{
 }
 const trustedBaseUri=(value:unknown):value is string=>
  typeof value==="string"&&
- /^file:\/\/\/data\/(?:user\/\d+|data)\/com\.cyberpunk\.tacticalrpg\.qa200\/files\/na-expansion-packs\/[a-z0-9-]+\/$/.test(value);
+ /^file:\/\/\/data\/(?:user\/\d+|data)\/com\.cyberpunk\.tacticalrpg\.qa20[01]\/files\/na-expansion-packs\/[a-z0-9-]+\/$/.test(value);
 export function packForRoom(room:string):AssetPackEntry|null{
  const catalog=verifiedCatalog();
  const pack=catalog.packs.find(p=>room.startsWith(p.id+"-"));
