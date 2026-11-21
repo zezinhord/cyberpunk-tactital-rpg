@@ -23,7 +23,7 @@ const BATTLE_THEMES={
 } as const;
 const BOARD=Array.from({length:BOARD_WIDTH*BOARD_HEIGHT},(_,i)=>{
  const x=i%BOARD_WIDTH,y=Math.floor(i/BOARD_WIDTH);
- return {x,y,blocked:isBlocked({x,y}),id:i};
+ return {x,y,id:i};
 }).sort((a,b)=>a.x+a.y-b.x-b.y||a.y-b.y);
 const point=(p:Position)=>({x:240+(p.x-p.y)*28,y:70+(p.x+p.y)*14});
 function diamond(x:number,y:number,w=56,h=28){
@@ -70,6 +70,8 @@ export default function Battlefield({manager,appearance,originId}:{
    setState(manager.getState());
    return manager.subscribe(next=>setState(next));
  },[manager]);
+ const sceneTiles=useMemo(()=>BOARD.map(cell=>({...cell,
+   blocked:isBlocked(cell,manager.getArenaLayout())})),[manager]);
  const reachable=useMemo(()=>new Set(manager.getReachableCells().map(p=>p.x+","+p.y)),
    [manager,state]);
  const player=state.units.find(u=>u.id==="runner");
@@ -116,7 +118,7 @@ export default function Battlefield({manager,appearance,originId}:{
     <path d="M0 70L87 55 181 69 270 53 353 71 480 50"
       fill="none" stroke="#67939d" strokeWidth="1.5" opacity=".42"/>
     <ellipse cx="232" cy="199" rx="210" ry="103" fill="#68b2c0" opacity=".08"/>
-    {BOARD.map(cell=>{
+    {sceneTiles.map(cell=>{
       const p=point(cell),canMove=active&&reachable.has(cell.x+","+cell.y);
       const terminal=cell.x===0&&cell.y===6;
       const interactive=active&&!cell.blocked&&(canMove||terminal);
