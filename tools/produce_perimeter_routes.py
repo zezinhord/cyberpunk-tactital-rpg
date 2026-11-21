@@ -49,11 +49,13 @@ def layout(room_id):
  safe=set(SAFE_ROUTE)
  walls=set()
  for i,pair in enumerate(EXTRA_COVER):
-  if (h+i*13+((h>>4)&7))%5<2 and pair not in safe:
+  local=(h^(((i+1)*0x9E3779B1)&0xffffffff))&0xffffffff
+  if (local+i*13)%7<3 and pair not in safe:
    walls.add(pair)
  danger=set()
  for i,pair in enumerate(HAZARD_CANDIDATES):
-  if (h+i*11)%4==0 and pair not in walls and pair not in STATIONS:
+  local=(h^(((i+7)*0x85EBCA6B)&0xffffffff))&0xffffffff
+  if (local+i*11)%4==0 and pair not in walls and pair not in STATIONS:
    danger.add(pair)
  return walls,danger
 
