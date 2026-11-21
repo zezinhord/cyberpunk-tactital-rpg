@@ -15,6 +15,7 @@ import {ITEM_CATALOG,type ItemId,type EquipmentBonuses} from "./inventory.ts";
 import type {CompanionProfile,CompanionId} from "./companions.ts";
 import type {StealthRecord} from "./stealth.ts";
 import {layoutForEncounter,type TacticalLayout} from "./combat/tactical-maps.ts";
+import {activateSiegeTerminal} from "./combat/siege-terminals.ts";
 
 function rollDie(sides: number): number {
   return Math.floor(Math.random() * sides) + 1;
@@ -251,7 +252,16 @@ export class TurnManager {
       return;
     }
     if (this.state.terminalUsed) {
-      this.setMessage("Terminal auxiliar já utilizado neste teste.");
+      this.setMessage("Terminal auxiliar já utilizado neste confronto.");
+      return;
+    }
+    if(this.arenaLayout){
+      this.state.terminalUsed=true;
+      const result=activateSiegeTerminal(this.state,this.arenaLayout.site);
+      this.state.message=result.message;
+      this.addLog("[CENÁRIO] "+result.name+": "+result.message);
+      this.setCue("terminal","terminal",result.energy);
+      this.publish();
       return;
     }
     if (this.state.energy === this.state.maxEnergy) {
