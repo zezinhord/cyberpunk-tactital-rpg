@@ -27,7 +27,10 @@ export interface CombatCue { sequence: number; visual: CombatVisual;
 export type EncounterId="test"|"v09"|"trial-1"|"trial-2"|"trial-3"|
  "district-aurea"|"district-subsolo"|"district-setor-zero"|
  "district-prisma"|"district-periferia"|"eden-relay"|"eden-core"|
- "cisma-intercept"|"cisma-containment"|"cisma-core";
+ "cisma-intercept"|"cisma-containment"|"cisma-core"|
+ "council-baixada"|"council-ferrugem"|"council-aurea"|
+ "council-subsolo"|"council-setor-zero"|"council-prisma"|
+ "council-periferia";
 export interface GameState {
   units: Unit[];
   archetypeId: string;
