@@ -308,6 +308,60 @@ export function reorganizeVigil(state:VigilProgress,room:ExpansionInnerId):Vigil
   "Equipe reorganizada: duas cargas recuperadas."+
    (pressure?" A vigia próxima elevou a suspeita.":""));
 }
+/** Tactical route planner: traverses the same 8x8 collision map as gameplay.
+ * Dijkstra minimizes action count, stamina use, and patrol exposure.
+ * The plan is advisory: the player still performs every action.
+ */
+export interface VigilRoutePlan{
+ steps:readonly VigilCell[];
+ turns:number;
+ estimatedEnergy:number;
+ estimatedExposure:number;
+}
+export function planVigilRoute(room:ExpansionInnerId,run:VigilRun,
+ destination:VigilCell,approach:VigilApproach="normal"):VigilRoutePlan|null{
+ if(!validCoord(destination.x)||!validCoord(destination.y)||
+    !["normal","furtivo","corrida"].includes(approach))return null;
+ const map=mapForVigil(room);
+ if(map.blocked.has(cellKey(destination.x,destination.y)))return null;
+ const origin=cellKey(run.x,run.y),goal=cellKey(destination.x,destination.y);
+ if(origin===goal)return {steps:[],turns:0,estimatedEnergy:0,estimatedExposure:0};
+ type Node={x:number;y:number;cost:number;energy:number;exposure:number;turns:number;path:VigilCell[]};
+ const queue:Node[]=[{x:run.x,y:run.y,cost:0,energy:0,exposure:0,turns:0,path:[]}];
+ const best=new Map<string,number>([[origin,0]]);
+ const directions=[[1,0],[-1,0],[0,1],[0,-1]] as const;
+ while(queue.length){
+  queue.sort((a,b)=>a.cost-b.cost||a.turns-b.turns);
+  const current=queue.shift()!;
+  const key=cellKey(current.x,current.y);
+  if(current.cost>(best.get(key)??Infinity))continue;
+  if(key===goal)return {steps:current.path,turns:current.turns,
+    estimatedEnergy:current.energy,estimatedExposure:current.exposure};
+  for(const [dx,dy] of directions){
+   const lengths=approach==="corrida"?[1,2]:[1];
+   for(const length of lengths){
+    const x=current.x+dx*length,y=current.y+dy*length;
+    if(!validCoord(x)||!validCoord(y))continue;
+    if(Array.from({length},(_,i)=>cellKey(current.x+dx*(i+1),
+      current.y+dy*(i+1))).some(k=>map.blocked.has(k)))continue;
+    const turn=run.turn+current.turns+1;
+    const exposure=turn<=run.decoyUntil?0:intensity(room,{x,y},turn);
+    const hotspot=map.hotspots.has(cellKey(x,y))?1:0;
+    const risk=approach==="furtivo"?0:exposure+hotspot+(approach==="corrida"?2:0);
+    const energy=(approach==="normal"?0:1);
+    // Avoid routing through sentries even if that means a short detour.
+    const cost=current.cost+10+risk*6+energy*2;
+    const target=cellKey(x,y);
+    if(cost>=(best.get(target)??Infinity))continue;
+    best.set(target,cost);
+    queue.push({x,y,cost,energy:current.energy+energy,
+      exposure:current.exposure+risk,turns:current.turns+1,
+      path:[...current.path,{x,y}]});
+   }
+  }
+ }
+ return null;
+}
 export function vigilFrame(run:VigilRun|null):number{
  if(!run)return 0;
  return Math.min(15,Math.min(3,countEvacuated(run.rescued))*4+(run.turn%4));
