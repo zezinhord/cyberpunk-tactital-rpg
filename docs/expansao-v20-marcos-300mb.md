@@ -192,3 +192,19 @@ O jogo abre as missões **sem exigir os ZIPs visuais adicionais**; os pacotes s�
 ### Próxima verificação
 
 Conferir o **estado atual** das execuções e releases. Não indicar link de instalação RC10/RC11 inexistente ou URL de ZIP presumido. Somente releases com APK e sete ZIPs efetivamente disponíveis e auditoria publicada são entregas.
+
+## Marco final de conteúdo — 3.258.763.580 bytes publicados (21/11/2026)
+
+**Status: RC11 QA201, assinatura preservada, APK + sete ZIPs publicados em pré-release GitHub Releases.** Não é o APK único de 3,26 GB nem homologação física estável.
+
+- Publicação oficial: https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/tag/nova-arcadia-v200-final-3gb-assets
+- GitHub Actions com **sucesso** após Android boot/reboot: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44942021088
+- APK Android assinado RC11 / QA201: **1.144.220.039 bytes**.
+- Sete pacotes ZIP de arte assinados por catálogo SHA-256: **2.114.543.541 bytes**.
+- **TOTAL realmente publicado: 3.258.763.580 bytes**, ou 3.258,76 MB decimais.
+- A publicação contém 3.808 imagens originais em sete distritos, sendo 672 quadros inéditos da Operação Nexo vinculados a seis relés em cada um dos 28 interiores, preservando arte da Vigília, Refúgio, Limiar e conteúdos precedentes.
+- Aplicativo RC11 executa a Operação Nexo após Refúgio com movimentação 8×8, centrais de Éden, 168 relés, patrulheiros móveis, rastreio/energia e políticas locais; todos os dados são salvos por personagem. O APK funciona com ou sem os sete ZIPs; os ZIPs adicionam os quadros de ilustração.
+- A assinatura QA201 e o ID `com.cyberpunk.tacticalrpg.qa201` permitem atualização in-place a partir das versões QA201, desde que o usuário não desinstale o jogo. É recomendável exportar o backup JSON antes da atualização.
+- Testes unitários/integrados, SHA-256, TypeScript, Vite, Java/Gradle Android, certificado e boot/reboot Android 15/2GB aprovados no workflow. Testes físicos no Galaxy A07 e Redmi Note 12s ainda pendentes; monitorar travamentos/performance.
+- O download em **Configurações → Conteúdo extra** deve usar o release final, cuja publicação GitHub com doze arquivos foi confirmada.
+- Branch isolada `feature/nova-arcadia-offline-pack-import`: importação de ZIP local por seletor Android e validação SHA-256, QA de compilação aprovada no workflow 44942622229. Esta melhoria é candidata a uma futura RC12, **não integra o APK RC11 já publicado**. Não confundir o código de branch com versão assinada/distribuída.
