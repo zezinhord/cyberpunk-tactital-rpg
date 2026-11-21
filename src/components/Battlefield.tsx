@@ -11,6 +11,16 @@ const SPRITES=import.meta.glob([
  "../assets/characters/player-*-masculine.png",
  "../assets/characters/player-*-feminine.png",
 ],{query:"?url",import:"default",eager:true}) as Record<string,string>;
+/** Distinct low-memory tactical atmospheres for 7 council siege missions. */
+const BATTLE_THEMES={
+ baixada:{label:"DEFESA DAS CISTERNAS",sky:"#294d58",ground:"#1a3440",alt:"#24434b",edge:"#6f8e97",light:"#82bacc"},
+ ferrugem:{label:"GREVE NA CALDEIRA NOVE",sky:"#563a35",ground:"#352b2e",alt:"#423332",edge:"#a17d6b",light:"#e2a56c"},
+ aurea:{label:"CERCO AO ARQUIVO",sky:"#29435c",ground:"#1e3044",alt:"#283d54",edge:"#7099ad",light:"#9acde7"},
+ subsolo:{label:"GUERRA PELO AR",sky:"#203b47",ground:"#1b2a33",alt:"#243740",edge:"#688b8a",light:"#a8adb2"},
+ "setor-zero":{label:"PROTOCOLO VETO",sky:"#493e57",ground:"#2d2b3e",alt:"#353346",edge:"#a48aa8",light:"#e4a5b3"},
+ prisma:{label:"TRANSMISSÃO SOB CERCO",sky:"#55314f",ground:"#35263a",alt:"#422d45",edge:"#b080ac",light:"#efa3d4"},
+ periferia:{label:"CORREDOR DE SOCORRO",sky:"#544638",ground:"#36342f",alt:"#403e34",edge:"#ab9981",light:"#d5bc84"},
+} as const;
 const BOARD=Array.from({length:BOARD_WIDTH*BOARD_HEIGHT},(_,i)=>{
  const x=i%BOARD_WIDTH,y=Math.floor(i/BOARD_WIDTH);
  return {x,y,blocked:isBlocked({x,y}),id:i};
@@ -72,6 +82,9 @@ export default function Battlefield({manager,appearance,originId}:{
  const enemyFacing=player&&enemy?
    (Math.round(Math.atan2(player.y-enemy.y,player.x-enemy.x)*4/Math.PI)+8)%8:0;
  const enemyPose=state.activeSide==="enemy"?3:(state.round+state.wave)%3;
+ const district=state.encounterId.startsWith("council-")?
+  state.encounterId.slice("council-".length):"";
+ const theme=BATTLE_THEMES[district as keyof typeof BATTLE_THEMES]??null;
  function tap(cell:{x:number;y:number;blocked:boolean}){
    if(!active||cell.blocked)return;
    if(cell.x===0&&cell.y===6){manager.interactWithTerminal(0,6);return;}
@@ -85,18 +98,19 @@ export default function Battlefield({manager,appearance,originId}:{
      aria-label="Tabuleiro interativo de combate 8 por 8">
     <defs>
       <linearGradient id="na-sky" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#223a43"/><stop offset="1" stopColor="#0d1220"/>
+        <stop offset="0" stopColor={theme?.sky??"#223a43"}/><stop offset="1" stopColor={theme?.ground??"#0d1220"}/>
       </linearGradient>
       <pattern id="na-lines" width="26" height="26" patternUnits="userSpaceOnUse">
         <path d="M0 26L26 0" stroke="#63899a" strokeWidth=".5" opacity=".22"/>
       </pattern>
     </defs>
-    <rect width="480" height="320" fill="#0d1220"/>
+    <rect width="480" height="320" fill={theme?.ground??"#0d1220"}/>
     <rect width="480" height="80" fill="url(#na-sky)"/>
     {Array.from({length:9},(_,i)=><g key={i} opacity=".34">
       <rect x={i*59-10} y={32+(i*13)%25} width={37+(i%3)*7}
-         height="52" fill={i%2===0?"#425364":"#263945"}/>
-      <rect x={i*59+4} y={44+(i*13)%25} width="5" height="4" fill="#e9b877"/>
+         height="52" fill={theme?(i%2===0?theme.sky:theme.alt):
+          i%2===0?"#425364":"#263945"}/>
+      <rect x={i*59+4} y={44+(i*13)%25} width="5" height="4" fill={theme?.light??"#e9b877"}/>
     </g>)}
     <rect width="480" height="320" fill="url(#na-lines)"/>
     <path d="M0 70L87 55 181 69 270 53 353 71 480 50"
@@ -116,8 +130,9 @@ export default function Battlefield({manager,appearance,originId}:{
            if(e.key==="Enter"||e.key===" "){e.preventDefault();tap(cell);}
          }:undefined}>
         <polygon points={diamond(x,y)}
-          fill={cell.blocked?"#29394a":(cell.x+cell.y)%2?"#1b2739":"#1e2d40"}
-          stroke="#546b80" strokeWidth=".9"/>
+          fill={cell.blocked?"#29394a":theme?((cell.x+cell.y)%2?theme.ground:theme.alt):
+        (cell.x+cell.y)%2?"#1b2739":"#1e2d40"}
+          stroke={theme?.edge??"#546b80"} strokeWidth=".9"/>
         {canMove&&!cell.blocked&&<polygon points={diamond(x,y,51,23)}
           fill="#00e5ff" fillOpacity=".18" stroke="#00e5ff" strokeWidth="1.5"/>}
         {cell.blocked&&<g pointerEvents="none">
@@ -145,7 +160,7 @@ export default function Battlefield({manager,appearance,originId}:{
         enemySheet={unit.id==="drone"?enemySheet:undefined}
         facing={enemyFacing} pose={enemyPose} appearance={appearance}/>)}
     <text x="15" y="16" fill="#b9d3d8" fontSize="9" letterSpacing="1">
-      NOVA ARCÁDIA · COMBATE TÁTICO</text>
+      {theme?.label??"NOVA ARCÁDIA · COMBATE TÁTICO"}</text>
     <text x="460" y="16" fill="#ffd166" fontSize="9" textAnchor="end">
       ONDA {state.wave}/{state.totalWaves}</text>
     <text x="240" y="307" textAnchor="middle" fill="#cfdae0" fontSize="10">
