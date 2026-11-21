@@ -4,6 +4,7 @@ import type {GameState,Position,Unit} from "../game/types";
 import type {TurnManager} from "../game/TurnManager";
 import type {TestAppearance} from "../game/test-arena/appearance";
 import type {OriginId} from "../game/character/origins";
+import type {TacticalSite} from "../game/combat/tactical-maps.ts";
 
 /** Campo tático SVG: dispensa WebGL/Canvas em Android, sem substituir a lógica
  * de turno, cobertura, IA ou as spritesheets das seis origens. */
@@ -62,6 +63,65 @@ function UnitSprite({unit,isPlayer,url,appearance,enemySheet,facing,pose}:{
    </text>
  </g>;
 }
+/** District equipment atop actual collision tiles. No invisible cover. */
+function SiegeProp({site,x,y,light}:{
+ site:TacticalSite;x:number;y:number;light:string
+}){
+ return <g transform={"translate("+x+" "+y+")"} pointerEvents="none"
+   aria-hidden="true">
+  {site==="water"&&<g>
+    <rect x="-14" y="-30" width="28" height="20" rx="6"
+      fill="#496a74" stroke={light} strokeWidth="2"/>
+    <ellipse cx="0" cy="-30" rx="14" ry="4" fill="#77afb9" stroke={light}/>
+    <rect x="6" y="-15" width="5" height="7" fill={light}/>
+  </g>}
+  {site==="furnace"&&<g>
+    <rect x="-15" y="-30" width="30" height="22"
+      fill="#5b4d49" stroke={light} strokeWidth="2"/>
+    <rect x="-10" y="-26" width="20" height="12" fill="#a84f31"/>
+    <path d="M-6-15L-5-24 0-20 4-26 7-15" fill="none" stroke="#efb76e"
+      strokeWidth="3"/>
+    <rect x="8" y="-41" width="6" height="13" fill="#73787a"/>
+  </g>}
+  {site==="records"&&<g>
+    <rect x="-16" y="-33" width="32" height="26" rx="2"
+      fill="#45596e" stroke={light} strokeWidth="2"/>
+    {[0,1,2].map(i=><rect key={i} x={-12+i*9} y="-28"
+      width="6" height="17" fill={i===1?"#a7c5cc":"#7195a4"}/>)}
+  </g>}
+  {site==="ventilation"&&<g>
+    <rect x="-17" y="-33" width="34" height="26" rx="4"
+      fill="#344b54" stroke={light} strokeWidth="2"/>
+    <circle cx="0" cy="-20" r="10" fill="#162c37" stroke={light}/>
+    <path d="M0-28L4-20 11-18 2-16 0-11 -3-19 -10-20 -1-22Z"
+      fill="#81a8a8"/>
+    <circle cx="0" cy="-20" r="2" fill={light}/>
+  </g>}
+  {site==="quarantine"&&<g>
+    <rect x="-16" y="-33" width="32" height="26" fill="#463b50"
+      stroke={light} strokeWidth="2"/>
+    <path d="M-13-12L-5-27M0-12L8-27M13-16L16-22"
+      stroke="#e4a35b" strokeWidth="4"/>
+    <circle cx="0" cy="-30" r="3" fill="#fa6688"/>
+  </g>}
+  {site==="broadcast"&&<g>
+    <rect x="-16" y="-23" width="32" height="16" rx="3"
+      fill="#453451" stroke={light} strokeWidth="2"/>
+    <line x1="0" y1="-44" x2="0" y2="-22" stroke={light} strokeWidth="2"/>
+    <path d="M-9-38Q0-46 9-38M-15-40Q0-54 15-40"
+      stroke={light} strokeWidth="2" fill="none"/>
+  </g>}
+  {site==="road"&&<g>
+    <rect x="-18" y="-22" width="36" height="16" rx="4"
+      fill="#73614f" stroke={light} strokeWidth="2"/>
+    <rect x="-10" y="-29" width="20" height="10" rx="3"
+      fill="#536875" stroke={light}/>
+    <circle cx="-11" cy="-7" r="3" fill="#1d2631"/>
+    <circle cx="11" cy="-7" r="3" fill="#1d2631"/>
+  </g>}
+ </g>;
+}
+
 export default function Battlefield({manager,appearance,originId}:{
  manager:TurnManager;appearance:TestAppearance;originId:OriginId
 }){
@@ -87,6 +147,7 @@ export default function Battlefield({manager,appearance,originId}:{
  const district=state.encounterId.startsWith("council-")?
   state.encounterId.slice("council-".length):"";
  const theme=BATTLE_THEMES[district as keyof typeof BATTLE_THEMES]??null;
+ const site=manager.getArenaLayout()?.site;
  function tap(cell:{x:number;y:number;blocked:boolean}){
    if(!active||cell.blocked)return;
    if(cell.x===0&&cell.y===6){manager.interactWithTerminal(0,6);return;}
@@ -144,6 +205,7 @@ export default function Battlefield({manager,appearance,originId}:{
              fill="#1b2739"/>
           <polygon points={[[x,y-2],[x+15,y-10],[x+15,y+2],[x,y+10]].map(a=>a.join(",")).join(" ")}
              fill="#34495c"/>
+          {site&&<SiegeProp site={site} x={x} y={y} light={theme?.light??"#b8c1cc"}/>}
         </g>}
         {terminal&&<g pointerEvents="none">
           <rect x={x-9} y={y-17} width="18" height="14" rx="2"
