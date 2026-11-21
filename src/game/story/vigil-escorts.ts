@@ -362,6 +362,54 @@ export function planVigilRoute(room:ExpansionInnerId,run:VigilRun,
  }
  return null;
 }
+/** Multi-objective rescue planner. Evaluates all remaining civilian orders
+ * (at most 24 permutations) and includes the final extraction point.
+ * Plans are advisory; no movement, XP or save state is modified.
+ */
+export interface VigilMissionPlan{
+ objectives:readonly VigilCell[];
+ steps:readonly VigilCell[];
+ turns:number;
+ estimatedEnergy:number;
+ estimatedExposure:number;
+}
+export function planVigilMission(room:ExpansionInnerId,run:VigilRun,
+ approach:VigilApproach="normal"):VigilMissionPlan|null{
+ const map=mapForVigil(room);
+ const remaining=map.groups.filter((_,i)=>(run.rescued&(1<<i))===0);
+ let best:VigilMissionPlan|null=null;
+ const explore=(position:VigilCell,turn:number,remaining:readonly VigilCell[],
+  objectives:readonly VigilCell[],steps:readonly VigilCell[],energy:number,
+  exposure:number):void=>{
+  if(remaining.length===0){
+   const tail=planVigilRoute(room,{...run,x:position.x,y:position.y,turn},map.exit,approach);
+   if(!tail)return;
+   const candidate:VigilMissionPlan={objectives:[...objectives,map.exit],
+    steps:[...steps,...tail.steps],turns:turn-run.turn+tail.turns,
+    estimatedEnergy:energy+tail.estimatedEnergy,
+    estimatedExposure:exposure+tail.estimatedExposure};
+   const score=(p:VigilMissionPlan)=>p.turns*10+p.estimatedExposure*6+
+     p.estimatedEnergy*2;
+   if(!best||score(candidate)<score(best))best=candidate;
+   return;
+  }
+  for(let i=0;i<remaining.length;i++){
+   const target=remaining[i]!;
+   const leg=planVigilRoute(room,{...run,x:position.x,y:position.y,turn},
+     target,approach);
+   if(!leg)continue;
+   const turns=turn+leg.turns+1; // stabilization costs one action
+   const totalEnergy=energy+leg.estimatedEnergy;
+   const totalExposure=exposure+leg.estimatedExposure;
+   if(best&&((turns-run.turn)*10+totalExposure*6+totalEnergy*2)>
+      best.turns*10+best.estimatedExposure*6+best.estimatedEnergy*2)continue;
+   explore(target,turns,remaining.filter((_,j)=>j!==i),
+     [...objectives,target],[...steps,...leg.steps],totalEnergy,totalExposure);
+  }
+ };
+ explore({x:run.x,y:run.y},run.turn,remaining,[],[],0,0);
+ return best;
+}
 export function vigilFrame(run:VigilRun|null):number{
  if(!run)return 0;
  return Math.min(15,Math.min(3,countEvacuated(run.rescued))*4+(run.turn%4));
