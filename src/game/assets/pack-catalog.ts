@@ -6,9 +6,10 @@ export const PACK_RELEASE_TAG="nova-arcadia-v200-final-3gb-assets";
 export const FIRST_MILESTONE_RELEASE_TAG="nova-arcadia-v200-milestone-1474";
 export const SECOND_MILESTONE_RELEASE_TAG="nova-arcadia-v200-milestone-1774";
 export const THIRD_MILESTONE_RELEASE_TAG="nova-arcadia-v200-milestone-2074";
+export const FOURTH_MILESTONE_RELEASE_TAG="nova-arcadia-v200-milestone-2374";
 export const TRUSTED_RELEASE_TAGS=[
  FIRST_MILESTONE_RELEASE_TAG,SECOND_MILESTONE_RELEASE_TAG,
- THIRD_MILESTONE_RELEASE_TAG,PACK_RELEASE_TAG
+ THIRD_MILESTONE_RELEASE_TAG,FOURTH_MILESTONE_RELEASE_TAG,PACK_RELEASE_TAG
 ] as const;
 export function isTrustedReleaseTag(tag:unknown):tag is typeof TRUSTED_RELEASE_TAGS[number]{
  return typeof tag==="string"&&TRUSTED_RELEASE_TAGS.some(allowed=>allowed===tag);
@@ -22,7 +23,7 @@ export interface AssetPackEntry{
  compressedBytes:number;uncompressedBytes:number;sha256:string;
  artworkCount:number;locationCount:number;
  /** Each path MUST correspond to a real in-game object, scene, or cinematic. */
- assets:ReadonlyArray<{path:string;room:string;kind:"mural"|"prop"|"dossier"|"cutscene"|"spritesheet"|"route";sha256:string;caption?:string}>;
+ assets:ReadonlyArray<{path:string;room:string;kind:"mural"|"prop"|"dossier"|"cutscene"|"spritesheet"|"route"|"evac";sha256:string;caption?:string}>;
 }
 export interface PackCatalog{
  version:2;tag:string;totalBytes:number;packs:readonly AssetPackEntry[];
@@ -44,7 +45,7 @@ export function isPackId(raw:unknown):raw is PackId{
 }
 export function isAssetPath(raw:unknown):raw is string{
  return typeof raw==="string"&&raw.length>0&&raw.length<220&&
-  /^(murals|props|dossiers|cutscenes|spritesheets|routes)\/[a-z0-9-]+\/(?:[a-z0-9-]+\/)*[a-z0-9-]+\.(png|webp|webm)$/.test(raw)&&
+  /^(murals|props|dossiers|cutscenes|spritesheets|routes|evacs)\/[a-z0-9-]+\/(?:[a-z0-9-]+\/)*[a-z0-9-]+\.(png|webp|webm)$/.test(raw)&&
   !raw.includes("..");
 }
 const validSha=(s:unknown)=>typeof s==="string"&&/^[a-f0-9]{64}$/.test(s);
@@ -73,7 +74,7 @@ export function validatePackCatalog(raw:unknown):raw is PackCatalog{
    const item=a as Record<string,unknown>;
    if(!isAssetPath(item.path)||paths.has(item.path)||!validSha(item.sha256)||
     typeof item.room!=="string"||!item.room.startsWith(p.id+"-")||
-    !["mural","prop","dossier","cutscene","spritesheet","route"].includes(String(item.kind))||
+    !["mural","prop","dossier","cutscene","spritesheet","route","evac"].includes(String(item.kind))||
     (item.caption!==undefined&&(typeof item.caption!=="string"||item.caption.length>240)))return false;
    paths.add(item.path);
   }
