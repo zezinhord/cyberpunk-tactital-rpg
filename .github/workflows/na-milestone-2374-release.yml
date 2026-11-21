@@ -1,0 +1,290 @@
+name: Nova Arcadia — VERIFIED 2374MB fourth milestone Android QA
+
+# Intermediate signed distribution, NEVER describe this as the 3GB definitive edition.
+on:
+  push:
+    branches:
+      - feature/nova-arcadia-3gb-final-assets
+    paths:
+      - .github/workflows/na-milestone-2374-release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: nova-arcadia-v200-fourth-2374mb
+  cancel-in-progress: true
+
+jobs:
+  validate-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Source in dedicated final-production branch
+        uses: actions/checkout@v4
+      - name: Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          python -m pip install -r tools/requirements-characters.txt
+      - name: Stamp QA201 2.0.0-rc.9 version for in-place upgrade
+        run: |
+          node --input-type=module <<'JS'
+          import fs from "node:fs";
+          for(const file of ["package.json","package-lock.json"]){
+            const contents=fs.readFileSync(file,"utf8");
+            if(!contents.includes('"version": "2.0.0-rc.4"'))
+              throw new Error("Unexpected version, refusing Android downgrade");
+            fs.writeFileSync(file,contents.replaceAll('"version": "2.0.0-rc.4"',
+              '"version": "2.0.0-rc.9"'));
+          }
+          JS
+      - name: Generate physical room tiles for the new Android client
+        run: python tools/generate_v20_illustrations.py
+      - name: Download all 2576 SHA-256 verified rescue originals from art production
+        uses: actions/download-artifact@v4
+        with:
+          name: NovaArcadia-2.0-Art-Production-Audit-NOT-FINAL
+          repository: ${{ github.repository }}
+          run-id: 44905000269
+          github-token: ${{ github.token }}
+          path: .
+      - name: Independently re-audit 2576 originals in seven ZIPs for the fourth milestone
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json,os,zipfile
+          from pathlib import Path
+          root=Path('resourcepacks/release')
+          assert (root/'production-report.json').is_file(), "Audited art artifact not extracted"
+          report=json.loads((root/'production-report.json').read_text())
+          assert report['artworks']==2576 and report['perimeter_patrol_frames']==560 and report['vigil_escort_frames']==448
+          assert report['fourth_300mb_observed'] is True
+          manifest=root/'manifest.json'
+          cat=json.loads(manifest.read_text(encoding='utf8'))
+          assert cat['tag']=='nova-arcadia-v200-final-3gb-assets'
+          assert len(cat['packs'])==7
+          actual=0
+          all_sha=set()
+          for p in cat['packs']:
+            archive=root/p['file']
+            assert archive.is_file()
+            size=archive.stat().st_size
+            assert size==p['compressedBytes']
+            digest=hashlib.sha256()
+            with archive.open('rb') as reader:
+              for buf in iter(lambda:reader.read(1024*1024),b''):
+                digest.update(buf)
+            assert digest.hexdigest()==p['sha256'],p['id']
+            assert p['artworkCount']==368 and p['locationCount']==4
+            assets=p['assets']
+            assert len(assets)==368
+            assert sum(x['kind']=='evac' for x in assets)==64
+            assert sum(x['kind']=='route' for x in assets)==80
+            assert sum(x['kind']=='spritesheet' for x in assets)==96
+            assert sum(x['kind']=='cutscene' for x in assets)==64
+            assert sum(x['kind']=='dossier' for x in assets)==48
+            allowed={x['path'] for x in assets}
+            assert len(allowed)==368
+            with zipfile.ZipFile(archive) as container:
+              assert set(container.namelist())==allowed
+              assert len(container.namelist())==368
+              expanded=0
+              for member in assets:
+                with container.open(member['path']) as source:
+                  checksum=hashlib.sha256()
+                  chunks=iter(lambda:source.read(1024*1024),b'')
+                  for buf in chunks:
+                    expanded+=len(buf)
+                    checksum.update(buf)
+                  assert checksum.hexdigest()==member['sha256'],member['path']
+                assert member['sha256'] not in all_sha,'Duplicated art in ZIP'
+                all_sha.add(member['sha256'])
+              assert expanded==p['uncompressedBytes']
+            actual+=size
+          assert actual==cat['totalBytes']
+          assert actual+1_143_503_198>=2_374_082_151
+          cat['tag']='nova-arcadia-v200-milestone-2374'
+          manifest.write_text(json.dumps(cat,ensure_ascii=False,indent=2)+'\n',
+                              encoding='utf8')
+          target=Path('src/game/assets/published-packs.ts')
+          target.write_text('import type {PackCatalog} from "./pack-catalog.ts";\n'
+             '/** Independent authenticated 2374MB QA, not the final 3GB. */\n'
+             'export const FINAL_ASSET_CATALOG:PackCatalog='+
+             json.dumps(cat,ensure_ascii=False,indent=2)+';\n',encoding='utf8')
+          print(f'PRE-SIGNATURE ART CHECK PASSED: {len(all_sha)} unique resources, '
+                f'{actual:,} verified ZIP bytes; original producer workflow 44905000269.')
+          PY
+      - name: Validate 28 rescue missions, 112 civilians, 3 sentries each and all prior story branches
+        run: |
+          set -euo pipefail
+          npx tsc -b
+          node --experimental-strip-types scripts/test-asset-packs-v20.mjs
+          node --experimental-strip-types scripts/test-tactics.mjs
+          node --experimental-strip-types scripts/test-cisma-v20.mjs
+          node --experimental-strip-types scripts/test-cisma-operations.mjs
+          node --experimental-strip-types scripts/test-inner-contracts-v20.mjs
+          node --experimental-strip-types scripts/test-forensic-cases-v20.mjs
+          node --experimental-strip-types scripts/test-council-defenses-v20.mjs
+          node --experimental-strip-types scripts/test-recovery-network-v20.mjs
+          node --experimental-strip-types scripts/test-recovery-calibrations-v20.mjs
+          node --experimental-strip-types scripts/test-field-simulations-v20.mjs
+          node --experimental-strip-types scripts/test-perimeter-routes-v20.mjs
+          node --experimental-strip-types scripts/test-vigil-escorts-v20.mjs
+          node --experimental-strip-types scripts/test-council-tactical-maps-v20.mjs
+          node --experimental-strip-types scripts/test-siege-terminals-v20.mjs
+          node --experimental-strip-types scripts/test-save-slots.mjs
+          node --experimental-strip-types scripts/test-companions-v20.mjs
+          node --experimental-strip-types scripts/test-stealth-v20.mjs
+      - name: Install ffprobe for verification of original sound archives
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          command -v ffprobe
+      - name: Restore verified original 1GB media without duplicating unused data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/nova-baseline"
+          gh release download nova-arcadia-v091-gameplay-full-qa             --repo "$GITHUB_REPOSITORY"             --pattern "NovaArcadia-0.9.1-rc.1-Full-1GB-QA.apk"             --dir "$RUNNER_TEMP/nova-baseline"
+          ORIGINAL="$RUNNER_TEMP/nova-baseline/NovaArcadia-0.9.1-rc.1-Full-1GB-QA.apk"
+          test "$(stat -c %s "$ORIGINAL")" -eq 1143065746
+          printf '%s  %s\n'             "af25764cb4a4f41b3b2677a7503230dafbaf026f551770125d721e41ad1c9915"             "$ORIGINAL" | sha256sum -c -
+          python tools/restore_media_from_apk.py "$ORIGINAL"
+          rm -f "$ORIGINAL"
+      - name: Verify original sound and ambience
+        run: |
+          node --experimental-strip-types scripts/test-expanded-ambience.mjs
+          node scripts/test-urban-ambience.mjs
+          node --experimental-strip-types scripts/test-soundscapes.mjs
+      - name: Build web assets and mobile app
+        run: |
+          python tools/generate_council_enemy_art.py
+          python tools/generate_character_sprites.py
+          npx vite build
+          node scripts/test-v20-illustrations.mjs
+          node scripts/test-android-cold-boot.mjs
+          npx cap add android
+          npx cap sync android
+          node scripts/lock-android-landscape.mjs
+          node scripts/stamp-android-version.mjs
+          node scripts/enable-android-immersive.mjs
+          node scripts/install-asset-pack-plugin.mjs
+      - name: Recover the SAME QA201 keystore used by the 1.475GB milestone
+        id: signing
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: nova-arcadia-v201-1474-signing-v1
+      - name: Refuse a newly signed APK that cannot upgrade QA201 safely
+        if: steps.signing.outputs.cache-hit != 'true'
+        run: |
+          echo "Old QA201 signing identity not available; refusing to strand player saves." >&2
+          exit 1
+      - name: Sign Android in-place upgrade with preserved QA201 identity
+        run: |
+          set -euo pipefail
+          test -s ~/.android/debug.keystore
+          echo "NA_QA_VARIANT=v201" >> "$GITHUB_ENV"
+          echo "NA_PACKAGE=com.cyberpunk.tacticalrpg.qa201" >> "$GITHUB_ENV"
+          node scripts/force-android-signing.mjs
+          NA_QA_VARIANT=v201 node scripts/prepare-android-compat.mjs
+      - name: Assemble signed full base APK (resource packs distributed separately)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+      - name: Audit signed milestone APK plus seven ZIPs and existing certificate
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          python tools/audit_apk_content.py "$APK"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt | sort -V | tail -n 1)"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
+          "$AAPT" dump badging "$APK" > qa/na-final-badging.txt
+          grep -Fq "name='$NA_PACKAGE'" qa/na-final-badging.txt
+          grep -Fq "versionCode='2000009'" qa/na-final-badging.txt
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > qa/na-final-certs.txt
+          grep -Fq "CN=Nova Arcadia 2.0 Milestone QA" qa/na-final-certs.txt
+          python - <<'PY'
+          import json,os
+          cat=json.load(open('resourcepacks/release/manifest.json'))
+          apk=os.path.getsize('android/app/build/outputs/apk/debug/app-debug.apk')
+          total=apk+sum(os.path.getsize('resourcepacks/release/'+p['file']) for p in cat['packs'])
+          print('SIGNED FOURTH MILESTONE SIZE:',total)
+          with open('resourcepacks/release/qa-2374-signed-report.json','w') as out:
+            json.dump(dict(apkBytes=apk,packBytes=total-apk,totalBytes=total,goalBytes=2_374_082_151,
+              final3GbReached=total>=3_000_000_000),out,indent=2)
+          assert apk>=1_000_000_000
+          assert total>=2_374_082_151
+          assert len(cat['packs'])==7
+          assert all(p['artworkCount']==368 for p in cat['packs'])
+          PY
+      - name: Preserve fourth +300MB signed milestone report
+        run: |
+          python tools/na_milestones.py --total-bytes "$(python -c "import json;print(json.load(open('resourcepacks/release/qa-2374-signed-report.json'))['totalBytes'])")" --signed-apk --audited-packs --output resourcepacks/release/qa-2374-milestones.json
+      - name: Save build media and disk before Android emulator
+        run: |
+          rm -rf dist public/assets/ambient-expanded public/assets/ambient             public/assets/soundscapes public/assets/music node_modules
+          sync
+          df -h .
+      - name: Emulator KVM
+        run: |
+          test -c /dev/kvm
+          sudo chmod 666 /dev/kvm
+      - name: Verify signed app launch and relaunch on Android 15 / 2GB
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_4
+          ram-size: 2048M
+          disk-size: 8192M
+          emulator-boot-timeout: 600
+          disable-animations: true
+          script: |
+            set -e
+            timeout 180 adb install -r -t android/app/build/outputs/apk/debug/app-debug.apk
+            adb shell am start -W -n "$NA_PACKAGE"/com.cyberpunk.tacticalrpg.MainActivity
+            sleep 4
+            NA_TEST_PACKAGE="$NA_PACKAGE" node scripts/test-android-webview-startup.mjs
+            adb shell am force-stop "$NA_PACKAGE"
+            adb shell am start -W -n "$NA_PACKAGE"/com.cyberpunk.tacticalrpg.MainActivity
+            sleep 4
+            NA_TEST_PACKAGE="$NA_PACKAGE" node scripts/test-android-webview-startup.mjs
+      - name: Publish signed Android QA milestone only after emulator succeeds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="nova-arcadia-v200-milestone-2374"
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          FILE="NovaArcadia-2.0-Marco-2374MB-Android-QA.apk"
+          cp "$APK" "$FILE"
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Nova Arcádia 2.0 — Marco +1,2GB / Android QA" \
+            --notes "Quarto marco auditado. Nova Operação Vigília: 28 resgates jogáveis em mapa 8x8, 112 grupos civis, 84 patrulheiros dinâmicos, furtividade, corrida, distração eletrônica e consequências por ferimentos. 448 cenas originais novas, 2576 assets únicos nos 7 distritos, SHA-256. APK QA201 assinado com a mesma chave, upgrade RC8, boot/reboot Android 15 com 2GB. Para jogar: conclua a Operação Limiar em um interior e abra a aba Vigília no arquivo. Os pacotes de Configurações > Conteúdo extra são opcionais para visualizar as cenas ilustradas, não para jogar as missões. Faça backup antes do upgrade. O tamanho inclui APK mais 7 pacotes, não um APK único. Não é a edição final de 3 GB." \
+            --prerelease
+          gh release upload "$TAG" "$FILE" resourcepacks/release/NA20-*.zip \
+            resourcepacks/release/manifest.json resourcepacks/release/SHA256SUMS.txt \
+            resourcepacks/release/qa-2374-signed-report.json \
+            resourcepacks/release/qa-2374-milestones.json \
+            --repo "$GITHUB_REPOSITORY"
+          echo "Intermediate signed milestone published only after Android QA."

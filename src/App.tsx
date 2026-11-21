@@ -39,6 +39,9 @@ import {installCyberware,removeCyberware,type CyberwareId} from "./game/cyberwar
 import {readParty,activeCompanions} from "./game/companions.ts";
 import {readStealth,stealthCombatEntry} from "./game/stealth.ts";
 import {readContracts,INNER_CONTRACTS} from "./game/story/inner-contracts.ts";
+import {FORENSIC_CASES} from "./game/story/forensic-cases.ts";
+import {DISTRICT_COUNCILS,COUNCIL_DEFENSES,readCouncils,saveCouncils,isCouncilId,
+  finishCouncilDefense} from "./game/story/district-councils.ts";
 import { audioDirector } from "./audio/director";
 import { markV09Defeated,grantV09Experience } from "./game/story/v09";
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity} from "./game/character/slots";
@@ -59,6 +62,14 @@ import {readCisma,CISMA_STEPS} from "./game/story/cisma-v20.ts";
 import {claimDiscovery,DISCOVERY_AREAS,DISCOVERY_REWARDS} from "./game/story/discoveries.ts";
 import {collectInnerProp,reconcileInnerExperience} from "./game/story/indoor-rewards.ts";
 import {readReputation,syncFactionAids} from "./game/story/reputation";
+import {SIEGE_TERMINAL_NAMES} from "./game/combat/siege-terminals.ts";
+import {readSimulations,SIMULATION_PHASES,SIMULATION_REWARD_XP} from "./game/story/field-simulations.ts";
+import {readPerimeter,PERIMETER_XP} from "./game/story/perimeter-routes.ts";
+import {readVigil} from "./game/story/vigil-escorts.ts";
+import {readShelter} from "./game/story/shelter-network.ts";
+import {readNexus} from "./game/story/nexus-eden.ts";
+import {readRecovery,RECOVERY_TASKS,mergeRecoverySupport,
+ recoveryCombatSupport} from "./game/story/recovery-network.ts";
 import {readUrban,urbanCombatSupport} from "./game/story/urban-chronicles.ts";
 import {readDistrictProgress,saveDistrictProgress,advanceDistrict,
  districtCurrentStep} from "./game/districts/progress";
@@ -267,7 +278,9 @@ export default function App() {
   const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
     currentHp:loadHealth(character?.id??"",maximumHp),
     progressionBonuses:combatProgression(character),encounterId:battleMode,weaponId:inventory.equipped.weapon,
-     districtSupport:character?urbanCombatSupport(readUrban(character.id),battleMode):null,
+     districtSupport:character?mergeRecoverySupport(
+       urbanCombatSupport(readUrban(character.id),battleMode),
+       recoveryCombatSupport(readRecovery(character.id),battleMode)):null,
      partySupport:character?activeCompanions(readParty(character.id)):[],
      infiltration:character?stealthCombatEntry(readStealth(character.id),battleMode):null }),
      [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
@@ -347,6 +360,49 @@ export default function App() {
     const innerContracts=readContracts(active.id);
     for(const id of innerContracts.completed)
       if(!grantTrialXp("inner-contract-"+id,INNER_CONTRACTS[id].rewardXp))return false;
+    for(const id of innerContracts.analysed??[])
+      if(!grantTrialXp("inner-forensic-"+id,FORENSIC_CASES[id].rewardXp))return false;
+    const councilProgress=readCouncils(active.id);
+    for(const id of Object.keys(councilProgress.choices))
+      if(isCouncilId(id)&&!grantTrialXp("district-council-"+id,DISTRICT_COUNCILS[id].rewardXp))
+        return false;
+    for(const id of councilProgress.defended??[])
+      if(!grantTrialXp("council-defense-"+id,COUNCIL_DEFENSES[id].xp))
+        return false;
+    const recovered=readRecovery(active.id);
+    for(const region of Object.keys(recovered.repairs)){
+      if(!isCouncilId(region))continue;
+      const locations=recovered.repairs[region]??[];
+      for(const location of locations){
+        const task=RECOVERY_TASKS[region].find(x=>x.room===location);
+        if(task&&!grantTrialXp("recovery-repair-"+location,task.xp))return false;
+      }
+    }
+    for(const region of Object.keys(recovered.outcomes)){
+      if(isCouncilId(region)&&!grantTrialXp("recovery-final-"+region,78))
+        return false;
+    }
+    const scenes=readSimulations(active.id);
+    for(const [room,phase] of Object.entries(scenes.solved)){
+      if(phase===SIMULATION_PHASES&&
+        !grantTrialXp("field-simulation-"+room,SIMULATION_REWARD_XP))return false;
+    }
+    const perimeter=readPerimeter(active.id);
+    for(const room of Object.keys(perimeter.completed)){
+      if(!grantTrialXp("perimeter-"+room,PERIMETER_XP))return false;
+    }
+    const vigils=readVigil(active.id);
+    for(const [room,outcome] of Object.entries(vigils.completed)){
+      if(outcome&&!grantTrialXp("vigil-"+room,outcome.xp))return false;
+    }
+    const shelters=readShelter(active.id);
+    for(const [room,outcome] of Object.entries(shelters.completed)){
+      if(outcome&&!grantTrialXp("shelter-"+room,outcome.xp))return false;
+    }
+    const nexus=readNexus(active.id);
+    for(const [room,outcome] of Object.entries(nexus.completed)){
+      if(outcome&&!grantTrialXp("nexus-"+room,outcome.xp))return false;
+    }
     const cisma=readCisma(active.id);
     for(const id of cisma.history){
       const step=CISMA_STEPS.find(s=>s.id===id);
@@ -444,6 +500,22 @@ export default function App() {
     const enemyDefeated=state.units.find(u=>u.id==="drone")?.hp===0;
     const active=characterRef.current;
     if(!active)return;
+    if(enemyDefeated&&state.encounterId.startsWith("council-")){
+      const region=state.encounterId.slice("council-".length);
+      if(isCouncilId(region)){
+        const completed=finishCouncilDefense(readCouncils(active.id),region);
+        if(completed.ok){
+          if(saveCouncils(active.id,completed.state)){
+            if(!grantTrialXp("council-defense-"+region,completed.xp))
+              setSaveMessage("A defesa do conselho foi salva; a XP será reconciliada ao carregar.");
+            else setSaveMessage(COUNCIL_DEFENSES[region].title+" concluído · +"+
+              completed.xp+" XP.");
+            audioDirector.effect("victory");
+          }else setSaveMessage("Sem espaço para registrar a defesa. Libere armazenamento e retorne.");
+        }
+      }
+      return;
+    }
     if(enemyDefeated&&isOperationsCombat(state.encounterId)){
       const result=advanceOperationBattle(readOperations(active.id),state.encounterId);
       if(result.advanced&&result.stage){
@@ -797,10 +869,13 @@ export default function App() {
     <main className="app-shell game-shell arena-v030">
       <header className="topbar arena-head">
         <div className="mission">
-          <h1>{battleMode.startsWith("district-")?"Defesa do Distrito · Interceptação Helix":battleMode==="v09"?"Pátio do Reúso · Encontro V-09":
+          <h1>{battleMode.startsWith("council-")?"Defesa do Conselho · "+
+            COUNCIL_DEFENSES[battleMode.slice(8) as keyof typeof COUNCIL_DEFENSES]?.title:
+            battleMode.startsWith("district-")?"Defesa do Distrito · Interceptação Helix":battleMode==="v09"?"Pátio do Reúso · Encontro V-09":
             isTrialEncounter(battleMode)?"Operação Circuito Fantasma · Interceptação":
             "Limbo de Teste · Personagens e Habilidades"}</h1>
-          <p>{battleMode.startsWith("district-")?"OPERAÇÃO INTERDISTRITAL · "+state.wave+" / "+state.totalWaves+" ONDAS":battleMode==="v09"?"MISSÃO PRINCIPAL · O NOME QUE SUMIU":
+          <p>{battleMode.startsWith("council-")?"ACORDO COMUNITÁRIO · "+state.wave+" / "+state.totalWaves+" ONDAS":
+            battleMode.startsWith("district-")?"OPERAÇÃO INTERDISTRITAL · "+state.wave+" / "+state.totalWaves+" ONDAS":battleMode==="v09"?"MISSÃO PRINCIPAL · O NOME QUE SUMIU":
             isTrialEncounter(battleMode)?"CAMPANHA TÁTICA · "+state.wave+" / "+state.totalWaves+" ONDAS":
             "Operativo de Campo // módulo experimental 0.3.0"}</p>
         </div>
@@ -826,8 +901,11 @@ export default function App() {
           </div>
         </div>
         <section className="battle-panel" aria-label="Combate tático isométrico">
-          <div className="map-label"><span>{battleMode.startsWith("district-")?"AGENTES HELIX · ONDA "+state.wave+" / "+state.totalWaves: battleMode==="v09"?"UNIDADE HOSTIL · V-09":
-             isTrialEncounter(battleMode)?"ONDA "+state.wave+" DE "+state.totalWaves+" · 8 × 8":"SIMULAÇÃO 01 · 8 × 8"}</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
+          <div className="map-label"><span>{battleMode.startsWith("council-")?"DEFESA DO CONSELHO · ONDA "+state.wave+" / "+state.totalWaves:
+             battleMode.startsWith("district-")?"AGENTES HELIX · ONDA "+state.wave+" / "+state.totalWaves: battleMode==="v09"?"UNIDADE HOSTIL · V-09":
+             isTrialEncounter(battleMode)?"ONDA "+state.wave+" DE "+state.totalWaves+" · 8 × 8":"SIMULAÇÃO 01 · 8 × 8"}</span><span>{manager.getArenaLayout()?"TERMINAL: "+
+              SIEGE_TERMINAL_NAMES[manager.getArenaLayout()!.site]+" (1 USO)":
+              "TERMINAL ÂMBAR: +3 EN (1 USO)"}</span></div>
           <SceneRecovery name="arena de combate"><Suspense fallback={<div className="battlefield-canvas" role="status">
             Preparando arena tática sem bloquear a exploração…
           </div>}>
@@ -874,7 +952,8 @@ export default function App() {
             <b>ESCOLHER ›</b>
           </button>
           {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? (battleMode==="v09" ? "V-09 neutralizada · registros recuperados"
-              : battleMode.startsWith("district-")?"Segurança Helix neutralizada · provas protegidas"
+              : battleMode.startsWith("council-")?"Acordo distrital defendido · segurança restaurada"
+               : battleMode.startsWith("district-")?"Segurança Helix neutralizada · provas protegidas"
               : isTrialEncounter(battleMode)?"Interceptação vencida · campanha continua"
               :"Sentinela neutralizada") : "Operativo incapacitado"}</div>}
           <div className="economy">

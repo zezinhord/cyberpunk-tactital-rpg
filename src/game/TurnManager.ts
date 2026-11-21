@@ -14,6 +14,8 @@ import type { OriginGameplayProfile } from "./character/types";
 import {ITEM_CATALOG,type ItemId,type EquipmentBonuses} from "./inventory.ts";
 import type {CompanionProfile,CompanionId} from "./companions.ts";
 import type {StealthRecord} from "./stealth.ts";
+import {layoutForEncounter,type TacticalLayout} from "./combat/tactical-maps.ts";
+import {activateSiegeTerminal} from "./combat/siege-terminals.ts";
 
 function rollDie(sides: number): number {
   return Math.floor(Math.random() * sides) + 1;
@@ -48,6 +50,7 @@ export interface TurnManagerOptions {
 export class TurnManager {
   private readonly events = new TypedEventBus<GameEvents>();
   private readonly originProfile?: OriginGameplayProfile;
+  private readonly arenaLayout:TacticalLayout|null;
   private readonly weaponRange:number;
   private readonly districtSupport:UrbanCombatSupport|null;
   private readonly partySupport:readonly CompanionProfile[];
@@ -60,6 +63,7 @@ export class TurnManager {
 
   constructor(options: TurnManagerOptions = {}) {
     this.originProfile = options.originProfile;
+    this.arenaLayout=layoutForEncounter(options.encounterId??"test");
     this.districtSupport=options.districtSupport??null;
     this.partySupport=(options.partySupport??[]).slice(0,2);
     const party=this.partySupport.reduce((sum,c)=>({
@@ -75,24 +79,26 @@ export class TurnManager {
     const trial=options.encounterId?.startsWith("trial-")??false;
     const eden=options.encounterId?.startsWith("eden-")??false;
     const district=options.encounterId?.startsWith("district-")??false;
+    const council=options.encounterId?.startsWith("council-")??false;
     const cisma=options.encounterId?.startsWith("cisma-")??false;
     const trialWaveCount=options.encounterId==="trial-3"||
       options.encounterId==="district-setor-zero"||options.encounterId==="eden-core"||
-      options.encounterId==="cisma-core"?3:trial||district||eden||cisma?2:1;
+      options.encounterId==="cisma-core"||options.encounterId==="council-setor-zero"||
+      options.encounterId==="council-aurea"?3:trial||district||eden||cisma||council?2:1;
     const infiltration=options.infiltration?.encounter===options.encounterId?
       options.infiltration:null;
     const encounterHp=options.encounterId==="cisma-core"?25:
       options.encounterId==="cisma-containment"?22:
       options.encounterId==="cisma-intercept"?20:
-      options.encounterId==="eden-core"?24:options.encounterId==="eden-relay"?19:options.encounterId==="v09"?16:district?17:trial?14:12;
+      options.encounterId==="eden-core"?24:options.encounterId==="eden-relay"?19:options.encounterId==="v09"?16:council?21:district?17:trial?14:12;
     this.state = {
       units: [
         {
           id: "runner",
           name: options.playerName?.trim() || "Operativo",
           side: "player",
-          x: 1,
-          y: 6,
+          x: this.arenaLayout?.playerSpawn.x??1,
+          y: this.arenaLayout?.playerSpawn.y??6,
           hp: Number.isFinite(options.currentHp)
             ? Math.min(maxHp,Math.max(1,Math.floor(options.currentHp!)))
             : maxHp,
@@ -102,13 +108,14 @@ export class TurnManager {
         },
         {
           id: "drone",
-          name: cisma?enemyProfile(options.encounterId??"cisma-intercept",1).name:
+          name: council?enemyProfile(options.encounterId!,1).name:
+            cisma?enemyProfile(options.encounterId??"cisma-intercept",1).name:
             eden?(options.encounterId==="eden-core"?"Guardião do Éden":"Interceptador de Prisma"):
             options.encounterId==="v09" ? "Unidade de Vigilância V-09"
              : district ? "Agente de Segurança Helix" : trial ? "Drone de Interceptação" : "Sentinela-07",
           side: "enemy",
-          x: 6,
-          y: 1,
+          x: this.arenaLayout?.enemySpawn.x??6,
+          y: this.arenaLayout?.enemySpawn.y??1,
           hp: Math.max(1,encounterHp-(infiltration?.outcome==="undetected"?5:0)),
           maxHp: encounterHp,
           armorClass: 13,
@@ -143,6 +150,7 @@ export class TurnManager {
         ". "+(infiltration?.outcome==="undetected"?"Infiltração: abertura silenciosa!":
          infiltration?.outcome==="spotted"?"Infiltração detectada: vigias reforçados.":
          "Proteja as provas e os pacientes."):
+        council?"DEFESA DO CONSELHO · onda 1 de "+trialWaveCount+". Preserve o acordo coletivo.":
         district?"Intervenção hostil no distrito · onda 1 de "+trialWaveCount+". Proteja as provas.":trial?"Operação Circuito Fantasma · onda 1 de "+trialWaveCount+". Proteja a comunidade."
         : options.encounterId==="v09" ? "Encontro V-09: neutralize a unidade que interceptou os registros de manutenção."
         : "Área de teste ativa. Alcance a sentinela e neutralize-a.",
@@ -182,6 +190,7 @@ export class TurnManager {
     this.publish();return true;
   }
   getDistrictSupportDescription():string{return this.districtSupport?.label??"";}
+  getArenaLayout():TacticalLayout|null{return this.arenaLayout;}
 
   getState(): GameState {
     return {
@@ -243,7 +252,16 @@ export class TurnManager {
       return;
     }
     if (this.state.terminalUsed) {
-      this.setMessage("Terminal auxiliar já utilizado neste teste.");
+      this.setMessage("Terminal auxiliar já utilizado neste confronto.");
+      return;
+    }
+    if(this.arenaLayout){
+      this.state.terminalUsed=true;
+      const result=activateSiegeTerminal(this.state,this.arenaLayout.site);
+      this.state.message=result.message;
+      this.addLog("[CENÁRIO] "+result.name+": "+result.message);
+      this.setCue("terminal","terminal",result.energy);
+      this.publish();
       return;
     }
     if (this.state.energy === this.state.maxEnergy) {
@@ -268,7 +286,7 @@ export class TurnManager {
   getReachableCells(): Position[] {
     const player = livingUnit(this.state.units, "runner");
     if (!player || this.state.activeSide !== "player" || this.state.combatComplete) return [];
-    return getReachableCells(this.state.units, player, this.state.movementRemaining);
+    return getReachableCells(this.state.units, player, this.state.movementRemaining,this.arenaLayout);
   }
 
   /** Prévia única para lógica, HUD e ação real: evita indicadores mentirosos. */
@@ -281,7 +299,7 @@ export class TurnManager {
     const mode=this.weaponRange>1?"ranged":"melee";
     const range=this.weaponRange;
     const dist=player&&enemy?distance(player,enemy):0;
-    const cover=player&&enemy&&range>1?coverBetween(player,enemy):"none";
+    const cover=player&&enemy&&range>1?coverBetween(player,enemy,this.arenaLayout):"none";
     const defense=(enemy?.armorClass??0)+(cover==="partial"?2:0);
     let reason="";
     if(!player||!enemy)reason="Sem alvo disponível.";
@@ -304,7 +322,7 @@ export class TurnManager {
     if(!player||!enemy||this.state.combatComplete)return "Sem ameaça ativa";
     if(this.state.enemyJamTurns>0)return "Interferência ativa: ação hostil bloqueada";
     return planEnemyTurn(enemy,player,this.state.units,
-      enemyProfile(this.state.encounterId,this.state.wave)).intent;
+      enemyProfile(this.state.encounterId,this.state.wave),this.arenaLayout).intent;
   }
 
   activateOriginAbility(): void {
@@ -393,7 +411,7 @@ export class TurnManager {
   movePlayerTo(x: number, y: number): void {
     const player = livingUnit(this.state.units, "runner");
     if (!player || this.state.activeSide !== "player" || this.state.combatComplete) return;
-    const path = findPath(player, { x, y }, this.state.units, player.id);
+    const path = findPath(player, { x, y }, this.state.units, player.id,this.arenaLayout);
     if (!path || path.length < 2) return;
     const cost = path.length - 1;
     if (cost > this.state.movementRemaining) {
@@ -460,15 +478,15 @@ export class TurnManager {
     const pendingOverwatch=this.state.overwatchReady;
     this.state.overwatchReady=false;
     if(!jammed){
-      const plan=planEnemyTurn(enemy,player,this.state.units,profile);
+      const plan=planEnemyTurn(enemy,player,this.state.units,profile,this.arenaLayout);
       if(plan.action==="advance"||plan.action==="reposition"){
         enemy.x=plan.target.x;
         enemy.y=plan.target.y;
         this.addLog("[IA TÁTICA] "+profile.name+" · "+plan.intent+".");
       }
       if(pendingOverwatch){
-        if(withinShot(player,enemy,this.weaponRange)){
-          const defense=enemy.armorClass+coverArmorBonus(player,enemy);
+        if(withinShot(player,enemy,this.weaponRange,this.arenaLayout)){
+          const defense=enemy.armorClass+coverArmorBonus(player,enemy,this.arenaLayout);
           const reactionRoll=rollDie(20);
           if(reactionRoll===20||reactionRoll+player.attackBonus>=defense){
             const damage=rollDie(6)+2+(this.weaponRange===5?1:0);
@@ -482,8 +500,8 @@ export class TurnManager {
         }else this.addLog("[VIGILÂNCIA] Sem linha de tiro: reação consumida.");
         if(enemy.hp<=0){this.resolveEnemyDown();this.publish();return;}
       }
-      if(withinShot(enemy,player,profile.range)){
-        const cover=profile.range>1?coverArmorBonus(enemy,player):0;
+      if(withinShot(enemy,player,profile.range,this.arenaLayout)){
+        const cover=profile.range>1?coverArmorBonus(enemy,player,this.arenaLayout):0;
         const defense=player.armorClass+cover;
         const roll=rollDie(20),total=roll+enemy.attackBonus;
         if(roll===20||total>=defense){
@@ -573,17 +591,19 @@ export class TurnManager {
     this.state.defeatedEnemyCount++;
     const trial=this.state.encounterId.startsWith("trial-");
     const district=this.state.encounterId.startsWith("district-");
+    const council=this.state.encounterId.startsWith("council-");
     const eden=this.state.encounterId.startsWith("eden-");
     const cisma=this.state.encounterId.startsWith("cisma-");
-    const waves=trial||district||eden||cisma;
+    const waves=trial||district||eden||cisma||council;
     if(waves&&this.state.wave<this.state.totalWaves){
       this.state.wave+=1;
       const hp=(cisma?(this.state.encounterId==="cisma-core"?25:
         this.state.encounterId==="cisma-containment"?22:20):
-        eden?(this.state.encounterId==="eden-core"?24:19):district?17:14)+3*(this.state.wave-1);
+        eden?(this.state.encounterId==="eden-core"?24:19):council?21:district?17:14)+3*(this.state.wave-1);
       enemy.hp=hp;enemy.maxHp=hp;enemy.armorClass=13+this.state.wave-1;
       enemy.attackBonus=4+this.state.wave-1;
-      enemy.x=6;enemy.y=1;
+      enemy.x=this.arenaLayout?.enemySpawn.x??6;
+      enemy.y=this.arenaLayout?.enemySpawn.y??1;
       enemy.name=enemyProfile(this.state.encounterId,this.state.wave).name+" · "+this.state.wave;
       this.state.combatComplete=false;
       this.state.mainActionAvailable=true;
