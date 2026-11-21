@@ -1,0 +1,22 @@
+/* Optional verified offline art packs — small-screen Android landscape UI.
+ * Keep controls readable without overlapping the seven district rows. */
+.na-local-pack-actions{
+ display:flex; flex-direction:column; align-items:stretch;
+ gap:6px; min-width:148px; max-width:210px;
+}
+.na-local-pack-actions button{
+ min-height:44px; line-height:1.2; white-space:normal;
+ text-align:center; touch-action:manipulation;
+}
+.na-local-pack-actions button:last-child:not(:first-child){
+ background:rgba(29,64,76,.82); border-color:#79beca;
+ color:#e2f8f9;
+}
+.na-local-pack-actions button:disabled{opacity:.48}
+@media(max-width:700px){
+ .na-local-pack-actions{min-width:0;max-width:none;width:100%}
+ .na-local-pack-actions button{min-height:42px;font-size:12px}
+}
+@media(prefers-reduced-motion:reduce){
+ .na-local-pack-actions button{transition:none}
+}
