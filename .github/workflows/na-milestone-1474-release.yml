@@ -41,6 +41,18 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           python -m pip install -r tools/requirements-characters.txt
+      - name: Stamp upgrade-safe QA 2.0.0-rc.6 version without changing package ID
+        run: |
+          node --input-type=module <<'JS'
+          import fs from "node:fs";
+          for(const file of ["package.json","package-lock.json"]){
+            const contents=fs.readFileSync(file,"utf8");
+            if(!contents.includes('"version": "2.0.0-rc.4"'))
+              throw new Error("Unexpected version, refusing Android downgrade");
+            fs.writeFileSync(file,contents.replaceAll('"version": "2.0.0-rc.4"',
+              '"version": "2.0.0-rc.6"'));
+          }
+          JS
       - name: Render every original in-game document and all 448 cinematic frames
         run: |
           set -euo pipefail
@@ -136,7 +148,7 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name apksigner | sort -V | tail -n 1)"
           "$AAPT" dump badging "$APK" > qa/na-final-badging.txt
           grep -Fq "name='com.cyberpunk.tacticalrpg.qa200'" qa/na-final-badging.txt
-          grep -Fq "versionCode='2000099'" qa/na-final-badging.txt
+          grep -Fq "versionCode='2000006'" qa/na-final-badging.txt
           "$APKSIGNER" verify --verbose --print-certs "$APK" > qa/na-final-certs.txt
           grep -Fq "43afabd6de5f33ebeb5958eb0d300d64e1012ddc9bcd98c1d302ae3101ce4404" qa/na-final-certs.txt
           python - <<'PY'
