@@ -59,6 +59,8 @@ import {innerReceipt} from "../game/story/indoor-rewards.ts";
 
 import {readPerimeter} from "../game/story/perimeter-routes.ts";
 import {readVigil} from "../game/story/vigil-escorts.ts";
+import {readShelter} from "../game/story/shelter-network.ts";
+import {readNexus} from "../game/story/nexus-eden.ts";
 import {INNER_CONTRACTS,isContractId,readContracts,saveContracts,startContract,
  completeContract,contractObjective,solveForensicCase} from "../game/story/inner-contracts.ts";
 import {FORENSIC_CASES} from "../game/story/forensic-cases.ts";
@@ -1595,9 +1597,15 @@ const [dossierOpen,setDossierOpen]=useState(false);
         )}
         {isContractId(interior)&&
           <button type="button" className="area-return" onClick={()=>setDossierOpen(true)}>
-            {isContractId(interior)&&readPerimeter(character.id).completed[interior]&&
+            {readPerimeter(character.id).completed[interior]&&
              !readVigil(character.id).completed[interior]?
-              "◈ NOVA MISSÃO: OPERAÇÃO VIGÍLIA — RESGATE":
+              "◈ MISSÃO: OPERAÇÃO VIGÍLIA — RESGATE":
+             readVigil(character.id).completed[interior]&&
+             !readShelter(character.id).completed[interior]?
+              "◈ MISSÃO: OPERAÇÃO REFÚGIO — PROTEÇÃO CIVIL":
+             readShelter(character.id).completed[interior]&&
+             !readNexus(character.id).completed[interior]?
+              "◈ MISSÃO: OPERAÇÃO NEXO — REDE ÉDEN":
               "◈ ABRIR MISSÕES E ARQUIVO DO DISTRITO"}
           </button>}
         {interior==="clinic"&&<section className="na-clinic-quick-treatment"
@@ -1826,6 +1834,22 @@ const [dossierOpen,setDossierOpen]=useState(false);
                 <small>{contracts.completed.length}/28 dossiês concluídos ·
                   três provas físicas por interior</small>
               </article>}
+            {isContractId(interior)&&readVigil(character.id).completed[interior]&&
+             <article className="na-favor-row" aria-label="Progressão após o resgate">
+              <strong>{readNexus(character.id).completed[interior]?
+                "ÉDEN · REDE LOCAL CONSOLIDADA":
+                readShelter(character.id).completed[interior]?
+                "OPERAÇÃO NEXO · DESAFIO DO ÉDEN":
+                "OPERAÇÃO REFÚGIO · PROTEÇÃO DOS CIVIS"}</strong>
+              <p>{readNexus(character.id).completed[interior]?
+                "Seis relés foram liberados, e a política local está registrada no arquivo.":
+                readShelter(character.id).completed[interior]?
+                "O abrigo foi estabilizado. Entre no arquivo e selecione Nexo para acessar seis relés.":
+                "Após o resgate, civis precisam de suprimentos e cinco postos de assistência."}</p>
+              <button type="button" className="na-quest-secondary" onClick={()=>{
+                setDossierOpen(true);setHubOpen(false);
+              }}>Abrir a próxima operação</button>
+             </article>}
             {isCouncilId(cityArea)&&<article className="na-favor-row"
               aria-label="Conselho distrital e decisões persistentes">
               <strong>CONSELHO DISTRITAL · {DISTRICT_COUNCILS[cityArea].title}</strong>
