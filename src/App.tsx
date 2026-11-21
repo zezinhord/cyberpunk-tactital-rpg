@@ -67,6 +67,7 @@ import {readSimulations,SIMULATION_PHASES,SIMULATION_REWARD_XP} from "./game/sto
 import {readPerimeter,PERIMETER_XP} from "./game/story/perimeter-routes.ts";
 import {readVigil} from "./game/story/vigil-escorts.ts";
 import {readShelter} from "./game/story/shelter-network.ts";
+import {readNexus} from "./game/story/nexus-eden.ts";
 import {readRecovery,RECOVERY_TASKS,mergeRecoverySupport,
  recoveryCombatSupport} from "./game/story/recovery-network.ts";
 import {readUrban,urbanCombatSupport} from "./game/story/urban-chronicles.ts";
@@ -397,6 +398,10 @@ export default function App() {
     const shelters=readShelter(active.id);
     for(const [room,outcome] of Object.entries(shelters.completed)){
       if(outcome&&!grantTrialXp("shelter-"+room,outcome.xp))return false;
+    }
+    const nexus=readNexus(active.id);
+    for(const [room,outcome] of Object.entries(nexus.completed)){
+      if(outcome&&!grantTrialXp("nexus-"+room,outcome.xp))return false;
     }
     const cisma=readCisma(active.id);
     for(const id of cisma.history){

@@ -21,6 +21,7 @@ import {SIMULATION_KEY,validateSimulations} from "../story/field-simulations.ts"
 import {PERIMETER_KEY,validatePerimeter} from "../story/perimeter-routes.ts";
 import {VIGIL_KEY,validVigil} from "../story/vigil-escorts.ts";
 import {SHELTER_KEY,validShelter} from "../story/shelter-network.ts";
+import {NEXUS_KEY,validNexus} from "../story/nexus-eden.ts";
 import {URBAN_KEY,validateUrbanBackup} from "../story/urban-chronicles.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
@@ -53,6 +54,7 @@ export const CHARACTER_BACKUP_KEYS={
  perimeter:PERIMETER_KEY,
  vigil:VIGIL_KEY,
  shelter:SHELTER_KEY,
+ nexus:NEXUS_KEY,
  urban:URBAN_KEY,
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
@@ -132,6 +134,8 @@ export function importCharacterBackup(text:string,overwrite=false):
        return {ok:false,message:"Relatórios de evacuação inválidos no backup."};
      if(field==="shelter"&&!validShelter(decoded))
        return {ok:false,message:"Rede de abrigos inválida no backup."};
+     if(field==="nexus"&&!validNexus(decoded))
+       return {ok:false,message:"Registro de invasão do Éden inválido no backup."};
      if(field==="area"&&!isSavedWorldArea(decoded))
        return {ok:false,message:"Área ativa inválida no backup."};
      if(field==="sewer"){

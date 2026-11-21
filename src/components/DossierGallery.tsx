@@ -19,6 +19,8 @@ import {countEvacuated,
  type VigilProgress,type VigilApproach,type VigilResult,type VigilRun}
  from "../game/story/vigil-escorts.ts";
 import ShelterPanel from "./ShelterPanel.tsx";
+import NexusPanel from "./NexusPanel.tsx";
+import {nexusUnlocked,activeNexus,readNexus,nexusFrame,type NexusState} from "../game/story/nexus-eden.ts";
 import {readShelter,shelterUnlocked,activeShelter,shelterFrame,type ShelterState} from "../game/story/shelter-network.ts";
 import "../dossier-gallery.css";
 
@@ -32,9 +34,10 @@ interface Props{room:string;characterId:string;onClose:()=>void;
  onQuestXp:(eventId:string,amount:number)=>boolean}
 export default function DossierGallery({room,characterId,onClose,onQuestXp}:Props){
  const [progress,setProgress]=useState<ArchiveProgress>(()=>readArchiveProgress(characterId));
- const [mode,setMode]=useState<"dossier"|"cutscene"|"spritesheet"|"route"|"evac"|"shelter">("dossier");
+ const [mode,setMode]=useState<"dossier"|"cutscene"|"spritesheet"|"route"|"evac"|"shelter"|"nexus">("dossier");
  const [vigil,setVigil]=useState<VigilProgress>(()=>readVigil(characterId));
  const [shelter,setShelter]=useState<ShelterState>(()=>readShelter(characterId));
+ const [nexus,setNexus]=useState<NexusState>(()=>readNexus(characterId));
  const [vigilNotice,setVigilNotice]=useState("");
  const [vigilApproach,setVigilApproach]=useState<VigilApproach>("normal");
  const [perimeter,setPerimeter]=useState<PerimeterState>(()=>readPerimeter(characterId));
@@ -59,6 +62,9 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
  const shelterAvailable=simulationRoom?shelterUnlocked(vigil,simulationRoom):false;
  const shelterRun=simulationRoom?activeShelter(shelter,simulationRoom):null;
  const shelterDone=simulationRoom?shelter.completed[simulationRoom]:null;
+ const nexusReady=simulationRoom?nexusUnlocked(shelter,simulationRoom):false;
+ const nexusRun=simulationRoom?activeNexus(nexus,simulationRoom):null;
+ const nexusDone=simulationRoom?nexus.completed[simulationRoom]:null;
  const evacRun=simulationRoom?vigilRun(vigil,simulationRoom):null;
  const evacMap=simulationRoom?mapForVigil(simulationRoom):null;
  const evacEnd=simulationRoom?vigil.completed[simulationRoom]:null;
@@ -109,7 +115,8 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
  const [zoom,setZoom]=useState(false);
  const [imageError,setImageError]=useState(false);
  const current=pages[index];
- const maxIndex=mode==="shelter"&&!shelterDone?shelterFrame(shelterRun?.stage??0,shelterRun?.turn??0):
+ const maxIndex=mode==="nexus"&&!nexusDone?nexusFrame(nexusRun):
+  mode==="shelter"&&!shelterDone?shelterFrame(shelterRun?.stage??0,shelterRun?.turn??0):
   mode==="evac"&&!evacEnd?rescuePlate(evacRun):
    mode==="route"&&!patrolCompleted?
    routeFrame(patrol):mode==="spritesheet"&&!finished?
@@ -152,6 +159,7 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
            mode==="spritesheet"?"A CIDADE RESPONDE · SIMULAÇÃO TÁTICA":
            mode==="route"?"OPERAÇÃO LIMIAR · PATRULHA INTERATIVA":
            mode==="shelter"?"OPERAÇÃO REFÚGIO · RECONSTRUÇÃO CIVIL":
+           mode==="nexus"?"OPERAÇÃO NEXO · PROTOCOLO ÉDEN":
           "OPERAÇÃO VIGÍLIA · RESGATE E ESCOLTA"} · NOVA ARCÁDIA 2.0</small>
          <strong>{room.replaceAll("-"," ").toUpperCase()}</strong>
          <span>{pages.length?index+1:0} / {pages.length} {mode==="dossier"?
@@ -160,6 +168,7 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
            "QUADROS · FASE "+Math.min(6,solved+1)+"/6":
            mode==="route"?"PLANTA · POSTO "+(patrol?.stage??0)+"/5":
           mode==="shelter"?"ABRIGO · POSTOS "+(shelterRun?.stage??(shelterDone?5:0))+"/5":
+           mode==="nexus"?"REDE ÉDEN · RELÉS "+(nexusRun?.stage??(nexusDone?6:0))+"/6":
            "ESCOLTA · "+(evacRun?countEvacuated(evacRun.rescued):evacEnd?4:0)+
            "/4 CIVIS"}</span>
        </div>
@@ -199,6 +208,12 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
           setMode("shelter");setIndex(shelterFrame(shelterRun?.stage??0,shelterRun?.turn??0));
           setZoom(false);setImageError(false);
         }}>Refúgio · 5 postos</button>
+      <button type="button" aria-pressed={mode==="nexus"} disabled={!nexusReady}
+       title={nexusReady?"Interceptar o protocolo Éden":"Conclua Refúgio para abrir a rede"}
+       onClick={()=>{
+        setMode("nexus");setIndex(nexusFrame(nexusRun));
+        setZoom(false);setImageError(false);
+       }}>Nexo · Éden 8×8</button>
      </nav>
      <div className="na-dossier-visual">
        {mode==="route"&&routeMap&&<div className="na-perimeter-hud">
@@ -309,7 +324,13 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
            Iniciar resgate
          </button>}
        </div>}
-       {mode==="shelter"&&simulationRoom&&<ShelterPanel
+       {mode==="nexus"&&simulationRoom&&<NexusPanel room={simulationRoom}
+          characterId={characterId} shelters={shelter}
+          onUpdate={(next,frame,xp)=>{
+           setNexus(next);setIndex(frame);setZoom(false);setImageError(false);
+           if(xp>0)onQuestXp("nexus-"+simulationRoom,xp);
+          }}/>}
+        {mode==="shelter"&&simulationRoom&&<ShelterPanel
          room={simulationRoom} characterId={characterId} vigil={vigil}
          state={shelter} onUpdate={(newState,frame,xp)=>{
            setShelter(newState);setIndex(frame);setZoom(false);setImageError(false);
@@ -358,11 +379,11 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
      </section>}
      <footer className="na-dossier-footer">
        <button type="button" onClick={()=>{setIndex(v=>Math.max(0,v-1));
-         setZoom(false);setImageError(false);}} disabled={index===0||(mode==="route"&&!patrolCompleted)||(mode==="evac"&&!evacEnd)||(mode==="shelter"&&!shelterDone)}>Anterior</button>
+         setZoom(false);setImageError(false);}} disabled={index===0||(mode==="route"&&!patrolCompleted)||(mode==="evac"&&!evacEnd)||(mode==="shelter"&&!shelterDone)||(mode==="nexus"&&!nexusDone)}>Anterior</button>
        <button type="button" onClick={()=>setZoom(v=>!v)} disabled={!src||imageError}
          aria-pressed={zoom}>{zoom?"Enquadrar":"Ampliar"}</button>
        <button type="button" onClick={()=>{setIndex(v=>Math.min(maxIndex,v+1));
-         setZoom(false);setImageError(false);}} disabled={index>=maxIndex||(mode==="route"&&!patrolCompleted)||(mode==="evac"&&!evacEnd)||(mode==="shelter"&&!shelterDone)}>Próxima</button>
+         setZoom(false);setImageError(false);}} disabled={index>=maxIndex||(mode==="route"&&!patrolCompleted)||(mode==="evac"&&!evacEnd)||(mode==="shelter"&&!shelterDone)||(mode==="nexus"&&!nexusDone)}>Próxima</button>
      </footer>
    </div>
  </div>;
