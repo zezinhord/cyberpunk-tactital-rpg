@@ -40,7 +40,8 @@ import {readParty,activeCompanions} from "./game/companions.ts";
 import {readStealth,stealthCombatEntry} from "./game/stealth.ts";
 import {readContracts,INNER_CONTRACTS} from "./game/story/inner-contracts.ts";
 import {FORENSIC_CASES} from "./game/story/forensic-cases.ts";
-import {DISTRICT_COUNCILS,readCouncils,isCouncilId} from "./game/story/district-councils.ts";
+import {DISTRICT_COUNCILS,COUNCIL_DEFENSES,readCouncils,saveCouncils,isCouncilId,
+  finishCouncilDefense} from "./game/story/district-councils.ts";
 import { audioDirector } from "./audio/director";
 import { markV09Defeated,grantV09Experience } from "./game/story/v09";
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity} from "./game/character/slots";
@@ -355,6 +356,9 @@ export default function App() {
     for(const id of Object.keys(councilProgress.choices))
       if(isCouncilId(id)&&!grantTrialXp("district-council-"+id,DISTRICT_COUNCILS[id].rewardXp))
         return false;
+    for(const id of councilProgress.defended??[])
+      if(!grantTrialXp("council-defense-"+id,COUNCIL_DEFENSES[id].xp))
+        return false;
     const cisma=readCisma(active.id);
     for(const id of cisma.history){
       const step=CISMA_STEPS.find(s=>s.id===id);
@@ -452,6 +456,22 @@ export default function App() {
     const enemyDefeated=state.units.find(u=>u.id==="drone")?.hp===0;
     const active=characterRef.current;
     if(!active)return;
+    if(enemyDefeated&&state.encounterId.startsWith("council-")){
+      const region=state.encounterId.slice("council-".length);
+      if(isCouncilId(region)){
+        const completed=finishCouncilDefense(readCouncils(active.id),region);
+        if(completed.ok){
+          if(saveCouncils(active.id,completed.state)){
+            if(!grantTrialXp("council-defense-"+region,completed.xp))
+              setSaveMessage("A defesa do conselho foi salva; a XP será reconciliada ao carregar.");
+            else setSaveMessage(COUNCIL_DEFENSES[region].title+" concluído · +"+
+              completed.xp+" XP.");
+            audioDirector.effect("victory");
+          }else setSaveMessage("Sem espaço para registrar a defesa. Libere armazenamento e retorne.");
+        }
+      }
+      return;
+    }
     if(enemyDefeated&&isOperationsCombat(state.encounterId)){
       const result=advanceOperationBattle(readOperations(active.id),state.encounterId);
       if(result.advanced&&result.stage){
@@ -805,10 +825,13 @@ export default function App() {
     <main className="app-shell game-shell arena-v030">
       <header className="topbar arena-head">
         <div className="mission">
-          <h1>{battleMode.startsWith("district-")?"Defesa do Distrito · Interceptação Helix":battleMode==="v09"?"Pátio do Reúso · Encontro V-09":
+          <h1>{battleMode.startsWith("council-")?"Defesa do Conselho · "+
+            COUNCIL_DEFENSES[battleMode.slice(8) as keyof typeof COUNCIL_DEFENSES]?.title:
+            battleMode.startsWith("district-")?"Defesa do Distrito · Interceptação Helix":battleMode==="v09"?"Pátio do Reúso · Encontro V-09":
             isTrialEncounter(battleMode)?"Operação Circuito Fantasma · Interceptação":
             "Limbo de Teste · Personagens e Habilidades"}</h1>
-          <p>{battleMode.startsWith("district-")?"OPERAÇÃO INTERDISTRITAL · "+state.wave+" / "+state.totalWaves+" ONDAS":battleMode==="v09"?"MISSÃO PRINCIPAL · O NOME QUE SUMIU":
+          <p>{battleMode.startsWith("council-")?"ACORDO COMUNITÁRIO · "+state.wave+" / "+state.totalWaves+" ONDAS":
+            battleMode.startsWith("district-")?"OPERAÇÃO INTERDISTRITAL · "+state.wave+" / "+state.totalWaves+" ONDAS":battleMode==="v09"?"MISSÃO PRINCIPAL · O NOME QUE SUMIU":
             isTrialEncounter(battleMode)?"CAMPANHA TÁTICA · "+state.wave+" / "+state.totalWaves+" ONDAS":
             "Operativo de Campo // módulo experimental 0.3.0"}</p>
         </div>
@@ -834,7 +857,8 @@ export default function App() {
           </div>
         </div>
         <section className="battle-panel" aria-label="Combate tático isométrico">
-          <div className="map-label"><span>{battleMode.startsWith("district-")?"AGENTES HELIX · ONDA "+state.wave+" / "+state.totalWaves: battleMode==="v09"?"UNIDADE HOSTIL · V-09":
+          <div className="map-label"><span>{battleMode.startsWith("council-")?"DEFESA DO CONSELHO · ONDA "+state.wave+" / "+state.totalWaves:
+             battleMode.startsWith("district-")?"AGENTES HELIX · ONDA "+state.wave+" / "+state.totalWaves: battleMode==="v09"?"UNIDADE HOSTIL · V-09":
              isTrialEncounter(battleMode)?"ONDA "+state.wave+" DE "+state.totalWaves+" · 8 × 8":"SIMULAÇÃO 01 · 8 × 8"}</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
           <SceneRecovery name="arena de combate"><Suspense fallback={<div className="battlefield-canvas" role="status">
             Preparando arena tática sem bloquear a exploração…
@@ -882,7 +906,8 @@ export default function App() {
             <b>ESCOLHER ›</b>
           </button>
           {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? (battleMode==="v09" ? "V-09 neutralizada · registros recuperados"
-              : battleMode.startsWith("district-")?"Segurança Helix neutralizada · provas protegidas"
+              : battleMode.startsWith("council-")?"Acordo distrital defendido · segurança restaurada"
+               : battleMode.startsWith("district-")?"Segurança Helix neutralizada · provas protegidas"
               : isTrialEncounter(battleMode)?"Interceptação vencida · campanha continua"
               :"Sentinela neutralizada") : "Operativo incapacitado"}</div>}
           <div className="economy">
