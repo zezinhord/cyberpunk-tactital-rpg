@@ -280,6 +280,25 @@ export function recoveryCombatSupport(state:RecoveryProgress,encounter:string):
  const region=COUNCIL_IDS.find(id=>encounter==="district-"+id||
   encounter==="council-"+id);
  if(!region)return null;
- const method=state.outcomes[region];
- return method?RECOVERY_LINES[region].finalOptions[method].support:null;
+ if(region){
+  const method=state.outcomes[region];
+  if(method)return RECOVERY_LINES[region].finalOptions[method].support;
+ }
+ // Completing three *different* local services unlocks a modest city-wide
+ // reserve for subsequent missions; never stack seven entire district buffs.
+ if(Object.keys(state.outcomes).length>=3)
+  return {label:"Rede de reconstrução: suprimentos compartilhados",energy:1};
+ return null;
+}
+/** Preserve the previous urban support. Battle constructor already accepts
+ * one support object, so combine the two earned sources without overwriting. */
+export function mergeRecoverySupport(a:UrbanCombatSupport|null,
+ b:UrbanCombatSupport|null):UrbanCombatSupport|null{
+ if(!a)return b;
+ if(!b)return a;
+ return {label:a.label+" · "+b.label,
+  attack:(a.attack??0)+(b.attack??0),
+  armor:(a.armor??0)+(b.armor??0),
+  energy:(a.energy??0)+(b.energy??0),
+  movement:(a.movement??0)+(b.movement??0)};
 }
