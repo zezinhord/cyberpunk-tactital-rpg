@@ -14,7 +14,7 @@ import {readPerimeter,savePerimeter,perimeterUnlocked,
  type PerimeterState,type RouteMode} from "../game/story/perimeter-routes.ts";
 import {countEvacuated,
  readVigil,saveVigil,vigilUnlocked,mapForVigil,
- vigilGuards,vigilRun,startVigil,moveVigil,rescueVigil,
+ vigilGuards,vigilRun,planVigilRoute,startVigil,moveVigil,rescueVigil,
  divertVigil,reorganizeVigil,
  type VigilProgress,type VigilApproach,type VigilResult,type VigilRun}
  from "../game/story/vigil-escorts.ts";
@@ -57,6 +57,11 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
  const evacMap=simulationRoom?mapForVigil(simulationRoom):null;
  const evacEnd=simulationRoom?vigil.completed[simulationRoom]:null;
  const evacGuards=simulationRoom&&evacRun?vigilGuards(simulationRoom,evacRun.turn):[];
+ const evacDestination=evacRun&&evacMap?
+   evacMap.groups.find((_,i)=>(evacRun.rescued&(1<<i))===0)??evacMap.exit:null;
+ const evacPlan=simulationRoom&&evacRun&&evacDestination?
+   planVigilRoute(simulationRoom,evacRun,evacDestination,vigilApproach):null;
+ const evacNext=evacPlan?.steps[0]??null;
  const evacAtGroup=Boolean(evacRun&&evacMap&&evacMap.groups.some((p,i)=>
     p.x===evacRun.x&&p.y===evacRun.y&&(evacRun.rescued&(1<<i))===0));
  const commitVigil=(result:VigilResult)=>{
@@ -246,6 +251,7 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
              const citizen=evacMap.groups.findIndex(p=>p.x===x&&p.y===y);
              const waiting=citizen>=0&&(evacRun.rescued&(1<<citizen))===0;
              const operator=x===evacRun.x&&y===evacRun.y;
+             const suggested=x===evacNext?.x&&y===evacNext?.y;
              const exit=x===evacMap.exit.x&&y===evacMap.exit.y;
              const hazard=evacMap.hotspots.has(x+","+y);
              const distance=Math.abs(x-evacRun.x)+Math.abs(y-evacRun.y);
@@ -255,7 +261,8 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
                disabled={wall||!reachable}
                className={"na-route-cell"+(operator?" player":"")+
                 (exit?" goal":"")+(waiting?" civilian":"")+
-                (guard?" guard":"")+(hazard?" hazard":"")+(wall?" blocked":"")}
+                (guard?" guard":"")+(suggested?" suggested":"")+
+                (hazard?" hazard":"")+(wall?" blocked":"")}
                aria-label={operator?"Protagonista":wall?"Barreira":waiting?
                 "Civis aguardando resgate":guard?"Sentinela móvel":exit?
                 "Ponto de extração":hazard?"Zona de vigilância":"Corredor livre"}
@@ -264,6 +271,12 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
                  wall?"■":exit?"◎":hazard?"!":"·"}</button>;
            })}
          </div>}
+         {evacRun&&evacPlan&&<p className="na-vigil-guidance" aria-live="polite">
+           ROTA SUGERIDA · {evacPlan.turns} turno(s) ·
+           {evacPlan.estimatedEnergy} energia estimada ·
+           risco {evacPlan.estimatedExposure}
+           {evacNext?" · próxima casa ("+(evacNext.x+1)+", "+(evacNext.y+1)+")":""}
+         </p>}
          {evacRun&&<div className="na-vigil-actions">
            <button type="button" disabled={!evacAtGroup||evacRun.energy===0}
              onClick={()=>commitVigil(rescueVigil(vigil,simulationRoom!))}>
