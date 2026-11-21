@@ -287,7 +287,7 @@ export class BattleScene extends Phaser.Scene {
           this.traceDiamond(center.x, center.y);
           graphics.strokePath();
           // Reflexos de piso metálico e desgaste de circulação.
-          if(!isBlocked({x,y})&&(x*7+y*11)%13===0){
+          if(!isBlocked({x,y},this.manager.getArenaLayout())&&(x*7+y*11)%13===0){
             graphics.lineStyle(1,0x80b1bb,.24);
             graphics.beginPath();
             graphics.moveTo(center.x-9,center.y+2);
@@ -302,7 +302,7 @@ export class BattleScene extends Phaser.Scene {
             this.traceDiamond(center.x, center.y, TILE_WIDTH - 5, TILE_HEIGHT - 5);
             graphics.strokePath();
           }
-          if (isBlocked({ x, y })) this.drawObstacle(center.x, center.y);
+          if (isBlocked({ x, y },this.manager.getArenaLayout())) this.drawObstacle(center.x, center.y);
         }
       }
     }
@@ -320,7 +320,7 @@ export class BattleScene extends Phaser.Scene {
     const attacker=state.units.find(u=>u.id==="runner");
     const target=state.units.find(u=>u.id==="drone");
     if(attacker&&target&&target.hp>0){
-      const cover=coverBetween(attacker,target);
+      const cover=coverBetween(attacker,target,this.manager.getArenaLayout());
       // Delimita obstáculos e proteção do alvo sem trocar as texturas
       // originais dos protagonistas, NPCs ou tabuleiro.
       const center=tileCenter(target);
