@@ -12,7 +12,7 @@ import {readPerimeter,savePerimeter,perimeterUnlocked,
  layoutForRoom,startPerimeter,movePerimeter,answerPerimeter,
  currentRoute,routeGoal,routeBrief,routeFrame,PERIMETER_STAGES,
  type PerimeterState,type RouteMode} from "../game/story/perimeter-routes.ts";
-import {EMPTY_VIGIL,VIGIL_GROUPS,countEvacuated,
+import {countEvacuated,
  readVigil,saveVigil,vigilUnlocked,mapForVigil,
  vigilGuards,vigilRun,startVigil,moveVigil,rescueVigil,
  divertVigil,reorganizeVigil,vigilFrame,
