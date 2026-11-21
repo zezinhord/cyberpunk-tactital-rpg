@@ -53,3 +53,14 @@
  .na-dossier-footer{padding:4px 10px}
  .na-dossier-visual{max-height:calc(97dvh - 120px)}
 }
+
+/* One 2880×1620 cinematic at a time; tab change releases the old decoded asset. */
+.na-dossier-modes{display:flex;gap:6px;align-items:center;padding:5px 12px;
+ border-top:1px solid #355b61;background:#10242b;flex-shrink:0}
+.na-dossier-modes button{flex:1;min-height:40px;white-space:nowrap}
+.na-dossier-modes button[aria-pressed="true"]{background:#305766;border-color:#8dcbcf;
+ color:#fff5d9;font-weight:700}
+.na-dossier-visual{max-height:calc(97dvh - 203px)}
+@media(max-height:430px){.na-dossier-modes{padding:3px 9px}
+ .na-dossier-modes button{min-height:32px;font-size:11px}
+ .na-dossier-visual{max-height:calc(97dvh - 164px)}}
