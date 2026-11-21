@@ -81,3 +81,40 @@
 @media(max-width:700px){.na-simulation-answers{grid-template-columns:1fr;gap:5px}
 .na-simulation-puzzle{max-height:35dvh}
 .na-simulation-answers button{min-height:42px}}
+
+/* OPERAÇÃO LIMIAR: authentic 8x8 touch navigation stays legible over the
+ * individually decoded environmental plate on lower-end Android phones. */
+.na-dossier-visual{position:relative}
+.na-perimeter-hud{position:sticky;top:6px;right:8px;align-self:flex-start;
+ margin:7px;flex:0 0 min(270px,43%);z-index:3;padding:7px;border-radius:9px;
+ background:rgba(7,23,32,.94);border:1px solid #75a0a8;
+ box-shadow:0 7px 28px #0008;font:11px "IBM Plex Mono",monospace;color:#e1eae5}
+.na-perimeter-hud strong{display:block;color:#f7ce91;line-height:1.3}
+.na-perimeter-hud p{padding:4px 0;margin:4px 0;max-width:100%;text-align:left}
+.na-perimeter-data{display:flex;gap:6px;justify-content:space-between;
+ flex-wrap:wrap;margin:6px 0;color:#add7de;font-size:10px}
+.na-perimeter-modes{display:flex;gap:3px;margin:6px 0}
+.na-perimeter-modes button{flex:1;min-width:0;min-height:30px;
+ font-size:10px;padding:3px 4px}
+.na-perimeter-modes button[aria-pressed="true"]{background:#2f6d74;color:white}
+.na-perimeter-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));
+ gap:2px;width:100%;aspect-ratio:1;margin:6px 0 1px}
+.na-perimeter-grid .na-route-cell{min-width:0;min-height:0;width:100%;height:100%;
+ display:flex;align-items:center;justify-content:center;padding:0;
+ border-radius:2px;background:#1e3b44;border:1px solid #3f737c;
+ color:#a1cbd2;font-size:15px;font-weight:bold}
+.na-perimeter-grid .na-route-cell:disabled{opacity:.63}
+.na-perimeter-grid .na-route-cell.blocked{background:#192329;border-color:#243b41;color:#5a6872}
+.na-perimeter-grid .na-route-cell.hazard{background:#523638;color:#ffb078}
+.na-perimeter-grid .na-route-cell.goal{background:#5b482e;border-color:#f8c47a;color:#ffd79c}
+.na-perimeter-grid .na-route-cell.player{background:#256f81;border-color:#72ecff;
+ color:#efffff;opacity:1}
+.na-perimeter-hud .na-route-start{min-width:100%;min-height:44px;font-weight:700;
+ background:#1e6666;border-color:#6ebbb5}
+@media(max-height:520px){.na-perimeter-hud{max-height:calc(97dvh - 145px);
+ overflow-y:auto}.na-perimeter-grid{max-width:190px;max-height:190px;margin-inline:auto}
+.na-perimeter-grid .na-route-cell{font-size:11px}.na-perimeter-data{font-size:9px}
+.na-perimeter-hud .na-route-start{min-height:34px}}
+@media(max-width:710px){.na-perimeter-hud{flex-basis:min(225px,52%);
+ padding:5px}.na-perimeter-modes button{font-size:9px}
+.na-perimeter-grid{max-width:180px;max-height:180px;margin-inline:auto}}
