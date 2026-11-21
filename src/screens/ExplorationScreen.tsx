@@ -613,9 +613,26 @@ const [dossierOpen,setDossierOpen]=useState(false);
           audioDirector.effect(found.prop.kind==="machine"?"machine":"archive");
           onQuestXp(innerReceipt(found.area,found.prop),found.prop.xp);
         }
-        say([{speaker:blueprint.title,role:"DESCOBERTA · "+found.prop.title,portrait:"▤",
-          text:claimed?found.prop.detail+" +"+found.prop.xp+" XP; "+found.prop.item.replaceAll("_"," ")+" recolhido."
-           :"Este recurso já foi coletado ou o inventário não pôde ser salvo."}]);
+        const repair=found.prop.kind==="machine"&&isContractId(found.area)?
+          repairRecoveryEquipment(recovery,councils,found.area,found.prop.id):null;
+        let restored=false;
+        if(repair?.ok){
+          if(saveRecovery(character.id,repair.state)){
+            setRecovery(repair.state);
+            onQuestXp("recovery-repair-"+found.area,repair.xp);
+            setCityNotice("Operação Retomada · reparo concluído em "+blueprint.title+
+              " · +"+repair.xp+" XP.");
+            audioDirector.effect("machine");
+            restored=true;
+          }else setCityNotice("Falha ao salvar o reparo. Libere espaço e tente novamente.");
+        }
+        say([{speaker:blueprint.title,
+          role:restored?"RECONSTRUÇÃO · "+found.prop.title:"DESCOBERTA · "+found.prop.title,
+          portrait:"▤",text:
+            (claimed?found.prop.detail+" +"+found.prop.xp+" XP; "+
+              found.prop.item.replaceAll("_"," ")+" recolhido.":
+              "Este recurso já foi coletado ou o inventário não pôde ser salvo.")+
+            (restored?"\n\n"+repair!.message+" +"+repair!.xp+" XP.":"")}]);
         return;
       }
     }
