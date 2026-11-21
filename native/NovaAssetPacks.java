@@ -38,10 +38,13 @@ import java.util.zip.ZipInputStream;
  */
 @CapacitorPlugin(name = "NovaAssetPacks")
 public class NovaAssetPacks extends Plugin {
-    private static final String RELEASE_TAG = "nova-arcadia-v200-final-3gb-assets";
     private static final String ROOT_URL =
-            "https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/download/"
-                    + RELEASE_TAG + "/";
+            "https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/download/";
+    private static final String RELEASE_FINAL = "nova-arcadia-v200-final-3gb-assets";
+    private static final String RELEASE_MILESTONE = "nova-arcadia-v200-milestone-1474";
+    private static boolean validReleaseTag(String tag) {
+        return RELEASE_FINAL.equals(tag) || RELEASE_MILESTONE.equals(tag);
+    }
     private static final long MIN_ZIP_SIZE = 1024L;
     private static final long MAX_ZIP_SIZE = 1_900_000_000L;
     private static final long MAX_UNPACKED = 2_200_000_000L;
@@ -139,11 +142,12 @@ public class NovaAssetPacks extends Plugin {
     @PluginMethod
     public void install(PluginCall call) {
         final String id = call.getString("id");
+        final String releaseTag = call.getString("releaseTag");
         final String sha = call.getString("sha256");
         final Long compressed = call.getLong("compressedBytes");
         final Long uncompressed = call.getLong("uncompressedBytes");
         final Integer expectedCount = call.getInt("artworkCount");
-        if (!validId(id) || !validSha(sha) || compressed == null ||
+        if (!validId(id) || !validReleaseTag(releaseTag) || !validSha(sha) || compressed == null ||
                 uncompressed == null || expectedCount == null ||
                 compressed < MIN_ZIP_SIZE || compressed >= MAX_ZIP_SIZE ||
                 uncompressed < 1024L || uncompressed > MAX_UNPACKED ||
@@ -166,7 +170,7 @@ public class NovaAssetPacks extends Plugin {
                 cleanup(download); cleanup(staged); cleanup(previous);
                 if (!staged.mkdirs()) throw new IllegalStateException("Failed to stage pack");
                 String assetName = "NA20-" + id + ".zip";
-                URL url = new URL(ROOT_URL + assetName);
+                URL url = new URL(ROOT_URL + releaseTag + "/" + assetName);
                 conn = (HttpURLConnection) url.openConnection();
                 conn.setConnectTimeout(25_000);
                 conn.setReadTimeout(80_000);
