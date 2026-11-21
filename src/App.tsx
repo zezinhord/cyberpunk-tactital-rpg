@@ -63,6 +63,8 @@ import {claimDiscovery,DISCOVERY_AREAS,DISCOVERY_REWARDS} from "./game/story/dis
 import {collectInnerProp,reconcileInnerExperience} from "./game/story/indoor-rewards.ts";
 import {readReputation,syncFactionAids} from "./game/story/reputation";
 import {SIEGE_TERMINAL_NAMES} from "./game/combat/siege-terminals.ts";
+import {readRecovery,RECOVERY_TASKS,RECOVERY_LINES,mergeRecoverySupport,
+ recoveryCombatSupport} from "./game/story/recovery-network.ts";
 import {readUrban,urbanCombatSupport} from "./game/story/urban-chronicles.ts";
 import {readDistrictProgress,saveDistrictProgress,advanceDistrict,
  districtCurrentStep} from "./game/districts/progress";
@@ -271,7 +273,9 @@ export default function App() {
   const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
     currentHp:loadHealth(character?.id??"",maximumHp),
     progressionBonuses:combatProgression(character),encounterId:battleMode,weaponId:inventory.equipped.weapon,
-     districtSupport:character?urbanCombatSupport(readUrban(character.id),battleMode):null,
+     districtSupport:character?mergeRecoverySupport(
+       urbanCombatSupport(readUrban(character.id),battleMode),
+       recoveryCombatSupport(readRecovery(character.id),battleMode)):null,
      partySupport:character?activeCompanions(readParty(character.id)):[],
      infiltration:character?stealthCombatEntry(readStealth(character.id),battleMode):null }),
      [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
@@ -360,6 +364,19 @@ export default function App() {
     for(const id of councilProgress.defended??[])
       if(!grantTrialXp("council-defense-"+id,COUNCIL_DEFENSES[id].xp))
         return false;
+    const recovered=readRecovery(active.id);
+    for(const region of Object.keys(recovered.repairs)){
+      if(!isCouncilId(region))continue;
+      const locations=recovered.repairs[region]??[];
+      for(const location of locations){
+        const task=RECOVERY_TASKS[region].find(x=>x.room===location);
+        if(task&&!grantTrialXp("recovery-repair-"+location,task.xp))return false;
+      }
+    }
+    for(const region of Object.keys(recovered.outcomes)){
+      if(isCouncilId(region)&&!grantTrialXp("recovery-final-"+region,78))
+        return false;
+    }
     const cisma=readCisma(active.id);
     for(const id of cisma.history){
       const step=CISMA_STEPS.find(s=>s.id===id);
