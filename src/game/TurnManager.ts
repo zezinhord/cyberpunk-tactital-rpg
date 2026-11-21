@@ -75,16 +75,18 @@ export class TurnManager {
     const trial=options.encounterId?.startsWith("trial-")??false;
     const eden=options.encounterId?.startsWith("eden-")??false;
     const district=options.encounterId?.startsWith("district-")??false;
+    const council=options.encounterId?.startsWith("council-")??false;
     const cisma=options.encounterId?.startsWith("cisma-")??false;
     const trialWaveCount=options.encounterId==="trial-3"||
       options.encounterId==="district-setor-zero"||options.encounterId==="eden-core"||
-      options.encounterId==="cisma-core"?3:trial||district||eden||cisma?2:1;
+      options.encounterId==="cisma-core"||options.encounterId==="council-setor-zero"||
+      options.encounterId==="council-aurea"?3:trial||district||eden||cisma||council?2:1;
     const infiltration=options.infiltration?.encounter===options.encounterId?
       options.infiltration:null;
     const encounterHp=options.encounterId==="cisma-core"?25:
       options.encounterId==="cisma-containment"?22:
       options.encounterId==="cisma-intercept"?20:
-      options.encounterId==="eden-core"?24:options.encounterId==="eden-relay"?19:options.encounterId==="v09"?16:district?17:trial?14:12;
+      options.encounterId==="eden-core"?24:options.encounterId==="eden-relay"?19:options.encounterId==="v09"?16:council?21:district?17:trial?14:12;
     this.state = {
       units: [
         {
@@ -102,7 +104,8 @@ export class TurnManager {
         },
         {
           id: "drone",
-          name: cisma?enemyProfile(options.encounterId??"cisma-intercept",1).name:
+          name: council?enemyProfile(options.encounterId!,1).name:
+            cisma?enemyProfile(options.encounterId??"cisma-intercept",1).name:
             eden?(options.encounterId==="eden-core"?"Guardião do Éden":"Interceptador de Prisma"):
             options.encounterId==="v09" ? "Unidade de Vigilância V-09"
              : district ? "Agente de Segurança Helix" : trial ? "Drone de Interceptação" : "Sentinela-07",
@@ -143,6 +146,7 @@ export class TurnManager {
         ". "+(infiltration?.outcome==="undetected"?"Infiltração: abertura silenciosa!":
          infiltration?.outcome==="spotted"?"Infiltração detectada: vigias reforçados.":
          "Proteja as provas e os pacientes."):
+        council?"DEFESA DO CONSELHO · onda 1 de "+trialWaveCount+". Preserve o acordo coletivo.":
         district?"Intervenção hostil no distrito · onda 1 de "+trialWaveCount+". Proteja as provas.":trial?"Operação Circuito Fantasma · onda 1 de "+trialWaveCount+". Proteja a comunidade."
         : options.encounterId==="v09" ? "Encontro V-09: neutralize a unidade que interceptou os registros de manutenção."
         : "Área de teste ativa. Alcance a sentinela e neutralize-a.",
@@ -573,14 +577,15 @@ export class TurnManager {
     this.state.defeatedEnemyCount++;
     const trial=this.state.encounterId.startsWith("trial-");
     const district=this.state.encounterId.startsWith("district-");
+    const council=this.state.encounterId.startsWith("council-");
     const eden=this.state.encounterId.startsWith("eden-");
     const cisma=this.state.encounterId.startsWith("cisma-");
-    const waves=trial||district||eden||cisma;
+    const waves=trial||district||eden||cisma||council;
     if(waves&&this.state.wave<this.state.totalWaves){
       this.state.wave+=1;
       const hp=(cisma?(this.state.encounterId==="cisma-core"?25:
         this.state.encounterId==="cisma-containment"?22:20):
-        eden?(this.state.encounterId==="eden-core"?24:19):district?17:14)+3*(this.state.wave-1);
+        eden?(this.state.encounterId==="eden-core"?24:19):council?21:district?17:14)+3*(this.state.wave-1);
       enemy.hp=hp;enemy.maxHp=hp;enemy.armorClass=13+this.state.wave-1;
       enemy.attackBonus=4+this.state.wave-1;
       enemy.x=6;enemy.y=1;
