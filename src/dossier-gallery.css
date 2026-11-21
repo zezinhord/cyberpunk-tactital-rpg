@@ -140,3 +140,14 @@
  .na-vigil-actions button{min-height:37px}}
 @media(max-width:690px){.na-dossier-modes button{min-width:132px}
  .na-vigil-hud .na-perimeter-grid{max-width:160px;max-height:160px}}
+
+/* Route assistance remains legible on 360dp devices without extra textures. */
+.na-vigil-guidance{font-size:.78rem;line-height:1.45;margin:.4rem 0;
+ color:#c6eaf0;overflow-wrap:anywhere}
+.na-vigil-hud .na-route-cell.suggested:not(.player){
+ outline:2px solid #55e5e2;outline-offset:-3px;
+ box-shadow:inset 0 0 0 1px #102a38;
+}
+@media (prefers-reduced-motion:reduce){
+ .na-vigil-hud .na-route-cell.suggested{transition:none;animation:none}
+}
