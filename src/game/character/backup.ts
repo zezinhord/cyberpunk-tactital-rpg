@@ -118,6 +118,8 @@ export function importCharacterBackup(text:string,overwrite=false):
        return {ok:false,message:"Deliberações distritais inválidas no backup."};
      if(field==="recovery"&&!validateRecovery(decoded))
        return {ok:false,message:"Registros de reconstrução regional inválidos no backup."};
+     if(field==="simulations"&&!validateSimulations(decoded))
+       return {ok:false,message:"Registros de simulações de campo inválidos no backup."};
      if(field==="area"&&!isSavedWorldArea(decoded))
        return {ok:false,message:"Área ativa inválida no backup."};
      if(field==="sewer"){
