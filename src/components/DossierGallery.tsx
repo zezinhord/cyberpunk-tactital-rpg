@@ -18,6 +18,8 @@ import {countEvacuated,
  divertVigil,reorganizeVigil,
  type VigilProgress,type VigilApproach,type VigilResult,type VigilRun}
  from "../game/story/vigil-escorts.ts";
+import ShelterPanel from "./ShelterPanel.tsx";
+import {readShelter,shelterUnlocked,activeShelter,shelterFrame,type ShelterState} from "../game/story/shelter-network.ts";
 import "../dossier-gallery.css";
 
 /** Changing a 2880×1620 picture on every tap exhausts low-RAM Android GPU
@@ -30,8 +32,9 @@ interface Props{room:string;characterId:string;onClose:()=>void;
  onQuestXp:(eventId:string,amount:number)=>boolean}
 export default function DossierGallery({room,characterId,onClose,onQuestXp}:Props){
  const [progress,setProgress]=useState<ArchiveProgress>(()=>readArchiveProgress(characterId));
- const [mode,setMode]=useState<"dossier"|"cutscene"|"spritesheet"|"route"|"evac">("dossier");
+ const [mode,setMode]=useState<"dossier"|"cutscene"|"spritesheet"|"route"|"evac"|"shelter">("dossier");
  const [vigil,setVigil]=useState<VigilProgress>(()=>readVigil(characterId));
+ const [shelter,setShelter]=useState<ShelterState>(()=>readShelter(characterId));
  const [vigilNotice,setVigilNotice]=useState("");
  const [vigilApproach,setVigilApproach]=useState<VigilApproach>("normal");
  const [perimeter,setPerimeter]=useState<PerimeterState>(()=>readPerimeter(characterId));
@@ -53,6 +56,9 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
  const routeQuestion=simulationRoom&&patrol&&atTarget&&
    patrol.stage<PERIMETER_STAGES?routeBrief(simulationRoom,patrol.stage):null;
  const vigilAvailable=simulationRoom?vigilUnlocked(perimeter,simulationRoom):false;
+ const shelterAvailable=simulationRoom?shelterUnlocked(vigil,simulationRoom):false;
+ const shelterRun=simulationRoom?activeShelter(shelter,simulationRoom):null;
+ const shelterDone=simulationRoom?shelter.completed[simulationRoom]:null;
  const evacRun=simulationRoom?vigilRun(vigil,simulationRoom):null;
  const evacMap=simulationRoom?mapForVigil(simulationRoom):null;
  const evacEnd=simulationRoom?vigil.completed[simulationRoom]:null;
@@ -96,14 +102,15 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
  const pages=useMemo(()=>{
   const pack=packForRoom(room);
   return (pack?.assets??[])
-   .filter(a=>a.room===room&&(a.kind===mode||(mode==="evac"&&a.kind==="route")))
+   .filter(a=>a.room===room&&(a.kind===mode))
    .sort((a,b)=>a.path.localeCompare(b.path));
  },[room,mode]);
  const [index,setIndex]=useState(0);
  const [zoom,setZoom]=useState(false);
  const [imageError,setImageError]=useState(false);
  const current=pages[index];
- const maxIndex=mode==="evac"&&!evacEnd?rescuePlate(evacRun):
+ const maxIndex=mode==="shelter"&&!shelterDone?shelterFrame(shelterRun?.stage??0,shelterRun?.turn??0):
+  mode==="evac"&&!evacEnd?rescuePlate(evacRun):
    mode==="route"&&!patrolCompleted?
    routeFrame(patrol):mode==="spritesheet"&&!finished?
    Math.min(pages.length-1,solved*SIMULATION_FRAMES_PER_PHASE+
@@ -133,7 +140,7 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
    if(saveArchiveProgress(characterId,next))setProgress(next);
  },[index,current,room,characterId,progress,mode]);
  const read=isContractId(room)?archiveReadCount(progress,room):0;
- const src=current?packAssetUrl(room,mode==="evac"?"route":mode,
+ const src=current?packAssetUrl(room,mode,
   current.path.split("/").at(-1)?.split(".")[0]):null;
  return <div className="na-dossier-overlay" role="dialog" aria-modal="true"
    aria-label="Arquivo de evidências ampliadas da expansão">
@@ -144,13 +151,15 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
            mode==="cutscene"?"CRÔNICAS VISUAIS · 16 QUADROS":
            mode==="spritesheet"?"A CIDADE RESPONDE · SIMULAÇÃO TÁTICA":
            mode==="route"?"OPERAÇÃO LIMIAR · PATRULHA INTERATIVA":
-           "OPERAÇÃO VIGÍLIA · RESGATE E ESCOLTA"} · NOVA ARCÁDIA 2.0</small>
+           mode==="shelter"?"OPERAÇÃO REFÚGIO · RECONSTRUÇÃO CIVIL":
+          "OPERAÇÃO VIGÍLIA · RESGATE E ESCOLTA"} · NOVA ARCÁDIA 2.0</small>
          <strong>{room.replaceAll("-"," ").toUpperCase()}</strong>
          <span>{pages.length?index+1:0} / {pages.length} {mode==="dossier"?
            "PRANCHAS · "+read+" LIDAS":mode==="cutscene"?
            "CENAS ILUSTRADAS":mode==="spritesheet"?
            "QUADROS · FASE "+Math.min(6,solved+1)+"/6":
            mode==="route"?"PLANTA · POSTO "+(patrol?.stage??0)+"/5":
+          mode==="shelter"?"ABRIGO · POSTOS "+(shelterRun?.stage??(shelterDone?5:0))+"/5":
            "ESCOLTA · "+(evacRun?countEvacuated(evacRun.rescued):evacEnd?4:0)+
            "/4 CIVIS"}</span>
        </div>
@@ -184,6 +193,12 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
            setMode("evac");setIndex(rescuePlate(evacRun));
            setZoom(false);setImageError(false);setVigilNotice("");
          }}>Vigília · escolta 8×8</button>
+      <button type="button" aria-pressed={mode==="shelter"} disabled={!shelterAvailable}
+        title={shelterAvailable?"Assista os civis após a evacuação":"Conclua a Vigília para liberar"}
+        onClick={()=>{
+          setMode("shelter");setIndex(shelterFrame(shelterRun?.stage??0,shelterRun?.turn??0));
+          setZoom(false);setImageError(false);
+        }}>Refúgio · 5 postos</button>
      </nav>
      <div className="na-dossier-visual">
        {mode==="route"&&routeMap&&<div className="na-perimeter-hud">
@@ -294,7 +309,13 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
            Iniciar resgate
          </button>}
        </div>}
-       {!current||!src?
+       {mode==="shelter"&&simulationRoom&&<ShelterPanel
+         room={simulationRoom} characterId={characterId} vigil={vigil}
+         state={shelter} onUpdate={(newState,frame,xp)=>{
+           setShelter(newState);setIndex(frame);setZoom(false);setImageError(false);
+           if(xp>0)onQuestXp("shelter-"+simulationRoom,xp);
+         }}/>}
+        {!current||!src?
          <p>Pacote de evidências não instalado. O mapa e as missões continuam
            disponíveis sem estes arquivos.</p>:
          imageError?
@@ -337,11 +358,11 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
      </section>}
      <footer className="na-dossier-footer">
        <button type="button" onClick={()=>{setIndex(v=>Math.max(0,v-1));
-         setZoom(false);setImageError(false);}} disabled={index===0||(mode==="route"&&!patrolCompleted)||(mode==="evac"&&!evacEnd)}>Anterior</button>
+         setZoom(false);setImageError(false);}} disabled={index===0||(mode==="route"&&!patrolCompleted)||(mode==="evac"&&!evacEnd)||(mode==="shelter"&&!shelterDone)}>Anterior</button>
        <button type="button" onClick={()=>setZoom(v=>!v)} disabled={!src||imageError}
          aria-pressed={zoom}>{zoom?"Enquadrar":"Ampliar"}</button>
        <button type="button" onClick={()=>{setIndex(v=>Math.min(maxIndex,v+1));
-         setZoom(false);setImageError(false);}} disabled={index>=maxIndex||(mode==="route"&&!patrolCompleted)||(mode==="evac"&&!evacEnd)}>Próxima</button>
+         setZoom(false);setImageError(false);}} disabled={index>=maxIndex||(mode==="route"&&!patrolCompleted)||(mode==="evac"&&!evacEnd)||(mode==="shelter"&&!shelterDone)}>Próxima</button>
      </footer>
    </div>
  </div>;

@@ -44,7 +44,7 @@ export function packForRoom(room:string):AssetPackEntry|null{
  const pack=catalog.packs.find(p=>room.startsWith(p.id+"-"));
  return pack??null;
 }
-export function packAssetUrl(room:string,kind:"mural"|"prop"|"dossier"|"cutscene"|"spritesheet"|"route"|"evac",pathHint?:string):string|null{
+export function packAssetUrl(room:string,kind:"mural"|"prop"|"dossier"|"cutscene"|"spritesheet"|"route"|"evac"|"shelter",pathHint?:string):string|null{
  if(!nativePackPlatform())return null;
  const pack=packForRoom(room);
  if(!pack)return null;
