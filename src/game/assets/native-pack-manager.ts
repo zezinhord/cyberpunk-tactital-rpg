@@ -1,6 +1,6 @@
 /** Capacitor 8 client for *verified* app-private Android asset packs.
- * Retains bundled RC4 art when a pack has not been installed.
- * No automatically downloaded 3GB; the player must explicitly opt in.
+ * Seven authenticated district archives are mandatory parts of ONE GAME.
+ * A single first-run installer provisions all files; afterwards all artwork is offline.
  */
 import {Capacitor,registerPlugin,type PluginListenerHandle} from "@capacitor/core";
 import {EMPTY_CATALOG,type AssetPackEntry,type PackCatalog,PACK_IDS,
@@ -10,7 +10,7 @@ import {FINAL_ASSET_CATALOG} from "./published-packs.ts";
 
 const URI_PREFIX="cyberpunk-tactical-rpg.v2.pack-base.";
 interface NativePackProgress{id:string;stage:string;bytes:number;total:number}
-interface NativePackStatus{id:string;installed:boolean;sha256?:string;
+interface NativePackStatus{id:string;installed:boolean;sha256?:string;baseUri?:string;
  storedBytes:number;freeBytes:number;stage?:string;bytes?:number;total?:number}
 interface NativePackInstall{id:string;installed:true;storedBytes:number;baseUri:string}
 interface NativePackApi{
@@ -18,6 +18,8 @@ interface NativePackApi{
  install(options:{id:PackId;releaseTag:string;sha256:string;compressedBytes:number;
   uncompressedBytes:number;artworkCount:number}):Promise<NativePackInstall>;
  asset(options:{id:PackId;path:string}):Promise<{uri:string;bytes:number}>;
+ importLocal(options:{id:PackId;sha256:string;compressedBytes:number;
+  uncompressedBytes:number;artworkCount:number}):Promise<NativePackInstall>;
  remove(options:{id:PackId}):Promise<{removedBytes:number}>;
  addListener(eventName:"progress",
   callback:(progress:NativePackProgress)=>void):Promise<PluginListenerHandle>;
@@ -61,17 +63,25 @@ export async function inspectPack(id:PackId):Promise<PackInstallStatus>{
   return {id,available:!!pack,installed:false,expectedBytes:pack?.compressedBytes??0,
    installedBytes:0,freeBytes:0};
  const value=await plugin.status({id});
- const installed=value.installed===true&&value.sha256===pack.sha256;
- if(!installed)globalThis.localStorage?.removeItem(URI_PREFIX+id);
- return {id,available:true,installed,expectedBytes:pack.compressedBytes,
+ const installed=value.installed===true&&value.sha256===pack.sha256&&
+  Number(value.storedBytes)>=pack.uncompressedBytes;
+ if(installed&&trustedBaseUri(value.baseUri)){
+  // Old QA201 saves and already provisioned resources survive process death;
+  // never need to redownload all seven archives after an app update.
+  globalThis.localStorage?.setItem(URI_PREFIX+id,value.baseUri);
+ }else{
+  globalThis.localStorage?.removeItem(URI_PREFIX+id);
+ }
+ return {id,available:true,installed:installed&&trustedBaseUri(value.baseUri),
+  expectedBytes:pack.compressedBytes,
   installedBytes:installed?value.storedBytes:0,freeBytes:value.freeBytes};
 }
 export async function installDistrictPack(id:PackId,
  onProgress?:(progress:NativePackProgress)=>void):Promise<PackInstallStatus>{
- if(!nativePackPlatform())throw new Error("Pacotes adicionais exigem Android.");
+ if(!nativePackPlatform())throw new Error("A instalação completa de Nova Arcádia exige Android.");
  if(!isPackId(id))throw new Error("Distrito inválido.");
  const pack=verifiedCatalog().packs.find(p=>p.id===id);
- if(!pack)throw new Error("Este conteúdo ainda não foi publicado e auditado.");
+ if(!pack)throw new Error("O instalador completo não encontrou os recursos oficiais.");
  // URL is fixed by the native plugin and never controlled by the caller.
  if(!packDownloadUrl(pack.id,verifiedCatalog().tag).startsWith("https://github.com/"))
   throw new Error("Origem de download não confiável.");
@@ -84,6 +94,28 @@ export async function installDistrictPack(id:PackId,
   if(!result.installed||!trustedBaseUri(result.baseUri))
    throw new Error("O instalador não confirmou um diretório válido.");
   // Only update the local asset resolver after native SHA verification.
+  globalThis.localStorage?.setItem(URI_PREFIX+id,result.baseUri);
+  return await inspectPack(id);
+ }finally{await listener?.remove();}
+}
+/** System picker import of the exact authenticated district ZIP, without
+ * depending on the ability to publish GitHub Releases. The native bridge
+ * validates size + SHA256 and uses the same private atomic installation path.
+ */
+export async function importDistrictPack(id:PackId,
+ onProgress?:(progress:NativePackProgress)=>void):Promise<PackInstallStatus>{
+ if(!nativePackPlatform())throw new Error("A instalação por arquivo oficial exige Android.");
+ if(!isPackId(id))throw new Error("Distrito inválido.");
+ const pack=verifiedCatalog().packs.find(p=>p.id===id);
+ if(!pack)throw new Error("Catálogo de conteúdo autenticado indisponível.");
+ const listener=onProgress?await plugin.addListener("progress",onProgress):null;
+ try{
+  const result=await plugin.importLocal({
+   id,sha256:pack.sha256,compressedBytes:pack.compressedBytes,
+   uncompressedBytes:pack.uncompressedBytes,artworkCount:pack.artworkCount,
+  });
+  if(!result.installed||!trustedBaseUri(result.baseUri))
+   throw new Error("O Android não confirmou um diretório seguro.");
   globalThis.localStorage?.setItem(URI_PREFIX+id,result.baseUri);
   return await inspectPack(id);
  }finally{await listener?.remove();}
