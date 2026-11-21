@@ -3,6 +3,13 @@
  * Somente digests SHA-256 auditados e publicados habilitam download.
  */
 export const PACK_RELEASE_TAG="nova-arcadia-v200-final-3gb-assets";
+export const FIRST_MILESTONE_RELEASE_TAG="nova-arcadia-v200-milestone-1474";
+export const TRUSTED_RELEASE_TAGS=[
+ FIRST_MILESTONE_RELEASE_TAG,PACK_RELEASE_TAG
+] as const;
+export function isTrustedReleaseTag(tag:unknown):tag is typeof TRUSTED_RELEASE_TAGS[number]{
+ return typeof tag==="string"&&TRUSTED_RELEASE_TAGS.some(allowed=>allowed===tag);
+}
 export const PACK_IDS=[
  "baixada","ferrugem","aurea","subsolo","setor-zero","prisma","periferia",
 ] as const;
@@ -24,9 +31,10 @@ export const BASELINE_APK_BYTES=1143503198;
 export const FINAL_DELIVERY_MIN_BYTES=3_000_000_000;
 export const RELEASE_ASSET_MAX_BYTES=2_147_483_648;
 /** Do not let arbitrary remote URLs pass into a privileged native downloader. */
-export function packDownloadUrl(id:PackId):string{
+export function packDownloadUrl(id:PackId,tag:string=PACK_RELEASE_TAG):string{
+ if(!isPackId(id)||!isTrustedReleaseTag(tag))throw new Error("Release de conteúdo não autorizado.");
  return "https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/download/"+
-  encodeURIComponent(PACK_RELEASE_TAG)+"/NA20-"+encodeURIComponent(id)+".zip";
+  encodeURIComponent(tag)+"/NA20-"+encodeURIComponent(id)+".zip";
 }
 export function isPackId(raw:unknown):raw is PackId{
  return typeof raw==="string"&&PACK_IDS.some(id=>id===raw);
@@ -40,7 +48,7 @@ const validSha=(s:unknown)=>typeof s==="string"&&/^[a-f0-9]{64}$/.test(s);
 export function validatePackCatalog(raw:unknown):raw is PackCatalog{
  if(!raw||typeof raw!=="object"||Array.isArray(raw))return false;
  const v=raw as Record<string,unknown>;
- if(v.version!==2||v.tag!==PACK_RELEASE_TAG||!Array.isArray(v.packs)||
+ if(v.version!==2||!isTrustedReleaseTag(v.tag)||!Array.isArray(v.packs)||
   !Number.isSafeInteger(v.totalBytes)||Number(v.totalBytes)<0||
   v.packs.length>PACK_IDS.length)return false;
  const ids=new Set<string>();
