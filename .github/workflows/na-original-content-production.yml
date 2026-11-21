@@ -13,6 +13,9 @@ on:
       - tools/test_perimeter_routes.py
       - tools/produce_vigil_escorts.py
       - tools/test_vigil_escorts.py
+      - tools/produce_shelter_network.py
+      - tools/test_shelter_network.py
+      - src/game/story/shelter-network.ts
       - src/game/story/vigil-escorts.ts
       - tools/test_tactical_simulations.py
       - tools/test_story_cinematics.py
@@ -35,7 +38,7 @@ concurrency:
 jobs:
   generate-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - name: Checkout exact expansion branch
         uses: actions/checkout@v4
@@ -69,6 +72,10 @@ jobs:
         run: |
           python tools/produce_vigil_escorts.py --source resourcepacks/source
           python tools/test_vigil_escorts.py --source resourcepacks/source --full
+      - name: Produce 560 map-specific scenes for 140 playable post-Vigília Refúgio decisions
+        run: |
+          python tools/produce_shelter_network.py --source resourcepacks/source
+          python tools/test_shelter_network.py --source resourcepacks/source --full
       - name: Audit 7 district manifests and build 7 original ZIP packs
         run: |
           set -euo pipefail
@@ -81,17 +88,18 @@ jobs:
           cat=json.loads(Path('resourcepacks/release/manifest.json').read_text())
           assert len(cat['packs'])==7
           assert all(p['locationCount']==4 for p in cat['packs'])
-          assert all(p['artworkCount']==368 for p in cat['packs'])
-          assert sum(p['artworkCount'] for p in cat['packs'])==2576
+          assert all(p['artworkCount']==448 for p in cat['packs'])
+          assert sum(p['artworkCount'] for p in cat['packs'])==3136
           sprite=json.loads(Path('public/assets/council-enemies/catalog.json').read_text())
           assert sprite['artworks']==16 and sprite['frames']==512
           # The extra original enemy sprites count in production but NOT in
           # the audited base APK total until a signed build includes them.
           total=1_143_503_198+cat['totalBytes']
-          report=dict(audited=True,artworks=2576,cinematic_scenes=448,
+          report=dict(audited=True,artworks=3136,cinematic_scenes=448,
                       tactical_simulation_frames=672,simulation_decisions=168,
                       perimeter_patrol_frames=560,perimeter_objectives=140,
                       vigil_escort_frames=448,evacuee_groups=112,moving_sentries=84,
+                      shelter_relief_frames=560,shelter_checkpoints=140,
                       enemy_sprites=16,
                       enemy_animation_frames=512,
                       generated_enemy_bytes=sprite['totalBytes'],interactive_rooms=28,
@@ -100,6 +108,7 @@ jobs:
                       second_300mb_observed=total>=1_775_365_848,
                       third_300mb_observed=total>=2_074_082_151,
                       fourth_300mb_observed=total>=2_374_082_151,
+                      fifth_300mb_observed=total>=2_674_082_151,
                       target_bytes=3_000_000_000,
                       still_missing_bytes=max(0,3_000_000_000-total),
                       ready_for_final_release=total>=3_000_000_000)
@@ -142,7 +151,9 @@ jobs:
                       f"{x['perimeter_objectives']} objetivos de patrulha, "
                       f"{x['vigil_escort_frames']} quadros de escolta para "
                       f"{x['evacuee_groups']} grupos civis protegidos e "
-                      f"{x['moving_sentries']} sentinelas móveis.\n\n")
+                      f"{x['moving_sentries']} sentinelas móveis e "
+                      f"{x['shelter_relief_frames']} quadros de Refúgio em "
+                      f"{x['shelter_checkpoints']} postos civis.\n\n")
             out.write(f"Novos sprites: {x['enemy_sprites']} atlases, "
                       f"{x['enemy_animation_frames']} poses/direções, "
                       f"{x['generated_enemy_bytes']:,} bytes de arte original. "
