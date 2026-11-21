@@ -1,15 +1,6 @@
 name: Nova Arcadia 2.0 RC5 — 28 forensic cases, full Android APK QA
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches:
-      - feature/nova-arcadia-cisma-eden-v20-foundation
-    paths:
-      - .github/workflows/nova-arcadia-v20-rc5-forensic-qa.yml
-      - src/game/story/forensic-cases.ts
-      - src/screens/ExplorationScreen.tsx
-      - src/App.tsx
   workflow_dispatch:
 
 permissions:
