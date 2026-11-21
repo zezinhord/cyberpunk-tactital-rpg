@@ -66,6 +66,7 @@ import {SIEGE_TERMINAL_NAMES} from "./game/combat/siege-terminals.ts";
 import {readSimulations,SIMULATION_PHASES,SIMULATION_REWARD_XP} from "./game/story/field-simulations.ts";
 import {readPerimeter,PERIMETER_XP} from "./game/story/perimeter-routes.ts";
 import {readVigil} from "./game/story/vigil-escorts.ts";
+import {readShelter} from "./game/story/shelter-network.ts";
 import {readRecovery,RECOVERY_TASKS,mergeRecoverySupport,
  recoveryCombatSupport} from "./game/story/recovery-network.ts";
 import {readUrban,urbanCombatSupport} from "./game/story/urban-chronicles.ts";
@@ -392,6 +393,10 @@ export default function App() {
     const vigils=readVigil(active.id);
     for(const [room,outcome] of Object.entries(vigils.completed)){
       if(outcome&&!grantTrialXp("vigil-"+room,outcome.xp))return false;
+    }
+    const shelters=readShelter(active.id);
+    for(const [room,outcome] of Object.entries(shelters.completed)){
+      if(outcome&&!grantTrialXp("shelter-"+room,outcome.xp))return false;
     }
     const cisma=readCisma(active.id);
     for(const id of cisma.history){
