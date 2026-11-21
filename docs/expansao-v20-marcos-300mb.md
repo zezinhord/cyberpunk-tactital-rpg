@@ -99,3 +99,32 @@ São 28 novas patrulhas exploráveis, uma por cada interior de investigação, d
 Validações de roteiros, mapa, deslocamento, bloqueios, 140 escolhas, SHA-256 de cada asset e de cada ZIP, proteção contra URLs arbitrárias, TypeScript, Vite, Gradle, identidade de assinatura QA201, APK, teste de abertura e de reinicialização em emulador Android 15 configurado com 2 GB de RAM: **todas aprovadas**. A atualização usa a mesma identificação Android e chave de assinatura QA201 para upgrade sobre RC7. Testes físicos em Galaxy A07 e Redmi Note 12s seguem recomendados: emulador não valida todas as GPUs nem o desempenho em campo.
 
 A edição final de 3 GB ainda não foi lançada; o status desta entrega é **QA RC8 — marco 3**.
+
+## Marco 4 — Operação Vigília (21/11/2026, compilado e PUBLICADO)
+
+**Status: RC9 QA201, APK assinado, 7 ZIPs publicados, Android 15/2GB boot e reboot OK.** Não é a edição final de 3GB.
+
+- Release oficial: https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/tag/nova-arcadia-v200-milestone-2374
+- CI integral (aprovação Android e upload): https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44906610853
+- Produção e auditoria artística: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44905000269
+- APK assinado **2.0.0-rc.9** (versionCode `2000009`, package ID `com.cyberpunk.tacticalrpg.qa201`): **1.144.128.571 bytes**.
+- Sete pacotes ZIP de distritos, autenticação SHA-256: **1.327.246.303 bytes**.
+- Total PUBLICADO = APK RC9 + os sete pacotes ZIP: **2.471.374.874 bytes**, ou **2.471,37 MB** em unidades decimais.
+- Crescimento REAL em relação à RC8 publicada (2.197.926.476 bytes): **273.448.398 bytes**, +273,45 MB.
+- Quarto marco obrigatório de 2.374.082.151 bytes: **atingido com 97.292.723 bytes de folga**.
+- Próximo marco (+300MB sobre a meta sequencial): **2.674.082.151 bytes**; faltam **202.707.277 bytes**.
+- Meta final 3.000.000.000 bytes: faltam **528.625.126 bytes**; progresso **82,38%**.
+
+### 28 novas missões jogáveis: Operação Vigília
+
+Cada interior recebe uma missão de evacuação com **quatro grupos civis** (112 grupos ao todo), corredor físico em 8×8 casas, bloqueios reais, três sentinelas móveis por missão, calor de vigilância, energia, alerta, três posturas (normal, furtivo e corrida por duas casas), distração eletrônica, recuperação de energia, recuo no alerta crítico e registro dos incidentes. O resgate conclui após alcançar os quatro grupos e a saída; XP entre 108 e 168 por sala, contabilizado apenas uma vez e guardado em backup JSON por personagem. Disponível após a **Operação Limiar** na aba **Vigília** do arquivo do interior.
+
+O jogo abre as missões **sem exigir os ZIPs visuais adicionais**; os pacotes são opcionais para ver as ilustrações. O botão do arquivo no interior aponta para a nova missão quando desbloqueada. Os ZIPs oferecem **448 ilustrações isométricas autorais novas**, 16 por sala, todas relacionadas à rota, aos resgatados e à equipe hostil. Arquivos originais adicionais comprovados: **273.347.786 bytes** em 448 WebPs 2880×1620, com validação individual de hash e dimensões. Total dos sete pacotes: **2.576 arquivos originais**, preservando os 2.128 anteriores e os recursos sonoros existentes no APK (sem enchimento por áudio).
+
+### Homologação e limitações
+
+- Todos os 28 resgates simulados com 112 grupos libertados, 364 movimentos, guardas dinâmicos, resgate único, corrida sem atravessar paredes, backup e reconciliação de XP.
+- TypeScript, Vite, Gradle, assinatura QA201 e in-place upgrade RC8→RC9 mantidos.
+- Instalação, abertura e **reinicialização** em emulador Android 15 configurado com 2GB de RAM: PASS; WebView carregou a interface (first-frame ~3047ms inicial, ~4597ms no reinício).
+- Testes físicos dos Galaxy A07, Redmi Note 12s e demais celulares não foram executados; consultar `docs/qa-rc9-vigilia.md`.
+- O instalador RC9 possui **~1,14 GB**; **2,47 GB** é a soma do APK com os sete pacotes opcionais baixados via Configurações → Conteúdo extra. Não se trata de um único APK de 2,47 GB. Não desinstalar a QA201 antes de fazer backup e testar o upgrade.
