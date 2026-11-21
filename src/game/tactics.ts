@@ -4,6 +4,7 @@
 import {BOARD_HEIGHT,BOARD_WIDTH,coverArmorBonus,coverBetween,findPath,
   hasLineOfSight,isBlocked} from "./map.ts";
 import type {EncounterId,Position,Unit} from "./types.ts";
+import type {TacticalLayout} from "./combat/tactical-maps.ts";
 
 export type EnemyRole="sentinel"|"drone"|"helix"|"hunter"|"suppressor"|"saboteur"|"sniper";
 export interface EnemyProfile{
@@ -83,37 +84,38 @@ export function enemyProfile(encounter:EncounterId,wave:number):EnemyProfile{
 export function manhattan(a:Position,b:Position):number{
  return Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 }
-export function withinShot(attacker:Position,target:Position,range:number):boolean{
- return manhattan(attacker,target)<=range&&hasLineOfSight(attacker,target);
+export function withinShot(attacker:Position,target:Position,range:number,
+ layout:TacticalLayout|null=null):boolean{
+ return manhattan(attacker,target)<=range&&hasLineOfSight(attacker,target,layout);
 }
 /** Escolhe cobertura útil sem impedir a unidade de disparar ou perseguir. */
 export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
- profile:EnemyProfile):EnemyPlan{
- const shot=(pos:Position)=>withinShot(pos,player,profile.range);
+ profile:EnemyProfile,layout:TacticalLayout|null=null):EnemyPlan{
+ const shot=(pos:Position)=>withinShot(pos,player,profile.range,layout);
  if(shot(enemy)){
    // Atiradores de precisão tentam manter distância após aproximação do jogador.
    if(profile.role==="sniper"&&manhattan(enemy,player)<profile.preferredDistance){
      const retreats:{pos:Position;distance:number;steps:number}[]=[];
      for(let y=0;y<BOARD_HEIGHT;y++)for(let x=0;x<BOARD_WIDTH;x++){
-       const pos={x,y};if(isBlocked(pos)||!shot(pos))continue;
-       const path=findPath(enemy,pos,units,enemy.id);
+       const pos={x,y};if(isBlocked(pos,layout)||!shot(pos))continue;
+       const path=findPath(enemy,pos,units,enemy.id,layout);
        if(path&&path.length>1&&path.length-1<=profile.mobility)
          retreats.push({pos,distance:manhattan(pos,player),steps:path.length-1});
      }
      retreats.sort((a,b)=>b.distance-a.distance||a.steps-b.steps||a.pos.y-b.pos.y||a.pos.x-b.pos.x);
      if(retreats.length&&retreats[0]!.distance>manhattan(enemy,player))
        return {action:"reposition",target:retreats[0]!.pos,mode:"ranged",
-         cover:coverBetween(player,retreats[0]!.pos),intent:"Recuar para disparo de precisão"};
+         cover:coverBetween(player,retreats[0]!.pos,layout),intent:"Recuar para disparo de precisão"};
    }
    // Seguranças corporativos e caçadores preferem um ângulo protegido de tiro
    // quando a rota cabe no deslocamento do turno. Drones de assalto não recuam.
    if((profile.role==="helix"||profile.role==="hunter")&&
-      coverArmorBonus(player,enemy)===0&&manhattan(enemy,player)>1){
+      coverArmorBonus(player,enemy,layout)===0&&manhattan(enemy,player)>1){
      const shelters:{pos:Position;steps:number}[]=[];
      for(let y=0;y<BOARD_HEIGHT;y++)for(let x=0;x<BOARD_WIDTH;x++){
        const pos={x,y};
-       if(isBlocked(pos)||!shot(pos)||coverArmorBonus(player,pos)===0)continue;
-       const path=findPath(enemy,pos,units,enemy.id);
+       if(isBlocked(pos,layout)||!shot(pos)||coverArmorBonus(player,pos,layout)===0)continue;
+       const path=findPath(enemy,pos,units,enemy.id,layout);
        if(path&&path.length>1&&path.length-1<=profile.mobility)
          shelters.push({pos,steps:path.length-1});
      }
@@ -137,8 +139,8 @@ export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
  const currentDistance=manhattan(enemy,player);
  for(let y=0;y<BOARD_HEIGHT;y++)for(let x=0;x<BOARD_WIDTH;x++){
    const pos={x,y};
-   if(isBlocked(pos)||manhattan(enemy,pos)>profile.mobility||pos.x===player.x&&pos.y===player.y)continue;
-   const path=findPath(enemy,pos,units,enemy.id);
+   if(isBlocked(pos,layout)||manhattan(enemy,pos)>profile.mobility||pos.x===player.x&&pos.y===player.y)continue;
+   const path=findPath(enemy,pos,units,enemy.id,layout);
    if(!path||path.length-1>profile.mobility)continue;
    const dist=manhattan(pos,player),canFire=shot(pos);
    // Distância ideal e cobertura entram na estratégia, evitando IA que
@@ -146,7 +148,7 @@ export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
    const score=(canFire?75:0)+
      (profile.role==="sniper"?(dist>=profile.preferredDistance?12:-18):0)+
      (canFire?Math.max(0,15-Math.abs(dist-profile.preferredDistance)*5):0)+
-     (canFire?coverArmorBonus(player,pos)*4:0)-
+     (canFire?coverArmorBonus(player,pos,layout)*4:0)-
      Math.max(0,dist-profile.range)*5-
      Math.max(0,dist-currentDistance)*5-(path.length-1)*1.2;
    candidates.push({pos,cost:path.length-1,score});
@@ -155,11 +157,11 @@ export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
    a.pos.y-b.pos.y||a.pos.x-b.pos.x);
  const best=candidates.find(x=>x.cost>0);
  if(!best)return {action:"blocked",target:{x:enemy.x,y:enemy.y},mode:"melee",
-   cover:coverBetween(player,enemy),intent:"Sem rota segura"};
+   cover:coverBetween(player,enemy,layout),intent:"Sem rota segura"};
  const canAttack=shot(best.pos);
  return {action:canAttack?"reposition":"advance",target:best.pos,
    mode:manhattan(best.pos,player)<=1?"melee":"ranged",
-   cover:coverBetween(player,best.pos),
+   cover:coverBetween(player,best.pos,layout),
    intent:canAttack?(profile.role==="suppressor"?"Preparar rajada de supressão":
      profile.role==="saboteur"?"Aproximar pulso de sabotagem":
      profile.role==="sniper"?"Mirar de longe":"Flanquear e disparar"):
