@@ -30,3 +30,41 @@ Referência de produção: 21 de novembro de 2026. Branch: `feature/nova-arcadia
 A compilação de teste do pacote web, o plugin Android e os testes unitários **não equivalem** a uma edição 3 GB para baixar. O último APK assinado (RC4/RC5) não incorpora automaticamente a Operação Retomada. O marco 300 MB precisa de novos ativos originais, de uso real e preferencialmente gráficos/ambientais ou conteúdo jogável, pacote nativo seguro e teste de instalação completa. Não produzir ruído, duplicatas, áudio inflado nem assets sem uso apenas para alcançar o número.
 
 O estado real da branch e os logs de Actions devem ser consultados antes de declarar uma etapa concluída. Os relatórios das próximas execuções devem declarar os bytes **medidos**, os arquivos integrados, o resultado dos testes e o próximo requisito de 300 MB.
+
+
+## Marco 2 — +300 MB adicionais (entrega publicada em 21/11/2026)
+
+**Estado: APROVADO E PUBLICADO (QA Android; não é a edição definitiva de 3 GB).**
+Release: https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/tag/nova-arcadia-v200-milestone-1774
+GitHub Actions: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44897634372
+
+### Tamanho REAL da distribuição assinada
+
+- APK 2.0.0-rc.7, assinatura QA201 preservada: **1.144.051.895 bytes**.
+- Sete ZIPs de distritos (manifests SHA-256 verificados): **725.019.777 bytes**.
+- Total efetivo de APK + conteúdo complementar: **1.869.071.672 bytes** (1.869,07 MB).
+- Marco anterior (APK RC6 + sete ZIPs): **1.475.365.848 bytes**.
+- Aumento comprovado entre entregas: **393.705.824 bytes** (+393,71 MB).
+- Próximo marco sequencial: **2.074.082.151 bytes**. Faltam **205.010.479 bytes**.
+- Meta final 3 GB: faltam **1.130.928.328 bytes**.
+- Estes números usam os arquivos efetivamente assinados e publicados, não art tools nem soma hipotética de mídia comprimida.
+
+### Conteúdo jogável efetivamente novo
+
+- **A Cidade Responde:** 28 simulações de campo, seis fases por interior, com **168 checkpoints de decisão**.
+- **42 questões táticas autorais** (seis por distrito, aplicadas nos quatro locais daquela região), três abordagens, pistas para respostas incorretas e decisões verificadas.
+- **672 novas pranchas isométricas** de 2880×1620 pixels; **393.537.520 bytes** de imagens WebP originais de operações e rotas, todas associadas às seis fases jogáveis.
+- Os sete ZIPs preservam os **448 quadros da expansão anterior**, **336 dossiês**, 28 murais e 84 ilustrações de objetos; total **1.568 arquivos únicos**.
+- Recompensas únicas de 96 XP por conclusão de simulação (28 possíveis), salvas por protagonista e conciliadas depois de falhas/importações.
+- Simulações disponíveis no **arquivo visual de cada interior**, desbloqueadas após a gestão do distrito ter sido definida na campanha Operação Retomada.
+- API Java mantém SHA-256, validação de paths, instalação temporária privada e carregamento sob demanda de um quadro por vez.
+
+### Testes obrigatórios concluídos
+
+- Geração e auditoria de 672/672 ilustrações sem imagens repetidas, tamanho seguro e pertinência a cada interior.
+- Testes de segurança de ZIP, manifest, URL, assinatura e bloqueio de publicação antecipada.
+- Testes de missões, 168 decisões, XP único, salvamento e backup.
+- Vite produção, TypeScript, Gradle Android e assinatura compatível com o APK QA201 existente.
+- Inicialização e reinicialização confirmadas no emulador Android 15 com configuração de 2 GB.
+
+**Instalação:** o APK RC7 substitui a instalação QA201 (mesmo ID e chave), sem excluir salvamentos locais. Quem utiliza QA200 ou outra variante precisa preservar o backup, pois seu package ID é diferente. Abra *Configurações → Conteúdo extra* e baixe novamente os sete ZIPs, pois as assinaturas SHA dos pacotes foram atualizadas. Os extras ficam offline depois da transferência; mantenha espaço livre adicional durante extração. Os testes físicos no Galaxy A07 e Redmi Note 12s continuam recomendados.
