@@ -46,7 +46,7 @@ SECOND_MILESTONE_BYTES = 1_775_365_848  # at least +300 MB beyond first signed Q
 
 FIRST_MILESTONE_BYTES = 1_474_082_151
 PATH_RE = re.compile(
-    r"^(murals|props|dossiers|cutscenes|spritesheets|routes|evacs|shelters)/[a-z0-9-]+/(?:[a-z0-9-]+/)*[a-z0-9-]+\.(png|webp)$"
+    r"^(murals|props|dossiers|cutscenes|spritesheets|routes|evacs|shelters|nexus)/[a-z0-9-]+/(?:[a-z0-9-]+/)*[a-z0-9-]+\.(png|webp)$"
 )
 MAX_IMAGE_BYTES = 70_000_000
 MAX_PIXELS = 65_536_000  # prevent malicious 80k x 80k dimensions
@@ -112,8 +112,8 @@ def list_pack(district: str, source: Path, rooms: list[dict]) -> tuple[list[dict
         if path in seen_paths or room not in approved_rooms:
             raise ValueError(f"Duplicate or irrelevant asset: {path}")
         if path.split("/")[1] != room or (
-            kind not in ("mural", "prop", "dossier", "cutscene", "spritesheet", "route", "evac", "shelter")
-        ) or path.split("/")[0] != kind + "s":
+            kind not in ("mural", "prop", "dossier", "cutscene", "spritesheet", "route", "evac", "shelter", "nexus")
+        ) or path.split("/")[0] != ("nexus" if kind == "nexus" else kind + "s"):
             raise ValueError(f"Asset is not mapped to real interactive room: {path}")
         if not isinstance(caption, str) or len(caption.strip()) < 18 or len(caption) > 240:
             raise ValueError(f"Asset requires original narrative description: {path}")
@@ -156,6 +156,8 @@ def list_pack(district: str, source: Path, rooms: list[dict]) -> tuple[list[dict
             raise ValueError(f"{room}: each escort sequence requires 16 unique rescue storyboard frames")
         if counts["shelter"] not in (0, 20):
             raise ValueError(f"{room}: each relief mission needs 20 original intervention views")
+        if counts["nexus"] not in (0, 24):
+            raise ValueError(f"{room}: each Éden incursion requires exactly 24 relay viewpoints")
     return entries, material_bytes
 
 
@@ -307,6 +309,19 @@ def build(source: Path, output: Path, require_3gb=True,
         raise ValueError(f"Definitive 3GB delivery BLOCKED: missing "
                          f"{GOAL_BYTES-delivery_bytes:,} bytes of ORIGINAL, USED content")
     if require_3gb:
+        # The definitive edition must *add* real gameplay assets, never reach
+        # the byte target by dropping earlier mission types or duplicated art.
+        for pack in packs:
+            if pack["artworkCount"] != 544 or pack["locationCount"] != 4:
+                raise ValueError("Definitive game requires 544 original used images per district")
+            counts = Counter(a["kind"] for a in pack["assets"])
+            required = {
+                "mural": 4, "prop": 12, "dossier": 48, "cutscene": 64,
+                "spritesheet": 96, "route": 80, "evac": 64,
+                "shelter": 80, "nexus": 96,
+            }
+            if any(counts[kind] != amount for kind, amount in required.items()):
+                raise ValueError("Definitive edition must preserve all 9 live content families")
         # This manifest may be compiled into the Android client only after
         # the full final package size has genuinely passed the gate.
         target = BASE / "src/game/assets/published-packs.ts"
