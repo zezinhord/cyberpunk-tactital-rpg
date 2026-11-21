@@ -49,6 +49,8 @@ jobs:
           node --experimental-strip-types scripts/test-stealth-v20.mjs
           node --experimental-strip-types scripts/test-inner-contracts-v20.mjs
           node --experimental-strip-types scripts/test-forensic-cases-v20.mjs
+          node --experimental-strip-types scripts/test-council-reputation-v20.mjs
+          node --experimental-strip-types scripts/test-council-defenses-v20.mjs
           node --experimental-strip-types scripts/test-save-slots.mjs
           node --experimental-strip-types scripts/test-class-saves.mjs
           node --experimental-strip-types scripts/test-crafting.mjs
@@ -99,7 +101,10 @@ jobs:
           node scripts/test-urban-ambience.mjs
           node --experimental-strip-types scripts/test-soundscapes.mjs
       - name: Compile real web runtime and character sheets
-        run: npm run build
+        run: |
+          python tools/generate_council_enemy_art.py
+          python tools/test_council_enemy_art.py
+          npm run build
       - name: Audit original visual art in runtime (28 rooms, 84 interactables)
         run: |
           node scripts/test-v20-illustrations.mjs
