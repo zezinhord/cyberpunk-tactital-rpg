@@ -1203,6 +1203,34 @@ const [dossierOpen,setDossierOpen]=useState(false);
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    const recoveryChoice=/^recovery:([a-z0-9-]+):([a-z]+)$/.exec(choice.id);
+    if(recoveryChoice){
+      const region=recoveryChoice[1],method=recoveryChoice[2];
+      if(!isCouncilId(region)||!isRecoveryMethod(method)||
+         !isContractId(interior)||districtOfRoom(interior)!==region){
+        setDialogue(null);return;
+      }
+      const result=resolveRecovery(recovery,councils,region,method);
+      if(!result.ok){
+        say([{speaker:RECOVERY_LINES[region].title,role:"OBRAS PENDENTES",
+          portrait:"!",text:result.message}]);return;
+      }
+      if(!saveRecovery(character.id,result.state)){
+        say([{speaker:"ARQUIVO LOCAL",role:"RECONSTRUÇÃO NÃO SALVA",
+          portrait:"!",text:"Libere armazenamento e tente novamente. A decisão não foi aplicada."}]);
+        return;
+      }
+      setRecovery(result.state);
+      onQuestXp("recovery-final-"+region,result.xp);
+      audioDirector.effect("archive");
+      setCityNotice("RECONSTRUÇÃO CONCLUÍDA · "+RECOVERY_LINES[region].title+
+        " · +"+result.xp+" XP.");
+      say([{speaker:DISTRICT_COUNCILS[region].guide,
+        role:"RETOMADA · ACORDO DE GESTÃO",
+        portrait:"◆",text:result.message+"\n\nA infraestrutura recuperada afeta a "+
+        "relação entre facções e oferece apoio tático regional aos próximos confrontos."}]);
+      return;
+    }
     const defend=/^council-defense:([a-z0-9-]+)$/.exec(choice.id);
     if(defend){
       const region=defend[1];
