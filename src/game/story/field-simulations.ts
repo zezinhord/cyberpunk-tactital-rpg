@@ -216,7 +216,7 @@ export function answerSimulation(
   message:"O relatório de simulação foi concluído. A experiência não pode ser duplicada.",xp:0};
  if(phase!==current||!Number.isInteger(choice)||choice<0||choice>2)
   return {ok:false,state,message:"A sequência não corresponde ao registro de campo atual.",xp:0};
- const event=problemsForRoom(room)[current];
+ const event=problemsForRoom(room)[current]!;
  if(choice!==event.correct)return {ok:false,state,message:event.hint,xp:0};
  const next=current+1;
  return {ok:true,state:{version:1,solved:{...state.solved,[room]:next}},
