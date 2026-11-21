@@ -66,6 +66,11 @@ def test():
             raise AssertionError("Second +300MB milestone cannot accept tiny fixtures!")
         except ValueError as ex:
             assert "QA +600 MB MILESTONE BLOCKED" in str(ex),str(ex)
+        try:
+            build(src,out,require_3gb=False,milestone_2074=True)
+            raise AssertionError("Third QA release cannot ship 224 dummy fixtures!")
+        except ValueError as err:
+            assert "QA +900 MB MILESTONE BLOCKED" in str(err),str(err)
         assert not Path("src/game/assets/published-packs.ts").read_text().startswith(
             'import type {PackCatalog} from "./pack-catalog.ts";'
         ),"Small test artwork must never enter definitive catalog"
