@@ -19,6 +19,8 @@ on:
       - src/game/story/inner-contracts.ts
       - src/game/story/forensic-cases.ts
       - src/game/story/district-councils.ts
+      - src/game/story/recovery-network.ts
+      - scripts/test-recovery-network-v20.mjs
       - src/game/story/reputation.ts
       - scripts/test-council-reputation-v20.mjs
       - scripts/test-council-defenses-v20.mjs
@@ -86,6 +88,7 @@ jobs:
           node --experimental-strip-types scripts/test-archive-progress-v20.mjs
           node --experimental-strip-types scripts/test-council-reputation-v20.mjs
           node --experimental-strip-types scripts/test-council-defenses-v20.mjs
+          node --experimental-strip-types scripts/test-recovery-network-v20.mjs
           node --experimental-strip-types scripts/test-council-tactical-maps-v20.mjs
           node --experimental-strip-types scripts/test-siege-terminals-v20.mjs
           node --experimental-strip-types scripts/test-tactics.mjs
