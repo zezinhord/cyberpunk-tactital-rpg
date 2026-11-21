@@ -42,7 +42,7 @@ export default function AssetPackControls(){
    <p>O instalador completo funciona na versão Android; os arquivos básicos
       continuam disponíveis sem conexão.</p>
  </section>;
- if(!total.targetReached)return <section className="menu-info-panel">
+ if(catalog.packs.length!==PACK_IDS.length)return <section className="menu-info-panel">
    <h4>Expansão adicional ainda não publicada</h4>
    <p>Somente recursos de conteúdo autenticados podem ser instalados.
       O jogo atual permanece funcional sem pacotes externos.</p>
@@ -77,9 +77,13 @@ export default function AssetPackControls(){
  }
  return <div className="menu-section-stack">
    <section className="menu-info-panel">
-     <span className="menu-panel-kicker">EDIÇÃO COMPLETA · PACOTES VERIFICADOS</span>
-     <h4>{formatAssetSize(total.totalBytes)} de conteúdo distribuído</h4>
-     <p>O aplicativo base é instalado normalmente. As artes adicionais são
+     <span className="menu-panel-kicker">{total.targetReached?
+       "EDIÇÃO COMPLETA · PACOTES VERIFICADOS":
+       "MARCO 300 MB · PACOTES DE TESTE VERIFICADOS"}</span>
+     <h4>{formatAssetSize(total.totalBytes)} de conteúdo auditado</h4>
+     <p>{total.targetReached?"Edição definitiva com os sete distritos.":
+       "Marco intermediário de produção; a edição final de 3 GB ainda não foi publicada."}
+       O aplicativo base é instalado normalmente. As artes adicionais são
        transferidas por distrito, uma única vez, com SHA-256 e salvamento
        no armazenamento privado do Android. Depois funcionam sem rede.</p>
      <small>Espaço disponível: {formatAssetSize(free)}.
