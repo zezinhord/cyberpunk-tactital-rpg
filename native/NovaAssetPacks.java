@@ -3,10 +3,15 @@ package com.cyberpunk.tacticalrpg;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
+import com.getcapacitor.annotation.ActivityCallback;
+import com.getcapacitor.ActivityResult;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.PluginMethod;
 
 import org.json.JSONObject;
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -45,8 +50,9 @@ public class NovaAssetPacks extends Plugin {
     private static final String RELEASE_SECOND = "nova-arcadia-v200-milestone-1774";
     private static final String RELEASE_THIRD = "nova-arcadia-v200-milestone-2074";
     private static final String RELEASE_FOURTH = "nova-arcadia-v200-milestone-2374";
+    private static final String RELEASE_FIFTH = "nova-arcadia-v200-milestone-2674";
     private static boolean validReleaseTag(String tag) {
-        return RELEASE_FINAL.equals(tag) || RELEASE_MILESTONE.equals(tag) || RELEASE_SECOND.equals(tag) || RELEASE_THIRD.equals(tag) || RELEASE_FOURTH.equals(tag);
+        return RELEASE_FINAL.equals(tag) || RELEASE_MILESTONE.equals(tag) || RELEASE_SECOND.equals(tag) || RELEASE_THIRD.equals(tag) || RELEASE_FOURTH.equals(tag) || RELEASE_FIFTH.equals(tag);
     }
     private static final long MIN_ZIP_SIZE = 1024L;
     private static final long MAX_ZIP_SIZE = 1_900_000_000L;
@@ -203,75 +209,182 @@ public class NovaAssetPacks extends Plugin {
                 if (received != compressed || !hex(digest.digest()).equals(sha))
                     throw new IllegalStateException("SHA-256 verification failed");
 
-                long expanded = 0;
-                int artworks = 0;
-                signal(id, "unpack", 0L, uncompressed);
-                String stagedCanonical = staged.getCanonicalPath() + File.separator;
-                try (ZipInputStream archive = new ZipInputStream(
-                        new BufferedInputStream(new FileInputStream(download)))) {
-                    ZipEntry entry;
-                    while ((entry = archive.getNextEntry()) != null) {
-                        if (entry.isDirectory()) continue;
-                        if (++artworks > expectedCount) throw new IllegalStateException("Too many assets");
-                        String path = entry.getName();
-                        if (!path.matches("^(murals|props|dossiers|cutscenes|spritesheets|routes|evacs|shelters|nexus)/[a-z0-9/_-]+\\.(png|webp|webm)$") ||
-                                path.contains(".."))
-                            throw new IllegalStateException("Unsafe image path");
-                        File file = new File(staged, path);
-                        if (!file.getCanonicalPath().startsWith(stagedCanonical))
-                            throw new IllegalStateException("Zip path escape");
-                        File parent = file.getParentFile();
-                        if (!parent.exists() && !parent.mkdirs())
-                            throw new IllegalStateException("Cannot create asset directory");
-                        if (file.exists()) throw new IllegalStateException("Duplicate asset in zip");
-                        long entryBytes = 0;
-                        try (OutputStream out = new BufferedOutputStream(new FileOutputStream(file))) {
-                            int n;
-                            while ((n = archive.read(buf)) != -1) {
-                                entryBytes += n;
-                                expanded += n;
-                                if (entryBytes > MAX_ENTRY || expanded > uncompressed)
-                                    throw new IllegalStateException("Pack exceeds declared size");
-                                out.write(buf, 0, n);
-                            }
-                        }
-                        archive.closeEntry();
-                        if ((artworks & 15) == 0)
-                            signal(id, "unpack", expanded, uncompressed);
-                    }
-                }
-                if (artworks != expectedCount || expanded != uncompressed)
-                    throw new IllegalStateException("Missing or extra content assets");
-                JSONObject receipt = new JSONObject();
-                receipt.put("id", id);
-                receipt.put("sha256", sha);
-                receipt.put("compressedBytes", compressed);
-                receipt.put("uncompressedBytes", uncompressed);
-                receipt.put("artworkCount", artworks);
-                try (OutputStream out = new FileOutputStream(new File(staged, "na-install.json"))) {
-                    out.write(receipt.toString().getBytes(StandardCharsets.UTF_8));
-                }
-                cleanup(download);
-                if (destination.exists() && !destination.renameTo(previous))
-                    throw new IllegalStateException("Cannot stage existing pack rollback");
-                if (!staged.renameTo(destination)) {
-                    if (previous.exists()) previous.renameTo(destination);
-                    throw new IllegalStateException("Failed to commit verified content");
-                }
-                cleanup(previous);
-                signal(id, "ready", expanded, uncompressed);
-                JSObject result = new JSObject();
-                result.put("id", id);
-                result.put("installed", true);
-                result.put("storedBytes", sizeOf(destination));
-                result.put("baseUri", "file://" + destination.getAbsolutePath() + "/");
-                call.resolve(result);
+                unpackVerifiedArchive(id, sha, uncompressed, expectedCount,
+                    download, staged, previous, destination, call);
             } catch (Exception e) {
                 cleanup(download); cleanup(staged);
                 signal(id, "error", 0L, uncompressed);
                 call.reject("Pack installation failed: " + e.getMessage());
             } finally {
                 if (conn != null) conn.disconnect();
+            }
+        });
+    }
+
+    /** One audited extraction path for both remote and picker-supplied ZIPs.
+     * Archive bytes MUST already match the SHA-256 embedded in the game catalog.
+     * All contents stay within filesDir and replace the prior version atomically.
+     */
+    private void unpackVerifiedArchive(String id, String sha, long uncompressed,
+            int expectedCount, File download, File staged, File previous,
+            File destination, PluginCall call) throws Exception {
+        byte[] buf = new byte[BUFFER];
+    long expanded = 0;
+    int artworks = 0;
+    signal(id, "unpack", 0L, uncompressed);
+    String stagedCanonical = staged.getCanonicalPath() + File.separator;
+    try (ZipInputStream archive = new ZipInputStream(
+            new BufferedInputStream(new FileInputStream(download)))) {
+        ZipEntry entry;
+        while ((entry = archive.getNextEntry()) != null) {
+            if (entry.isDirectory()) continue;
+            if (++artworks > expectedCount) throw new IllegalStateException("Too many assets");
+            String path = entry.getName();
+            if (!path.matches("^(murals|props|dossiers|cutscenes|spritesheets|routes|evacs|shelters|nexus)/[a-z0-9/_-]+\\.(png|webp|webm)$") ||
+                    path.contains(".."))
+                throw new IllegalStateException("Unsafe image path");
+            File file = new File(staged, path);
+            if (!file.getCanonicalPath().startsWith(stagedCanonical))
+                throw new IllegalStateException("Zip path escape");
+            File parent = file.getParentFile();
+            if (!parent.exists() && !parent.mkdirs())
+                throw new IllegalStateException("Cannot create asset directory");
+            if (file.exists()) throw new IllegalStateException("Duplicate asset in zip");
+            long entryBytes = 0;
+            try (OutputStream out = new BufferedOutputStream(new FileOutputStream(file))) {
+                int n;
+                while ((n = archive.read(buf)) != -1) {
+                    entryBytes += n;
+                    expanded += n;
+                    if (entryBytes > MAX_ENTRY || expanded > uncompressed)
+                        throw new IllegalStateException("Pack exceeds declared size");
+                    out.write(buf, 0, n);
+                }
+            }
+            archive.closeEntry();
+            if ((artworks & 15) == 0)
+                signal(id, "unpack", expanded, uncompressed);
+        }
+    }
+    if (artworks != expectedCount || expanded != uncompressed)
+        throw new IllegalStateException("Missing or extra content assets");
+    JSONObject receipt = new JSONObject();
+    receipt.put("id", id);
+    receipt.put("sha256", sha);
+    receipt.put("compressedBytes", compressed);
+    receipt.put("uncompressedBytes", uncompressed);
+    receipt.put("artworkCount", artworks);
+    try (OutputStream out = new FileOutputStream(new File(staged, "na-install.json"))) {
+        out.write(receipt.toString().getBytes(StandardCharsets.UTF_8));
+    }
+    cleanup(download);
+    if (destination.exists() && !destination.renameTo(previous))
+        throw new IllegalStateException("Cannot stage existing pack rollback");
+    if (!staged.renameTo(destination)) {
+        if (previous.exists()) previous.renameTo(destination);
+        throw new IllegalStateException("Failed to commit verified content");
+    }
+    cleanup(previous);
+    signal(id, "ready", expanded, uncompressed);
+    JSObject result = new JSObject();
+    result.put("id", id);
+    result.put("installed", true);
+    result.put("storedBytes", sizeOf(destination));
+    result.put("baseUri", "file://" + destination.getAbsolutePath() + "/");
+    call.resolve(result);
+    }
+
+    /** Android's system document picker is the fallback for GitHub Actions
+     * verified downloads when the release endpoint has no write permission.
+     * No filesystem paths or URLs are accepted from JavaScript.
+     */
+    @PluginMethod
+    public void importLocal(PluginCall call) {
+        String id = call.getString("id");
+        String sha = call.getString("sha256");
+        Long compressed = call.getLong("compressedBytes");
+        Long uncompressed = call.getLong("uncompressedBytes");
+        Integer count = call.getInt("artworkCount");
+        if (!validId(id) || !validSha(sha) ||
+                compressed == null || uncompressed == null || count == null ||
+                compressed < MIN_ZIP_SIZE || compressed >= MAX_ZIP_SIZE ||
+                uncompressed < 1024L || uncompressed > MAX_UNPACKED ||
+                count < 1 || count > MAX_ENTRIES) {
+            call.reject("Invalid signed content catalog"); return;
+        }
+        long necessary = compressed + uncompressed + 80_000_000L;
+        if (baseDir().getUsableSpace() < necessary) {
+            call.reject("Insufficient storage for verified local content"); return;
+        }
+        Intent picker = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        picker.addCategory(Intent.CATEGORY_OPENABLE);
+        picker.setType("*/*");
+        picker.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+            "application/zip", "application/x-zip-compressed",
+            "application/octet-stream"
+        });
+        startActivityForResult(call, picker, "onLocalZipPicked");
+    }
+
+    @ActivityCallback
+    private void onLocalZipPicked(PluginCall call, ActivityResult selected) {
+        if (call == null) return;
+        if (selected.getResultCode() != Activity.RESULT_OK ||
+                selected.getData() == null || selected.getData().getData() == null) {
+            call.reject("No district ZIP selected"); return;
+        }
+        final Uri uri = selected.getData().getData();
+        if (!"content".equals(uri.getScheme())) {
+            call.reject("System document picker required"); return;
+        }
+        final String id = call.getString("id");
+        final String sha = call.getString("sha256");
+        final Long compressed = call.getLong("compressedBytes");
+        final Long uncompressed = call.getLong("uncompressedBytes");
+        final Integer expectedCount = call.getInt("artworkCount");
+        if (!validId(id) || !validSha(sha) || compressed == null ||
+                uncompressed == null || expectedCount == null ||
+                compressed < MIN_ZIP_SIZE || compressed >= MAX_ZIP_SIZE ||
+                uncompressed < 1024L || uncompressed > MAX_UNPACKED ||
+                expectedCount < 1 || expectedCount > MAX_ENTRIES) {
+            call.reject("Invalid signed district data"); return;
+        }
+        io.execute(() -> {
+            File download = new File(baseDir(), id + ".partial");
+            File staged = new File(baseDir(), id + ".installing");
+            File previous = new File(baseDir(), id + ".previous");
+            File destination = installedDir(id);
+            try {
+                cleanup(download); cleanup(staged); cleanup(previous);
+                if (!staged.mkdirs())
+                    throw new IllegalStateException("Failed to create private staging directory");
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                byte[] buf = new byte[BUFFER];
+                long copied = 0;
+                signal(id, "import", 0L, compressed);
+                try (InputStream source = getContext().getContentResolver().openInputStream(uri);
+                     OutputStream destinationStream =
+                             new BufferedOutputStream(new FileOutputStream(download))) {
+                    if (source == null) throw new IllegalStateException("Selected document unavailable");
+                    int n;
+                    while ((n = source.read(buf)) != -1) {
+                        copied += n;
+                        if (copied > compressed)
+                            throw new IllegalStateException("Selected ZIP is larger than signed catalog");
+                        digest.update(buf, 0, n);
+                        destinationStream.write(buf, 0, n);
+                        if ((copied & ((4 * 1024 * 1024) - 1)) < BUFFER)
+                            signal(id, "import", copied, compressed);
+                    }
+                }
+                if (copied != compressed || !hex(digest.digest()).equals(sha))
+                    throw new IllegalStateException("Selected ZIP SHA-256 does not match district catalog");
+                unpackVerifiedArchive(id, sha, uncompressed, expectedCount,
+                        download, staged, previous, destination, call);
+            } catch (Exception err) {
+                cleanup(download); cleanup(staged);
+                signal(id, "error", 0L, uncompressed);
+                call.reject("Local ZIP installation failed: " + err.getMessage());
             }
         });
     }
