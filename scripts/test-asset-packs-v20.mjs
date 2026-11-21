@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {BASELINE_APK_BYTES,FINAL_DELIVERY_MIN_BYTES,
- EMPTY_CATALOG,PACK_IDS,PACK_RELEASE_TAG,FIRST_MILESTONE_RELEASE_TAG,SECOND_MILESTONE_RELEASE_TAG,THIRD_MILESTONE_RELEASE_TAG,isTrustedReleaseTag,
+ EMPTY_CATALOG,PACK_IDS,PACK_RELEASE_TAG,FIRST_MILESTONE_RELEASE_TAG,SECOND_MILESTONE_RELEASE_TAG,THIRD_MILESTONE_RELEASE_TAG,FOURTH_MILESTONE_RELEASE_TAG,isTrustedReleaseTag,
  packDownloadUrl,isPackId,isAssetPath,validatePackCatalog,deliverySize}
  from "../src/game/assets/pack-catalog.ts";
 const sha="a".repeat(64);
@@ -38,6 +38,11 @@ assert.equal(validatePackCatalog(firstMilestone),true);
 assert.equal(isTrustedReleaseTag(FIRST_MILESTONE_RELEASE_TAG),true);
 assert.equal(isTrustedReleaseTag(SECOND_MILESTONE_RELEASE_TAG),true);
 assert.equal(isTrustedReleaseTag(THIRD_MILESTONE_RELEASE_TAG),true);
+assert.equal(isTrustedReleaseTag(FOURTH_MILESTONE_RELEASE_TAG),true);
+assert.equal(validatePackCatalog({...done,tag:FOURTH_MILESTONE_RELEASE_TAG}),true);
+assert.ok(packDownloadUrl("ferrugem",FOURTH_MILESTONE_RELEASE_TAG)
+ .includes("/releases/download/nova-arcadia-v200-milestone-2374/"));
+assert.equal(isAssetPath("evacs/baixada-observatorio/resgate-01.webp"),true);
 assert.equal(validatePackCatalog({...done,tag:THIRD_MILESTONE_RELEASE_TAG}),true);
 assert.ok(packDownloadUrl("prisma",THIRD_MILESTONE_RELEASE_TAG)
  .includes("/releases/download/nova-arcadia-v200-milestone-2074/"));
