@@ -144,8 +144,8 @@ def ground(d,rng,cx,cy,room,phase,view,bg,mid,gold):
    else:
     d.line((xx,yy,xx,yy+rng.randint(6,19)),fill=mix(mid,gold,.12),width=1)
   if (x*y+phase+view)%7==0:
-   d.line(iso(cx,cy,x+.12,y+.1),iso(cx,cy,x+.72,y+.1),fill=gold,width=3)
-   d.line(iso(cx,cy,x+.17,y+.19),iso(cx,cy,x+.76,y+.19),fill=gold,width=2)
+   d.line([iso(cx,cy,x+.12,y+.1),iso(cx,cy,x+.72,y+.1)],fill=gold,width=3)
+   d.line([iso(cx,cy,x+.17,y+.19),iso(cx,cy,x+.76,y+.19)],fill=gold,width=2)
  # Major pieces of industrial architecture: each shapes obstacle/cell line
  # of sight, including roof volumes and cast shadows.
  world=random.Random(seed_for(room["id"],"tactical-geometry",str(phase),str(view)))
