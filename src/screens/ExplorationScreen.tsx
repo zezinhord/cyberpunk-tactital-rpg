@@ -284,7 +284,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
         ...favorChoicesFor("dra-amara")]}:page));
   };
   const v09=readV09(character.id);
-  const reputation=calculateReputation({favors,market,ferrugem,eden,cisma,operations,chapters:cityChapters,urban});
+  const reputation=calculateReputation({favors,market,ferrugem,eden,cisma,operations,chapters:cityChapters,urban,councils});
   const cityArea:RadioDistrict=isInnerId(interior)?
     INNER_BLUEPRINTS[interior].parent??"baixada":
     isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":"baixada";
@@ -568,6 +568,12 @@ const [dossierOpen,setDossierOpen]=useState(false);
             !councils.choices[districtOfRoom(interior)]){
             openCouncilQuestion(districtOfRoom(interior),
               "As quatro perícias independentes estão reunidas. O bairro exige uma deliberação.\n\n");
+          }else if(councils.choices[districtOfRoom(interior)]){
+            const regional=councilImpact(councils,districtOfRoom(interior));
+            say([{speaker:contract.guide,role:"DEPOIS DA AUDIÊNCIA · "+blueprint.title,
+              portrait:"◆",text:(regional?.outcome??finished.message)+
+              "\n\nEsta escolha alterou o equilíbrio das facções e a pressão sobre o distrito. "
+              +"Os registros da investigação continuam consultáveis."}]);
           }else say([{speaker:contract.guide,role:"CONTRATO · EM INVESTIGAÇÃO",
             portrait:"◆",text:finished.message}]);
           return;
@@ -1180,7 +1186,9 @@ const [dossierOpen,setDossierOpen]=useState(false);
         " · +"+result.xp+" XP.");
       audioDirector.effect("archive");
       say([{speaker:DISTRICT_COUNCILS[region].guide,role:"DELIBERAÇÃO DISTRITAL REGISTRADA",
-        portrait:"◆",text:result.message+"\n\nEsta escolha altera a pressão ambiental do distrito e permanece no histórico do protagonista."}]);
+        portrait:"◆",text:result.message+"\n\nSua decisão altera a pressão ambiental, "
+          +"a atitude das facções e as conversas com contatos locais. "
+          +"Fica registrada no salvamento do protagonista."}]);
       return;
     }
     const forensic=/^forensic:([a-z0-9-]+):([0-2])$/.exec(choice.id);
