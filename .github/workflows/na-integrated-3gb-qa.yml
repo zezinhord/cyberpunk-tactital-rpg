@@ -179,19 +179,22 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew :app:compileDebugJavaWithJavac --no-daemon
-      - name: Verify both native validated installation entry points
+      - name: Verify mandatory full-game installation and native offline recovery
         run: |
           python - <<'PY'
           from pathlib import Path
           java=Path("native/NovaAssetPacks.java").read_text()
           ui=Path("src/components/AssetPackControls.tsx").read_text()
+          gate=Path("src/components/GameInstallationGate.tsx").read_text()
           js=Path("src/game/assets/native-pack-manager.ts").read_text()
           assert "@ActivityCallback" in java and "ACTION_OPEN_DOCUMENT" in java
           assert java.count("unpackVerifiedArchive(")==3
           assert 'RELEASE_FIFTH.equals(tag)' in java
-          assert "importLocal" in js and "importZip" in ui
+          assert "importLocal" in js and "importDistrictPack" in gate
+          assert "installDistrictPack" in gate and "isCompleteGameCatalog" in gate
+          assert "Verificar e recuperar instalação do jogo" in ui
           assert 'path.contains("..")' in java
-          print("System file picker, SHA256, atomic installation and fifth-tag checks present.")
+          print("All seven game regions required; native SHA256 and picker remain available for recovery.")
           PY
       - name: Ensure production requires real signed content
         run: |
