@@ -1,0 +1,90 @@
+name: Nova Arcadia 2.0 — real authored art production and size audit
+
+on:
+  push:
+    branches:
+      - feature/nova-arcadia-3gb-final-assets
+    paths:
+      - .github/workflows/na-original-content-production.yml
+      - tools/produce_district_archives.py
+      - tools/generate_v20_illustrations.py
+      - tools/build_3gb_asset_packs.py
+      - src/game/districts/expansion-interiors.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-arcadia-authorial-art-production
+  cancel-in-progress: true
+
+jobs:
+  generate-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact expansion branch
+        uses: actions/checkout@v4
+      - name: Python 3.12 and artistic libraries
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prepare Pillow
+        run: pip install -r tools/requirements-characters.txt
+      - name: Draw real physical room murals and three evidence props
+        run: python tools/generate_v20_illustrations.py
+      - name: Produce twelve original graphical investigative documents per room
+        run: python tools/produce_district_archives.py --source resourcepacks/source
+      - name: Audit 7 district manifests and build 7 original ZIP packs
+        run: |
+          set -euo pipefail
+          python tools/build_3gb_asset_packs.py \
+            --source resourcepacks/source --output resourcepacks/release \
+            --test-only-skip-size-gate
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          cat=json.loads(Path('resourcepacks/release/manifest.json').read_text())
+          assert len(cat['packs'])==7
+          assert all(p['locationCount']==4 for p in cat['packs'])
+          assert all(p['artworkCount']==64 for p in cat['packs'])
+          assert sum(p['artworkCount'] for p in cat['packs'])==448
+          total=1_143_503_198+cat['totalBytes']
+          report=dict(audited=True,artworks=448,interactive_rooms=28,
+                      documents=336,total_bytes=total,
+                      target_bytes=3_000_000_000,
+                      still_missing_bytes=max(0,3_000_000_000-total),
+                      ready_for_final_release=total>=3_000_000_000)
+          Path('resourcepacks/release/production-report.json').write_text(
+            json.dumps(report,ensure_ascii=False,indent=2))
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+      - name: Preserve actual audit and all seven inspectable art packs
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-2.0-Art-Production-Audit-NOT-FINAL
+          path: |
+            resourcepacks/release/NA20-*.zip
+            resourcepacks/release/manifest.json
+            resourcepacks/release/SHA256SUMS.txt
+            resourcepacks/release/production-report.json
+          retention-days: 5
+          if-no-files-found: error
+      - name: State the final 3GB release requirement accurately
+        run: |
+          python - <<'PY'
+          import json
+          x=json.load(open('resourcepacks/release/production-report.json'))
+          with open(__import__('os').environ['GITHUB_STEP_SUMMARY'],'a') as out:
+            out.write('# Nova Arcádia — arte autoral produzida\n')
+            out.write(f"**{x['artworks']}** arquivos gráficos usados em 28 salas; "
+                      f"{x['documents']} arquivos de investigação.\n\n")
+            out.write(f"Bytes reais (APK RC4 + conteúdo): **{x['total_bytes']:,}**.\n\n")
+            if x['still_missing_bytes']:
+              out.write(f"**NÃO FINAL**: faltam {x['still_missing_bytes']:,} bytes "
+                        "de recursos originais para a distribuição de 3 GB.\n")
+            else:
+              out.write("3 GB atingidos em bytes originais; a homologação Android "
+                        "e a publicação final ainda exigem o workflow definitivo.\n")
+          PY
