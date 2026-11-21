@@ -121,7 +121,7 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
    if(saveArchiveProgress(characterId,next))setProgress(next);
  },[index,current,room,characterId,progress,mode]);
  const read=isContractId(room)?archiveReadCount(progress,room):0;
- const src=current?packAssetUrl(room,mode,
+ const src=current?packAssetUrl(room,mode==="evac"?"route":mode,
   current.path.split("/").at(-1)?.split(".")[0]):null;
  return <div className="na-dossier-overlay" role="dialog" aria-modal="true"
    aria-label="Arquivo de evidências ampliadas da expansão">
