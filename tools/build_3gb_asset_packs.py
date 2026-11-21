@@ -34,6 +34,8 @@ BASELINE_BYTES = 1143503198  # audited signed RC4 release
 GOAL_BYTES = 3_000_000_000
 GITHUB_ASSET_MAX_BYTES = 2 * (1024**3)
 RELEASE_TAG = "nova-arcadia-v200-final-3gb-assets"
+MILESTONE_TAG = "nova-arcadia-v200-milestone-1474"
+FIRST_MILESTONE_BYTES = 1_474_082_151
 PATH_RE = re.compile(
     r"^(murals|props|dossiers|cutscenes)/[a-z0-9-]+/(?:[a-z0-9-]+/)*[a-z0-9-]+\.(png|webp)$"
 )
@@ -140,7 +142,9 @@ def list_pack(district: str, source: Path, rooms: list[dict]) -> tuple[list[dict
     return entries, material_bytes
 
 
-def build(source: Path, output: Path, require_3gb=True):
+def build(source: Path, output: Path, require_3gb=True, milestone_1474=False):
+    if require_3gb and milestone_1474:
+        raise ValueError("Final and QA milestone gates cannot be combined")
     all_rooms = rooms_by_district()
     output.mkdir(parents=True, exist_ok=True)
     packs, world_hashes = [], set()
@@ -171,7 +175,8 @@ def build(source: Path, output: Path, require_3gb=True):
             assets=entries,
         ))
         total_zips += size
-    catalog = dict(version=2,tag=RELEASE_TAG,totalBytes=total_zips,packs=packs)
+    catalog = dict(version=2,tag=MILESTONE_TAG if milestone_1474 else RELEASE_TAG,
+                   totalBytes=total_zips,packs=packs)
     delivery_bytes = BASELINE_BYTES + total_zips
     (output / "manifest.json").write_text(
         json.dumps(catalog,ensure_ascii=False,indent=2)+"\n", encoding="utf-8")
@@ -181,6 +186,23 @@ def build(source: Path, output: Path, require_3gb=True):
     print(f"Original packed artworks: {sum(p['artworkCount'] for p in packs)}.")
     print(f"Seven authenticated ZIP packs: {total_zips:,} bytes.")
     print(f"Signed RC4 plus packs: {delivery_bytes:,} bytes.")
+    if milestone_1474:
+        if delivery_bytes < FIRST_MILESTONE_BYTES:
+            raise ValueError(f"QA +300 MB MILESTONE BLOCKED: missing "
+                             f"{FIRST_MILESTONE_BYTES-delivery_bytes:,} real shipped bytes")
+        for pack in packs:
+            if pack["artworkCount"] != 128:
+                raise ValueError("Each district must provide 4 rooms x 16 archives + 16 cinematics")
+        target = BASE / "src/game/assets/published-packs.ts"
+        literal = json.dumps(catalog,ensure_ascii=False,indent=2)
+        target.write_text(
+            'import type {PackCatalog} from "./pack-catalog.ts";\n'
+            '/** Authenticated +300MB QA catalog, NOT the 3GB definitive release. */\n'
+            'export const FINAL_ASSET_CATALOG:PackCatalog='+literal+';\n',
+            encoding="utf-8",
+        )
+        print(f"QA milestone reached: {delivery_bytes:,} source-audited bytes; "
+              "Android signing and installation are separate mandatory gates.")
     if require_3gb and delivery_bytes < GOAL_BYTES:
         raise ValueError(f"Definitive 3GB delivery BLOCKED: missing "
                          f"{GOAL_BYTES-delivery_bytes:,} bytes of ORIGINAL, USED content")
@@ -203,6 +225,11 @@ if __name__ == "__main__":
     cli.add_argument("--output",type=Path,required=True)
     # For testing the integrity checks with tiny hand-authored art fixtures;
     # NEVER pass this flag from release CI.
-    cli.add_argument("--test-only-skip-size-gate",action="store_true")
+    choices=cli.add_mutually_exclusive_group()
+    choices.add_argument("--test-only-skip-size-gate",action="store_true")
+    choices.add_argument("--milestone-1474",action="store_true",
+                         help="Audited >=1.474GB QA artifact, never 3GB final")
     args = cli.parse_args()
-    build(args.source,args.output,not args.test_only_skip_size_gate)
+    build(args.source,args.output,
+          require_3gb=not (args.test_only_skip_size_gate or args.milestone_1474),
+          milestone_1474=args.milestone_1474)
