@@ -2,6 +2,11 @@ name: Nova Arcadia — VERIFIED 2374MB fourth milestone Android QA
 
 # Intermediate signed distribution, NEVER describe this as the 3GB definitive edition.
 on:
+  push:
+    branches:
+      - feature/nova-arcadia-3gb-final-assets
+    paths:
+      - .github/workflows/na-milestone-2374-release.yml
   workflow_dispatch:
 
 permissions:
