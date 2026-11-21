@@ -81,8 +81,8 @@ const MENU_ITEMS: ReadonlyArray<{ id: MenuSection; code: string; label: string; 
   { id: "journal", code: "LOG", label: "Diário", description: "Missões e descobertas" },
   { id: "settings", code: "CFG", label: "Configurações", description: "Preferências do jogo" },
   ...(hasCompleteThreeGigRelease()?[
-    {id:"assetpacks" as const,code:"EXT",label:"Conteúdo extra",
-     description:"Baixar recursos da edição completa com verificação SHA-256"},
+    {id:"assetpacks" as const,code:"INT",label:"Arquivos do jogo",
+     description:"Integridade dos sete distritos obrigatórios da campanha"},
   ]:[]),
 ];
 
