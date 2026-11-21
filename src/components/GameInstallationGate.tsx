@@ -43,7 +43,7 @@ const initialStats=emptyContentStatus;
 export default function GameInstallationGate({children}:{children:ReactNode}){
  const enabled=nativePackPlatform();
  const catalog=useMemo(()=>verifiedCatalog(),[]);
- const completeCatalog=isCompleteGameCatalog(catalog);
+ const completeCatalog=useMemo(()=>isCompleteGameCatalog(catalog),[catalog]);
  const [phase,setPhase]=useState<Phase>("checking");
  const [installed,setInstalled]=useState<Record<PackId,boolean>>(initialStats);
  const [transfer,setTransfer]=useState<Transfer|null>(null);
