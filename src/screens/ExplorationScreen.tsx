@@ -60,7 +60,8 @@ import {packAssetUrl} from "../game/assets/native-pack-manager.ts";
 import {INNER_CONTRACTS,isContractId,readContracts,saveContracts,startContract,
  completeContract,contractObjective,solveForensicCase} from "../game/story/inner-contracts.ts";
 import {FORENSIC_CASES} from "../game/story/forensic-cases.ts";
-import {DISTRICT_COUNCILS,COUNCIL_IDS,isCouncilId,isCouncilMethod,
+import {DISTRICT_COUNCILS,COUNCIL_DEFENSES,COUNCIL_IDS,isCouncilId,isCouncilMethod,
+  councilDefenseAvailable,
  councilUnlocked,councilObjective,councilImpact,districtOfRoom,
  readCouncils,saveCouncils,resolveCouncil,
  type CouncilId} from "../game/story/district-councils.ts";
@@ -569,11 +570,18 @@ const [dossierOpen,setDossierOpen]=useState(false);
             openCouncilQuestion(districtOfRoom(interior),
               "As quatro perícias independentes estão reunidas. O bairro exige uma deliberação.\n\n");
           }else if(councils.choices[districtOfRoom(interior)]){
-            const regional=councilImpact(councils,districtOfRoom(interior));
+            const region=districtOfRoom(interior);
+            const regional=councilImpact(councils,region);
+            const pending=councilDefenseAvailable(councils,region);
             say([{speaker:contract.guide,role:"DEPOIS DA AUDIÊNCIA · "+blueprint.title,
               portrait:"◆",text:(regional?.outcome??finished.message)+
-              "\n\nEsta escolha alterou o equilíbrio das facções e a pressão sobre o distrito. "
-              +"Os registros da investigação continuam consultáveis."}]);
+              (pending?"\n\nUma força hostil pretende reverter o acordo. "
+                +COUNCIL_DEFENSES[region].briefing:
+                "\n\nA defesa do acordo foi concluída. As relações entre facções e "
+                +"a segurança local refletem essa vitória."),
+              choices:pending?[{id:"council-defense:"+region,
+                label:"Defender o acordo · "+COUNCIL_DEFENSES[region].waves+" ondas táticas",
+                reply:"Proteger o conselho e seus recursos."}]:[]}]);
           }else say([{speaker:contract.guide,role:"CONTRATO · EM INVESTIGAÇÃO",
             portrait:"◆",text:finished.message}]);
           return;
@@ -1166,6 +1174,20 @@ const [dossierOpen,setDossierOpen]=useState(false);
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    const defend=/^council-defense:([a-z0-9-]+)$/.exec(choice.id);
+    if(defend){
+      const region=defend[1];
+      if(!isCouncilId(region)||!isContractId(interior)||
+         districtOfRoom(interior)!==region||
+         !councilDefenseAvailable(councils,region)){
+        setDialogue(null);return;
+      }
+      setDialogue(null);
+      setCityNotice("Defesa do Conselho · "+COUNCIL_DEFENSES[region].title+
+        " · "+COUNCIL_DEFENSES[region].waves+" ondas.");
+      onOpenBattle(("council-"+region) as EncounterId);
+      return;
+    }
     const councilAnswer=/^council:([a-z0-9-]+):([a-z]+)$/.exec(choice.id);
     if(councilAnswer){
       const region=councilAnswer[1],method=councilAnswer[2];
@@ -1188,7 +1210,11 @@ const [dossierOpen,setDossierOpen]=useState(false);
       say([{speaker:DISTRICT_COUNCILS[region].guide,role:"DELIBERAÇÃO DISTRITAL REGISTRADA",
         portrait:"◆",text:result.message+"\n\nSua decisão altera a pressão ambiental, "
           +"a atitude das facções e as conversas com contatos locais. "
-          +"Fica registrada no salvamento do protagonista."}]);
+          +"Fica registrada no salvamento do protagonista.\n\n"+
+          COUNCIL_DEFENSES[region].briefing,
+          choices:[{id:"council-defense:"+region,
+            label:"Defender a decisão · combate tático",
+            reply:"Enfrentar "+COUNCIL_DEFENSES[region].waves+" ondas hostis."}]}]);
       return;
     }
     const forensic=/^forensic:([a-z0-9-]+):([0-2])$/.exec(choice.id);
