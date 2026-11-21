@@ -60,7 +60,7 @@ def plan(room:str):
  route=ROUTES[(h>>3)%4]
  safe=set(route)
  from_perimeter=perimeter_layout(room)[0]
- walls={tuple(map(int,s.split(","))) for s in from_perimeter}
+ walls={tuple(pair) for pair in from_perimeter}
  walls={p for p in walls if p not in safe}
  for i in range(64):
   x,y=i%8,i//8
