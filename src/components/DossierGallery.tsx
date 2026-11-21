@@ -14,7 +14,7 @@ import {readPerimeter,savePerimeter,perimeterUnlocked,
  type PerimeterState,type RouteMode} from "../game/story/perimeter-routes.ts";
 import {countEvacuated,
  readVigil,saveVigil,vigilUnlocked,mapForVigil,
- vigilGuards,vigilRun,planVigilRoute,startVigil,moveVigil,rescueVigil,
+ vigilGuards,vigilRun,planVigilMission,startVigil,moveVigil,rescueVigil,
  divertVigil,reorganizeVigil,
  type VigilProgress,type VigilApproach,type VigilResult,type VigilRun}
  from "../game/story/vigil-escorts.ts";
@@ -57,10 +57,8 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
  const evacMap=simulationRoom?mapForVigil(simulationRoom):null;
  const evacEnd=simulationRoom?vigil.completed[simulationRoom]:null;
  const evacGuards=simulationRoom&&evacRun?vigilGuards(simulationRoom,evacRun.turn):[];
- const evacDestination=evacRun&&evacMap?
-   evacMap.groups.find((_,i)=>(evacRun.rescued&(1<<i))===0)??evacMap.exit:null;
- const evacPlan=simulationRoom&&evacRun&&evacDestination?
-   planVigilRoute(simulationRoom,evacRun,evacDestination,vigilApproach):null;
+ const evacPlan=simulationRoom&&evacRun?
+   planVigilMission(simulationRoom,evacRun,vigilApproach):null;
  const evacNext=evacPlan?.steps[0]??null;
  const evacAtGroup=Boolean(evacRun&&evacMap&&evacMap.groups.some((p,i)=>
     p.x===evacRun.x&&p.y===evacRun.y&&(evacRun.rescued&(1<<i))===0));
@@ -272,7 +270,7 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
            })}
          </div>}
          {evacRun&&evacPlan&&<p className="na-vigil-guidance" aria-live="polite">
-           ROTA SUGERIDA · {evacPlan.turns} turno(s) ·
+           ROTA DE RESGATE OTIMIZADA · {evacPlan.objectives.length-1} grupos restantes · {evacPlan.turns} turno(s) ·
            {evacPlan.estimatedEnergy} energia estimada ·
            risco {evacPlan.estimatedExposure}
            {evacNext?" · próxima casa ("+(evacNext.x+1)+", "+(evacNext.y+1)+")":""}
