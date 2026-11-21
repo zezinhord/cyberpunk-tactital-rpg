@@ -128,3 +128,30 @@ O jogo abre as missões **sem exigir os ZIPs visuais adicionais**; os pacotes s�
 - Instalação, abertura e **reinicialização** em emulador Android 15 configurado com 2GB de RAM: PASS; WebView carregou a interface (first-frame ~3047ms inicial, ~4597ms no reinício).
 - Testes físicos dos Galaxy A07, Redmi Note 12s e demais celulares não foram executados; consultar `docs/qa-rc9-vigilia.md`.
 - O instalador RC9 possui **~1,14 GB**; **2,47 GB** é a soma do APK com os sete pacotes opcionais baixados via Configurações → Conteúdo extra. Não se trata de um único APK de 2,47 GB. Não desinstalar a QA201 antes de fazer backup e testar o upgrade.
+
+## Marco 5 — Operação Refúgio (implementação em validação, NÃO publicado)
+
+**Branch:** `feature/nova-arcadia-3gb-final-assets`; PR #22. O quinto marco **não** substitui a distribuição RC9 enquanto a CI não concluir geração física dos arquivos, verificação SHA-256 de sete pacotes, compilação Android com a chave QA201, instalação, boot/reboot no Android 15/2GB e publicação da pré-release.
+
+### Conteúdo de código já implementado
+
+- 28 novas missões interativas de proteção civil, uma por interior após concluir a Vigília; 140 postos de intervenção e 35 briefs distritais específicos com três políticas públicas possíveis cada.
+- Percurso em grades reais de 8×8, colisões e zonas de perigo; planejamento de menor risco pelo algoritmo Dijkstra; três posturas, gastos e reposição de suprimentos, moral, segurança e gestão civil.
+- Abas Refúgio integradas no arquivo de interior, desbloqueio cronológico, registro de resultados e recompensas únicas de até 185 XP por interior; save JSON retrocompatível e reconciliação de XP depois de crash/import.
+- Corrigida a busca de quadros das missões Vigília: usa agora `evac` em vez de requisitar `route`, impedindo exibição de ilustrações de patrulha durante o resgate.
+- Teste `scripts/test-shelter-network-v20.mjs`: 28 cenários, 140 decisões, 308 movimentos e rejeição de repetição/exploits; workflow do bridge Android valida TypeScript, arte amostral, jogabilidade e conteúdo anterior.
+
+### Produção artística e distribuição
+
+- `tools/produce_shelter_network.py`: produtor original de 560 vistas 2880×1620 (28 interiores × 5 postos × 4 ângulos), com plantas, barreiras, risco, pessoas e objetos físicos específicos.
+- `tools/test_shelter_network.py`: auditoria de 560 obras não duplicadas, dimensões, licença, associação ao mapa e contagem física de bytes. `tools/build_3gb_asset_packs.py` exige 448 assets por distrito e 80 quadros Refúgio por ZIP (3136 obras originais em 7 ZIPs), preservando todos os quadros anteriores.
+- Novo gate auditado: **2.674.082.151 bytes** de distribuição APK + sete ZIPs. Produção de imagens por si só **não** comprova atingir o marco: usar tamanho realmente auditado pelo workflow e APK assinado.
+- Workflow de release `.github/workflows/na-milestone-2674-release.yml`: produz o conteúdo, confere hashes, executa testes, restaura mídia original do APK base com SHA esperado, assina como RC10 **pela mesma chave QA201**, roda boot/reboot no emulador Android 15 com 2GB e só então publica a release `nova-arcadia-v200-milestone-2674` com APK e sete ZIPs.
+- Release de referência ainda estável: `nova-arcadia-v200-milestone-2374`, RC9 = 2.471.374.874 bytes distribuídos. **Não** contar os 560 novos quadros no total até auditoria e publicação real.
+
+### Verificação em GitHub
+
+- Teste de regressão TypeScript e missões: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44939424315
+- Arte autoral dos sete distritos: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44939541072
+- QA nativa/refúgio: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44939548320
+- Release Android RC10: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44939655687
