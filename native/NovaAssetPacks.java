@@ -137,6 +137,11 @@ public class NovaAssetPacks extends Plugin {
                 out.put("installed", false);
             }
         }
+        // A signed/verified pack is a permanent game resource. Re-expose its
+        // private URI after process death or Android app updates, including
+        // installs made by older QA201 versions. Never expose a missing path.
+        if (out.optBoolean("installed", false) && dir.isDirectory())
+            out.put("baseUri", "file://" + dir.getAbsolutePath() + "/");
         out.put("storedBytes", sizeOf(dir));
         out.put("freeBytes", baseDir().getUsableSpace());
         JSObject current = progress.get(id);
