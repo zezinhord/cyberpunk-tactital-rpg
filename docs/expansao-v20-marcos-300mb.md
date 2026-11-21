@@ -155,3 +155,40 @@ O jogo abre as missões **sem exigir os ZIPs visuais adicionais**; os pacotes s�
 - Arte autoral dos sete distritos: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44939541072
 - QA nativa/refúgio: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44939548320
 - Release Android RC10: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44939655687
+
+
+## Marco 6 — Operação Nexo e entrega 3GB (desenvolvimento RC11, auditoria final em execução)
+
+**Status explícito:** código implementado; QA integrada do núcleo Nexo aprovada; **não declarar release final nem tamanho de 3GB até existir nova distribuição assinada, testada e publicada**.
+
+### Base de produção autenticada
+
+- Produção de 3.136 ilustrações originais de 28 interiores (incluindo 560 quadros Refúgio): workflow https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44939541072, aprovado.
+- Sete ZIPs auditados: **1.683.900.379 bytes** de imagens. Linha de base de referência APK RC4 + os sete ZIPs: **2.827.403.577 bytes**, ainda **172.596.423 bytes abaixo** de 3.000.000.000.
+- **Essa medição é de produção original**, não substitui o tamanho do APK RC11 assinado nem prova, sozinha, que a release final está disponível.
+
+### Operação Nexo — implementação integrada
+
+- 28 novas incursões táticas, uma por interior, disponibilizadas depois de concluir a Operação Refúgio; a lógica funciona sem baixar ZIPs.
+- 168 relés de rede fisicamente localizados (seis por interior) em mapas 8×8: 42 acontecimentos distritais inéditos e 126 alternativas específicas, com três políticas de destino para Éden (transparência civil, supervisão humana ou rede descentralizada).
+- Sentinelas móveis, detectores por célula, rastreio, energia, deslocamento furtivo/normal/investida, bloqueador eletrônico, recarga, contra-invasão com recuo ao último relé sincronizado, rota segura calculada por Dijkstra e decisões sem teletransporte.
+- Progresso e XP único por protagonista, backup JSON com validação estrita, reconciliação após falhas; nova aba **Nexo · Éden 8×8** no arquivo do interior; botão do mapa e painel de missões orientam a sequência Vigília → Refúgio → Nexo.
+- `scripts/test-nexus-eden-v20.mjs`: 28 missões, 168 relés, testes de colisão, percurso, recompensas, estados de save, exploits. Teste integrado confirmado em https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44941221300: 364 movimentos, 112 recargas, 6.440 XP únicos simulados no conjunto (não representa uma sessão individual).
+
+### Recursos visuais e instalador
+
+- Novo produtor `tools/produce_nexus_eden.py`: 672 pinturas autorais em 2880×1620 (seis relés × quatro vistas × 28 interiores), com plantas, guardas, scanners e equipamento. Prova amostral: 24 quadros originais do observatório da Baixada somaram 15.929.612 bytes, com auditoria individual sem duplicatas.
+- Pacotes finais exigem 544 artes autênticas por distrito, **3.808 em sete ZIPs**. Verificador `tools/build_3gb_asset_packs.py` exige todos os nove tipos de arte, SHA-256 único por arquivo, verificações de diretório, dimensões e tamanho físico de bytes; sem bytes de enchimento.
+- Corrigido `native/NovaAssetPacks.java`: instalador e leitor aceitam as famílias `shelters` e `nexus` mantendo SHA-256 e verificação contra ZIP traversal.
+- `tools/restore_verified_art_sources.py` aproveita 3.136 obras previamente auditadas sem re-renderizar/copiar recursos extras no pacote final. Novos arquivos Nexo são produzidos de forma independente, adicionados aos manifestos, e todos os ZIPs são reconstruídos e auditados integralmente.
+- O artefato final é modular: APK Android QA201 e sete ZIPs opcionais por distrito. **A meta de 3GB é o tamanho total distribuído, não um APK individual de 3GB.**
+
+### Compilação e distribuição
+
+- RC10/Marco 5: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44941304180. Correção do hash SHA-256 da mídia original e reutilização segura dos ZIPs auditados. Verificar estado antes de divulgar release.
+- RC11/edição 3GB: https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44941452423. Só publica `nova-arcadia-v200-final-3gb-assets` se geração das 672 artes, revalidação dos 3.808 arquivos, sete SHA dos ZIPs, soma **>=3.000.000.000 bytes efetivamente distribuídos**, TypeScript e testes de história, Gradle, chave QA201 preservada, assinatura, instalação, boot e reboot Android 15/2GB tiverem êxito.
+- Teste físico no Galaxy A07, Redmi Note 12s e outros aparelhos permanece necessário para homologação de performance real.
+
+### Próxima verificação
+
+Conferir o **estado atual** das execuções e releases. Não indicar link de instalação RC10/RC11 inexistente ou URL de ZIP presumido. Somente releases com APK e sete ZIPs efetivamente disponíveis e auditoria publicada são entregas.
