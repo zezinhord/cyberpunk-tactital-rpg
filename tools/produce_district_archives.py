@@ -257,6 +257,46 @@ def themed_diagram(d: ImageDraw.ImageDraw, room: dict, page: int,
         d.text((x0+410,y0+493),"DECISÃO CONTESTÁVEL",
                font=font(31,True),fill=(239,231,210))
 
+def draw_mural(room: dict, dest: Path):
+    """Create an actual purpose-drawn 2048x180 panorama; never upscale the
+    tiny bundled RC4 fallback, since pack validation requires >=128 height."""
+    width, height = 2048, 180
+    district = choose_district(room["id"])
+    bg, accent, amber = PALETTES[district]
+    image = Image.new("RGB", (width, height), bg)
+    d = ImageDraw.Draw(image)
+    r = random.Random(seed_for(room["id"], "panorama"))
+    for y in range(height):
+        d.line((0, y, width, y),
+               fill=lerp(bg, accent, .02 + .18 * y / height))
+    for k in range(25):
+        x = k * 84 - 30 + r.randint(-9, 9)
+        top = 25 + r.randint(0, 42) + room["variant"] * 4
+        d.polygon(((x, 168), (x, top+12), (x+14, top), (x+74, top),
+                   (x+85, 168)), fill=lerp(bg, accent, .22+(.08*(k%3))))
+        for j in range(3):
+            yy = top+24+j*21
+            d.line((x+12, yy, x+68, yy), fill=accent, width=2)
+            for z in range(4):
+                xx=x+18+z*14
+                if (z+j+k+room["variant"])%3:
+                    d.rectangle((xx,yy+4,xx+6,yy+10),fill=amber)
+    # Distinct physical scene identity: evidence paths and local architecture.
+    for i, title in enumerate((room["archiveTitle"],
+                               room["machineTitle"], room["cacheTitle"])):
+        x=42+i*660
+        d.rounded_rectangle((x+8,12,x+618,94),radius=7,
+                            fill=lerp(bg,accent,.14),outline=amber,width=3)
+        d.text((x+25,22),f"{i+1:02d} / {title[:27]}",
+               font=font(28,True),fill=(235,225,208))
+        d.text((x+28,67),f"{room['id'].upper()}",
+               font=font(14),fill=(202,204,204))
+    for k in range(7):
+        xx=50+k*290
+        d.arc((xx-50,108,xx+260,220),0,180,fill=accent,width=3)
+    dest.parent.mkdir(parents=True,exist_ok=True)
+    image.save(dest,format="PNG",optimize=True,compress_level=6)
+
 def render(room: dict, page: int, output: Path) -> dict:
     district=choose_district(room["id"])
     bg, accent, amber=PALETTES[district]
@@ -322,12 +362,8 @@ def produce(root: Path=OUT, limit_rooms: int|None=None) -> dict:
         root_dir=root/district
         entries=[]
         rid=room["id"]
-        mural=SOURCE/"murals"/(rid+".png")
-        if not mural.is_file():
-            raise ValueError("Generate real V20 mural first: "+str(mural))
         dest=root_dir/"murals"/rid/"ambiente.png"
-        dest.parent.mkdir(parents=True,exist_ok=True)
-        shutil.copyfile(mural,dest)
+        draw_mural(room,dest)
         entries.append(dict(path=f"murals/{rid}/ambiente.png",room=rid,
                             kind="mural",caption=f"Paisagem original de {room['title']}, "
                             "com arquitetura local e pontos navegáveis.",license="original"))
