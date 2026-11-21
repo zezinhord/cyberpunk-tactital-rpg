@@ -18,6 +18,9 @@ on:
       - scripts/test-archive-progress-v20.mjs
       - src/game/story/inner-contracts.ts
       - src/game/story/forensic-cases.ts
+      - src/game/story/district-councils.ts
+      - src/game/story/reputation.ts
+      - scripts/test-council-reputation-v20.mjs
       - scripts/test-forensic-cases-v20.mjs
       - src/components/AssetPackControls.tsx
       - src/components/DossierGallery.tsx
@@ -64,6 +67,7 @@ jobs:
           node --experimental-strip-types scripts/test-inner-contracts-v20.mjs
           node --experimental-strip-types scripts/test-forensic-cases-v20.mjs
           node --experimental-strip-types scripts/test-archive-progress-v20.mjs
+          node --experimental-strip-types scripts/test-council-reputation-v20.mjs
       - name: Generate original scene mural and test 12 authored dossier designs
         run: |
           python tools/generate_v20_illustrations.py
