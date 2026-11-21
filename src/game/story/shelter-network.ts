@@ -213,8 +213,8 @@ export function planShelterRoute(id:ExpansionInnerId,run:ShelterRun){
  while(queue.size){
   const current=[...queue].sort((a,b)=>(scores.get(a)??Infinity)-(scores.get(b)??Infinity))[0]!;
   queue.delete(current);if(current===end)break;
-  const [x,y]=current.split(",").map(Number);
-  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+  const [xs,ys]=current.split(",");const x=Number(xs),y=Number(ys);
+  for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]] as const){
    const nx=x+dx,ny=y+dy,neighbor=gridKey(nx,ny);
    if(!cell(nx,ny)||map.blocked.has(neighbor))continue;
    const cost=(scores.get(current)??Infinity)+1+(map.hazards.has(neighbor)?3:0);
@@ -223,7 +223,7 @@ export function planShelterRoute(id:ExpansionInnerId,run:ShelterRun){
  }
  const steps:{x:number;y:number}[]=[];let current=end;
  while(current!==start&&prev.has(current)&&steps.length<64){
-  const [x,y]=current.split(",").map(Number);steps.unshift({x,y});current=prev.get(current)!;
+  const [xs,ys]=current.split(",");steps.unshift({x:Number(xs),y:Number(ys)});current=prev.get(current)!;
  }
  return {steps:current===start?steps:[],risk:scores.get(end)??Infinity,goal};
 }
