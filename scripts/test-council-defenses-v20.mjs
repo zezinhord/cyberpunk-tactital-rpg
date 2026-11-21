@@ -10,7 +10,7 @@ const {TurnManager}=await import("../src/game/TurnManager.ts");
 const {enemyProfile}=await import("../src/game/tactics.ts");
 const {COUNCIL_IDS,COUNCIL_DEFENSES,EMPTY_COUNCILS,
  councilDefenseAvailable,finishCouncilDefense,
- saveCouncils,readCouncils,validateCouncilProgress}=await
+ saveCouncils,readCouncils,validateCouncilProgress,councilObjective}=await
  import("../src/game/story/district-councils.ts");
 const files=new Map();
 globalThis.localStorage={
@@ -33,6 +33,8 @@ for(const id of COUNCIL_IDS){
  const baseline={version:1,choices:{[id]:"solidarity"}};
  assert.equal(validateCouncilProgress(baseline),true);
  assert.equal(councilDefenseAvailable(baseline,id),true);
+ assert.ok(councilObjective(id,{version:1,accepted:[],completed:[],analysed:[]},baseline).includes("DEFESA PENDENTE"));
+
  assert.equal(finishCouncilDefense(EMPTY_COUNCILS,id).ok,false);
  for(let wave=1;wave<=battle.waves;wave++){
   manager.state.units[0].x=5;
@@ -63,6 +65,7 @@ for(const id of COUNCIL_IDS){
  assert.equal(won.xp,battle.xp);
  assert.equal(won.state.defended.includes(id),true);
  assert.equal(councilDefenseAvailable(won.state,id),false);
+ assert.ok(councilObjective(id,{version:1,accepted:[],completed:[],analysed:[]},won.state).includes("ACORDO DEFENDIDO"));
  assert.equal(saveCouncils("hero-"+id,won.state),true);
  assert.deepEqual(readCouncils("hero-"+id),won.state);
  const again=finishCouncilDefense(readCouncils("hero-"+id),id);
