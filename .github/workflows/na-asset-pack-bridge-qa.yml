@@ -26,6 +26,8 @@ on:
       - src/game/map.ts
       - src/game/BattleScene.ts
       - src/game/combat/tactical-maps.ts
+      - src/game/combat/siege-terminals.ts
+      - scripts/test-siege-terminals-v20.mjs
       - scripts/test-council-tactical-maps-v20.mjs
       - src/components/Battlefield.tsx
       - tools/generate_council_enemy_art.py
@@ -81,6 +83,7 @@ jobs:
           node --experimental-strip-types scripts/test-council-reputation-v20.mjs
           node --experimental-strip-types scripts/test-council-defenses-v20.mjs
           node --experimental-strip-types scripts/test-council-tactical-maps-v20.mjs
+          node --experimental-strip-types scripts/test-siege-terminals-v20.mjs
           node --experimental-strip-types scripts/test-tactics.mjs
           node --experimental-strip-types scripts/test-battlefield-navigation.mjs
       - name: Generate original scene mural and test 12 authored dossier designs
