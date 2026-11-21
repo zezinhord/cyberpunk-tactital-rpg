@@ -14,9 +14,11 @@ import json
 import os
 import re
 import zipfile
+from io import BytesIO
+from PIL import Image
 from collections import Counter
 from pathlib import Path
-from build_3gb_asset_packs import APPROVED_DISTRICTS,PATH_RE,rooms_by_district,dimensions
+from build_3gb_asset_packs import APPROVED_DISTRICTS,PATH_RE,rooms_by_district
 
 ROOT=Path(__file__).resolve().parents[1]
 SHA=re.compile(r"^[a-f0-9]{64}$")
@@ -105,7 +107,11 @@ def restore(package_root:Path,destination:Path)->dict:
      raise ValueError("Truncated ZIP member")
     if hashlib.sha256(data).hexdigest()!=item["sha256"]:
      raise ValueError("Individual art checksum mismatch")
-    w,h=dimensions(target.with_suffix(Path(member).suffix),data)
+    with Image.open(BytesIO(data)) as decoded:
+     if decoded.format not in ("WEBP","PNG"):
+      raise ValueError("Only authenticated original images are allowed")
+     w,h=decoded.size
+     decoded.verify()
     if not (128<=w<=8192 and 128<=h<=8192 and w*h<=65_536_000):
      raise ValueError("Artwork decoded dimensions unsafe")
     target.write_bytes(data)
