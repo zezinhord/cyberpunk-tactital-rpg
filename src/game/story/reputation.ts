@@ -10,6 +10,7 @@ import {readEden,type EdenProgress} from "./eden-echoes.ts";
 import {readCisma,cismaFactionEffects,type CismaProgress} from "./cisma-v20.ts";
 import {readOperations,operationsFactionDelta,type OperationsProgress} from "./cisma-operations.ts";
 import {readDistrictProgress,type ChapterProgress} from "../districts/progress.ts";
+import {readCouncils,councilFactionEffects,type CouncilProgress} from "./district-councils.ts";
 import {DISTRICTS,type DistrictId} from "../districts/catalog.ts";
 import {grantRewardInventoryItem,type ItemId,type InventoryState} from "../inventory.ts";
 
@@ -28,7 +29,7 @@ export interface Reputation{
 export interface ReputationSource{
  favors:FavorState;market:MarketState;
  ferrugem?:FerrugemProgress;eden?:EdenProgress;cisma?:CismaProgress;
- operations?:OperationsProgress;urban?:UrbanState;
+ operations?:OperationsProgress;urban?:UrbanState;councils?:CouncilProgress;
  chapters?:Partial<Record<DistrictId,ChapterProgress>>;
 }
 type Delta=Partial<Record<FactionId,number>>;
@@ -98,6 +99,7 @@ export function calculateReputation(source:ReputationSource):Reputation{
   }
  if(source.cisma?.completed)apply(cismaFactionEffects(source.cisma));
  if(source.operations?.completed)apply(operationsFactionDelta(source.operations));
+ if(source.councils)for(const effect of councilFactionEffects(source.councils))apply(effect);
  if(source.ferrugem?.completed){
   apply(source.ferrugem.ending==="publicar"
    ?{movimento_livre:2,helix:-2}
@@ -120,6 +122,7 @@ export function readReputation(characterId:string):Reputation{
   favors:readFavors(characterId),market:readMarket(characterId),urban:readUrban(characterId),
   ferrugem:readFerrugem(characterId),eden:readEden(characterId),cisma:readCisma(characterId),
   operations:readOperations(characterId),
+  councils:readCouncils(characterId),
   chapters:Object.fromEntries(DISTRICTS.map(d=>[d.id,readDistrictProgress(characterId,d.id)])),
  });
 }
