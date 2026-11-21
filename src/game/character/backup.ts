@@ -16,6 +16,7 @@ import {STEALTH_KEY,validStealth} from "../stealth.ts";
 import {CONTRACTS_KEY,validateContracts} from "../story/inner-contracts.ts";
 import {ARCHIVE_KEY,validateArchiveProgress} from "../story/archive-progress.ts";
 import {COUNCIL_KEY,validateCouncilProgress} from "../story/district-councils.ts";
+import {RECOVERY_KEY,validateRecovery} from "../story/recovery-network.ts";
 import {URBAN_KEY,validateUrbanBackup} from "../story/urban-chronicles.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
@@ -43,6 +44,7 @@ export const CHARACTER_BACKUP_KEYS={
  contracts:CONTRACTS_KEY,
  archives:ARCHIVE_KEY,
  councils:COUNCIL_KEY,
+ recovery:RECOVERY_KEY,
  urban:URBAN_KEY,
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
@@ -112,6 +114,8 @@ export function importCharacterBackup(text:string,overwrite=false):
        return {ok:false,message:"Arquivo visual do protagonista inválido no backup."};
      if(field==="councils"&&!validateCouncilProgress(decoded))
        return {ok:false,message:"Deliberações distritais inválidas no backup."};
+     if(field==="recovery"&&!validateRecovery(decoded))
+       return {ok:false,message:"Registros de reconstrução regional inválidos no backup."};
      if(field==="area"&&!isSavedWorldArea(decoded))
        return {ok:false,message:"Área ativa inválida no backup."};
      if(field==="sewer"){
