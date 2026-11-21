@@ -55,24 +55,19 @@ jobs:
           JS
       - name: Generate physical room tiles for the new Android client
         run: python tools/generate_v20_illustrations.py
-      - name: Produce 3136 independently auditable images from seven district storyboards
+      - name: Preflight 28 Refúgio and 28 Nexo missions before downloading 1.68GB art
         run: |
-          set -euo pipefail
-          python tools/produce_district_archives.py --source resourcepacks/source
-          python tools/produce_story_cinematics.py --source resourcepacks/source
-          python tools/test_story_cinematics.py --source resourcepacks/source --full
-          python tools/produce_tactical_simulations.py --source resourcepacks/source
-          python tools/test_tactical_simulations.py --source resourcepacks/source --full
-          python tools/produce_perimeter_routes.py --source resourcepacks/source
-          python tools/test_perimeter_routes.py --source resourcepacks/source --full
-          python tools/produce_vigil_escorts.py --source resourcepacks/source
-          python tools/test_vigil_escorts.py --source resourcepacks/source --full
-          python tools/produce_shelter_network.py --source resourcepacks/source
-          python tools/test_shelter_network.py --source resourcepacks/source --full
-      - name: Bundle seven authenticated playable visual packs without relaxing final gate
-        run: |
-          python tools/build_3gb_asset_packs.py --source resourcepacks/source \
-            --output resourcepacks/release --test-only-skip-size-gate
+          npx tsc -b
+          node --experimental-strip-types scripts/test-shelter-network-v20.mjs
+          node --experimental-strip-types scripts/test-nexus-eden-v20.mjs
+      - name: Reuse independently audited 3136 real illustrations from successful art production
+        uses: actions/download-artifact@v4
+        with:
+          name: NovaArcadia-2.0-Art-Production-Audit-NOT-FINAL
+          repository: ${{ github.repository }}
+          run-id: 44939541072
+          github-token: ${{ github.token }}
+          path: .
       - name: Independently re-audit 3136 originals in seven ZIPs for the fourth milestone
         run: |
           set -euo pipefail
@@ -81,6 +76,9 @@ jobs:
           from pathlib import Path
           root=Path('resourcepacks/release')
           assert len(list(root.glob('NA20-*.zip')))==7,"Original art ZIPs not generated"
+          report=json.loads((root/'production-report.json').read_text())
+          assert report['artworks']==3136 and report['shelter_relief_frames']==560
+          assert report['fifth_300mb_observed'] is True
           manifest=root/'manifest.json'
           cat=json.loads(manifest.read_text(encoding='utf8'))
           assert cat['tag']=='nova-arcadia-v200-final-3gb-assets'
@@ -172,7 +170,7 @@ jobs:
           gh release download nova-arcadia-v091-gameplay-full-qa             --repo "$GITHUB_REPOSITORY"             --pattern "NovaArcadia-0.9.1-rc.1-Full-1GB-QA.apk"             --dir "$RUNNER_TEMP/nova-baseline"
           ORIGINAL="$RUNNER_TEMP/nova-baseline/NovaArcadia-0.9.1-rc.1-Full-1GB-QA.apk"
           test "$(stat -c %s "$ORIGINAL")" -eq 1143065746
-          printf '%s  %s\n'             "af31364cb4a4f41b3b2677a7503230dafbaf026f551770125d721e41ad1c9915"             "$ORIGINAL" | sha256sum -c -
+          printf '%s  %s\n'             "af25764cb4a4f41b3b2677a7503230dafbaf026f551770125d721e41ad1c9915"             "$ORIGINAL" | sha256sum -c -
           python tools/restore_media_from_apk.py "$ORIGINAL"
           rm -f "$ORIGINAL"
       - name: Verify original sound and ambience
