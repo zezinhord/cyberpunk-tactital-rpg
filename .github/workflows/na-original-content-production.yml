@@ -7,6 +7,8 @@ on:
     paths:
       - .github/workflows/na-original-content-production.yml
       - tools/produce_district_archives.py
+      - tools/produce_story_cinematics.py
+      - tools/test_story_cinematics.py
       - tools/generate_v20_illustrations.py
       - tools/generate_council_enemy_art.py
       - tools/test_council_enemy_art.py
@@ -44,6 +46,10 @@ jobs:
           python tools/test_council_enemy_art.py
       - name: Produce twelve original graphical investigative documents per room
         run: python tools/produce_district_archives.py --source resourcepacks/source
+      - name: Produce 448 zoomable original cinematic illustrations, sixteen per interior
+        run: |
+          python tools/produce_story_cinematics.py --source resourcepacks/source
+          python tools/test_story_cinematics.py --source resourcepacks/source --full
       - name: Audit 7 district manifests and build 7 original ZIP packs
         run: |
           set -euo pipefail
@@ -56,17 +62,19 @@ jobs:
           cat=json.loads(Path('resourcepacks/release/manifest.json').read_text())
           assert len(cat['packs'])==7
           assert all(p['locationCount']==4 for p in cat['packs'])
-          assert all(p['artworkCount']==64 for p in cat['packs'])
-          assert sum(p['artworkCount'] for p in cat['packs'])==448
+          assert all(p['artworkCount']==128 for p in cat['packs'])
+          assert sum(p['artworkCount'] for p in cat['packs'])==896
           sprite=json.loads(Path('public/assets/council-enemies/catalog.json').read_text())
           assert sprite['artworks']==16 and sprite['frames']==512
           # The extra original enemy sprites count in production but NOT in
           # the audited base APK total until a signed build includes them.
           total=1_143_503_198+cat['totalBytes']
-          report=dict(audited=True,artworks=448,enemy_sprites=16,
+          report=dict(audited=True,artworks=896,cinematic_scenes=448,
+                      enemy_sprites=16,
                       enemy_animation_frames=512,
                       generated_enemy_bytes=sprite['totalBytes'],interactive_rooms=28,
                       documents=336,total_bytes=total,
+                      first_300mb_observed=total>=1_474_082_151,
                       target_bytes=3_000_000_000,
                       still_missing_bytes=max(0,3_000_000_000-total),
                       ready_for_final_release=total>=3_000_000_000)
@@ -101,8 +109,9 @@ jobs:
           m=json.load(open('resourcepacks/release/milestones.json'))
           with open(__import__('os').environ['GITHUB_STEP_SUMMARY'],'a') as out:
             out.write('# Nova Arcádia — arte autoral produzida\n')
-            out.write(f"**{x['artworks']}** arquivos gráficos usados em 28 salas; "
-                      f"{x['documents']} arquivos de investigação.\n\n")
+            out.write(f"**{x['artworks']}** arquivos originais em 28 salas; "
+                      f"{x['documents']} pranchas e "
+                      f"{x['cinematic_scenes']} quadros cinematográficos.\n\n")
             out.write(f"Novos sprites: {x['enemy_sprites']} atlases, "
                       f"{x['enemy_animation_frames']} poses/direções, "
                       f"{x['generated_enemy_bytes']:,} bytes de arte original. "
