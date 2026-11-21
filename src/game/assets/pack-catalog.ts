@@ -4,8 +4,9 @@
  */
 export const PACK_RELEASE_TAG="nova-arcadia-v200-final-3gb-assets";
 export const FIRST_MILESTONE_RELEASE_TAG="nova-arcadia-v200-milestone-1474";
+export const SECOND_MILESTONE_RELEASE_TAG="nova-arcadia-v200-milestone-1774";
 export const TRUSTED_RELEASE_TAGS=[
- FIRST_MILESTONE_RELEASE_TAG,PACK_RELEASE_TAG
+ FIRST_MILESTONE_RELEASE_TAG,SECOND_MILESTONE_RELEASE_TAG,PACK_RELEASE_TAG
 ] as const;
 export function isTrustedReleaseTag(tag:unknown):tag is typeof TRUSTED_RELEASE_TAGS[number]{
  return typeof tag==="string"&&TRUSTED_RELEASE_TAGS.some(allowed=>allowed===tag);
