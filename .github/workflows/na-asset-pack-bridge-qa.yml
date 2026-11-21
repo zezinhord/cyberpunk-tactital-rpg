@@ -23,6 +23,9 @@ on:
       - src/game/story/perimeter-routes.ts
       - scripts/test-perimeter-routes-v20.mjs
       - src/game/story/vigil-escorts.ts
+      - src/game/story/shelter-network.ts
+      - src/components/ShelterPanel.tsx
+      - scripts/test-shelter-network-v20.mjs
       - scripts/test-vigil-escorts-v20.mjs
       - scripts/test-vigil-extraction-v20.mjs
       - src/game/story/field-simulations.ts
@@ -111,6 +114,7 @@ jobs:
           node --experimental-strip-types scripts/test-field-simulations-v20.mjs
           node --experimental-strip-types scripts/test-perimeter-routes-v20.mjs
           node --experimental-strip-types scripts/test-vigil-escorts-v20.mjs
+          node --experimental-strip-types scripts/test-shelter-network-v20.mjs
           node --experimental-strip-types scripts/test-vigil-extraction-v20.mjs
           node --experimental-strip-types scripts/test-council-tactical-maps-v20.mjs
           node --experimental-strip-types scripts/test-siege-terminals-v20.mjs
