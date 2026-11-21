@@ -48,6 +48,9 @@ on:
       - tools/build_3gb_asset_packs.py
       - tools/test_3gb_pack_builder.py
       - tools/produce_district_archives.py
+      - tools/produce_story_cinematics.py
+      - tools/test_story_cinematics.py
+      - src/dossier-gallery.css
       - tools/test_authored_archives.py
       - tools/generate_v20_illustrations.py
   workflow_dispatch:
@@ -100,6 +103,7 @@ jobs:
         run: |
           python tools/generate_v20_illustrations.py
           python tools/test_authored_archives.py
+          python tools/test_story_cinematics.py
           python tools/test_council_enemy_art.py
       - name: Compile TypeScript without releasing incomplete game
         run: npx tsc -b
