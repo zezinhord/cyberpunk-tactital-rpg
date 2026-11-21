@@ -38,13 +38,15 @@ MILESTONE_TAG = "nova-arcadia-v200-milestone-1474"
 SECOND_MILESTONE_TAG = "nova-arcadia-v200-milestone-1774"
 THIRD_MILESTONE_TAG = "nova-arcadia-v200-milestone-2074"
 FOURTH_MILESTONE_TAG = "nova-arcadia-v200-milestone-2374"
+FIFTH_MILESTONE_TAG = "nova-arcadia-v200-milestone-2674"
+FIFTH_MILESTONE_BYTES = 2_674_082_151
 FOURTH_MILESTONE_BYTES = 2_374_082_151
 THIRD_MILESTONE_BYTES = 2_074_082_151
 SECOND_MILESTONE_BYTES = 1_775_365_848  # at least +300 MB beyond first signed QA201
 
 FIRST_MILESTONE_BYTES = 1_474_082_151
 PATH_RE = re.compile(
-    r"^(murals|props|dossiers|cutscenes|spritesheets|routes|evacs)/[a-z0-9-]+/(?:[a-z0-9-]+/)*[a-z0-9-]+\.(png|webp)$"
+    r"^(murals|props|dossiers|cutscenes|spritesheets|routes|evacs|shelters)/[a-z0-9-]+/(?:[a-z0-9-]+/)*[a-z0-9-]+\.(png|webp)$"
 )
 MAX_IMAGE_BYTES = 70_000_000
 MAX_PIXELS = 65_536_000  # prevent malicious 80k x 80k dimensions
@@ -110,7 +112,7 @@ def list_pack(district: str, source: Path, rooms: list[dict]) -> tuple[list[dict
         if path in seen_paths or room not in approved_rooms:
             raise ValueError(f"Duplicate or irrelevant asset: {path}")
         if path.split("/")[1] != room or (
-            kind not in ("mural", "prop", "dossier", "cutscene", "spritesheet", "route", "evac")
+            kind not in ("mural", "prop", "dossier", "cutscene", "spritesheet", "route", "evac", "shelter")
         ) or path.split("/")[0] != kind + "s":
             raise ValueError(f"Asset is not mapped to real interactive room: {path}")
         if not isinstance(caption, str) or len(caption.strip()) < 18 or len(caption) > 240:
@@ -152,14 +154,16 @@ def list_pack(district: str, source: Path, rooms: list[dict]) -> tuple[list[dict
             raise ValueError(f"{room}: each perimeter patrol requires exactly 20 real map viewpoints")
         if counts["evac"] not in (0, 16):
             raise ValueError(f"{room}: each escort sequence requires 16 unique rescue storyboard frames")
+        if counts["shelter"] not in (0, 20):
+            raise ValueError(f"{room}: each relief mission needs 20 original intervention views")
     return entries, material_bytes
 
 
 def build(source: Path, output: Path, require_3gb=True,
           milestone_1474=False, milestone_1774=False, milestone_2074=False,
-          milestone_2374=False):
+          milestone_2374=False, milestone_2674=False):
     if sum(bool(x) for x in (require_3gb,milestone_1474,milestone_1774,
-                             milestone_2074,milestone_2374))>1:
+                             milestone_2074,milestone_2374,milestone_2674))>1:
         raise ValueError("Final and QA milestone gates cannot be combined")
     all_rooms = rooms_by_district()
     output.mkdir(parents=True, exist_ok=True)
@@ -191,7 +195,8 @@ def build(source: Path, output: Path, require_3gb=True,
             assets=entries,
         ))
         total_zips += size
-    catalog = dict(version=2,tag=FOURTH_MILESTONE_TAG if milestone_2374 else
+    catalog = dict(version=2,tag=FIFTH_MILESTONE_TAG if milestone_2674 else
+                   FOURTH_MILESTONE_TAG if milestone_2374 else
                    THIRD_MILESTONE_TAG if milestone_2074 else
                    SECOND_MILESTONE_TAG if milestone_1774 else
                    MILESTONE_TAG if milestone_1474 else RELEASE_TAG,
@@ -279,6 +284,25 @@ def build(source: Path, output: Path, require_3gb=True,
         )
         print(f"FOURTH QA MILESTONE: {delivery_bytes:,} original used bytes. "
               "Native signing, emulator and publication still required.")
+    if milestone_2674:
+        if delivery_bytes < FIFTH_MILESTONE_BYTES:
+            raise ValueError(f"QA +1500 MB MILESTONE BLOCKED: missing "
+                             f"{FIFTH_MILESTONE_BYTES-delivery_bytes:,} real original bytes")
+        for pack in packs:
+            if pack["artworkCount"] != 448 or pack["locationCount"] != 4:
+                raise ValueError("Fifth milestone requires 448 authentic drawings per district")
+            counts = Counter(a["kind"] for a in pack["assets"])
+            if counts["shelter"] != 80 or counts["evac"] != 64 or counts["route"] != 80:
+                raise ValueError("Refúgio plus all existing playable maps required")
+        target = BASE / "src/game/assets/published-packs.ts"
+        target.write_text(
+            'import type {PackCatalog} from "./pack-catalog.ts";\n'
+            '/** Authenticated QA201 fifth milestone; NOT definitive 3GB. */\n'
+            'export const FINAL_ASSET_CATALOG:PackCatalog='+
+            json.dumps(catalog,ensure_ascii=False,indent=2)+';\n',
+            encoding="utf-8")
+        print(f"FIFTH QA MILESTONE: {delivery_bytes:,} source-audited bytes. "
+              "Android signing and boot verification separately required.")
     if require_3gb and delivery_bytes < GOAL_BYTES:
         raise ValueError(f"Definitive 3GB delivery BLOCKED: missing "
                          f"{GOAL_BYTES-delivery_bytes:,} bytes of ORIGINAL, USED content")
@@ -311,12 +335,15 @@ if __name__ == "__main__":
                          help="Third +205MB source-audited QA milestone; not final")
     choices.add_argument("--milestone-2374",action="store_true",
                          help="Fourth +176MB sequential 2.374GB milestone, not the 3GB final")
+    choices.add_argument("--milestone-2674",action="store_true",
+                         help="Fifth >=2.674GB signed QA checkpoint, not final")
     args = cli.parse_args()
     build(args.source,args.output,
           require_3gb=not (args.test_only_skip_size_gate or
                            args.milestone_1474 or args.milestone_1774 or
-                           args.milestone_2074 or args.milestone_2374),
+                           args.milestone_2074 or args.milestone_2374 or args.milestone_2674),
           milestone_1474=args.milestone_1474,
           milestone_1774=args.milestone_1774,
           milestone_2074=args.milestone_2074,
-          milestone_2374=args.milestone_2374)
+          milestone_2374=args.milestone_2374,
+          milestone_2674=args.milestone_2674)
