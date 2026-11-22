@@ -8,6 +8,7 @@ on:
       - src/components/GameInstallationGate.tsx
       - src/components/CharacterMenu.tsx
       - scripts/enable-android-immersive.mjs
+      - scripts/install-asset-pack-plugin.mjs
       - scripts/test-android-single-apk-offline.mjs
       - scripts/test-integrated-game-install-v20.mjs
   workflow_dispatch:
