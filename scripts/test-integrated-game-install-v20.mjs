@@ -84,6 +84,11 @@ assert.ok(native.includes("public void bundledStatus(")&&
  native.includes("public void installBundled(")&&
  native.includes('getAssets().open("na-game/NA20-" + id + ".zip")'));
 assert.ok(manager.includes('installEmbeddedDistrict')&&manager.includes('integratedApkStatus'));
+assert.ok(native.includes("signedContentByteCount(PluginCall call, String key)"));
+assert.ok(!native.includes('call.getLong("compressedBytes")')&&
+ !native.includes('call.getLong("uncompressedBytes")'));
+assert.ok(native.includes('value != Math.rint(value)'));
+
 assert.ok(!gate.includes("Continuar sem instalar"));
 assert.ok(menu.includes('label:"Arquivos do jogo"')&&!menu.includes('label:"Conteúdo extra"'));
 assert.ok(native.includes('out.put("baseUri"'));
