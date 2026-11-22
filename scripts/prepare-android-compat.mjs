@@ -14,7 +14,7 @@ const packageId=qaVariant==="v201"?"com.cyberpunk.tacticalrpg.qa201":
  qaVariant==="v100"?"com.cyberpunk.tacticalrpg.qa100":
  qaVariant==="v091"?"com.cyberpunk.tacticalrpg.qa091":
  "com.cyberpunk.tacticalrpg.qa";
-const appLabel=qaVariant==="v201"?"Nova Arcádia 2.0 Marco 300MB QA":
+const appLabel=qaVariant==="v201"?"Nova Arcádia 2.0":
  qaVariant==="v200"?"Nova Arcádia 2.0 QA":
  qaVariant==="v100"?"Nova Arcádia Final QA":
  qaVariant==="v091"?"Nova Arcádia QA 0.9.1":"Nova Arcádia QA";
