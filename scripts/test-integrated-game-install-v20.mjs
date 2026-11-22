@@ -74,25 +74,32 @@ const native=readFileSync("native/NovaAssetPacks.java","utf8");
 const manager=readFileSync("src/game/assets/native-pack-manager.ts","utf8");
 assert.ok(root.includes("<GameInstallationGate><App /></GameInstallationGate>"));
 assert.ok(gate.includes('isCompleteGameCatalog(catalog)'));
-assert.ok(gate.includes('setPhase("ready")')&&
- gate.includes('bundle==="embedded"?installEmbeddedDistrict:installDistrictPack'));
-assert.ok(gate.includes('integratedApkStatus()')&&
- gate.includes('hasInstalledEntireGame(current)'));
-assert.ok(gate.includes('bundle!=="embedded"')&&
- gate.includes('sem baixar mais nada'));
-assert.ok(native.includes("public void bundledStatus(")&&
- native.includes("public void installBundled(")&&
- native.includes('getAssets().open("na-game/NA20-" + id + ".zip")'));
+assert.ok(gate.includes('else void prepareFullGame()'));
+assert.ok(gate.includes('integratedApkStatus()')&&gate.includes('hasInstalledEntireGame(latest)'));
+assert.ok(gate.includes('installEmbeddedDistrict(id,event'));
+assert.ok(gate.includes('if(!bundle.allBundled||bundle.bundledCount!==PACK_IDS.length)'));
+assert.ok(!gate.includes('installDistrictPack')&&!gate.includes('importDistrictPack'));
+assert.ok(!gate.includes('Retomar preparação offline')&&!gate.includes('Preparar o jogo completo — sem baixar mais nada'));
+assert.ok(!gate.includes('Continuar sem instalar'));
+assert.ok(gate.includes('phase==="failed"')&&gate.includes('Tentar novamente após corrigir o problema'));
+assert.ok(!menu.includes('label:"Conteúdo extra"')&&!menu.includes('label:"Arquivos do jogo"'));
+assert.ok(!menu.includes('assetpacks')&&!menu.includes('AssetPackControls'));
+assert.ok(native.includes("public void bundledStatus(")&&native.includes("public void installBundled("));
+assert.ok(native.includes('getAssets().open("na-game/NA20-" + id + ".zip")'));
 assert.ok(manager.includes('installEmbeddedDistrict')&&manager.includes('integratedApkStatus'));
 assert.ok(native.includes("signedContentByteCount(PluginCall call, String key)"));
 assert.ok(!native.includes('call.getLong("compressedBytes")')&&
  !native.includes('call.getLong("uncompressedBytes")'));
 assert.ok(native.includes('value != Math.rint(value)'));
-
-assert.ok(!gate.includes("Continuar sem instalar"));
-assert.ok(menu.includes('label:"Arquivos do jogo"')&&!menu.includes('label:"Conteúdo extra"'));
 assert.ok(native.includes('out.put("baseUri"'));
 assert.ok(manager.includes('Number(value.storedBytes)>=pack.uncompressedBytes'));
+const fullscreen=readFileSync("scripts/enable-android-immersive.mjs","utf8");
+assert.ok(fullscreen.includes('FLAG_FULLSCREEN'));
+assert.ok(fullscreen.includes('WindowInsets.Type.statusBars()'));
+assert.ok(fullscreen.includes('WindowInsets.Type.navigationBars()'));
+assert.ok(fullscreen.includes('void onPostResume()'));
+assert.ok(fullscreen.includes('void onWindowFocusChanged(boolean hasFocus)'));
+assert.ok(fullscreen.includes('android:windowFullscreen'));
 console.log("COMPLETE_GAME_INTEGRITY PASS",JSON.stringify({
  districts:PACK_IDS.length,mandatoryOriginalArt:REQUIRED_GAME_IMAGES,
  catalogBytes:catalog.totalBytes,installedCondition:"all-seven-or-no-game",

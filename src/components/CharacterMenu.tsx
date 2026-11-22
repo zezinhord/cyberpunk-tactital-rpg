@@ -1,7 +1,5 @@
 import { useState } from "react";
 import AudioControls from "./AudioControls";
-import AssetPackControls from "./AssetPackControls";
-import {hasCompleteThreeGigRelease} from "../game/assets/native-pack-manager.ts";
 import {readGraphicsMode,saveGraphicsMode,type GraphicsMode} from "../game/performance";
 import {readPerformanceReport} from "../game/performance-diagnostics";
 import type { OriginGameplayProfile, PlayerCharacter } from "../game/character";
@@ -24,7 +22,7 @@ import {CYBERWARE_IDS,CYBERWARE_CATALOG,cyberwareCapacity,cyberwareLoad,
   cyberwareCostLabel,canInstallCyberware,type CyberwareId} from "../game/cyberware.ts";
 import {COMPANION_IDS,COMPANION_CATALOG,type CompanionId,type PartyState} from "../game/companions.ts";
 
-type MenuSection = "character" | "progression" | "inventory" | "equipment" | "cyberware" | "team" | "abilities" | "map" | "journal" | "settings" | "assetpacks";
+type MenuSection = "character" | "progression" | "inventory" | "equipment" | "cyberware" | "team" | "abilities" | "map" | "journal" | "settings";
 
 interface JournalClue {
   id: string;
@@ -80,10 +78,6 @@ const MENU_ITEMS: ReadonlyArray<{ id: MenuSection; code: string; label: string; 
   { id: "map", code: "MAP", label: "Mapa", description: "Distritos e localização" },
   { id: "journal", code: "LOG", label: "Diário", description: "Missões e descobertas" },
   { id: "settings", code: "CFG", label: "Configurações", description: "Preferências do jogo" },
-  ...(hasCompleteThreeGigRelease()?[
-    {id:"assetpacks" as const,code:"INT",label:"Arquivos do jogo",
-     description:"Integridade dos sete distritos obrigatórios da campanha"},
-  ]:[]),
 ];
 
 const DISTRICTS = [
@@ -564,7 +558,6 @@ export default function CharacterMenu({
               </div>
             )}
 
-            {activeSection === "assetpacks" && <AssetPackControls />}
             {activeSection === "settings" && (
               <div className="menu-section-stack">
                 <div className="menu-two-columns">
