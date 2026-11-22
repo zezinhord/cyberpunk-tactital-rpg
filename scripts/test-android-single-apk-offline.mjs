@@ -82,12 +82,22 @@ try{
  await sleep(1500);
  adb("shell","am","start","-W","-n",PACKAGE+"/com.cyberpunk.tacticalrpg.MainActivity");
  await sleep(1800);
- const afterResume=await state();
- diagnostic.afterResume=afterResume;
- if(!afterResume?.ready)throw Error("Game did not recover after returning from Android HOME");
+ // Returning from HOME may destroy the WebView/CDP socket even if Android
+ // correctly restarts the game. Never use an old WebSocket after HOME.
+ // Inspect actual Android foreground Activity and the fresh native insets log.
+ const resumedActivity=adb("shell","dumpsys","activity","activities");
+ diagnostic.afterResume={
+  activityResumed:resumedActivity.includes(PACKAGE+"/com.cyberpunk.tacticalrpg.MainActivity"),
+  pid:adb("shell","pidof",PACKAGE),
+ };
+ if(!diagnostic.afterResume.activityResumed||!diagnostic.afterResume.pid)
+  throw Error("Android Activity not resumed after returning from HOME");
  const resumeLog=adb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
- if(!resumeLog.split("\n").slice(-15).some(x=>x.includes("statusVisible=false")))
-  throw Error("Status bar reappeared after returning to app");
+ diagnostic.afterResume.immersiveLog=resumeLog.split("\n")
+  .filter(x=>x.includes("NovaArcadiaImmersive")).slice(-8);
+ if(!diagnostic.afterResume.immersiveLog.some(x=>x.includes("statusVisible=false")))
+  throw Error("Status bar visible after returning to game: "+
+    JSON.stringify(diagnostic.afterResume.immersiveLog));
  console.log("ANDROID_SINGLE_APK_AUTO_FULL_GAME_IMMERSIVE_PASS="+JSON.stringify(diagnostic));
 }catch(e){
  try{diagnostic.activity=adb("shell","dumpsys","activity","activities").split("\n").filter(x=>/ResumedActivity/.test(x));}catch{}
