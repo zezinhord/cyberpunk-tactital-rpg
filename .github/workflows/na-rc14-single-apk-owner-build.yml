@@ -397,13 +397,13 @@ jobs:
             NA_TEST_PACKAGE="$NA_PACKAGE" node scripts/test-android-integrated-install.mjs || true
             adb shell dumpsys package "$NA_PACKAGE" | grep -E 'versionCode|versionName' | head -n 6
       - name: Provide ONE downloadable APK with every district (no 2GB secondary download)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: NovaArcadia-2.0.0-RC14-APK-UNICO-3GB-QA201
           path: android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
           compression-level: 0
-          skip-archive: true
+          archive: false
           if-no-files-found: error
       - name: Publish integrity report for one-file edition
         uses: actions/upload-artifact@v4
