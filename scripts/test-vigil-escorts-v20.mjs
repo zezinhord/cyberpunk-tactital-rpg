@@ -138,6 +138,8 @@ assert.deepEqual(readVigil("tamper"),EMPTY_VIGIL);
 const gallery=readFileSync("src/components/DossierGallery.tsx","utf8");
 assert.ok(gallery.includes('mode==="evac"'));
 assert.ok(gallery.includes("moveVigil(vigil"));
+assert.ok(gallery.includes("!evacMap.blocked.has(midX+\",\"+midY)"),
+ "Sprint must be disabled if its intermediate tile is obstructed");
 assert.ok(gallery.includes("rescueVigil(vigil"));
 assert.ok(gallery.includes("onQuestXp("+'"vigil-"+simulationRoom'));
 const exploration=readFileSync("src/screens/ExplorationScreen.tsx","utf8");
