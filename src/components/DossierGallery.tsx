@@ -283,8 +283,11 @@ export default function DossierGallery({room,characterId,onClose,onQuestXp}:Prop
              const exit=x===evacMap.exit.x&&y===evacMap.exit.y;
              const hazard=evacMap.hotspots.has(x+","+y);
              const distance=Math.abs(x-evacRun.x)+Math.abs(y-evacRun.y);
-             const reachable=distance===1||(vigilApproach==="corrida"&&distance===2&&
-               (x===evacRun.x||y===evacRun.y));
+             const sprint=vigilApproach==="corrida"&&distance===2&&
+               (x===evacRun.x||y===evacRun.y);
+             const midX=(x+evacRun.x)/2,midY=(y+evacRun.y)/2;
+             const reachable=distance===1||(sprint&&
+               !evacMap.blocked.has(midX+","+midY));
              return <button type="button" key={i}
                disabled={wall||!reachable}
                className={"na-route-cell"+(operator?" player":"")+
