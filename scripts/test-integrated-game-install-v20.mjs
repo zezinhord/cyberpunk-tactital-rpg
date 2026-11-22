@@ -74,8 +74,16 @@ const native=readFileSync("native/NovaAssetPacks.java","utf8");
 const manager=readFileSync("src/game/assets/native-pack-manager.ts","utf8");
 assert.ok(root.includes("<GameInstallationGate><App /></GameInstallationGate>"));
 assert.ok(gate.includes('isCompleteGameCatalog(catalog)'));
-assert.ok(gate.includes('setPhase("ready")')&&gate.includes('installDistrictPack(id,event'));
-assert.ok(gate.includes("importDistrictPack(id,event")&&gate.includes('hasInstalledEntireGame(current)'));
+assert.ok(gate.includes('setPhase("ready")')&&
+ gate.includes('bundle==="embedded"?installEmbeddedDistrict:installDistrictPack'));
+assert.ok(gate.includes('integratedApkStatus()')&&
+ gate.includes('hasInstalledEntireGame(current)'));
+assert.ok(gate.includes('bundle!=="embedded"')&&
+ gate.includes('sem baixar mais nada'));
+assert.ok(native.includes("public void bundledStatus(")&&
+ native.includes("public void installBundled(")&&
+ native.includes('getAssets().open("na-game/NA20-" + id + ".zip")'));
+assert.ok(manager.includes('installEmbeddedDistrict')&&manager.includes('integratedApkStatus'));
 assert.ok(!gate.includes("Continuar sem instalar"));
 assert.ok(menu.includes('label:"Arquivos do jogo"')&&!menu.includes('label:"Conteúdo extra"'));
 assert.ok(native.includes('out.put("baseUri"'));
