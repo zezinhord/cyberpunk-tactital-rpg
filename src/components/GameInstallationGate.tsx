@@ -171,7 +171,7 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
       " Todos os arquivos já estão dentro deste APK: nenhuma transferência adicional é necessária. Basta prepará-los no aparelho.":
       " A instalação é única, obrigatória e, quando concluída, funciona offline."}</p>
    </header>
-   {phase==="checking"||bundle==="checking"?<p role="status" className="na-install-message">
+   {phase==="checking"||(bundle==="checking"&&phase!=="invalid")?<p role="status" className="na-install-message">
      Verificando arquivos oficiais já presentes no aparelho. Os salvamentos serão preservados…
    </p>:phase==="invalid"?<p role="alert" className="na-install-error">{message}</p>:<>
     <div className="na-install-meter">
