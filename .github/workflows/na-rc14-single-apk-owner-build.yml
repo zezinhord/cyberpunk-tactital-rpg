@@ -42,7 +42,7 @@ jobs:
       - name: Source approved integrated installation implementation while preserving original QA201 signing cache scope
         uses: actions/checkout@v4
         with:
-          ref: feature/nova-arcadia-single-download-apk
+          ref: feature/nova-arcadia-3gb-final-assets
       - name: Node.js 22
         uses: actions/setup-node@v4
         with:
