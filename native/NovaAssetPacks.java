@@ -74,6 +74,20 @@ public class NovaAssetPacks extends Plugin {
     private static boolean validSha(String value) {
         return value != null && value.matches("^[a-f0-9]{64}$");
     }
+
+    /** Capacitor's PluginCall.getLong accepts ONLY java.lang.Long.
+     * Android JSONObject represents 309999082 as Integer and 2.2GB as Long,
+     * therefore valid signed metadata could be incorrectly rejected.
+     * Accept integral numeric types without rounding, truncation or strings.
+     */
+    private static Long signedContentByteCount(PluginCall call, String key) {
+        Object raw = call.getData().opt(key);
+        if (!(raw instanceof Number)) return null;
+        double value = ((Number) raw).doubleValue();
+        if (!Double.isFinite(value) || value < 0 || value != Math.rint(value) ||
+                value > 9_007_199_254_740_991d) return null;
+        return ((Number) raw).longValue();
+    }
     private File baseDir() {
         File base = new File(getContext().getFilesDir(), "na-expansion-packs");
         if (!base.exists() && !base.mkdirs()) throw new IllegalStateException("Storage inaccessible");
@@ -158,8 +172,8 @@ public class NovaAssetPacks extends Plugin {
         final String id = call.getString("id");
         final String releaseTag = call.getString("releaseTag");
         final String sha = call.getString("sha256");
-        final Long compressed = call.getLong("compressedBytes");
-        final Long uncompressed = call.getLong("uncompressedBytes");
+        final Long compressed = signedContentByteCount(call, "compressedBytes");
+        final Long uncompressed = signedContentByteCount(call, "uncompressedBytes");
         final Integer expectedCount = call.getInt("artworkCount");
         if (!validId(id) || !validReleaseTag(releaseTag) || !validSha(sha) || compressed == null ||
                 uncompressed == null || expectedCount == null ||
@@ -330,8 +344,8 @@ public class NovaAssetPacks extends Plugin {
     public void installBundled(PluginCall call) {
         final String id = call.getString("id");
         final String sha = call.getString("sha256");
-        final Long compressed = call.getLong("compressedBytes");
-        final Long uncompressed = call.getLong("uncompressedBytes");
+        final Long compressed = signedContentByteCount(call, "compressedBytes");
+        final Long uncompressed = signedContentByteCount(call, "uncompressedBytes");
         final Integer count = call.getInt("artworkCount");
         if (!validId(id) || !validSha(sha) || compressed == null ||
                 uncompressed == null || count == null ||
@@ -385,8 +399,8 @@ public class NovaAssetPacks extends Plugin {
     public void importLocal(PluginCall call) {
         String id = call.getString("id");
         String sha = call.getString("sha256");
-        Long compressed = call.getLong("compressedBytes");
-        Long uncompressed = call.getLong("uncompressedBytes");
+        Long compressed = signedContentByteCount(call, "compressedBytes");
+        Long uncompressed = signedContentByteCount(call, "uncompressedBytes");
         Integer count = call.getInt("artworkCount");
         if (!validId(id) || !validSha(sha) ||
                 compressed == null || uncompressed == null || count == null ||
@@ -422,8 +436,8 @@ public class NovaAssetPacks extends Plugin {
         }
         final String id = call.getString("id");
         final String sha = call.getString("sha256");
-        final Long compressed = call.getLong("compressedBytes");
-        final Long uncompressed = call.getLong("uncompressedBytes");
+        final Long compressed = signedContentByteCount(call, "compressedBytes");
+        final Long uncompressed = signedContentByteCount(call, "uncompressedBytes");
         final Integer expectedCount = call.getInt("artworkCount");
         if (!validId(id) || !validSha(sha) || compressed == null ||
                 uncompressed == null || expectedCount == null ||
