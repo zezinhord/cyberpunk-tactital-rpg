@@ -14,6 +14,9 @@ interface NativePackStatus{id:string;installed:boolean;sha256?:string;baseUri?:s
  storedBytes:number;freeBytes:number;stage?:string;bytes?:number;total?:number}
 interface NativePackInstall{id:string;installed:true;storedBytes:number;baseUri:string}
 interface NativePackApi{
+ bundledStatus():Promise<{bundledCount:number;allBundled:boolean}>;
+ installBundled(options:{id:PackId;sha256:string;compressedBytes:number;
+  uncompressedBytes:number;artworkCount:number}):Promise<NativePackInstall>;
  status(options:{id:PackId}):Promise<NativePackStatus>;
  install(options:{id:PackId;releaseTag:string;sha256:string;compressedBytes:number;
   uncompressedBytes:number;artworkCount:number}):Promise<NativePackInstall>;
@@ -57,6 +60,36 @@ export function packAssetUrl(room:string,kind:"mural"|"prop"|"dossier"|"cutscene
  if(!entry||!isAssetPath(entry.path))return null;
  return Capacitor.convertFileSrc(raw+entry.path);
 }
+/** True only if ALL seven original ZIP archives are built into the APK.
+ * An older 1.14GB QA201 app returns false, never a false positive.
+ */
+export async function integratedApkStatus():Promise<{allBundled:boolean;bundledCount:number}>{
+ if(!nativePackPlatform())return {allBundled:false,bundledCount:0};
+ return plugin.bundledStatus();
+}
+
+/** No network, no optional packs. Verify and extract the district already
+ * inside the single 3+ GB APK. The SHA256 allowlist is built into the binary.
+ */
+export async function installEmbeddedDistrict(id:PackId,
+ onProgress?:(progress:NativePackProgress)=>void):Promise<PackInstallStatus>{
+ if(!nativePackPlatform()||!isPackId(id))
+  throw new Error("Instalação APK integrada disponível somente no Android.");
+ const pack=verifiedCatalog().packs.find(p=>p.id===id);
+ if(!pack)throw new Error("Arquivos integrais do jogo não autenticados.");
+ const listener=onProgress?await plugin.addListener("progress",onProgress):null;
+ try{
+  const result=await plugin.installBundled({
+   id,sha256:pack.sha256,compressedBytes:pack.compressedBytes,
+   uncompressedBytes:pack.uncompressedBytes,artworkCount:pack.artworkCount,
+  });
+  if(!result.installed||!trustedBaseUri(result.baseUri))
+   throw new Error("Extração do APK não retornou diretório privado seguro.");
+  globalThis.localStorage?.setItem(URI_PREFIX+id,result.baseUri);
+  return await inspectPack(id);
+ }finally{await listener?.remove();}
+}
+
 export async function inspectPack(id:PackId):Promise<PackInstallStatus>{
  const pack=verifiedCatalog().packs.find(x=>x.id===id);
  if(!nativePackPlatform()||!pack)
