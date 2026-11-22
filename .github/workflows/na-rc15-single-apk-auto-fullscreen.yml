@@ -234,11 +234,20 @@ jobs:
           assert java.count("unpackVerifiedArchive(")==4
           assert "RELEASE_FIFTH.equals(tag)" in java
           assert "importDistrictPack" in client and "importLocal" in client
-          assert "Arquivos do jogo" in Path("src/components/CharacterMenu.tsx").read_text()
-          assert "Instalação do jogo completo" in Path("src/components/GameInstallationGate.tsx").read_text()
+          gate=Path("src/components/GameInstallationGate.tsx").read_text()
+          menu=Path("src/components/CharacterMenu.tsx").read_text()
+          immersive=Path("scripts/enable-android-immersive.mjs").read_text()
+          injector=Path("scripts/install-asset-pack-plugin.mjs").read_text()
+          assert "else void prepareFullGame()" in gate
+          assert "installEmbeddedDistrict(id,event" in gate
+          assert "integratedApkStatus()" in gate
+          assert "phase===\"failed\"" in gate
+          assert "Arquivos do jogo" not in menu and "Conteúdo extra" not in menu
+          assert "assetpacks" not in menu
           assert "GameInstallationGate" in Path("src/main.tsx").read_text()
-          assert "Verificar e recuperar instalação do jogo" in screen
-          print("Complete-game first-run installer and offline fallback present.")
+          assert "FLAG_FULLSCREEN" in immersive and "onPostResume()" in immersive
+          assert "writeFileSync(main,patched" in injector
+          print("MANDATORY_BOOT_AND_FULLSCREEN_SOURCE_QA_PASS: auto setup, no optional tab, native hooks preserved.")
           PY
       - name: Ensure native downloader accepts all signed pack asset families
         run: |
