@@ -45,21 +45,20 @@ try{
   if(d.exceptionDetails)throw Error(d.exceptionDetails.text);
   return d.result?.value;
  }
- const state=()=>snapshot('(()=>{const root=document.querySelector(".na-install-root");return {gate:!!root,ready:!!document.querySelector(".na-title"),button:!!root?.querySelector(".na-install-actions .primary"),embedded:!!root?.innerText?.includes("Todos os arquivos já estão dentro deste APK"),offlineButton:!![...document.querySelectorAll("button")].some(b=>b.innerText.includes("sem baixar mais nada")),error:root?.querySelector("[role=alert]")?.textContent?.slice(0,220)||"",text:root?.innerText?.slice(0,550)||""};})()');
+ const state=()=>snapshot('(()=>{const root=document.querySelector(".na-install-root");return {gate:!!root,ready:!!document.querySelector(".na-title"),button:!!root?.querySelector(".na-install-actions .primary"),auto:!!root?.innerText?.includes("A preparação começou automaticamente"),embedded:!!root?.innerText?.includes("Todos os sete distritos"),error:root?.querySelector("[role=alert]")?.textContent?.slice(0,220)||"",text:root?.innerText?.slice(0,550)||""};})()');
+ // Network is already disabled BEFORE Activity launch by the workflow.
+ // There must be NO opt-in, skip, optional DLC or download action.
  let initial=null;
  for(let i=0;i<120;i++){
   initial=await state();
-  if(initial?.embedded&&initial?.offlineButton&&initial?.button)break;
-  if(initial?.ready)throw Error("Gameplay appeared BEFORE mandatory complete-game extraction");
+  if(initial?.error)throw Error("Automatic game provisioning failed: "+initial.error);
+  if(initial?.ready)throw Error("Gameplay appeared before seven mandatory districts were prepared");
+  if(initial?.auto&&initial?.gate&&initial?.embedded)break;
   await sleep(1000);
  }
  diagnostic.initial=initial;
- if(!initial?.embedded||!initial?.offlineButton)
-  throw Error("3GB APK did not expose all 7 embedded resources: "+JSON.stringify(initial));
- // Real offline test: no network access is possible after we click.
- adb("shell","svc","wifi","disable");
- adb("shell","svc","data","disable");
- await snapshot('(()=>{document.querySelector(".na-install-actions .primary")?.click();return true;})()');
+ if(!initial?.auto||!initial?.embedded||initial?.button)
+  throw Error("RC15 did not START required offline provisioning automatically: "+JSON.stringify(initial));
  const limit=20*60;let last;
  for(let i=0;i<limit;i++){
   last=await state();
@@ -73,7 +72,22 @@ try{
  const check=await snapshot('(async()=>{const p=globalThis.Capacitor?.Plugins?.NovaAssetPacks; if(!p)return {error:"No native plugin"}; const ids=["baixada","ferrugem","aurea","subsolo","setor-zero","prisma","periferia"];const out=await Promise.all(ids.map(async id=>({id,...await p.status({id})})));return {count:out.length,verified:out.every(x=>x.installed&&typeof x.sha256==="string"&&x.sha256.length===64),details:out.map(x=>({id:x.id,storedBytes:x.storedBytes}))};})()');
  diagnostic.gameFiles=check;
  if(!check?.verified||check?.count!==7)throw Error("One APK did not install all 7 districts: "+JSON.stringify(check));
- console.log("ANDROID_SINGLE_APK_OFFLINE_FULL_GAME_PASS="+JSON.stringify(diagnostic));
+ // The Android status bar must remain hidden when the game regains focus.
+ const barLogs=adb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
+ diagnostic.immersiveLog=barLogs.split("\\n").filter(x=>x.includes("NovaArcadiaImmersive")).slice(-10);
+ if(!diagnostic.immersiveLog.some(x=>x.includes("statusVisible=false")&&x.includes("navigationVisible=false")))
+  throw Error("Android did not confirm fullscreen hidden system bars after launch: "+JSON.stringify(diagnostic.immersiveLog));
+ adb("shell","input","keyevent","KEYCODE_HOME");
+ await sleep(1500);
+ adb("shell","am","start","-W","-n",PACKAGE+"/com.cyberpunk.tacticalrpg.MainActivity");
+ await sleep(1800);
+ const afterResume=await state();
+ diagnostic.afterResume=afterResume;
+ if(!afterResume?.ready)throw Error("Game did not recover after returning from Android HOME");
+ const resumeLog=adb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
+ if(!resumeLog.split("\\n").slice(-15).some(x=>x.includes("statusVisible=false")))
+  throw Error("Status bar reappeared after returning to app");
+ console.log("ANDROID_SINGLE_APK_AUTO_FULL_GAME_IMMERSIVE_PASS="+JSON.stringify(diagnostic));
 }catch(e){
  try{diagnostic.activity=adb("shell","dumpsys","activity","activities").split("\n").filter(x=>/ResumedActivity/.test(x));}catch{}
  console.error("ANDROID_SINGLE_APK_OFFLINE_FULL_GAME_FAILED="+JSON.stringify({error:String(e),...diagnostic}));
