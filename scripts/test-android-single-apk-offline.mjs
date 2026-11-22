@@ -74,9 +74,10 @@ try{
  if(!check?.verified||check?.count!==7)throw Error("One APK did not install all 7 districts: "+JSON.stringify(check));
  // The Android status bar must remain hidden when the game regains focus.
  const barLogs=adb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
- diagnostic.immersiveLog=barLogs.split("\\n").filter(x=>x.includes("NovaArcadiaImmersive")).slice(-10);
+ diagnostic.immersiveLog=barLogs.split("\n").filter(x=>x.includes("NovaArcadiaImmersive")).slice(-10);
  if(!diagnostic.immersiveLog.some(x=>x.includes("statusVisible=false")&&x.includes("navigationVisible=false")))
   throw Error("Android did not confirm fullscreen hidden system bars after launch: "+JSON.stringify(diagnostic.immersiveLog));
+ adb("shell","logcat","-c");
  adb("shell","input","keyevent","KEYCODE_HOME");
  await sleep(1500);
  adb("shell","am","start","-W","-n",PACKAGE+"/com.cyberpunk.tacticalrpg.MainActivity");
@@ -85,7 +86,7 @@ try{
  diagnostic.afterResume=afterResume;
  if(!afterResume?.ready)throw Error("Game did not recover after returning from Android HOME");
  const resumeLog=adb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
- if(!resumeLog.split("\\n").slice(-15).some(x=>x.includes("statusVisible=false")))
+ if(!resumeLog.split("\n").slice(-15).some(x=>x.includes("statusVisible=false")))
   throw Error("Status bar reappeared after returning to app");
  console.log("ANDROID_SINGLE_APK_AUTO_FULL_GAME_IMMERSIVE_PASS="+JSON.stringify(diagnostic));
 }catch(e){
