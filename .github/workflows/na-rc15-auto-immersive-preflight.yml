@@ -1,0 +1,66 @@
+name: Nova Arcadia 2.0 RC15 — automatic complete-game and immersive Android preflight
+on:
+  push:
+    branches:
+      - feature/nova-arcadia-rc15-auto-fullscreen
+    paths:
+      - .github/workflows/na-rc15-auto-immersive-preflight.yml
+      - src/components/GameInstallationGate.tsx
+      - src/components/CharacterMenu.tsx
+      - scripts/enable-android-immersive.mjs
+      - scripts/test-android-single-apk-offline.mjs
+      - scripts/test-integrated-game-install-v20.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout RC15
+        uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install source dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Test full-game mandatory contract and no opt-in
+        run: |
+          node --experimental-strip-types scripts/test-integrated-game-install-v20.mjs
+          npx tsc -b
+          node --check scripts/enable-android-immersive.mjs
+          node --check scripts/test-android-single-apk-offline.mjs
+      - name: Prepare Capacitor Android native project
+        run: |
+          mkdir -p dist
+          printf '<html><body>Native RC15 QA only</body></html>' > dist/index.html
+          npx cap add android
+          npx cap sync android
+          node scripts/enable-android-immersive.mjs
+          node scripts/install-asset-pack-plugin.mjs
+      - name: Verify fullscreen theme and lifecycle in generated Java
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          activity=list(Path('android/app/src/main/java').rglob('MainActivity.java'))[0]
+          java=activity.read_text()
+          styles=Path('android/app/src/main/res/values/styles.xml').read_text()
+          assert 'FLAG_FULLSCREEN' in java
+          assert 'controller.hide(WindowInsets.Type.statusBars()' in java
+          assert 'WindowInsets.Type.navigationBars()' in java
+          assert 'onPostResume()' in java
+          assert 'onWindowFocusChanged(boolean hasFocus)' in java
+          assert 'NovaArcadiaImmersive' in java
+          assert styles.count('android:windowFullscreen')>=2
+          print('ANDROID_FULLSCREEN_NATIVE_CONTRACT_PASS')
+          PY
+      - name: Compile the real Android status bar controller
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --no-daemon
