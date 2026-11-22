@@ -2,7 +2,8 @@ import {useEffect,useMemo,useRef,useState,type ReactNode} from "react";
 import {PACK_IDS,deliverySize,type PackId} from "../game/assets/pack-catalog.ts";
 import {isCompleteGameCatalog,emptyContentStatus,hasInstalledEntireGame,installedGameBytes,fullGameProgress,nextMissingGameDistrict} from "../game/assets/complete-installation.ts";
 import {formatAssetSize,importDistrictPack,
- inspectPack,installDistrictPack,nativePackPlatform,verifiedCatalog,
+ inspectPack,installDistrictPack,installEmbeddedDistrict,integratedApkStatus,
+ nativePackPlatform,verifiedCatalog,
 } from "../game/assets/native-pack-manager.ts";
 import "../game-installation.css";
 
@@ -22,6 +23,7 @@ const NAMES:Readonly<Record<PackId,string>>={
 type Phase="checking"|"needed"|"installing"|"ready"|"invalid";
 type Transfer={id:PackId;stage:string;bytes:number;total:number};
 const statusText=(stage:string)=>{
+ if(stage==="embedded")return "Preparando recursos já incluídos no APK";
  if(stage==="download")return "Transferindo arquivos do jogo";
  if(stage==="import")return "Importando arquivos oficiais";
  if(stage==="unpack")return "Verificando e instalando";
@@ -50,6 +52,7 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
  const [message,setMessage]=useState("");
  const [selected,setSelected]=useState<PackId|null>(null);
  const [free,setFree]=useState(0);
+ const [bundle,setBundle]=useState<"checking"|"embedded"|"remote">("checking");
  const busy=useRef(false);
  const total=deliverySize(catalog);
  const installedBytes=installedGameBytes(catalog,installed);
@@ -83,6 +86,9 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
   }
   void (async()=>{
    try{
+    const edition=await integratedApkStatus();
+    if(!alive)return;
+    setBundle(edition.allBundled?"embedded":"remote");
     const result=await Promise.all(PACK_IDS.map(async id=>({id,status:await inspectPack(id)})));
     if(!alive)return;
     const updated=initialStats();
@@ -113,8 +119,8 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
      continue;
     }
     setSelected(id);
-    setTransfer({id,stage:"download",bytes:0,total:0});
-    const status=await installDistrictPack(id,event=>{
+    setTransfer({id,stage:bundle==="embedded"?"embedded":"download",bytes:0,total:0});
+    const status=await (bundle==="embedded"?installEmbeddedDistrict:installDistrictPack)(id,event=>{
      setTransfer({id,stage:event.stage,bytes:event.bytes,total:event.total});
     });
     if(!status.installed)throw new Error("Assinatura SHA-256 não confirmada.");
@@ -161,9 +167,11 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
     <small>NOVA ARCÁDIA 2.0 · PROJETO ÉDEN</small>
     <h1>Instalação do jogo completo</h1>
     <p>Os sete distritos e seus 3.808 recursos visuais pertencem à campanha principal.
-     A instalação é única, obrigatória e, quando concluída, funciona offline.</p>
+     {bundle==="embedded"?
+      " Todos os arquivos já estão dentro deste APK: nenhuma transferência adicional é necessária. Basta prepará-los no aparelho.":
+      " A instalação é única, obrigatória e, quando concluída, funciona offline."}</p>
    </header>
-   {phase==="checking"?<p role="status" className="na-install-message">
+   {phase==="checking"||bundle==="checking"?<p role="status" className="na-install-message">
      Verificando arquivos oficiais já presentes no aparelho. Os salvamentos serão preservados…
    </p>:phase==="invalid"?<p role="alert" className="na-install-error">{message}</p>:<>
     <div className="na-install-meter">
@@ -173,8 +181,11 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
       aria-valuenow={fraction} aria-valuemin={0} aria-valuemax={100}>
       <span style={{width:fraction+"%"}}/>
      </div>
-     <small>Instalação total: aproximadamente {formatAssetSize(total.totalBytes)}.
-      Nesta etapa, {formatAssetSize(catalog.totalBytes)} de arquivos pertencem aos distritos.</small>
+     <small>{bundle==="embedded"?
+      "Edição integral em APK único: "+formatAssetSize(total.totalBytes)+
+      " já disponíveis no instalador. Este processo extrai e autentica os distritos, sem novos downloads.":
+      "Instalação completa: "+formatAssetSize(total.totalBytes)+
+      ". Conteúdo obrigatório a transferir: "+formatAssetSize(catalog.totalBytes)+"."}</small>
     </div>
     <div className="na-install-districts">
      {PACK_IDS.map(id=><div key={id} className={"na-install-district"+(installed[id]?" done":"")}>
@@ -192,18 +203,20 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
     {message&&<p className="na-install-error" role="alert">{message}</p>}
     {phase==="needed"&&<div className="na-install-actions">
      <button type="button" className="primary" onClick={()=>void installAll()}>
-      {fraction>0?"Retomar instalação completa":"Instalar Nova Arcádia completa"}
+      {bundle==="embedded"?
+       (fraction>0?"Retomar preparação offline":"Preparar o jogo completo — sem baixar mais nada"):
+       (fraction>0?"Retomar instalação completa":"Instalar Nova Arcádia completa")}
      </button>
-     {next&&<button type="button" className="secondary" onClick={()=>void importNext()}>
+     {next&&bundle!=="embedded"&&<button type="button" className="secondary" onClick={()=>void importNext()}>
        Importar arquivo oficial sem internet
       </button>}
     </div>}
     {phase==="installing"&&<p className="na-install-message" role="status">
-      Instalando a campanha integralmente. Não feche o aplicativo durante a verificação.
+      {bundle==="embedded"?"Extraindo recursos incluídos neste APK sem usar a internet.":"Instalando a campanha integralmente."} Não feche o aplicativo durante a verificação.
      </p>}
     <footer>
      <span>Espaço livre: {formatAssetSize(free)}</span>
-     <span>Sem conteúdo opcional · SHA-256 · Salvamentos preservados</span>
+     <span>{bundle==="embedded"?"APK único · Sem download extra · ":"Sem conteúdo opcional · "}SHA-256 · Salvamentos preservados</span>
     </footer>
    </>}
   </section>
