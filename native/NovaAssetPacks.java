@@ -303,6 +303,84 @@ public class NovaAssetPacks extends Plugin {
      * verified downloads when the release endpoint has no write permission.
      * No filesystem paths or URLs are accepted from JavaScript.
      */
+    /** A one-download edition contains all seven signed archives IN the APK. */
+    @PluginMethod
+    public void bundledStatus(PluginCall call) {
+        try {
+            String[] files = getContext().getAssets().list("na-game");
+            int count = 0;
+            if (files != null) for (String id : DISTRICTS) {
+                String expected = "NA20-" + id + ".zip";
+                for (String name : files) if (expected.equals(name)) { count++; break; }
+            }
+            JSObject state = new JSObject();
+            state.put("bundledCount", count);
+            state.put("allBundled", count == DISTRICTS.length);
+            call.resolve(state);
+        } catch (Exception e) {
+            call.reject("Cannot inspect game assets: " + e.getMessage());
+        }
+    }
+
+    /** Extract authenticated art DIRECTLY FROM THE APK, entirely offline.
+     * Same private, atomic SHA-256 installation path as network downloads;
+     * no DLC selection, URLs or untrusted paths accepted.
+     */
+    @PluginMethod
+    public void installBundled(PluginCall call) {
+        final String id = call.getString("id");
+        final String sha = call.getString("sha256");
+        final Long compressed = call.getLong("compressedBytes");
+        final Long uncompressed = call.getLong("uncompressedBytes");
+        final Integer count = call.getInt("artworkCount");
+        if (!validId(id) || !validSha(sha) || compressed == null ||
+                uncompressed == null || count == null ||
+                compressed < MIN_ZIP_SIZE || compressed >= MAX_ZIP_SIZE ||
+                uncompressed < 1024L || uncompressed > MAX_UNPACKED ||
+                count < 1 || count > MAX_ENTRIES) {
+            call.reject("Invalid signed embedded art catalog"); return;
+        }
+        if (baseDir().getUsableSpace() < compressed + uncompressed + 80_000_000L) {
+            call.reject("Storage insufficient to extract APK game content"); return;
+        }
+        io.execute(() -> {
+            File download = new File(baseDir(), id + ".partial");
+            File staged = new File(baseDir(), id + ".installing");
+            File previous = new File(baseDir(), id + ".previous");
+            File destination = installedDir(id);
+            try {
+                cleanup(download); cleanup(staged); cleanup(previous);
+                if (!staged.mkdirs()) throw new IllegalStateException("Cannot stage game assets");
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                long received = 0;
+                byte[] buf = new byte[BUFFER];
+                signal(id, "embedded", 0L, compressed);
+                try (InputStream src = new BufferedInputStream(
+                        getContext().getAssets().open("na-game/NA20-" + id + ".zip"));
+                     OutputStream out = new BufferedOutputStream(new FileOutputStream(download))) {
+                    int n;
+                    while ((n = src.read(buf)) != -1) {
+                        received += n;
+                        if (received > compressed)
+                            throw new IllegalStateException("Embedded archive exceeds signed size");
+                        digest.update(buf, 0, n);
+                        out.write(buf, 0, n);
+                        if ((received & ((4 * 1024 * 1024) - 1)) < BUFFER)
+                            signal(id, "embedded", received, compressed);
+                    }
+                }
+                if (received != compressed || !sha.equals(hex(digest.digest())))
+                    throw new IllegalStateException("Original embedded asset SHA-256 mismatch");
+                unpackVerifiedArchive(id, sha, uncompressed, count,
+                    download, staged, previous, destination, call);
+            } catch (Exception e) {
+                cleanup(download); cleanup(staged);
+                signal(id, "error", 0L, uncompressed);
+                call.reject("Embedded game extraction failed: " + e.getMessage());
+            }
+        });
+    }
+
     @PluginMethod
     public void importLocal(PluginCall call) {
         String id = call.getString("id");
