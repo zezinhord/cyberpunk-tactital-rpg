@@ -1,16 +1,20 @@
-# Nova Arcádia — Projeto Éden
+# Nova Arcádia 2.0 — Projeto Éden
 
-**Versão Android atual para testes: 0.8.1-rc.2 (291 MB).** Correção da derrota em combate, sete interiores novos, 28 ambiências ambientais e todos os conteúdos anteriores preservados.
+**Versão Android atual para testes: 2.0.0-rc.15 (APK único de 3,26 GB).** Esta é a edição integral vigente. Os sete distritos e os 3.808 recursos visuais fazem parte do **mesmo jogo**, não são pacotes adicionais, DLCs ou conteúdo opcional.
 
-**[BAIXAR O ÚNICO APK ATUAL DE NOVA ARCÁDIA](https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/download/nova-arcadia-android-atual/NovaArcadia-Android-atual.apk)**
+**[BAIXAR NOVA ARCÁDIA 2.0 RC15 — APK COMPLETO, 3.258.771.009 BYTES](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44973093287/artifacts/14735002776)**
 
-O link acima será reutilizado em cada atualização aprovada no workflow; não escolha mais APKs de branches e releases históricas. A referência de desenvolvimento é `feature/nova-arcadia-expansion-v080`.
+A RC15 é disponibilizada como **um único arquivo `app-debug.apk`** no GitHub Actions, sem necessidade de baixar ZIPs por distrito. O GitHub Releases não aceita publicar um único asset maior que 2 GiB; por isso **o link da versão atual fica no artefato Actions**, não no release antigo de 1,14 GB. O link do artefato pode solicitar login no GitHub e tem retenção limitada.
 
-RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambientado em uma cidade cyberpunk tropical. Projeto independente com React, TypeScript, Phaser 4, Vite e Capacitor 8.
+**Instalação integral obrigatória e automática:** na primeira abertura, o aplicativo extrai e autentica todos os distritos já incluídos no APK. **Não existe botão para escolher instalar, dispensar, remover ou baixar o pacote completo**. O jogo só libera o menu principal depois da preparação de tudo. Ela pode ocorrer completamente offline. Ao atualizar sobre uma instalação QA201, preserva os saves e reaproveita arquivos já íntegros.
 
-> **Aviso:** esta versão é uma **release candidate**, não uma versão estável aprovada em aparelhos reais. A publicação deve ocorrer somente depois do checklist em [docs/PRIMEIRA-VERSAO-PUBLICA.md](docs/PRIMEIRA-VERSAO-PUBLICA.md). A branch `main` segue preservada.
+**Barra de notificações corrigida:** a etapa que registrava o plugin de recursos substituía a MainActivity e removia a configuração fullscreen. O código Android mantém agora `FLAG_FULLSCREEN`, `WindowInsetsController.hide` e reaplica o modo imersivo ao voltar de outras telas. O emulador Android 15 confirmou `statusVisible=false` e `navigationVisible=false` antes e depois de HOME/resume. Gestos do sistema ainda podem revelar barras temporariamente.
 
-## Conteúdo jogável desta candidata
+RPG 2D isométrico com exploração semiaberta e combate tático por turnos, em uma cidade cyberpunk tropical. React, TypeScript, Phaser 4, Vite e Capacitor 8. Branch de expansão integrada: `feature/nova-arcadia-3gb-final-assets` e PR #22.
+
+> **Status de QA:** assinatura Android QA201 preservada, versão `2000015`, verificação de 3.808 imagens únicas, teste de preparação 100% offline, abertura/reabertura e modo imersivo realizados em emulador Android 15. **Não significa homologação em aparelhos físicos** (Galaxy A07, Redmi Note 12s, outros). Exporte os personagens antes de atualizar.
+
+## Recursos jogáveis preservados na edição 2.0 (base da campanha)
 
 - **11 classes oficiais**: Solo, Netrunner, Técnico, Medtech, Rockerboy, Mídia, Corporativo, Policial, Nômade, Marginal da Rua e Fixador.
 - **6 origens** com prólogos, diferenças narrativas e vantagem ativa/passiva de origem. Origem e classe são escolhas independentes.
@@ -22,18 +26,14 @@ RPG 2D isométrico de exploração semiaberta e combate tático por turnos, ambi
 - Exportação/importação de backups JSON contendo personagem, inventário, aparência, posição, missões, história, Vida e progresso de Circuito Fantasma.
 - Interface horizontal e controles adaptados a celular.
 
-## Instalar em Android para testes — um único arquivo
+## Instalar Nova Arcádia 2.0 no Android — APK único atual
 
-1. Abra o **[download direto do APK Android atual](https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/download/nova-arcadia-android-atual/NovaArcadia-Android-atual.apk)** pelo Chrome. O arquivo já é .apk: não precisa extrair ZIP.
-2. Aguarde o download completo e confira o tamanho aproximado de 291 MB para esta versão.
-3. Instale por cima do aplicativo da linha de desenvolvimento atual, sem apagar os dados.
-4. Se o Android recusar a atualização por assinatura ou versão, **exporte primeiro os backups dos personagens** antes de considerar desinstalação.
+1. Abra o **[APK completo RC15](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44973093287/artifacts/14735002776)** e baixe o arquivo `app-debug.apk`, com cerca de 3,26 GB. Não use a página Release RC13 de 1,14 GB nem escolha ZIPs regionais.
+2. Reserve espaço adicional suficiente para a instalação Android e a preparação dos recursos já incluídos no arquivo (idealmente **8 a 10 GB livres**, conforme o aparelho). O download e a instalação do APK podem ser demorados em dispositivos com armazenamento limitado.
+3. Se sua versão instalada é `com.cyberpunk.tacticalrpg.qa201` (QA201), instale por cima, **sem desinstalar**, para preservar os saves locais e dados já preparados. Para outras variantes, exporte backups antes: o identificador e a assinatura podem ser diferentes.
+4. Abra **Nova Arcádia 2.0**. A preparação dos sete distritos começa **automaticamente**, sem solicitar aceite e sem usar a internet. O menu principal aparece depois da verificação dos sete. Se faltar espaço ou houver arquivo inválido, o jogo interrompe o carregamento e oferece somente a opção de corrigir e tentar novamente.
 
-**Único canal de distribuição recomendado:** [Nova Arcádia — Android atual](https://github.com/zezinhord/cyberpunk-tactital-rpg/releases/tag/nova-arcadia-android-atual).
-
-Cada execução de CI aprovada atualiza o mesmo arquivo, por isso o jogador não precisa escolher entre números de workflow, versões antigas ou duas variantes de assinatura. O histórico de desenvolvimento fica no GitHub apenas para rastreabilidade. A build é de teste, com assinatura debug e validações automatizadas; **não representa estabilidade comprovada em Galaxy A07, Redmi Note 12S ou outros aparelhos físicos**. A `main` não é alterada sem aprovação.
-
-Consulte [a política de versão única](docs/POLITICA-ATUALIZACAO-UNICA.md) para as regras de publicação e salvamentos.
+**Resultado CI:** [RC15 QA201 — APK assinado, 3,26 GB, offline + Android fullscreen](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/44973093287), 37 etapas aprovadas. A `main` ainda não representa a expansão final aprovada para distribuição ampla.
 
 ## Salvamentos e atualizações
 
