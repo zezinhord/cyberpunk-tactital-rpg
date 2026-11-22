@@ -1,224 +1,183 @@
 import {useEffect,useMemo,useRef,useState,type ReactNode} from "react";
 import {PACK_IDS,deliverySize,type PackId} from "../game/assets/pack-catalog.ts";
-import {isCompleteGameCatalog,emptyContentStatus,hasInstalledEntireGame,installedGameBytes,fullGameProgress,nextMissingGameDistrict} from "../game/assets/complete-installation.ts";
-import {formatAssetSize,importDistrictPack,
- inspectPack,installDistrictPack,installEmbeddedDistrict,integratedApkStatus,
- nativePackPlatform,verifiedCatalog,
-} from "../game/assets/native-pack-manager.ts";
+import {isCompleteGameCatalog,emptyContentStatus,hasInstalledEntireGame,
+ installedGameBytes,fullGameProgress} from "../game/assets/complete-installation.ts";
+import {formatAssetSize,inspectPack,installEmbeddedDistrict,integratedApkStatus,
+ nativePackPlatform,verifiedCatalog} from "../game/assets/native-pack-manager.ts";
 import "../game-installation.css";
 
-/** One mandatory, non-optional first-run installation.
- * The signed APK and authenticated art packs form a SINGLE GAME.
- * The player never selects which content to omit; all seven regions are
- * required before gameplay. After installation every region runs offline.
- *
- * Compatibility: existing QA201 saves and already installed full packs are
- * reused. On a web development build, there is no Android asset provisioner.
+/** Nova Arcádia 2.0 is ONE complete game. Every Android boot verifies that
+ * the full set of seven signed districts is ready. Missing game data are
+ * prepared automatically from the APK, with NO opt-in, NO extra download,
+ * NO skip button, and NO route to gameplay before all districts pass SHA.
+ * Existing QA201 saves and previously verified district files are preserved.
  */
 const NAMES:Readonly<Record<PackId,string>>={
- baixada:"Baixada",ferrugem:"Ferrugem",aurea:"Áurea",
- subsolo:"Subsolo","setor-zero":"Setor Zero",
- prisma:"Prisma",periferia:"Periferia",
+ baixada:"Baixada",ferrugem:"Ferrugem",aurea:"Áurea",subsolo:"Subsolo",
+ "setor-zero":"Setor Zero",prisma:"Prisma",periferia:"Periferia",
 };
-type Phase="checking"|"needed"|"installing"|"ready"|"invalid";
+type Phase="checking"|"installing"|"ready"|"invalid"|"failed";
 type Transfer={id:PackId;stage:string;bytes:number;total:number};
-const statusText=(stage:string)=>{
- if(stage==="embedded")return "Preparando recursos já incluídos no APK";
- if(stage==="download")return "Transferindo arquivos do jogo";
- if(stage==="import")return "Importando arquivos oficiais";
- if(stage==="unpack")return "Verificando e instalando";
- if(stage==="ready")return "Concluído";
- return "Preparando instalação";
-};
-function informativeError(error:unknown,id:PackId):string{
+function explainFailure(error:unknown,id:PackId):string{
  const detail=error instanceof Error?error.message:String(error);
- if(/storage|espaço|space|disk|ENOSPC/i.test(detail))
-  return "Espaço insuficiente para instalar "+NAMES[id]+
-   ". Libere armazenamento; os outros distritos já instalados serão preservados.";
- if(/HTTP 40[34]|network|timeout|internet|connection|fetch|offline/i.test(detail))
-  return "Não foi possível baixar "+NAMES[id]+
-   ". Confira a conexão e selecione Retomar. Também é possível importar o ZIP oficial.";
- return "A instalação de "+NAMES[id]+" não foi concluída: "+detail.slice(0,230)+
-  ". Nenhum personagem ou distrito instalado foi removido.";
+ if(/storage|space|disk|ENOSPC|espaço/i.test(detail))
+  return "O espaço de armazenamento não é suficiente para preparar "+NAMES[id]+
+   ". Libere espaço e toque em Tentar novamente; seus salvamentos permanecerão intactos.";
+ return "Não foi possível preparar "+NAMES[id]+": "+detail.slice(0,220)+
+  ". O conteúdo instalado anteriormente e os salvamentos foram preservados.";
 }
-const initialStats=emptyContentStatus;
+const newStatus=emptyContentStatus;
 export default function GameInstallationGate({children}:{children:ReactNode}){
  const enabled=nativePackPlatform();
  const catalog=useMemo(()=>verifiedCatalog(),[]);
- const completeCatalog=useMemo(()=>isCompleteGameCatalog(catalog),[catalog]);
+ const valid=useMemo(()=>isCompleteGameCatalog(catalog),[catalog]);
  const [phase,setPhase]=useState<Phase>("checking");
- const [installed,setInstalled]=useState<Record<PackId,boolean>>(initialStats);
+ const [installed,setInstalled]=useState<Record<PackId,boolean>>(newStatus);
  const [transfer,setTransfer]=useState<Transfer|null>(null);
- const [message,setMessage]=useState("");
+ const [error,setError]=useState("");
  const [selected,setSelected]=useState<PackId|null>(null);
  const [free,setFree]=useState(0);
- const [bundle,setBundle]=useState<"checking"|"embedded"|"remote">("checking");
  const busy=useRef(false);
+ const currentBytes=installedGameBytes(catalog,installed);
+ const progress=fullGameProgress(catalog,installed,transfer);
  const total=deliverySize(catalog);
- const installedBytes=installedGameBytes(catalog,installed);
- const transferBytes=transfer&&!installed[transfer.id]?
-  Math.min(transfer.bytes,catalog.packs.find(p=>p.id===transfer.id)?.compressedBytes??0):0;
- const next=nextMissingGameDistrict(installed);
- const fraction=fullGameProgress(catalog,installed,transfer);
 
- const refresh=async():Promise<Record<PackId,boolean>>=>{
-  const entries=await Promise.all(PACK_IDS.map(async id=>{
-   const result=await inspectPack(id);
-   return {id,result};
-  }));
-  const updated=initialStats();
-  for(const {id,result} of entries){
-   updated[id]=result.installed;
+ async function readInstalled():Promise<Record<PackId,boolean>>{
+  const states=await Promise.all(PACK_IDS.map(async id=>({id,result:await inspectPack(id)})));
+  const latest=newStatus();
+  for(const {id,result} of states){
+   latest[id]=result.installed;
    if(Number.isFinite(result.freeBytes))setFree(result.freeBytes);
   }
-  setInstalled(updated);
-  return updated;
- };
+  setInstalled(latest);
+  return latest;
+ }
 
- useEffect(()=>{
-  let alive=true;
-  if(!enabled){setPhase("ready");return;}
-  if(!completeCatalog){
-   setPhase("invalid");
-   setMessage("Este APK não contém o catálogo autenticado completo de 3 GB. "+
-    "A instalação foi bloqueada para não apresentar um jogo incompleto.");
-   return;
-  }
-  void (async()=>{
-   try{
-    const edition=await integratedApkStatus();
-    if(!alive)return;
-    setBundle(edition.allBundled?"embedded":"remote");
-    const result=await Promise.all(PACK_IDS.map(async id=>({id,status:await inspectPack(id)})));
-    if(!alive)return;
-    const updated=initialStats();
-    for(const entry of result){
-     updated[entry.id]=entry.status.installed;
-     if(Number.isFinite(entry.status.freeBytes))setFree(entry.status.freeBytes);
-    }
-    setInstalled(updated);
-    setPhase(hasInstalledEntireGame(updated)?"ready":"needed");
-   }catch(error){
-    if(!alive)return;
-    setMessage("Não foi possível verificar os arquivos instalados: "+
-     (error instanceof Error?error.message:"erro de acesso ao armazenamento"));
-    setPhase("needed");
-   }
-  })();
-  return()=>{alive=false;};
- },[enabled,completeCatalog]);
-
- async function installAll():Promise<void>{
-  if(busy.current)return;
-  busy.current=true;setPhase("installing");setMessage("");
+ async function prepareFullGame():Promise<void>{
+  if(busy.current)return; // Includes StrictMode double-mount and manual retries.
+  busy.current=true;
+  setPhase("installing");
+  setError("");
   try{
    for(const id of PACK_IDS){
-    const checked=await inspectPack(id);
-    if(checked.installed){
+    const state=await inspectPack(id);
+    if(state.installed){
      setInstalled(old=>({...old,[id]:true}));
      continue;
     }
     setSelected(id);
-    setTransfer({id,stage:bundle==="embedded"?"embedded":"download",bytes:0,total:0});
-    const status=await (bundle==="embedded"?installEmbeddedDistrict:installDistrictPack)(id,event=>{
+    setTransfer({id,stage:"embedded",bytes:0,total:0});
+    const installedDistrict=await installEmbeddedDistrict(id,event=>{
      setTransfer({id,stage:event.stage,bytes:event.bytes,total:event.total});
     });
-    if(!status.installed)throw new Error("Assinatura SHA-256 não confirmada.");
+    if(!installedDistrict.installed)
+     throw new Error("O recurso obrigatório não passou pela verificação de integridade.");
     setInstalled(old=>({...old,[id]:true}));
-    setFree(status.freeBytes);
+    setFree(installedDistrict.freeBytes);
     setTransfer(null);
    }
-   const current=await refresh();
-   if(!hasInstalledEntireGame(current))throw new Error("A verificação final não confirmou os sete distritos.");
+   const latest=await readInstalled();
+   if(!hasInstalledEntireGame(latest))
+    throw new Error("A instalação completa dos sete distritos não foi confirmada.");
    setPhase("ready");
-  }catch(error){
-   setMessage(informativeError(error,selected??next??"baixada"));
-   setPhase("needed");
-  }finally{setTransfer(null);setSelected(null);busy.current=false;}
+  }catch(e){
+   const missing=selected??PACK_IDS.find(id=>!installed[id])??"baixada";
+   setError(explainFailure(e,missing));
+   setPhase("failed");
+  }finally{
+   setTransfer(null);
+   setSelected(null);
+   busy.current=false;
+  }
  }
 
- async function importNext():Promise<void>{
-  if(busy.current)return;
-  busy.current=true;setMessage("");setPhase("installing");
-  try{
-   const current=await refresh();
-   const id=PACK_IDS.find(p=>!current[p]);
-   if(!id){setPhase("ready");return;}
-   setSelected(id);
-   setTransfer({id,stage:"import",bytes:0,total:0});
-   const status=await importDistrictPack(id,event=>{
-    setTransfer({id,stage:event.stage,bytes:event.bytes,total:event.total});
-   });
-   if(!status.installed)throw new Error("O ZIP selecionado não corresponde ao jogo.");
-   const latest=await refresh();
-   setMessage(hasInstalledEntireGame(latest)?"":"Arquivo oficial de "+NAMES[id]+
-    " integrado. Continue a instalação dos distritos restantes.");
-   setPhase(hasInstalledEntireGame(latest)?"ready":"needed");
-  }catch(error){
-   setMessage(informativeError(error,selected??next??"baixada"));
-   setPhase("needed");
-  }finally{setSelected(null);setTransfer(null);busy.current=false;}
- }
+ // ONE single automatic installation process on every native startup.
+ // A release missing the seven internal archives is INVALID, never an
+ // 'optional DLC' fallback and never a silent remote download.
+ useEffect(()=>{
+  let active=true;
+  if(!enabled){setPhase("ready");return;}
+  if(!valid){
+   setError("Este APK não contém o catálogo completo da versão 2.0.");
+   setPhase("invalid");
+   return;
+  }
+  void (async()=>{
+   try{
+    const bundle=await integratedApkStatus();
+    if(!active)return;
+    if(!bundle.allBundled||bundle.bundledCount!==PACK_IDS.length){
+     setError("Este instalador não contém os sete distritos obrigatórios da versão 2.0. Instale o APK completo, sem remover seus dados.");
+     setPhase("invalid");
+     return;
+    }
+    const latest=await readInstalled();
+    if(!active)return;
+    if(hasInstalledEntireGame(latest))setPhase("ready");
+    else void prepareFullGame(); // Automatically start, no button and no choice.
+   }catch(e){
+    if(!active)return;
+    setError("Falha ao verificar os arquivos obrigatórios: "+
+     (e instanceof Error?e.message:String(e)).slice(0,170));
+    setPhase("failed");
+   }
+  })();
+  return ()=>{active=false;};
+ },[enabled,valid]);
 
  if(phase==="ready")return <>{children}</>;
- return <main className="na-install-root" role="main" aria-label="Instalação completa de Nova Arcádia">
-  <section className="na-install-window" aria-live="polite">
-   <header className="na-install-heading">
-    <small>NOVA ARCÁDIA 2.0 · PROJETO ÉDEN</small>
-    <h1>Instalação do jogo completo</h1>
-    <p>Os sete distritos e seus 3.808 recursos visuais pertencem à campanha principal.
-     {bundle==="embedded"?
-      " Todos os arquivos já estão dentro deste APK: nenhuma transferência adicional é necessária. Basta prepará-los no aparelho.":
-      " A instalação é única, obrigatória e, quando concluída, funciona offline."}</p>
-   </header>
-   {phase==="checking"||(bundle==="checking"&&phase!=="invalid")?<p role="status" className="na-install-message">
-     Verificando arquivos oficiais já presentes no aparelho. Os salvamentos serão preservados…
-   </p>:phase==="invalid"?<p role="alert" className="na-install-error">{message}</p>:<>
-    <div className="na-install-meter">
-     <div><strong>{fraction}% instalado</strong>
-      <span>{formatAssetSize(installedBytes+transferBytes)} / {formatAssetSize(catalog.totalBytes)}</span></div>
-     <div className="na-install-track" role="progressbar" aria-label="Instalação dos arquivos do jogo"
-      aria-valuenow={fraction} aria-valuemin={0} aria-valuemax={100}>
-      <span style={{width:fraction+"%"}}/>
-     </div>
-     <small>{bundle==="embedded"?
-      "Edição integral em APK único: "+formatAssetSize(total.totalBytes)+
-      " já disponíveis no instalador. Este processo extrai e autentica os distritos, sem novos downloads.":
-      "Instalação completa: "+formatAssetSize(total.totalBytes)+
-      ". Conteúdo obrigatório a transferir: "+formatAssetSize(catalog.totalBytes)+"."}</small>
-    </div>
-    <div className="na-install-districts">
-     {PACK_IDS.map(id=><div key={id} className={"na-install-district"+(installed[id]?" done":"")}>
-      <span>{installed[id]?"✓":selected===id?"◌":"○"}</span>
-      <strong>{NAMES[id]}</strong>
-      <small>{installed[id]?"Instalado e autenticado":
-       selected===id&&transfer?statusText(transfer.stage):
-       "Parte obrigatória do jogo"}</small>
-     </div>)}
-    </div>
-    {transfer&&<p className="na-install-message" role="status">
-     {statusText(transfer.stage)}: {NAMES[transfer.id]} —
-     {" "}{formatAssetSize(transfer.bytes)} de {formatAssetSize(transfer.total)}
+ return <main className="na-install-root" role="main"
+   aria-label="Preparação automática obrigatória de Nova Arcádia 2.0">
+   <section className="na-install-window" aria-live="polite">
+    <header className="na-install-heading">
+     <small>NOVA ARCÁDIA 2.0 · PROJETO ÉDEN</small>
+     <h1>{phase==="invalid"?"Edição incompleta":
+      phase==="failed"?"A instalação precisa de reparo":
+      "Preparando Nova Arcádia 2.0"}</h1>
+     <p>Todos os sete distritos e seus 3.808 recursos visuais já fazem parte
+      deste APK. A preparação é automática e obrigatória, sem conteúdo opcional
+      ou novos downloads.</p>
+    </header>
+    {phase==="checking"&&<p role="status" className="na-install-message">
+      Verificando os arquivos oficiais para abrir o jogo completo…
     </p>}
-    {message&&<p className="na-install-error" role="alert">{message}</p>}
-    {phase==="needed"&&<div className="na-install-actions">
-     <button type="button" className="primary" onClick={()=>void installAll()}>
-      {bundle==="embedded"?
-       (fraction>0?"Retomar preparação offline":"Preparar o jogo completo — sem baixar mais nada"):
-       (fraction>0?"Retomar instalação completa":"Instalar Nova Arcádia completa")}
-     </button>
-     {next&&bundle!=="embedded"&&<button type="button" className="secondary" onClick={()=>void importNext()}>
-       Importar arquivo oficial sem internet
-      </button>}
-    </div>}
-    {phase==="installing"&&<p className="na-install-message" role="status">
-      {bundle==="embedded"?"Extraindo recursos incluídos neste APK sem usar a internet.":"Instalando a campanha integralmente."} Não feche o aplicativo durante a verificação.
+    {(phase==="installing"||phase==="failed")&&<>
+     <div className="na-install-meter">
+      <div><strong>{progress}% preparado</strong>
+       <span>{formatAssetSize(currentBytes)}/{formatAssetSize(catalog.totalBytes)}</span></div>
+      <div className="na-install-track" role="progressbar" aria-valuenow={progress}
+       aria-label="Preparação automática dos distritos" aria-valuemin={0} aria-valuemax={100}>
+       <span style={{width:progress+"%"}}/>
+      </div>
+      <small>APK integral: {formatAssetSize(total.totalBytes)}. Nenhuma conexão
+       à internet é necessária para preparar os recursos.</small>
+     </div>
+     <div className="na-install-districts">
+      {PACK_IDS.map(id=><div key={id}
+       className={"na-install-district"+(installed[id]?" done":"")}>
+       <span>{installed[id]?"✓":selected===id?"◌":"○"}</span>
+       <strong>{NAMES[id]}</strong>
+       <small>{installed[id]?"Verificado":selected===id?
+        "Preparando automaticamente":"Obrigatório"}</small>
+      </div>)}
+     </div>
+     {transfer&&<p className="na-install-message" role="status">
+      Preparando {NAMES[transfer.id]}: {formatAssetSize(transfer.bytes)}
+      {" "}de {formatAssetSize(transfer.total)}
      </p>}
+     {phase==="installing"&&<p className="na-install-message" role="status">
+      A preparação começou automaticamente. Não feche o aplicativo até concluir.
+     </p>}
+    </>}
+    {(phase==="invalid"||phase==="failed")&&<p className="na-install-error" role="alert">{error}</p>}
+    {phase==="failed"&&<div className="na-install-actions">
+      <button type="button" className="primary"
+       onClick={()=>void prepareFullGame()}>Tentar novamente após corrigir o problema</button>
+    </div>}
     <footer>
-     <span>Espaço livre: {formatAssetSize(free)}</span>
-     <span>{bundle==="embedded"?"APK único · Sem download extra · ":"Sem conteúdo opcional · "}SHA-256 · Salvamentos preservados</span>
+     <span>Espaço disponível: {formatAssetSize(free)}</span>
+     <span>Versão 2.0 integral · Offline · Salvamentos preservados</span>
     </footer>
-   </>}
-  </section>
+   </section>
  </main>;
 }
