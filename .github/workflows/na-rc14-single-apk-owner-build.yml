@@ -227,7 +227,7 @@ jobs:
           client=Path("src/game/assets/native-pack-manager.ts").read_text()
           screen=Path("src/components/AssetPackControls.tsx").read_text()
           assert "@ActivityCallback" in java and "ACTION_OPEN_DOCUMENT" in java
-          assert java.count("unpackVerifiedArchive(")==3
+          assert java.count("unpackVerifiedArchive(")==4
           assert "RELEASE_FIFTH.equals(tag)" in java
           assert "importDistrictPack" in client and "importLocal" in client
           assert "Arquivos do jogo" in Path("src/components/CharacterMenu.tsx").read_text()
