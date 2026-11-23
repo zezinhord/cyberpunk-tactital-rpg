@@ -6,7 +6,7 @@ registerHooks({resolve(path,ctx,next){
  return next(path,ctx);
 }});
 const {EXPANSION_ROOM_DESIGNS}=await import("../src/game/districts/expansion-interiors.ts");
-const {EMPTY_VIGIL,mapForVigil,vigilGuards,startVigil,rescueVigil,
+const {EMPTY_VIGIL,mapForVigil,vigilGuards,startVigil,moveVigil,rescueVigil,
  divertVigil,vigilRun,validVigil,planVigilRoute,planVigilMission}=await import("../src/game/story/vigil-escorts.ts");
 const distance=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 let exposed=0,concealed=0,retreats=0;
@@ -82,6 +82,37 @@ for(const room of EXPANSION_ROOM_DESIGNS){
   }
  }
 }
+// Two-tile sprint cannot phase through sentries or hazards at its midpoint.
+let midpointChecks=0;
+for(const room of EXPANSION_ROOM_DESIGNS){
+ const id=room.id,map=mapForVigil(id);
+ const start=startVigil(EMPTY_VIGIL,
+  {version:1,active:{},completed:{[id]:true}},id).state;
+ for(let turn=0;turn<6;turn++){
+  const guards=vigilGuards(id,turn+1);
+  for(const p of map.corridor){
+   for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const mid={x:p.x+dx,y:p.y+dy};
+    const end={x:p.x+dx*2,y:p.y+dy*2};
+    if(end.x<0||end.x>=8||end.y<0||end.y>=8||
+      map.blocked.has(mid.x+","+mid.y)||
+      map.blocked.has(end.x+","+end.y))continue;
+    const midpointDanger=guards.some(g=>distance(g,mid)<=2)||
+      map.hotspots.has(mid.x+","+mid.y);
+    if(!midpointDanger)continue;
+    const run={...vigilRun(start,id),x:p.x,y:p.y,turn,
+      energy:8,alert:0};
+    const result=moveVigil({...start,active:{[id]:run}},
+      id,end.x,end.y,"corrida");
+    assert.equal(result.ok,true);
+    assert.ok(vigilRun(result.state,id).alert>=2,
+      "Sprint must count midpoint patrol/hazard exposure");
+    midpointChecks++;
+   }
+  }
+ }
+}
+assert.ok(midpointChecks>0,"Midpoint sprint cases must exist");
 assert.ok(exposed>0,"At least one extraction must be observed");
 assert.ok(concealed>0,"At least one extraction must remain unseen");
 console.log("VIGIL EXTRACTION QA PASS",JSON.stringify({exposed,concealed,retreats}));
