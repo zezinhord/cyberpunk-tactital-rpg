@@ -7,7 +7,7 @@ import {paintCityBackground,drawCityBuilding,drawCityProp,tileWorld,
 import {createLiteArtAssets,drawLiteSprite,LONG_NPC_SHEETS,type LiteArtAssets} from "../game/baixada/lite-art-assets";
 import {CitizenRoutine} from "../game/baixada/npc-routines.ts";
 import {canStand,route,approachRoute} from "../game/baixada/navigation";
-import {smoothCamera,interpolateWalk} from "../game/baixada/motion";
+import {smoothCamera,interpolateWalk,completedStepAt} from "../game/baixada/motion";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
 import type {OriginId} from "../game/character";
 import type {TestAppearance} from "../game/test-arena/appearance";
@@ -483,18 +483,28 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     if(disposed)return;
     const deltaMs=lastTick?Math.max(0,Math.min(64,now-lastTick)):16.67;
     lastTick=now;
-    if(motion.step){
+    // Use the actual tile completion timestamp, not the next frame time.
+    // Otherwise each 30 FPS frame adds a pause between adjacent tiles.
+    // The four-step cap prevents runaway catch-up after a WebView stall.
+    let completed=0;
+    while(motion.step&&completed<4){
       const step=motion.step;
-      const portion=Math.max(0,Math.min(1,(now-step.start)/step.duration));
-      const a=center(step.from),b=center(step.to);
-      renderPosition=interpolateWalk(a,b,now-step.start,step.duration);
-      if(portion>=1){
-        motion.position=step.to;
-        renderPosition=center(motion.position);
-        motion.step=null;
-        notify(motion.position,false);
-        startStep(now);
-      }
+      const endedAt=completedStepAt(step.start,step.duration,now);
+      if(endedAt===null)break;
+      motion.position=step.to;
+      motion.step=null;
+      notify(motion.position,false);
+      startStep(endedAt);
+      completed+=1;
+    }
+    if(motion.step){
+      if(completed===4&&now>=motion.step.start+motion.step.duration)
+        motion.step.start=now;
+      const step=motion.step;
+      renderPosition=interpolateWalk(center(step.from),center(step.to),
+        now-step.start,step.duration);
+    }else{
+      renderPosition=center(motion.position);
     }
     cameraPosition=smoothCamera(cameraPosition,renderPosition,deltaMs);
     const cameraMoving=Math.abs(cameraPosition.x-renderPosition.x)>0.35||

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {smoothCamera,interpolateWalk} from "../src/game/baixada/motion.ts";
+import {smoothCamera,interpolateWalk,completedStepAt} from "../src/game/baixada/motion.ts";
 const p={x:130,y:80},q={x:280,y:140};
 assert.deepEqual(interpolateWalk(p,q,-100,150),p);
 assert.deepEqual(interpolateWalk(p,q,150,150),q);
@@ -17,4 +17,12 @@ assert.ok(Math.abs(camera30.x-q.x)<.5);
 assert.ok(Math.abs(camera60.x-q.x)<.5);
 assert.ok(Math.abs(camera30.x-camera60.x)<.5);
 assert.deepEqual(smoothCamera(q,q,33),q);
+// Crossing a tile boundary at t=178ms must not delay the next tile until 178.
+assert.equal(completedStepAt(0,150,178),150);
+assert.equal(completedStepAt(150,195,360),345);
+assert.equal(completedStepAt(150,195,344),null);
+assert.equal(completedStepAt(0,150,149),null);
+assert.equal(completedStepAt(0,0,100),null);
+assert.equal(completedStepAt(0,150,Number.NaN),null);
+assert.equal(completedStepAt(Number.POSITIVE_INFINITY,150,180),null);
 console.log("Movimentação: interpolação temporal, alvo exato e câmera suave a 30/60 FPS aprovados.");

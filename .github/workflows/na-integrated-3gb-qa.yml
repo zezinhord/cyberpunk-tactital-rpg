@@ -138,6 +138,7 @@ jobs:
           node --experimental-strip-types scripts/test-siege-terminals-v20.mjs
           node --experimental-strip-types scripts/test-tactics.mjs
           node --experimental-strip-types scripts/test-battlefield-navigation.mjs
+          node --experimental-strip-types scripts/test-movement.mjs
       - name: Generate original scene mural and test 12 authored dossier designs
         run: |
           python tools/generate_v20_illustrations.py
@@ -172,29 +173,39 @@ jobs:
         run: |
           npx cap add android
           npx cap sync android
+      - name: Restore Android landscape and immersive lifecycle before native plugin
+        run: |
+          node scripts/lock-android-landscape.mjs
+          node scripts/enable-android-immersive.mjs
       - name: Inject verified native pack downloader
         run: node scripts/install-asset-pack-plugin.mjs
+      - name: Verify fullscreen and plugin share the same MainActivity
+        run: |
+          grep -q 'FLAG_FULLSCREEN' android/app/src/main/java/com/cyberpunk/tacticalrpg/MainActivity.java
+          grep -q 'registerPlugin(NovaAssetPacks.class)' android/app/src/main/java/com/cyberpunk/tacticalrpg/MainActivity.java
+          grep -q 'onPostResume()' android/app/src/main/java/com/cyberpunk/tacticalrpg/MainActivity.java
       - name: Compile native SHA, private storage and zip hardening with Android SDK
         working-directory: android
         run: |
           chmod +x gradlew
           ./gradlew :app:compileDebugJavaWithJavac --no-daemon
-      - name: Verify mandatory full-game installation and native offline recovery
+      - name: Verify mandatory complete-game installation and immersive Android activity
         run: |
           python - <<'PY'
           from pathlib import Path
           java=Path("native/NovaAssetPacks.java").read_text()
-          ui=Path("src/components/AssetPackControls.tsx").read_text()
           gate=Path("src/components/GameInstallationGate.tsx").read_text()
-          js=Path("src/game/assets/native-pack-manager.ts").read_text()
-          assert "@ActivityCallback" in java and "ACTION_OPEN_DOCUMENT" in java
-          assert java.count("unpackVerifiedArchive(")==3
-          assert 'RELEASE_FIFTH.equals(tag)' in java
-          assert "importLocal" in js and "importDistrictPack" in gate
-          assert "installDistrictPack" in gate and "isCompleteGameCatalog" in gate
-          assert "Verificar e recuperar instalação do jogo" in ui
-          assert 'path.contains("..")' in java
-          print("All seven game regions required; native SHA256 and picker remain available for recovery.")
+          client=Path("src/game/assets/native-pack-manager.ts").read_text()
+          activity=Path("android/app/src/main/java/com/cyberpunk/tacticalrpg/MainActivity.java").read_text()
+          assert "bundledStatus" in java and "installBundled" in java
+          assert "integratedApkStatus" in client and "installEmbeddedDistrict" in client
+          assert "isCompleteGameCatalog" in gate and "hasInstalledEntireGame" in gate
+          assert "installEmbeddedDistrict(id" in gate and "prepareFullGame()" in gate
+          assert "installDistrictPack" not in gate and "importDistrictPack" not in gate
+          assert "AssetPackControls" not in gate
+          assert "FLAG_FULLSCREEN" in activity and "onPostResume()" in activity
+          assert "registerPlugin(NovaAssetPacks.class)" in activity
+          print("Mandatory 7-district offline installation and fullscreen native plugin verified.")
           PY
       - name: Ensure production requires real signed content
         run: |

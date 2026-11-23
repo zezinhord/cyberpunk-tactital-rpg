@@ -20,3 +20,14 @@ export function smoothCamera(current:ScreenPoint,target:ScreenPoint,
  if(Math.abs(next.y-target.y)<0.35)next.y=target.y;
  return next;
 }
+
+/** Carry a completed tile's exact timestamp into the following step.
+ * This prevents a 30 FPS Android frame from adding 0-33ms of extra delay
+ * at every tile boundary; invalid clocks never fast-forward the avatar.
+ */
+export function completedStepAt(startMs:number,durationMs:number,nowMs:number):number|null{
+ if(!Number.isFinite(startMs)||!Number.isFinite(durationMs)||
+  !Number.isFinite(nowMs)||durationMs<=0)return null;
+ const end=startMs+durationMs;
+ return nowMs>=end?end:null;
+}

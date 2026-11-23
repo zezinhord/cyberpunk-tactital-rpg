@@ -128,6 +128,7 @@ jobs:
           node --experimental-strip-types scripts/test-siege-terminals-v20.mjs
           node --experimental-strip-types scripts/test-tactics.mjs
           node --experimental-strip-types scripts/test-battlefield-navigation.mjs
+          node --experimental-strip-types scripts/test-movement.mjs
       - name: Generate original scene mural and test 12 authored dossier designs
         run: |
           python tools/generate_v20_illustrations.py
@@ -162,8 +163,17 @@ jobs:
         run: |
           npx cap add android
           npx cap sync android
+      - name: Restore Android landscape and immersive lifecycle before native plugin
+        run: |
+          node scripts/lock-android-landscape.mjs
+          node scripts/enable-android-immersive.mjs
       - name: Inject verified native pack downloader
         run: node scripts/install-asset-pack-plugin.mjs
+      - name: Verify fullscreen and plugin share the same MainActivity
+        run: |
+          grep -q 'FLAG_FULLSCREEN' android/app/src/main/java/com/cyberpunk/tacticalrpg/MainActivity.java
+          grep -q 'registerPlugin(NovaAssetPacks.class)' android/app/src/main/java/com/cyberpunk/tacticalrpg/MainActivity.java
+          grep -q 'onPostResume()' android/app/src/main/java/com/cyberpunk/tacticalrpg/MainActivity.java
       - name: Compile native SHA, private storage and zip hardening with Android SDK
         working-directory: android
         run: |

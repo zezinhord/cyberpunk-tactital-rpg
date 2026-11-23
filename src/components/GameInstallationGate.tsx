@@ -58,8 +58,10 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
   busy.current=true;
   setPhase("installing");
   setError("");
+  let currentDistrict:PackId="baixada";
   try{
    for(const id of PACK_IDS){
+    currentDistrict=id;
     const state=await inspectPack(id);
     if(state.installed){
      setInstalled(old=>({...old,[id]:true}));
@@ -81,8 +83,8 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
     throw new Error("A instalação completa dos sete distritos não foi confirmada.");
    setPhase("ready");
   }catch(e){
-   const missing=selected??PACK_IDS.find(id=>!installed[id])??"baixada";
-   setError(explainFailure(e,missing));
+   // React state is asynchronous: selected may still refer to the prior district.
+   setError(explainFailure(e,currentDistrict));
    setPhase("failed");
   }finally{
    setTransfer(null);
