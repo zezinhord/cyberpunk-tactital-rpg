@@ -339,8 +339,29 @@ jobs:
       - name: Assemble signed single-file APK with the complete 3GB game already bundled
         working-directory: android
         run: |
+          set -euo pipefail
           chmod +x gradlew
-          ./gradlew assembleDebug
+          # Large CI runs can briefly hit Maven Central HTTP 429. Retry only
+          # transient upstream rate limiting or connection errors; actual
+          # Gradle compilation failures must still stop the release.
+          for attempt in 1 2 3 4; do
+            echo "Nova Arcadia Gradle assembly attempt $attempt/4"
+            if ./gradlew assembleDebug --max-workers=2 --no-daemon 2>&1 |
+              tee "$RUNNER_TEMP/na-rc15-gradle.log"; then
+              exit 0
+            fi
+            if ! grep -Eiq 'status code (429|502|503|504)|Too Many Requests|Read timed out|Connect timed out|Connection reset' "$RUNNER_TEMP/na-rc15-gradle.log"; then
+              echo "::error::Gradle compilation failure is not transient; refusing to retry or publish."
+              exit 1
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              echo "::error::Gradle dependency repositories remained unavailable after four attempts."
+              exit 1
+            fi
+            delay=$((attempt * 35))
+            echo "::warning::Transient Gradle dependency outage (HTTP 429/5xx); retrying in $delay seconds."
+            sleep "$delay"
+          done
       - name: Verify the SIGNED APK itself exceeds 3GB and embeds all seven exact ZIPs
         run: |
           set -euo pipefail
