@@ -13,7 +13,7 @@ export interface HybridArchetype{
  bonus:HybridBonus;bonusText:string;
 }
 type PairKey=`${ClassRole}+${ClassRole}`;
-const ARCHETYPES:Readonly<Record<PairKey,readonly [string,string,HybridBonus]>>={
+const ARCHETYPES:Readonly<Partial<Record<PairKey,readonly [string,string,HybridBonus]>>>={
  "offense+offense":["Executor de Rua","Duas disciplinas de assalto, uma abordagem ofensiva.","attack"],
  "control+offense":["Predador de Sinais","Combate direto apoiado por interferência digital.","attack"],
  "defense+offense":["Bastião de Choque","Ofensiva na linha de frente com proteção tática.","armor"],
