@@ -1617,6 +1617,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
         ) : (
           <BaixadaWorld originId={character.originId} appearance={appearance} characterId={character.id}
             objectiveActorId={currentWaypoint?.actorId??null}
+            worldAlert={localReaction.alert==="increased"}
             onSectorChange={setSectorId} onNearbyAccess={setNearSewerAccess} onInteract={handleInteract} />
         )}
         <div className="world-instructions">
