@@ -1,6 +1,7 @@
 import type { GameState, Unit } from "../types";
 import type { ClassSkill, ClassEffect } from "./registry";
 import {hasLineOfSight} from "../map.ts";
+import {MULTICLASS_UNLOCK_LEVEL,SECONDARY_MAX_RANK} from "./hybrids.ts";
 
 export type ClassCheck={available:true}|{available:false;reason:string};
 export interface ClassResult {ok:boolean;message:string;amount:number}
@@ -41,8 +42,13 @@ function effectWouldHelp(state:GameState,ability:ClassSkill,effect:ClassEffect):
 /** Valida a economia de ações antes de qualquer mutação do estado. */
 export function checkClassSkill(state:GameState,ability:ClassSkill):ClassCheck {
  const {player,enemy}=entities(state);
- if(state.classId!==ability.classId || state.characterLevel<ability.minimumLevel ||
-    !state.characterAbilities.includes(ability.id))
+ const secondary=state.multiclassId===ability.classId&&
+   state.multiclassId!==state.classId&&state.characterLevel>=MULTICLASS_UNLOCK_LEVEL;
+ if(state.classId!==ability.classId&&!secondary)
+   return {available:false,reason:"Habilidade não pertence às duas classes escolhidas."};
+ const minimum=secondary?
+   Math.max(MULTICLASS_UNLOCK_LEVEL,ability.minimumLevel+2):ability.minimumLevel;
+ if(state.characterLevel<minimum||!state.characterAbilities.includes(ability.id))
    return {available:false,reason:"Habilidade não desbloqueada para a classe."};
  if(state.activeSide!=="player"||state.combatComplete||!player||player.hp<=0)
    return {available:false,reason:"Fora do seu turno."};
@@ -90,7 +96,9 @@ export function executeClassSkill(state:GameState,ability:ClassSkill):ClassResul
  let amount=0;
  const notes:string[]=[];
  const rawRank=state.characterSkillRanks?.[ability.id]??1;
- const rank=Number.isSafeInteger(rawRank)?Math.min(ability.maxRank,Math.max(1,rawRank)):1;
+ const hybrid=state.multiclassId===ability.classId&&state.classId!==ability.classId;
+ const cap=hybrid?Math.min(SECONDARY_MAX_RANK,ability.maxRank):ability.maxRank;
+ const rank=Number.isSafeInteger(rawRank)?Math.min(cap,Math.max(1,rawRank)):1;
  for(const effect of ability.effects){
    // Um único intérprete para todos os graus e classes. Aprimorar altera
    // o efeito, nunca apenas o texto ou a aparência do nó.
