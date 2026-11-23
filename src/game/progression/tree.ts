@@ -42,6 +42,24 @@ export type GeneralPassiveId=keyof typeof GENERAL_PASSIVES;
 export const LEVEL_XP=[0,30,75,135,210,300,405,525,660,810] as const;
 export const MAX_LEVEL=LEVEL_XP.length;
 export const POINTS_PER_LEVEL={attributes:2,skills:2} as const;
+/** XP earned in the CURRENT level, not since character creation.
+ * Legacy saves with a level ahead of their stored XP display zero progress,
+ * never a negative bar. The original 10-level pacing is unchanged.
+ */
+export function levelExperienceProgress(char:Pick<PlayerCharacter,"level"|"experience">):{
+ earned:number;required:number;remaining:number;percent:number;nextLevel:number|null;
+}{
+ const level=Number.isSafeInteger(char.level)?
+  Math.max(1,Math.min(MAX_LEVEL,char.level)):1;
+ const start=LEVEL_XP[level-1]??0;
+ const end=LEVEL_XP[level]??null;
+ if(end===null)return {earned:0,required:0,remaining:0,percent:100,nextLevel:null};
+ const required=end-start;
+ const earned=Math.max(0,Math.min(required,
+  Number.isFinite(char.experience)?char.experience-start:0));
+ return {earned,required,remaining:required-earned,
+  percent:Math.max(0,Math.min(100,earned/required*100)),nextLevel:level+1};
+}
 export function levelAtXp(xp:number):number{
  if(!Number.isFinite(xp)||xp<0)return 1;
  let level=1;
