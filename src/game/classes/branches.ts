@@ -84,7 +84,7 @@ export const BRANCH_CLASS_SKILLS:Readonly<Record<string,ClassSkill>>=
        role:item.upgrade.role,target:item.upgrade.target,cost:item.upgrade.cost,
        cooldown:3+Math.floor(index/2),range:item.upgrade.range,area:0,
        minimumLevel:4+index,effects:item.upgrade.effects,visual:item.upgrade.visual,
-       maxRank:2,rankNote:"Aprimorar a intensidade do efeito."};
+       maxRank:3,rankNote:"Até grau 3: especialização intermediária de maestria."};
      return [id,skill] as const;
    })
  )) as Record<string,ClassSkill>;
