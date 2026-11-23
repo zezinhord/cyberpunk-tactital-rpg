@@ -6,7 +6,7 @@ import {paintCityBackground,drawCityBuilding,drawCityProp,tileWorld,
   type PropKind,type Point} from "../game/baixada/lite-city-art";
 import {createLiteArtAssets,drawLiteSprite,LONG_NPC_SHEETS,type LiteArtAssets} from "../game/baixada/lite-art-assets";
 import {CitizenRoutine} from "../game/baixada/npc-routines.ts";
-import {canStand,route,approachRoute,routeNearTarget} from "../game/baixada/navigation";
+import {canStand,canTraverse,route,approachRoute,routeNearTarget} from "../game/baixada/navigation";
 import {smoothCamera,interpolateWalk,completedStepAt} from "../game/baixada/motion";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
 import {readGraphicsMode} from "../game/performance";
@@ -474,8 +474,23 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
    if(disposed||frameId||document.hidden)return;
    frameId=requestAnimationFrame((now)=>{frameId=0;tick(now);});
   };
+  const occupiedResidents=()=>new Set(
+    [...residents.values()].map(n=>n.tile.x+","+n.tile.y));
   const startStep=(now:number)=>{
-    const next=motion.steps.shift();
+    let next=motion.steps.shift();
+    // Roaming citizens may have entered the route since the last frame.
+    // Recheck every new tile and replan once, never walking through an NPC.
+    const occupied=occupiedResidents();
+    if(next&&!canTraverse(motion.position,next,{occupied})){
+      const actor=motion.pendingActor;
+      const destination=actor?actorTile(actor):motion.steps.at(-1)??next;
+      const options={occupied};
+      const alternative=actor?approachRoute(motion.position,destination,options):
+        canStand(destination,options)?route(motion.position,destination,options):
+        routeNearTarget(motion.position,destination,options);
+      motion.steps=alternative?.slice(1)??[];
+      next=motion.steps.shift();
+    }
     if(!next){
       motion.step=null;marker=null;
       notify(motion.position,true);
@@ -537,10 +552,15 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     const start=motion.step?.to??motion.position;
     const target=actor?actorTile(actor):null;
     const resident=actor?residents.get(actor):undefined;
-    if(resident)resident.lockUntil=performance.now()+Math.max(4000,motion.steps.length*190+2800);
-    const path=target?approachRoute(start,target):
-      canStand(destination)?route(start,destination):routeNearTarget(start,destination);
+    const options={occupied:occupiedResidents()};
+    const path=target?approachRoute(start,target,options):
+      canStand(destination,options)?route(start,destination,options):
+      routeNearTarget(start,destination,options);
     if(!path)return;
+    // Keep the interaction target in place until the player actually arrives;
+    // use this route's length rather than the previous command's steps.
+    if(resident)resident.lockUntil=performance.now()+
+      Math.max(4000,(path.length-1)*195+2800);
     motion.steps=path.slice(1);
     motion.pendingActor=actor??null;
     marker=target??path.at(-1)??destination;
@@ -633,6 +653,8 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
       if(disposed||document.hidden)return;
       const occupied=new Set([...residents.values()].map(r=>r.tile.x+","+r.tile.y));
       occupied.add(motion.position.x+","+motion.position.y);
+      // A person may not step into the avatar's next reserved tile mid-step.
+      if(motion.step)occupied.add(motion.step.to.x+","+motion.step.to.y);
       let moved=false;
       for(const npc of residents.values()){
         if(performance.now()<npc.lockUntil)continue;
