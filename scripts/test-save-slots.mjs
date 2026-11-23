@@ -3,7 +3,7 @@ import {createPlayerCharacter,loadCharacter,saveCharacter,CHARACTER_SAVE_KEY} fr
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,MAX_CHARACTER_SLOTS,
   readCharacterSlot,containsCharacterSlot} from "../src/game/character/slots.ts";
 import {exportCharacterBackup,importCharacterBackup,CHARACTER_BACKUP_KEYS} from "../src/game/character/backup.ts";
-import {CHARACTER_SLOT_INDEX,setActiveRaw} from "../src/game/character/slot-core.ts";
+import {CHARACTER_SLOT_INDEX,CHARACTER_SLOT_PREFIX,readSlotIds,setActiveRaw} from "../src/game/character/slot-core.ts";
 import {createStartingInventory,saveInventory} from "../src/game/inventory.ts";
 import {HEALTH_KEY,loadHealth,saveHealth,healAtClinic} from "../src/game/combat/health.ts";
 import {TRIAL_KEY,TRIAL_STEPS,startTrial,FRESH_TRIAL,advanceTrial,readTrial,saveTrial} from "../src/game/story/field-test.ts";
@@ -28,6 +28,8 @@ globalThis.localStorage={
  getItem:k=>db.get(k)??null,
  setItem:(k,v)=>db.set(k,String(v)),
  removeItem:k=>db.delete(k),
+ key:i=>[...db.keys()][i]??null,
+ get length(){return db.size;},
 };
 const a=createPlayerCharacter("Andarilho","baixada","netrunner");
 a.experience=37;a.questRewards=["v09"];
@@ -36,6 +38,20 @@ b.experience=92;
 assert.equal(saveCharacter(a),true);
 assert.equal(saveCharacter(b),true);
 assert.equal(listCharacterSlots().length,2);
+// The individual slot JSON records survive even when the slot INDEX is
+// corrupted after an Android WebView crash. Recover only valid existing saves.
+const intactIndex=db.get(CHARACTER_SLOT_INDEX);
+db.set(CHARACTER_SLOT_PREFIX+"untrusted",JSON.stringify({version:1,character:{id:"other"}}));
+db.set(CHARACTER_SLOT_INDEX,"{not valid JSON");
+assert.deepEqual(new Set(readSlotIds()),new Set([a.id,b.id]),
+ "Recover two healthy character slots after index corruption");
+assert.equal(listCharacterSlots().length,2,
+ "A broken index must not hide surviving characters");
+db.set(CHARACTER_SLOT_INDEX,"[]");
+assert.deepEqual(readSlotIds(),[],
+ "An intentionally empty index must not resurrect deleted character slots");
+db.set(CHARACTER_SLOT_INDEX,intactIndex);
+db.delete(CHARACTER_SLOT_PREFIX+"untrusted");
 assert.equal(loadCharacter()?.id,b.id);
 // Falha no terceiro registro não pode sobrescrever só o slot ou seu índice.
 let failActiveOnce=true;
