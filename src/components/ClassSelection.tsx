@@ -29,7 +29,7 @@ export default function ClassSelection({value,onChange,compact=false}:{
       <p><b>Exploração:</b> {selected.explorationFocus} · <b>Limite:</b> {selected.strategicLimit}</p>
       {ability&&<p className="class-skill-preview"><b>Habilidade inicial: {ability.name}</b>
         {" — "}{ability.description} <small>Energia {ability.cost}; recarga {ability.cooldown} turnos.</small></p>}
-      <small>Passivas, especiais de alto impacto e progressão serão ampliadas na 0.6.9.</small>
+      <small>Esta é sua classe principal. No nível 4 você poderá adquirir uma segunda classe por 2 HAB na Árvore de Evolução, criando um arquétipo híbrido.</small>
    </article>}
    {!selected&&<p className="validation-note">Selecione uma classe para habilitar o protagonista. Sua origem pode ser qualquer uma das seis disponíveis.</p>}
  </section>;
