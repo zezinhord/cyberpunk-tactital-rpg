@@ -26,8 +26,9 @@ function recoverSlotIds():string[]{
     const value:unknown=JSON.parse(raw);
     if(!value||typeof value!=="object")continue;
     const record=value as {version?:unknown;character?:{id?:unknown;name?:unknown}};
-    if(record.version!==1||record.character?.id!==id||
-       typeof record.character.name!=="string"||!record.character.name.trim())continue;
+    const character=record.character;
+    if(record.version!==1||!character||character.id!==id||
+       typeof character.name!=="string"||!character.name.trim())continue;
     ids.push(id);
    }catch{/* Ignore corrupted individual slots; never delete them. */}
   }
