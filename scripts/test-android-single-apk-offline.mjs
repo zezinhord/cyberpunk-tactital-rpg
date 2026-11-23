@@ -5,7 +5,28 @@
 import {execFileSync,spawnSync} from "node:child_process";
 const PACKAGE=process.env.NA_TEST_PACKAGE||"com.cyberpunk.tacticalrpg.qa201";
 const sleep=ms=>new Promise(ok=>setTimeout(ok,ms));
-const adb=(...args)=>execFileSync("adb",args,{encoding:"utf8",timeout:25000}).trim();
+const adb=(...args)=>execFileSync("adb",args,{
+ encoding:"utf8",timeout:12000,maxBuffer:4*1024*1024,
+}).trim();
+/** Heavy offline extraction can momentarily pause the emulator's adb daemon.
+ * Retry ONLY transport timeouts/offline states, never Android assertion errors
+ * or a persistent emulator crash. A dead emulator still fails the release.
+ */
+async function reliableAdb(...args){
+ let failure;
+ for(let attempt=0;attempt<3;attempt++){
+  try{return adb(...args);}
+  catch(error){
+   failure=error;
+   const message=String(error)+(error?.stderr?String(error.stderr):"");
+   if(!/ETIMEDOUT|device offline|device not found|connection refused|no devices\/emulators/i.test(message))
+    throw error;
+   if(attempt<2)await sleep(1200*(attempt+1));
+  }
+ }
+ throw Error("Android emulator/adb unavailable after 3 attempts on "+
+  args.join(" ")+": "+String(failure));
+}
 let session=null;const diagnostic={package:PACKAGE};
 async function browserSocket(url){
  const ws=new WebSocket(url),pending=new Map();let id=0,errors=[];
@@ -73,34 +94,50 @@ try{
  diagnostic.gameFiles=check;
  if(!check?.verified||check?.count!==7)throw Error("One APK did not install all 7 districts: "+JSON.stringify(check));
  // The Android status bar must remain hidden when the game regains focus.
- const barLogs=adb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
+ diagnostic.resumePhase="check-immersive-before-HOME";
+ const barLogs=await reliableAdb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
  diagnostic.immersiveLog=barLogs.split("\n").filter(x=>x.includes("NovaArcadiaImmersive")).slice(-10);
  if(!diagnostic.immersiveLog.some(x=>x.includes("statusVisible=false")&&x.includes("navigationVisible=false")))
   throw Error("Android did not confirm fullscreen hidden system bars after launch: "+JSON.stringify(diagnostic.immersiveLog));
- adb("shell","logcat","-c");
- adb("shell","input","keyevent","KEYCODE_HOME");
+ diagnostic.resumePhase="return-from-HOME";
+ console.log("NA_OFFLINE_INSTALL_COMPLETE",JSON.stringify({
+  preparationSeconds:diagnostic.preparationSeconds,verifiedDistricts:check.count,
+  immersiveBeforeHome:true,
+ }));
+ await reliableAdb("shell","logcat","-c");
+ await reliableAdb("shell","input","keyevent","KEYCODE_HOME");
  await sleep(1500);
- adb("shell","am","start","-W","-n",PACKAGE+"/com.cyberpunk.tacticalrpg.MainActivity");
+ await reliableAdb("shell","am","start","-W","-n",
+  PACKAGE+"/com.cyberpunk.tacticalrpg.MainActivity");
  await sleep(1800);
  // Returning from HOME may destroy the WebView/CDP socket even if Android
  // correctly restarts the game. Never use an old WebSocket after HOME.
  // Inspect actual Android foreground Activity and the fresh native insets log.
- const resumedActivity=adb("shell","dumpsys","activity","activities");
+ diagnostic.resumePhase="confirm-activity-and-process";
+ const resumedActivity=await reliableAdb("shell","dumpsys","activity","activities");
  diagnostic.afterResume={
   activityResumed:resumedActivity.includes(PACKAGE+"/com.cyberpunk.tacticalrpg.MainActivity"),
-  pid:adb("shell","pidof",PACKAGE),
+  pid:await reliableAdb("shell","pidof",PACKAGE),
  };
  if(!diagnostic.afterResume.activityResumed||!diagnostic.afterResume.pid)
   throw Error("Android Activity not resumed after returning from HOME");
- const resumeLog=adb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
+ diagnostic.resumePhase="confirm-immersive-after-HOME";
+ const resumeLog=await reliableAdb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
  diagnostic.afterResume.immersiveLog=resumeLog.split("\n")
   .filter(x=>x.includes("NovaArcadiaImmersive")).slice(-8);
- if(!diagnostic.afterResume.immersiveLog.some(x=>x.includes("statusVisible=false")))
-  throw Error("Status bar visible after returning to game: "+
+ if(!diagnostic.afterResume.immersiveLog.some(x=>x.includes("statusVisible=false")&&
+  x.includes("navigationVisible=false")))
+  throw Error("Android system bars were not hidden after returning to game: "+
     JSON.stringify(diagnostic.afterResume.immersiveLog));
  console.log("ANDROID_SINGLE_APK_AUTO_FULL_GAME_IMMERSIVE_PASS="+JSON.stringify(diagnostic));
 }catch(e){
- try{diagnostic.activity=adb("shell","dumpsys","activity","activities").split("\n").filter(x=>/ResumedActivity/.test(x));}catch{}
+ const result=spawnSync("adb",["get-state"],{encoding:"utf8",timeout:4000});
+ diagnostic.adbState={status:result.status,stdout:String(result.stdout??"").trim(),
+  stderr:String(result.stderr??"").trim(),error:String(result.error??"")};
+ if(!result.error&&result.status===0){
+  try{diagnostic.activity=adb("shell","dumpsys","activity","activities")
+    .split("\n").filter(x=>/ResumedActivity/.test(x));}catch{}
+ }
  console.error("ANDROID_SINGLE_APK_OFFLINE_FULL_GAME_FAILED="+JSON.stringify({error:String(e),...diagnostic}));
  process.exitCode=1;
 }finally{
