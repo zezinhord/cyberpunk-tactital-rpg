@@ -116,7 +116,7 @@ export default function OpeningCutscene({character,appearance,onFinish,error}:Pr
  const memory=ORIGIN_CINEMATIC_MEMORY[previewCharacter.originId];
  const fullText=useMemo(()=>openingLines(panel,previewCharacter).join("\n\n")+
    (panel.id==="you"?"\n\n"+memory.detail:""),
-   [panel,previewCharacter,memory.detail]);
+   [panel,character,previewOrigin,memory.detail]);
  const changeSettings=(patch:Partial<CinematicPreferences>)=>{
    setSettings(previous=>{
      const updated={...previous,...patch};
