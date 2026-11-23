@@ -36,6 +36,7 @@ const OWNED_DATA_KEYS=[
  "cyberpunk-tactical-rpg.vigil-v20.v1.",
  "cyberpunk-tactical-rpg.shelter-v20.v1.",
  "cyberpunk-tactical-rpg.nexus-v20.v1.",
+ "cyberpunk-tactical-rpg.cinema-history.v2.",
 ] as const;
 /** Descobre e preserva automaticamente o slot único de versões anteriores. */
 export function listCharacterSlots():PlayerCharacter[]{
