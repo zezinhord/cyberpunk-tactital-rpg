@@ -227,7 +227,8 @@ const [dossierOpen,setDossierOpen]=useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuStartSection,setMenuStartSection]=useState<"character"|"progression"|"journal">("character");
   const [dismissedLevelNotice,setDismissedLevelNotice]=useState("");
-  const showLevelNotice=progressNotice.startsWith("SUBIU DE NÍVEL!")&&
+  const showLevelNotice=(progressNotice.startsWith("SUBIU DE NÍVEL!")||
+    progressNotice.startsWith("MAESTRIA AVANÇOU!"))&&
     dismissedLevelNotice!==progressNotice;
   const [market,setMarket]=useState(()=>readMarket(character.id));
   const [favors,setFavors]=useState(()=>readFavors(character.id));
