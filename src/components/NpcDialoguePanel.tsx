@@ -8,6 +8,8 @@ import {dialoguePresentation,readCinematicPreferences,
 
 export interface DialoguePageProps{
  speaker:string;role:string;portrait:string;text:string;choices?:readonly ConversationOption[];
+ /** Existing quest event presented cinematically; never a new quest receipt. */
+ cinematicId?:string;
 }
 interface Props{
  page:DialoguePageProps;pageIndex:number;totalPages:number;pages?:readonly DialoguePageProps[];
@@ -31,10 +33,11 @@ export default function NpcDialoguePanel({
  const pendingChoice=Boolean(page.choices?.length)||Boolean(children);
  const mode=dialoguePresentation(page.speaker,page.role,totalPages,pendingChoice);
  const reduced=motionReduced||settings.reduceMotion;
- const sceneId="dialogue:"+page.speaker.toLocaleLowerCase("pt-BR").normalize("NFD")
+ const generatedSceneId="dialogue:"+page.speaker.toLocaleLowerCase("pt-BR").normalize("NFD")
   .replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g,"-")+":"+page.role
   .toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
   .replace(/[^a-z0-9]+/g,"-");
+ const sceneId=page.cinematicId??generatedSceneId;
  const changeSettings=(speed:CinematicPreferences["speed"])=>{
   setSettings(previous=>{
    const next={...previous,speed};saveCinematicPreferences(next);return next;
