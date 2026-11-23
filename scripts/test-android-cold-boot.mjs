@@ -99,17 +99,22 @@ try{
   "nome e classe no Android");
  await evalJS('document.querySelector(".creation-shell .primary-button").click();true');
  await until(()=>has(".na-opening-screen"),"abertura cinematográfica");
- // A abertura v0.7.7 insere o novo botão de modo automático antes de "Pular".
- // O seletor anterior apertava o botão errado, e o teste aguardava a origem.
+ // A abertura v2.0 preserva o botão de pular mas exige confirmação
+ // antes de transferir para a introdução canônica da origem.
  const controls=await evalJS(`(()=>{
    const root=document.querySelector(".na-opening-screen");
-   const skip=root?.querySelector('button[aria-label="Pular apresentação e continuar"]');
+   const skip=root?.querySelector('button[aria-label="Pular prólogo com confirmação"]');
    const auto=root?.querySelector(".na-opening-autoplay");
-   return {skipFound:!!skip,autoFound:!!auto,autoEnabled:auto?.getAttribute("aria-pressed")};
+   const speed=root?.querySelector('select[aria-label="Velocidade das legendas"]');
+   return {skipFound:!!skip,autoFound:!!auto,speedFound:!!speed,
+     autoEnabled:auto?.getAttribute("aria-pressed")};
  })()`);
- if(!controls.skipFound||!controls.autoFound||controls.autoEnabled!=="false")
+ if(!controls.skipFound||!controls.autoFound||!controls.speedFound||
+    !["true","false"].includes(controls.autoEnabled))
   throw new Error("Controles inesperados no prólogo Android: "+JSON.stringify(controls));
- await evalJS('document.querySelector(\'button[aria-label="Pular apresentação e continuar"]\').click();true');
+ await evalJS('document.querySelector(\'button[aria-label="Pular prólogo com confirmação"]\').click();true');
+ await until(()=>has("#na-skip-opening-title"),"confirmação obrigatória antes de pular prólogo");
+ await evalJS('document.querySelector(".na-cinema-confirm section div button:last-child").click();true');
  await until(()=>has(".intro-shell .primary-button"),"introdução da origem");
  await evalJS('document.querySelector(".intro-shell .primary-button").click();true');
  await until(()=>has(".baixada-world[data-engine=native-2d]"),"motor independente Android");
