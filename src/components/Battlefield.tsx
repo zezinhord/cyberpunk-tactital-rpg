@@ -35,7 +35,7 @@ function diamond(x:number,y:number,w=56,h=28){
  return [[x,y-h/2],[x+w/2,y],[x,y+h/2],[x-w/2,y]]
   .map(p=>p.join(",")).join(" ");
 }
-function UnitSprite({unit,isPlayer,url,appearance,enemySheet,facing,pose}:{
+function UnitSprite({unit,isPlayer,url,appearance,enemySheet,facing,pose,layout}:{
  unit:Unit;isPlayer:boolean;url:string|undefined;appearance:TestAppearance;
  enemySheet?:string;facing:number;pose:number;layout:TacticalLayout|null
 }){
