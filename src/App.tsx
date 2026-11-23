@@ -916,6 +916,9 @@ export default function App() {
             <span>ALCANCE: {attackPreview.range} · {attackPreview.mode==="ranged"?"ARMA DE FOGO":"CORPO A CORPO"}</span>
             <span>COBERTURA DO ALVO: {attackPreview.cover==="partial"?"PARCIAL +2 DEF":
               attackPreview.cover==="full"?"TIRO BLOQUEADO":"SEM COBERTURA"}</span>
+            {attackPreview.available&&<span className="na-tactic-hit-chance">
+              CHANCE DE ACERTO: {attackPreview.hitChance}% · D20 (1 = FALHA, 20 = ACERTO)
+            </span>}
             <span>INTENÇÃO HOSTIL: {manager.getEnemyIntent()}</span>
             {manager.getDistrictSupportDescription()&&<span>APOIO REGIONAL: {manager.getDistrictSupportDescription()}</span>}
             {state.overwatchReady&&<span>VIGILÂNCIA PREPARADA · 2 EN INVESTIDOS</span>}
@@ -971,7 +974,7 @@ export default function App() {
             <button type="button" className="end-turn-button" disabled={state.activeSide!=="player"||state.combatComplete||!state.bonusActionAvailable||!supplyUseful||inventory.quantities[selectedSupply]<1} onClick={handleUseSupply}>Usar suprimento</button>
             <button type="button" className="end-turn-button" onClick={() => { buzz(); manager.endPlayerTurn(); }} disabled={state.activeSide !== "player" || state.combatComplete}>Encerrar turno</button>
             <button type="button" className="attack-button" onClick={() => { buzz(20); manager.attack(); }}
-              title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense}`:attackPreview.reason}
+              title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense} · ${attackPreview.hitChance}% de chance`:attackPreview.reason}
               disabled={!canAttack}>{attackPreview.mode==="ranged"?"Disparar":"Ataque corpo a corpo"}</button>
           </div>
           <div className="secondary-actions">
