@@ -3,7 +3,7 @@ import type {PlayerCharacter} from "../game/character/types";
 import {ALL_CLASS_SKILLS,getClassById,getClassBranches} from "../game/classes/registry";
 import {STATS,STAT_IDS,GENERAL_PASSIVES,MAX_STAT_RANK,
  availableAttributePoints,availableSkillPoints,statRank,statBreakdown,getSkillRank,
- levelExperienceProgress,skillPrerequisite,combatProgression,skillEffectPreview,type StatId} from "../game/progression/tree";
+ levelExperienceProgress,influenceTrustBonus,skillPrerequisite,combatProgression,skillEffectPreview,type StatId} from "../game/progression/tree";
 
 export default function ProgressionTree({character,onAttribute,onSkill}:{
  character:PlayerCharacter;
@@ -18,6 +18,13 @@ export default function ProgressionTree({character,onAttribute,onSkill}:{
  const branches=getClassBranches(character.classId);
  const statBefore=combatProgression(character);
  const preview=(id:StatId)=>{
+   if(id==="influencia"){
+     const current=statRank(character,id);
+     const before=influenceTrustBonus(current);
+     const after=influenceTrustBonus(Math.min(MAX_STAT_RANK,current+1));
+     return "Confiança na Feira +"+after+" (atual +"+before+")"+
+       (after===before?" · próximo marco no grau "+(current<3?3:5):"");
+   }
    const upgraded={...character,attributes:{...character.attributes,
      [id]:(character.attributes[id]??0)+1}};
    const after=combatProgression(upgraded);
