@@ -5,11 +5,13 @@ import {SPECIAL_IDS,SPECIALS} from "../game/abilities/catalog";
 import type {SpecialId} from "../game/abilities/catalog";
 import {audioDirector} from "../audio/director";
 import {skillEffectPreview} from "../game/progression/tree";
+import {getClassById,isPlayableClass} from "../game/classes/registry";
 
 type SkillOption={
  key:string;id:string;kind:"class"|"common"|"origin";
  name:string;description:string;cost:number;range:number;
- ready:boolean;status:string;rank?:number;maxRank?:number;actualEffect?:string;
+ ready:boolean;status:string;rank?:number;maxRank?:number;
+ roleClassId?:string;actualEffect?:string;
 };
 interface Props {
  manager:TurnManager;
@@ -30,9 +32,12 @@ export default function CombatAbilityPicker({manager,state,className,originDescr
    const savedRank=state.characterSkillRanks?.[skill.id]??1;
    const rank=Number.isSafeInteger(savedRank)?
      Math.max(1,Math.min(skill.maxRank,savedRank)):1;
+   const secondary=skill.classId===state.multiclassId&&skill.classId!==state.classId;
+   const maxRank=secondary?Math.min(2,skill.maxRank):skill.maxRank;
    return {key:"class:"+skill.id,id:skill.id,kind:"class",name:skill.name,
      description:skill.description,cost:skill.cost,range:skill.range,
-     rank,maxRank:skill.maxRank,actualEffect:skillEffectPreview(skill,rank),
+     rank:Math.min(rank,maxRank),maxRank,roleClassId:skill.classId,
+     actualEffect:skillEffectPreview(skill,Math.min(rank,maxRank)),
      ready:check.available,status:check.available?"PRONTA":check.reason};
  });
  const common:SkillOption[]=SPECIAL_IDS.map(id=>{
@@ -83,13 +88,20 @@ export default function CombatAbilityPicker({manager,state,className,originDescr
    <section className="na-ability-picker" role="dialog" aria-modal="true"
       aria-label="Escolher habilidades de combate">
      <header className="na-ability-picker-head">
-       <div><span>CONTROLE TÁTICO · {className.toUpperCase()}</span><h2>Escolher habilidade</h2></div>
+       <div><span>CONTROLE TÁTICO · {className.toUpperCase()}
+         {state.multiclassId&&isPlayableClass(state.multiclassId)?
+          " + "+getClassById(state.multiclassId).name.toUpperCase():""}</span>
+         <h2>Escolher habilidade</h2></div>
        <button type="button" aria-label="Fechar habilidades" onClick={onClose}>✕</button>
      </header>
      <p className="na-ability-picker-energy">Energia {state.energy}/{state.maxEnergy} ·
        {state.mainActionAvailable?" Ação principal disponível":" Ação principal já usada"}</p>
      <div className="na-ability-picker-content">
-       {group("Técnicas da classe",classes)}
+       {group("Classe principal",classes.filter(skill=>skill.roleClassId===state.classId))}
+       {state.multiclassId&&group("Classe secundária · "+(
+         isPlayableClass(state.multiclassId)?
+           getClassById(state.multiclassId).name:"Multiclasse"),
+         classes.filter(skill=>skill.roleClassId===state.multiclassId))}
        {group("Habilidades comuns",common)}
        {group("Habilidade de origem", [origin])}
      </div>
