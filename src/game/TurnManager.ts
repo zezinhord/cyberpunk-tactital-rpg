@@ -507,7 +507,7 @@ export class TurnManager {
       if(withinShot(enemy,player,profile.range,this.arenaLayout)){
         const cover=profile.range>1?coverArmorBonus(enemy,player,this.arenaLayout):0;
         const defense=player.armorClass+cover;
-        const roll=rollDie(20),total=roll+enemy.attackBonus;
+        const roll=rollDie(20);
         if(attackHits(roll,enemy.attackBonus,defense)){
           const damage=rollDie(profile.range>1?6:4)+(profile.range>1?1:1);
           player.hp=Math.max(0,player.hp-damage);
