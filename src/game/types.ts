@@ -34,6 +34,9 @@ export type EncounterId="test"|"v09"|"trial-1"|"trial-2"|"trial-3"|
 export interface GameState {
   units: Unit[];
   archetypeId: string;
+  /** Visible perception state; never reveals unseen player location. */
+  enemyAwareness?: "patrol"|"suspicious"|"investigate"|"search"|"engaged"|"retreat";
+  enemyPerception?: string;
   characterLevel: number;
   originId: string;
   classId: string | null;
