@@ -74,7 +74,9 @@ const native=readFileSync("native/NovaAssetPacks.java","utf8");
 const manager=readFileSync("src/game/assets/native-pack-manager.ts","utf8");
 assert.ok(root.includes("<GameInstallationGate><App /></GameInstallationGate>"));
 assert.ok(gate.includes('isCompleteGameCatalog(catalog)'));
-assert.ok(gate.includes('else void prepareFullGame()'));
+assert.ok(gate.includes('else void prepareFullGame(latest)'));
+assert.ok(gate.includes('const verified=initial??await readInstalled()'),
+ "Initial seven-district verification must be reused; repeated native file scans are expensive");
 assert.ok(gate.includes('integratedApkStatus()')&&gate.includes('hasInstalledEntireGame(latest)'));
 assert.ok(gate.includes('installEmbeddedDistrict(id,event'));
 assert.ok(gate.includes('if(!bundle.allBundled||bundle.bundledCount!==PACK_IDS.length)'));
