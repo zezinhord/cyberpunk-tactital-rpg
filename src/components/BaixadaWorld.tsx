@@ -17,6 +17,7 @@ interface Props{
   characterId:string;
   onSectorChange?:(sector:SectorId)=>void;
   onNearbyAccess?:(actorId:string|null)=>void;
+  objectiveActorId?:string|null;
 }
 export default function BaixadaWorld(props:Props){
   if(isAndroidDevice())return <BaixadaLiteWorld {...props}/>;
