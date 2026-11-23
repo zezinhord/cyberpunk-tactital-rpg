@@ -7,7 +7,7 @@ registerHooks({resolve(specifier,context,next){
 }});
 const {levelExperienceProgress,masteryExperienceProgress,
  earnedMasterySkillPoints,MAX_MASTERY_SKILL_POINTS,MASTERY_XP_PER_POINT,
- normalizeProgression,getSkillRank,levelAtXp,LEVEL_XP,gainExperience,
+ normalizeProgression,getSkillRank,GENERAL_PASSIVES,levelAtXp,LEVEL_XP,gainExperience,
  grantUniqueExperience,availableSkillPoints,purchaseSkill,skillEffectPreview}=
  await import("../src/game/progression/tree.ts");
 const {createPlayerCharacter}=await import("../src/game/character/storage.ts");
@@ -74,10 +74,20 @@ for(const path of getClassBranches("solo")){
   }
  }
 }
+// Three general passives consume the three final points after all 9 class
+// skills have been unlocked and improved to their appropriate rank caps.
+for(const id of Object.keys(GENERAL_PASSIVES)){
+ const result=purchaseSkill(veteran,id);
+ assert.ok(result.ok,"Endgame passive "+id+": "+result.message);
+ veteran=result.character;
+}
 assert.equal(availableSkillPoints(veteran),0,
  "Post-10 skill points must not cause infinite or free purchases");
 const persisted=normalizeProgression(veteran);
 assert.equal(availableSkillPoints(persisted),0);
+for(const id of Object.keys(GENERAL_PASSIVES))
+ assert.ok(persisted.skills.includes(id),
+  "Mastery must preserve paid general passives after save migration");
 for(const path of getClassBranches("solo"))
  for(const id of path.skillIds)
   assert.equal(getSkillRank(persisted,id),ALL_CLASS_SKILLS[id].maxRank,
