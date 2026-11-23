@@ -2,11 +2,14 @@ import {lazy,Suspense,useEffect,useMemo,useRef,useState} from "react";
 // Phaser só deve ser baixado e inicializado quando uma batalha começar.
  // Evita carregar o motor de combate no primeiro boot Android da Baixada.
  const Battlefield=lazy(()=>import("./components/Battlefield"));
+ const BattleCinematicDialogue=lazy(()=>import("./components/NpcDialoguePanel"));
 import SceneRecovery from "./components/SceneRecovery";
 import AbilityBar from "./components/AbilityBar";
 import OpeningCutscene from "./components/OpeningCutscene";
 import {nextStoryScreen,markOpeningSeen} from "./game/story/opening";
-import {markCinematicSeen} from "./game/story/cinematic-engine.ts";
+import {markCinematicSeen,readCinematicHistory} from "./game/story/cinematic-engine.ts";
+import {battleIntroFor,type BattleCinematicBeat} from "./game/story/cinematic-battles.ts";
+import "./dialogue-cinematic.css";
 import CombatAbilityPicker from "./components/CombatAbilityPicker";
 import { loadTestAppearance, saveTestAppearance } from "./game/test-arena/appearance";
 import type { TestAppearance } from "./game/test-arena/appearance";
@@ -253,6 +256,7 @@ export default function App() {
   const [openingError,setOpeningError] = useState("");
   const [battleReset, setBattleReset] = useState(0);
   const [battleMode, setBattleMode] = useState<EncounterId>("test");
+  const [battleCinematic,setBattleCinematic]=useState<BattleCinematicBeat|null>(null);
   const [defeatNotice,setDefeatNotice]=useState("");
   const [abilityPickerOpen,setAbilityPickerOpen] = useState(false);
   const [victoryDetailsOpen,setVictoryDetailsOpen] = useState(false);
@@ -315,6 +319,9 @@ export default function App() {
   }, [manager,screen,character?.id]);
 
   const beginBattle = (mode: EncounterId = "test") => {
+    const intro=battleIntroFor(mode);
+    setBattleCinematic(intro&&character?.id&&
+      !readCinematicHistory(character.id).includes(intro.cinematicId)?intro:null);
     setVictoryDetailsOpen(false);
     setDefeatNotice("");
     setAbilityPickerOpen(false);
@@ -787,6 +794,7 @@ export default function App() {
    * A vitória real continua sendo tratada pelo efeito de persistência anterior.
    */
   const exitBattle=():void=>{
+    setBattleCinematic(null);
     setAbilityPickerOpen(false);
     setDefeatNotice("");
     setVictoryDetailsOpen(false);
@@ -1084,6 +1092,13 @@ export default function App() {
           </button>
         </section>
       </div>}
+      {battleCinematic&&<Suspense fallback={null}>
+        <BattleCinematicDialogue page={battleCinematic}
+          pageIndex={0} totalPages={1} characterId={character.id}
+          onClose={()=>setBattleCinematic(null)}
+          onNext={()=>setBattleCinematic(null)}
+          onAnswer={()=>setBattleCinematic(null)}/>
+      </Suspense>}
       {abilityPickerOpen&&<CombatAbilityPicker manager={manager} state={state}
         className={character.classId?getClassById(character.classId).name:"Sem classe"}
         originDescription={originProfile.abilityDescription}
