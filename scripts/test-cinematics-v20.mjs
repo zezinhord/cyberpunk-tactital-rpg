@@ -10,6 +10,8 @@ const {compileCinematic,cinematicDuration,safeShot,startCinematic,
  import("../src/game/story/cinematic-engine.ts");
 const {CINEMATIC_ARRIVAL_AREAS,arrivalForArea,validateCinematicArrivals}=await
  import("../src/game/story/cinematic-arrivals.ts");
+const {CINEMATIC_CONTACT_IDS,firstContactCinematic}=await
+ import("../src/game/story/cinematic-contacts.ts");
 const root=path=>readFileSync(path,"utf8");
 assert.equal(OPENING_PANELS.length,8);
 assert.ok(OPENING_TARGET_DURATION_MS>=60000&&OPENING_TARGET_DURATION_MS<=120000);
@@ -78,6 +80,14 @@ for(const area of CINEMATIC_ARRIVAL_AREAS){
  assert.ok(a.role.includes("CHEGADA AO DISTRITO"));
 }
 assert.equal(arrivalForArea("unknown"),null);
+assert.equal(CINEMATIC_CONTACT_IDS.length,8);
+for(const id of CINEMATIC_CONTACT_IDS){
+ const intro=firstContactCinematic(id);
+ assert.ok(intro?.cinematicId==="first-contact:"+id&&intro.text.length>45);
+ assert.ok(dialoguePresentation(intro.speaker,intro.role,1,false)==="cinematic");
+}
+assert.equal(firstContactCinematic("SISTEMA DE MONITORAMENTO"),null);
+
 const priorStorage=globalThis.localStorage;
 const memory=new Map();
 Object.defineProperty(globalThis,"localStorage",{configurable:true,value:{
@@ -105,8 +115,9 @@ for(const key of ["getPlayerLiteSpriteUrl","na-opening-autoplay",
 for(const key of ["onAnswer(choice)","onNext()","pendingChoice",
  "data-cinematic-mode={mode}","NarrativePortrait","cinematicId?:string"])
  assert.ok(panel.includes(key),"Dialogue lost narrative contract: "+key);
-for(const key of ["arrivalForArea(area)","readCinematicHistory(character.id)",
- "cinematicId:arrival.id","<NpcDialoguePanel","onAnswer={selectAnswer}"])
+for(const key of ["arrivalForArea(area)","firstContactCinematic(pages[0]!.speaker)",
+ "readCinematicHistory(character.id)","cinematicId:arrival.id",
+ "<NpcDialoguePanel","onAnswer={selectAnswer}"])
  assert.ok(explore.includes(key),"Existing mission interaction lost: "+key);
 assert.ok(styles.includes(".origin-militar")&&styles.includes(".cinematic-cinematic"));
 console.log("Cutscene QA: 8 timed scenes (~89s), six origins, reactive dialogue, protected choices, seven district arrivals, slot isolation and UI contracts passed.");
