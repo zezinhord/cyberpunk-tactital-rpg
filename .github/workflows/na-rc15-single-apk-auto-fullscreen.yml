@@ -38,6 +38,8 @@ on:
       - scripts/test-movement.mjs
       - scripts/test-baixada-collisions.mjs
       - native/NovaAssetPacks.java
+      - src/game/character/slots.ts
+      - scripts/test-save-slots.mjs
   workflow_dispatch:
 
 permissions:
