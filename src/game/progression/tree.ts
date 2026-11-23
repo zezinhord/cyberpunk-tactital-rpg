@@ -52,6 +52,38 @@ export type GeneralPassiveId=keyof typeof GENERAL_PASSIVES;
 export const LEVEL_XP=[0,30,75,135,210,300,405,525,660,810] as const;
 export const MAX_LEVEL=LEVEL_XP.length;
 export const POINTS_PER_LEVEL={attributes:2,skills:2} as const;
+/** Endgame progression without changing ten historic levels or existing
+ * attributes. Repeatable campaign rewards remain unique and give mastery
+ * skill points only at fixed XP milestones after the level-10 threshold.
+ * At most eight extra skill purchases preserve build specialization.
+ */
+export const MASTERY_XP_PER_POINT=450;
+export const MAX_MASTERY_SKILL_POINTS=8;
+export function earnedMasterySkillPoints(
+ char:Pick<PlayerCharacter,"level"|"experience">):number{
+ if(!Number.isSafeInteger(char.level)||char.level<MAX_LEVEL||
+    !Number.isSafeInteger(char.experience)||char.experience<LEVEL_XP[MAX_LEVEL-1]!)
+    return 0;
+ return Math.min(MAX_MASTERY_SKILL_POINTS,Math.floor(
+  (char.experience-LEVEL_XP[MAX_LEVEL-1]!)/MASTERY_XP_PER_POINT));
+}
+export function masteryExperienceProgress(
+ char:Pick<PlayerCharacter,"level"|"experience">):{
+ points:number;cap:number;earned:number;required:number;remaining:number;percent:number;
+}{
+ const points=earnedMasterySkillPoints(char);
+ if(char.level<MAX_LEVEL)return {points:0,cap:MAX_MASTERY_SKILL_POINTS,
+   earned:0,required:MASTERY_XP_PER_POINT,remaining:MASTERY_XP_PER_POINT,percent:0};
+ if(points>=MAX_MASTERY_SKILL_POINTS)return {
+  points,cap:MAX_MASTERY_SKILL_POINTS,earned:MASTERY_XP_PER_POINT,
+  required:MASTERY_XP_PER_POINT,remaining:0,percent:100};
+ const threshold=LEVEL_XP[MAX_LEVEL-1]!+points*MASTERY_XP_PER_POINT;
+ const earned=Math.max(0,Math.min(MASTERY_XP_PER_POINT,
+  Number.isFinite(char.experience)?char.experience-threshold:0));
+ return {points,cap:MAX_MASTERY_SKILL_POINTS,earned,
+  required:MASTERY_XP_PER_POINT,remaining:MASTERY_XP_PER_POINT-earned,
+  percent:earned/MASTERY_XP_PER_POINT*100};
+}
 /** XP earned in the CURRENT level, not since character creation.
  * Legacy saves with a level ahead of their stored XP display zero progress,
  * never a negative bar. The original 10-level pacing is unchanged.
@@ -140,7 +172,8 @@ export function availableSkillPoints(char:PlayerCharacter):number{
  const spent=[...new Set(purchasedActiveSkills(char))].length+
   new Set(char.skills.filter(id=>id in GENERAL_PASSIVES)).size+
   Object.keys(ALL_CLASS_SKILLS).reduce((sum,id)=>sum+Math.max(0,getSkillRank(char,id)-1),0);
- return Math.max(0,POINTS_PER_LEVEL.skills*(char.level-1)-spent);
+ return Math.max(0,POINTS_PER_LEVEL.skills*(char.level-1)+
+  earnedMasterySkillPoints(char)-spent);
 }
 export function purchaseAttribute(char:PlayerCharacter,id:StatId):
  {ok:boolean;character:PlayerCharacter;message:string}{
@@ -201,7 +234,8 @@ export function normalizeProgression(char:PlayerCharacter):PlayerCharacter{
  const general:string[]=char.skills.filter(id=>
    typeof id==="string"&&!(id in GENERAL_PASSIVES)&&id.length<=80);
  const ranks:Record<string,number>={};
- let budget=POINTS_PER_LEVEL.skills*(level-1);
+ let budget=POINTS_PER_LEVEL.skills*(level-1)+
+   earnedMasterySkillPoints({...char,level});
  // Legado possuía técnicas desbloqueadas sem mapa de ranks.
  const acquired=[...new Set(char.abilities)].filter(id=>{
    const node=ALL_CLASS_SKILLS[id];
