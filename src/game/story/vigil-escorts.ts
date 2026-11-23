@@ -242,8 +242,13 @@ export function moveVigil(state:VigilProgress,room:ExpansionInnerId,
  const cost=approach==="furtivo"||approach==="corrida"?1:0;
  if(run.energy<cost)return fail(state,"Falta energia. Use Reorganizar antes de avançar.");
  const nextTurn=run.turn+1;
- const alarmFromGuard=nextTurn<=run.decoyUntil?0:intensity(room,{x,y},nextTurn);
- const danger=map.hotspots.has(cellKey(x,y))?1:0;
+ // A sprint traverses the intermediate tile. Guards and hazards on that
+ // tile must count; otherwise two-cell movement bypasses live patrols.
+ const alarmFromGuard=nextTurn<=run.decoyUntil?0:Math.max(
+  intensity(room,{x,y},nextTurn),
+  step===2?intensity(room,mid,nextTurn):0);
+ const danger=Number(map.hotspots.has(cellKey(x,y))||
+  (step===2&&map.hotspots.has(cellKey(mid.x,mid.y))));
  const increase=approach==="furtivo"?0:
   approach==="corrida"?2+danger+alarmFromGuard:
   danger+alarmFromGuard;
@@ -345,8 +350,12 @@ export function planVigilRoute(room:ExpansionInnerId,run:VigilRun,
     if(Array.from({length},(_,i)=>cellKey(current.x+dx*(i+1),
       current.y+dy*(i+1))).some(k=>map.blocked.has(k)))continue;
     const turn=run.turn+current.turns+1;
-    const exposure=turn<=run.decoyUntil?0:intensity(room,{x,y},turn);
-    const hotspot=map.hotspots.has(cellKey(x,y))?1:0;
+    const middle={x:current.x+dx,y:current.y+dy};
+    const exposure=turn<=run.decoyUntil?0:Math.max(
+     intensity(room,{x,y},turn),
+     length===2?intensity(room,middle,turn):0);
+    const hotspot=Number(map.hotspots.has(cellKey(x,y))||
+     (length===2&&map.hotspots.has(cellKey(middle.x,middle.y))));
     const risk=approach==="furtivo"?0:exposure+hotspot+(approach==="corrida"?2:0);
     const energy=(approach==="normal"?0:1);
     // Avoid routing through sentries even if that means a short detour.
