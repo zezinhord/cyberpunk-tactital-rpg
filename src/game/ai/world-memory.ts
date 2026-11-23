@@ -51,6 +51,27 @@ export function recordNpcMemory(state:WorldMemory,
 export function npcRemembers(state:WorldMemory,actor:string,kind?:MemoryKind){
  return state.facts.some(f=>f.actor===actor&&(!kind||f.kind===kind));
 }
+/** Strict backup validation: never restore arbitrary keys into the sandbox. */
+export function validWorldMemoryBackup(value:unknown):value is WorldMemory{
+ if(!value||typeof value!=="object"||Array.isArray(value))return false;
+ const raw=value as Record<string,unknown>;
+ if(Object.keys(raw).some(k=>k!=="version"&&k!=="facts")||
+    raw.version!==1||!Array.isArray(raw.facts)||raw.facts.length>48)return false;
+ const seen=new Set<string>(),counts=new Map<string,number>();
+ for(const item of raw.facts){
+  if(!item||typeof item!=="object"||Array.isArray(item))return false;
+  const row=item as Record<string,unknown>;
+  if(Object.keys(row).some(k=>!["id","actor","kind","district","summary","sequence"].includes(k))||
+   !validText(row.id,70)||!validText(row.actor,55)||
+   !validText(row.district,40)||!validText(row.summary,140)||
+   !kinds.includes(row.kind as MemoryKind)||
+   !Number.isSafeInteger(row.sequence)||Number(row.sequence)<1||
+   seen.has(row.id))return false;
+  seen.add(row.id);counts.set(row.actor,(counts.get(row.actor)??0)+1);
+  if(counts.get(row.actor)!>8)return false;
+ }
+ return true;
+}
 export function readWorldMemory(characterId:string):WorldMemory{
  if(!validText(characterId,110))return {...EMPTY_WORLD_MEMORY};
  try{const raw=globalThis.localStorage?.getItem(AI_WORLD_MEMORY_KEY+characterId);
