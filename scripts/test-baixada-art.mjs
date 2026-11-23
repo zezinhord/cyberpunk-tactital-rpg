@@ -23,8 +23,11 @@ assert.ok(world.includes("if(sector!==lastSector)")&&
  world.includes("if(near!==lastNearby)"),
  "Walking should not trigger duplicate React sector and access updates");
 assert.ok(world.includes("const v=view;"),"Pointer coordinates must use the last rendered camera");
-assert.ok(world.includes('frameIntervalMs=readGraphicsMode()==="balanced"?16.67:33.34'),
- "The Android Canvas renderer must honor economy/balanced FPS");
+assert.ok(world.includes('frameTargetFps=readGraphicsMode()==="balanced"?60:30')&&
+ world.includes("canvasFrameDeadline(now,lastRender,frameTargetFps)"),
+ "Android Canvas must use fractional 30/60 FPS pacing on 60Hz displays");
+assert.ok(world.includes("const residentAnimating="),
+ "Roaming NPC animation must respect frame pacing");
 assert.ok(world.includes("if(next&&!canTraverse(motion.position,next,{occupied}))"),
  "NPCs moving into a route must trigger a safe replan before stepping");
 assert.ok(world.includes("if(motion.step)occupied.add(motion.step.to.x"),
