@@ -68,6 +68,10 @@ on:
       - scripts/test-progression.mjs
       - scripts/test-class-abilities.mjs
       - scripts/test-progression-audit.mjs
+      - src/game/classes/hybrids.ts
+      - src/game/character/types.ts
+      - src/components/ClassSelection.tsx
+      - scripts/test-multiclass.mjs
       - src/game/story/market.ts
       - scripts/test-market-story.mjs
       - scripts/test-council-defenses-v20.mjs
@@ -170,6 +174,7 @@ jobs:
           node --experimental-strip-types scripts/test-progression.mjs
           node --experimental-strip-types scripts/test-class-abilities.mjs
           node --experimental-strip-types scripts/test-progression-audit.mjs
+          node --experimental-strip-types scripts/test-multiclass.mjs
           node --experimental-strip-types scripts/test-market-story.mjs
           node --experimental-strip-types scripts/test-movement.mjs
           node --experimental-strip-types scripts/test-baixada-collisions.mjs
