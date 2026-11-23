@@ -12,7 +12,7 @@ import { findPath,getReachableCells,pathCost,elevationAccuracyBonus,
 import {enemyProfile,withinShot} from "./tactics";
 import {decideEnemy,hearEnemy,initialEnemyMemory,
   type EnemyMemory} from "./ai/tactical-brain.ts";
-import {hasLineOfSight} from "./map.ts";
+import {hasLineOfSight,hasObjectLineOfSight} from "./map.ts";
 import {capacityForEnemy,enemyTacticTurn,initializeEnemyTactics,
   type EnemyTacticPool} from "./ai/enemy-resources.ts";
 import type {EnemyRole} from "./tactics.ts";
@@ -261,17 +261,24 @@ export class TurnManager {
     const object=this.arenaLayout?.objects.get(x+","+y);
     if(!player||!object||!this.arenaLayout||this.state.combatComplete||
        this.state.activeSide!=="player")return false;
-    if(distance(player,{x,y})>1){this.setMessage("Aproxime-se do equipamento para interagir.");return false;}
+    const adjacent=distance(player,{x,y})<=1;
+    const canFire=this.weaponRange>1&&distance(player,{x,y})<=this.weaponRange&&
+      hasObjectLineOfSight(player,{x,y},this.arenaLayout);
+    if(!adjacent&&!canFire){
+      this.setMessage("Objeto fora do alcance ou atrás de cobertura. Aproxime-se ou equipe arma de longo alcance.");
+      return false;
+    }
     if(!this.state.mainActionAvailable){this.setMessage("Ação principal já utilizada.");return false;}
     if(object.state==="destroyed"||object.state==="disabled"){
       this.setMessage("Equipamento já neutralizado.");return false;
     }
     const digital=this.state.classId==="netrunner"||this.state.classId==="tecnico";
-    const bypass=digital&&(object.kind==="security-door"||object.kind==="generator");
+    const bypass=adjacent&&digital&&(object.kind==="security-door"||object.kind==="generator");
     const result=bypass?"disabled":object.hp<=1?"destroyed":"damaged";
     const updated=updateTacticalProp(this.arenaLayout,{x,y},result);
     if(!updated)return false;
     this.state.mainActionAvailable=false;
+    if(!adjacent)this.aiMemory=hearEnemy(this.aiMemory,player,this.state.round,6);
     if(result==="destroyed"&&object.kind==="pipe")this.releaseHazard({x,y});
     if(result==="disabled"&&object.kind==="generator"){
       this.state.enemyJamTurns=Math.max(this.state.enemyJamTurns,1);
