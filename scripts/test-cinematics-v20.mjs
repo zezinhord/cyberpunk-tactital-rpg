@@ -97,6 +97,13 @@ for(const id of CINEMATIC_BATTLE_IDS){
  assert.equal(dialoguePresentation(intro.speaker,intro.role,1,false),"cinematic");
 }
 assert.equal(battleIntroFor("test"),null);
+const tacticalChar=createPlayerCharacter("Cinemática tática","baixada","netrunner");
+const tacticalText=battleIntroFor("v09",tacticalChar)?.text??"";
+assert.match(tacticalText,/interfaces|painéis/i);
+assert.match(tacticalText,/Baixada/);
+assert.ok(battleIntroFor("v09",{...tacticalChar,classId:"solo"}).text!==tacticalText,
+ "Class identity must change a real narrative beat");
+
 
 
 const priorStorage=globalThis.localStorage;
