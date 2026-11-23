@@ -82,13 +82,30 @@ export function findPath(
  }
  return path;
 }
+/** One bounded Dijkstra for the movement overlay; avoids 64 separate
+ * path searches on every UI render in entry-level Android WebViews. */
 export function getReachableCells(units:Unit[],unit:Unit,movement:number,
  layout:TacticalLayout|null=null):Position[]{
+ if(!isInsideBoard(unit)||movement<=0)return [];
+ const occupied=new Set(units.filter(u=>u.hp>0&&u.id!==unit.id).map(positionKey));
+ const scores=new Map<string,number>([[positionKey(unit),0]]);
+ const frontier:[Position,number][]=[[{x:unit.x,y:unit.y},0]];
+ const dirs=[{x:0,y:-1},{x:1,y:0},{x:0,y:1},{x:-1,y:0}];
+ while(frontier.length){
+   frontier.sort((a,b)=>a[1]-b[1]||a[0].y-b[0].y||a[0].x-b[0].x);
+   const [current,cost]=frontier.shift()!;
+   if(cost!==scores.get(positionKey(current)))continue;
+   for(const dir of dirs){
+     const next={x:current.x+dir.x,y:current.y+dir.y},key=positionKey(next);
+     if(occupied.has(key)||!canStep(current,next,layout))continue;
+     const total=cost+movementCost(next,layout);
+     if(total>movement||total>=(scores.get(key)??Infinity))continue;
+     scores.set(key,total);frontier.push([next,total]);
+   }
+ }
  const reachable:Position[]=[];
  for(let y=0;y<BOARD_HEIGHT;y++)for(let x=0;x<BOARD_WIDTH;x++){
-   if(x===unit.x&&y===unit.y)continue;
-   const path=findPath(unit,{x,y},units,unit.id,layout);
-   if(path&&pathCost(path,layout)<=movement)reachable.push({x,y});
+   if((x!==unit.x||y!==unit.y)&&scores.has(x+","+y))reachable.push({x,y});
  }
  return reachable;
 }
