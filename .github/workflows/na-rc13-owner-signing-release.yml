@@ -1,29 +1,9 @@
 name: Nova Arcadia 2.0 — RC13 complete required 3GB Android installation
 
 # Signed QA201 build with all original content mandatory and one-click setup; still QA prerelease.
+# Historical RC13 build; superseded by the mandatory single-APK RC15.
+# Available on manual dispatch only to avoid publishing obsolete packages.
 on:
-  push:
-    branches:
-      - feature/nova-arcadia-3gb-final-assets
-    paths:
-      - .github/workflows/na-rc13-owner-signing-release.yml
-      - src/main.tsx
-      - src/components/GameInstallationGate.tsx
-      - src/game-installation.css
-      - src/components/AssetPackControls.tsx
-      - src/components/CharacterMenu.tsx
-      - src/game/assets/complete-installation.ts
-      - src/game/assets/native-pack-manager.ts
-      - scripts/test-integrated-game-install-v20.mjs
-      - scripts/test-android-integrated-install.mjs
-      - tools/restore_verified_art_sources.py
-      - tools/produce_nexus_eden.py
-      - tools/test_nexus_eden.py
-      - tools/build_3gb_asset_packs.py
-      - src/game/story/nexus-eden.ts
-      - src/components/NexusPanel.tsx
-      - scripts/test-nexus-eden-v20.mjs
-      - native/NovaAssetPacks.java
   workflow_dispatch:
 
 permissions:
