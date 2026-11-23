@@ -6,6 +6,7 @@ import SceneRecovery from "./components/SceneRecovery";
 import AbilityBar from "./components/AbilityBar";
 import OpeningCutscene from "./components/OpeningCutscene";
 import {nextStoryScreen,markOpeningSeen} from "./game/story/opening";
+import {markCinematicSeen} from "./game/story/cinematic-engine.ts";
 import CombatAbilityPicker from "./components/CombatAbilityPicker";
 import { loadTestAppearance, saveTestAppearance } from "./game/test-arena/appearance";
 import type { TestAppearance } from "./game/test-arena/appearance";
@@ -670,6 +671,8 @@ export default function App() {
       setOpeningError("Não foi possível salvar a apresentação. Verifique o armazenamento antes de continuar.");
       return;
     }
+    // Record only after the canonical character save has succeeded.
+    markCinematicSeen(character.id,"opening-nova-arcadia-v20");
     setCharacter(updated);
     setSlots(listCharacterSlots());
     setOpeningError("");
