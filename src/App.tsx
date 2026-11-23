@@ -35,6 +35,7 @@ import {craftRecipe,type RecipeId} from "./game/crafting";
 import { getPlayerSpriteUrl } from "./game/baixada/sprites";
 import ClassSelection from "./components/ClassSelection";
 import {getClassById,type ClassId} from "./game/classes/registry";
+import {getHybridArchetype} from "./game/classes/hybrids.ts";
 import {installCyberware,removeCyberware,type CyberwareId} from "./game/cyberware.ts";
 import {readParty,activeCompanions} from "./game/companions.ts";
 import {readStealth,stealthCombatEntry} from "./game/stealth.ts";
@@ -904,7 +905,7 @@ export default function App() {
           <p>{battleMode.startsWith("council-")?"ACORDO COMUNITÁRIO · "+state.wave+" / "+state.totalWaves+" ONDAS":
             battleMode.startsWith("district-")?"OPERAÇÃO INTERDISTRITAL · "+state.wave+" / "+state.totalWaves+" ONDAS":battleMode==="v09"?"MISSÃO PRINCIPAL · O NOME QUE SUMIU":
             isTrialEncounter(battleMode)?"CAMPANHA TÁTICA · "+state.wave+" / "+state.totalWaves+" ONDAS":
-            "Operativo de Campo // módulo experimental 0.3.0"}</p>
+            "LIMBO DE TESTE · MECÂNICAS TÁTICAS E ARQUÉTIPOS"}</p>
         </div>
         <button type="button" className="na-arena-exit-quick"
           data-combat-exit="true" onClick={exitBattle}
@@ -921,7 +922,13 @@ export default function App() {
       </header>
       <section className="arena-field" aria-label="Arena e visualização de personagens">
         <div className="arena-presentation">
-          <strong>{character.name} · {origin.name} · {character.classId?getClassById(character.classId).name:"Sem classe"}</strong>
+          <div className="na-hybrid-combat-identity">
+            <strong>{character.name} · {origin.name} · {character.classId?getClassById(character.classId).name:"Sem classe"}
+              {character.multiclassId?" + "+getClassById(character.multiclassId).name:""}</strong>
+            {getHybridArchetype(character.classId,character.multiclassId)&&
+             <small>ARQUÉTIPO · {getHybridArchetype(character.classId,character.multiclassId)?.name}
+               {" · "}{getHybridArchetype(character.classId,character.multiclassId)?.bonusText}</small>}
+          </div>
           <div className="arena-appearance-group" role="group" aria-label="Apresentação visual do Operativo de Campo">
             <button type="button" aria-pressed={appearance === "masculine"} onClick={() => chooseAppearance("masculine")}>Masculina</button>
             <button type="button" aria-pressed={appearance === "feminine"} onClick={() => chooseAppearance("feminine")}>Feminina</button>
