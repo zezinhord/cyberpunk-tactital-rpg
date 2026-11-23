@@ -285,6 +285,7 @@ export default function App() {
        urbanCombatSupport(readUrban(character.id),battleMode),
        recoveryCombatSupport(readRecovery(character.id),battleMode)):null,
      partySupport:character?activeCompanions(readParty(character.id)):[],
+     partyPosture:character?readParty(character.id).posture??"manual":"manual",
      infiltration:character?stealthCombatEntry(readStealth(character.id),battleMode):null }),
      [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
   const [state, setState] = useState<GameState>(() => manager.getState());
