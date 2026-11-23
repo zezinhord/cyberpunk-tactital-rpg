@@ -105,6 +105,7 @@ export function hasLineOfSight(start:Position,target:Position,
     isOpaque(start,layout)||isOpaque(target,layout))return false;
  let x=start.x,y=start.y,ix=0,iy=0;
  const dx=target.x-x,dy=target.y-y;
+ const horizon=Math.max(tileHeight(start,layout),tileHeight(target,layout));
  const nx=Math.abs(dx),ny=Math.abs(dy);
  const sx=Math.sign(dx),sy=Math.sign(dy);
  while(ix<nx||iy<ny){
@@ -116,6 +117,9 @@ export function hasLineOfSight(start:Position,target:Position,
    }else if(a<b){x+=sx;ix++;}
    else{y+=sy;iy++;}
    if(isOpaque({x,y},layout))return false;
+   // A higher platform interrupts sight between two lower elevations.
+   // An attacker standing above the rim still has a valid sightline.
+   if(tileHeight({x,y},layout)>horizon)return false;
  }
  return true;
 }
