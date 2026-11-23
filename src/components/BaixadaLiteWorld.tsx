@@ -20,6 +20,7 @@ interface Props{
  originId:OriginId;appearance:TestAppearance;characterId:string;
  onSectorChange?:(sector:SectorId)=>void;
  onNearbyAccess?:(actorId:string|null)=>void;
+ objectiveActorId?:string|null;
 }
 const ACTORS:ReadonlyArray<{id:string;tile:Tile;label:string;person:boolean}>= [
  {id:"vendedor",tile:ACTOR_TILES.vendedor,label:"NILO",person:true},
@@ -113,13 +114,16 @@ function heroBuildingOverlap(p:{x:number;y:number},b:BuildingSpec):boolean{
  * sob demanda. A lógica de caminhada/colisão é a MESMA do Phaser.
  */
 export default function BaixadaLiteWorld({onInteract,originId,appearance,characterId,
-  onSectorChange,onNearbyAccess}:Props){
+  onSectorChange,onNearbyAccess,objectiveActorId}:Props){
  const hostRef=useRef<HTMLDivElement>(null);
  const canvasRef=useRef<HTMLCanvasElement>(null);
  const callbacks=useRef({onInteract,onSectorChange,onNearbyAccess});
  callbacks.current={onInteract,onSectorChange,onNearbyAccess};
  const presentation=useRef(appearance);
  presentation.current=appearance;
+ // A waypoint may change after a dialogue without remounting the world.
+ const waypoint=useRef(objectiveActorId);
+ waypoint.current=objectiveActorId;
  const [status,setStatus]=useState<"loading"|"ready"|"failed">("loading");
  const [error,setError]=useState("");
  const [reboot,setReboot]=useState(0);
@@ -479,6 +483,29 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     ctx.lineTo(renderPosition.x+5,renderPosition.y-55);ctx.stroke();
    }
    ctx.restore();
+   // Low-cost, static mission waypoint. Amber denotes an objective/interaction;
+   // magenta remains hostile-only, green remains exclusive to Éden.
+   // Offscreen goals become edge arrows, not misleading dotted walk routes.
+   const goalId=waypoint.current;
+   if(goalId&&actorById.has(goalId)){
+    const target=project(view,actorWorld(goalId));
+    const goalX=target.x,goalY=target.y-68*view.zoom;
+    const markerX=Math.max(27,Math.min(width-27,goalX));
+    const markerY=Math.max(27,Math.min(height-27,goalY));
+    const offscreen=Math.abs(goalX-markerX)>1||Math.abs(goalY-markerY)>1;
+    ctx.save();ctx.translate(markerX,markerY);
+    ctx.fillStyle="rgba(15,28,35,.93)";
+    ctx.strokeStyle="#f2c982";ctx.lineWidth=2.2;
+    ctx.beginPath();ctx.arc(0,0,13,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle="#f2c982";ctx.beginPath();
+    if(offscreen){
+     ctx.rotate(Math.atan2(goalY-markerY,goalX-markerX));
+     ctx.moveTo(7,0);ctx.lineTo(-4,-6);ctx.lineTo(-4,6);
+    }else{
+     ctx.moveTo(0,-8);ctx.lineTo(7,0);ctx.lineTo(0,8);ctx.lineTo(-7,0);
+    }
+    ctx.closePath();ctx.fill();ctx.restore();
+   }
    if(!painted){painted=true;setStatus("ready");setError("");}
   };
   const schedule=()=>{
@@ -719,7 +746,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     notify(motion.position,true);
   };
  },[characterId,originId,reboot]);
- useEffect(()=>{scene.current?.frame();},[appearance]);
+ useEffect(()=>{scene.current?.frame();},[appearance,objectiveActorId]);
  const restart=()=>{setStatus("loading");setError("");setReboot(n=>n+1);};
  return <div className="baixada-world na-world-host" ref={hostRef}
    data-renderer="canvas" data-engine="native-2d"
