@@ -33,7 +33,7 @@ export default function ProgressionTree({character,onAttribute,onSkill}:{
     ["Defesa",after.armor-statBefore.armor],["Movimento",after.movement-statBefore.movement],
     ["Energia",after.energy-statBefore.energy]].filter(([,value])=>Number(value)>0);
    return changes.map(([name,value])=>name+" +"+value).join(" · ")||
-      (id==="influencia"?"Maior influência nas negociações da Feira":"Limite de atributo");
+      "Limite de atributo";
  };
  return <div className="na-tree" aria-label="Evolução de personagem">
    <header className="na-tree-intro">
