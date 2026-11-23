@@ -6,6 +6,7 @@ import {paintCityBackground,drawCityBuilding,drawCityProp,tileWorld,
   type PropKind,type Point} from "../game/baixada/lite-city-art";
 import {createLiteArtAssets,drawLiteSprite,LONG_NPC_SHEETS,type LiteArtAssets} from "../game/baixada/lite-art-assets";
 import {CitizenRoutine} from "../game/baixada/npc-routines.ts";
+import {citizenPhase,citizenTickDivider} from "../game/ai/citizen-schedule.ts";
 import {canStand,canTraverse,route,approachRoute,routeNearTarget} from "../game/baixada/navigation";
 import {smoothCamera,interpolateWalk,completedStepAt} from "../game/baixada/motion";
 import {canvasFrameDeadline} from "../game/baixada/frame-pacing";
@@ -21,6 +22,7 @@ interface Props{
  onSectorChange?:(sector:SectorId)=>void;
  onNearbyAccess?:(actorId:string|null)=>void;
  objectiveActorId?:string|null;
+ worldAlert?:boolean;
 }
 const ACTORS:ReadonlyArray<{id:string;tile:Tile;label:string;person:boolean}>= [
  {id:"vendedor",tile:ACTOR_TILES.vendedor,label:"NILO",person:true},
@@ -114,7 +116,7 @@ function heroBuildingOverlap(p:{x:number;y:number},b:BuildingSpec):boolean{
  * sob demanda. A lógica de caminhada/colisão é a MESMA do Phaser.
  */
 export default function BaixadaLiteWorld({onInteract,originId,appearance,characterId,
-  onSectorChange,onNearbyAccess,objectiveActorId}:Props){
+  onSectorChange,onNearbyAccess,objectiveActorId,worldAlert}:Props){
  const hostRef=useRef<HTMLDivElement>(null);
  const canvasRef=useRef<HTMLCanvasElement>(null);
  const callbacks=useRef({onInteract,onSectorChange,onNearbyAccess});
@@ -124,6 +126,8 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
  // A waypoint may change after a dialogue without remounting the world.
  const waypoint=useRef(objectiveActorId);
  waypoint.current=objectiveActorId;
+  const alertRef=useRef(Boolean(worldAlert));
+  alertRef.current=Boolean(worldAlert);
  const [status,setStatus]=useState<"loading"|"ready"|"failed">("loading");
  const [error,setError]=useState("");
  const [reboot,setReboot]=useState(0);
@@ -534,8 +538,14 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
       notify(motion.position,true);
       const actor=motion.pendingActor;
       motion.pendingActor=null;
-      if(actor&&distance(motion.position,actorTile(actor))<=1)
+      if(actor&&distance(motion.position,actorTile(actor))<=1){
+        const resident=residents.get(actor);
+        if(resident){
+          resident.routine.interact();
+          resident.lockUntil=performance.now()+3300;
+        }
         callbacks.current.onInteract(actor);
+      }
       return;
     }
     const dx=next.x-motion.position.x,dy=next.y-motion.position.y;
@@ -697,6 +707,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
       observer=new ResizeObserver(sizing);observer.observe(host);
     }else window.addEventListener("resize",sizing);
     scene.current={go,frame:schedule};
+    let residentTick=0;
     residentTimer=window.setInterval(()=>{
       if(disposed||document.hidden)return;
       const occupied=new Set([...residents.values()].map(r=>r.tile.x+","+r.tile.y));
@@ -704,10 +715,16 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
       // A person may not step into the avatar's next reserved tile mid-step.
       if(motion.step)occupied.add(motion.step.to.x+","+motion.step.to.y);
       let moved=false;
+      residentTick++;
+      const phase=citizenPhase(new Date().getHours());
       for(const npc of residents.values()){
         if(performance.now()<npc.lockUntil)continue;
+        const proximity=distance(npc.tile,motion.position);
+        if(residentTick%citizenTickDivider(proximity)!==0)continue;
         occupied.delete(npc.tile.x+","+npc.tile.y);
-        const result=npc.routine.tick(npc.tile,occupied);
+        const result=npc.routine.tick(npc.tile,occupied,{
+          phase,alarmed:alertRef.current&&proximity<=5,
+        });
         if(result.moved){
           npc.from=npc.tile;npc.tile=result.tile;
           npc.movedAt=performance.now();moved=true;
