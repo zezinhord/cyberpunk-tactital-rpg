@@ -23,6 +23,7 @@ on:
       - src/game/story/archive-progress.ts
       - src/game/character/backup.ts
       - src/game/character/slots.ts
+      - src/game/character/slot-core.ts
       - scripts/test-save-slots.mjs
       - src/components/DossierGallery.tsx
       - src/components/BaixadaLiteWorld.tsx
