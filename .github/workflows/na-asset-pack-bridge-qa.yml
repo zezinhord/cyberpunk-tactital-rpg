@@ -22,6 +22,7 @@ on:
       - scripts/test-baixada-art.mjs
       - src/game/baixada/navigation.ts
       - src/game/baixada/motion.ts
+      - src/game/baixada/frame-pacing.ts
       - scripts/test-movement.mjs
       - scripts/test-baixada-collisions.mjs
       - scripts/test-archive-progress-v20.mjs
