@@ -354,13 +354,18 @@ export class TurnManager {
     const enemy=livingUnit(this.state.units,"drone");
     if(!player||!enemy||this.state.combatComplete)return "Sem ameaça ativa";
     if(this.state.enemyJamTurns>0)return "Interferência ativa: ação hostil bloqueada";
-    const estimate=decideEnemy(enemy,player,this.state.units,
-      enemyProfile(this.state.encounterId,this.state.wave),
-      this.aiMemory,this.state.round,this.arenaLayout);
-    return estimate.perception.saw?estimate.plan.intent:
-      estimate.perception.heard?"Investigando ruído percebido":
-      estimate.perception.lastKnown?"Buscando último contato conhecido":
-      "Patrulhando sem contato visual";
+    // Cheap perceptual HUD: no path search or utility scoring on renders.
+    // Full reasoning runs ONLY once when the enemy actually takes a turn.
+    const sight=distance(enemy,player)<=6&&
+      hasLineOfSight(enemy,player,this.arenaLayout);
+    if(sight)return "ALERTA · contato visual confirmado";
+    if(this.aiMemory.noise&&this.aiMemory.noise.round>=this.state.round-2&&
+      distance(enemy,this.aiMemory.noise.at)<=this.aiMemory.noise.strength)
+      return "SUSPEITA · ruído identificado";
+    if(this.aiMemory.lastKnown&&
+      this.state.round-this.aiMemory.lastSeenRound<=3)
+      return "BUSCA · investigando último contato";
+    return "PATRULHA · nenhum alvo identificado";
   }
 
   activateOriginAbility(): void {
