@@ -319,7 +319,7 @@ export default function App() {
   }, [manager,screen,character?.id]);
 
   const beginBattle = (mode: EncounterId = "test") => {
-    const intro=battleIntroFor(mode);
+    const intro=battleIntroFor(mode,character);
     setBattleCinematic(intro&&character?.id&&
       !readCinematicHistory(character.id).includes(intro.cinematicId)?intro:null);
     setVictoryDetailsOpen(false);
