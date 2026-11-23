@@ -69,15 +69,27 @@ export function createLiteArtAssets(origin:OriginId,onReady:()=>void):LiteArtAss
   playerFeminine:ORIGINS[origin].feminine,
   ...NPCS,...PUBLIC_DECOR,
  };
- for(const [id,url] of Object.entries(sources)){
+ // Only the original opening eight images need eager decoding. Other NPC
+ // sheets are retained as official assets, but decoded only when visible.
+ // Repeated paint calls reuse a single Image per ID, never duplicate loads.
+ const essential=["playerMasculine","playerFeminine","nilo","joana",
+  "saira","teo","market","palm"] as const;
+ const load=(id:string):HTMLImageElement|null=>{
+  if(disposed)return null;
+  const existing=images.get(id);
+  if(existing)return existing;
+  const url=sources[id];
+  if(!url)return null;
   const img=new Image();
   images.set(id,img);
   img.onload=()=>{if(!disposed)onReady();};
   img.onerror=()=>{if(!disposed)onReady();};
   img.src=url;
- }
+  return img;
+ };
+ for(const id of essential)load(id);
  const get=(id:string):HTMLImageElement|null=>{
-  const img=images.get(id);
+  const img=load(id);
   return img&&img.complete&&img.naturalWidth>0?img:null;
  };
  return {
