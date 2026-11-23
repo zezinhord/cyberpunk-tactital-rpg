@@ -1,5 +1,5 @@
 import type {PlayerCharacter} from "../character/types.ts";
-import {getOriginById} from "../character/index.ts";
+import {getOriginById} from "../character/origins.ts";
 import type {CinematicShot,CinematicTimeline,CinematicContext} from "./cinematic-engine.ts";
 import {compileCinematic,cinematicDuration} from "./cinematic-engine.ts";
 export type OpeningVisual="skyline"|"aurea"|"eden"|"baixada"|"records"|"operative"|"interference"|"canal";
