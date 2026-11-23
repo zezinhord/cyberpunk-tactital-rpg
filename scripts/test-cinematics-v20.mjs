@@ -1,11 +1,5 @@
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {registerHooks} from "node:module";
-registerHooks({resolve(specifier,context,next){
- if((specifier.startsWith("./")||specifier.startsWith("../"))&&
-  !/\.[cm]?[jt]s$/.test(specifier))
-  return next(specifier+".ts",context);
-}});
 const {ORIGIN_IDS}=await import("../src/game/character/origins.ts");
 const {createPlayerCharacter}=await import("../src/game/character/storage.ts");
 const {OPENING_PANELS,ORIGIN_CINEMATIC_MEMORY,OPENING_TARGET_DURATION_MS,
