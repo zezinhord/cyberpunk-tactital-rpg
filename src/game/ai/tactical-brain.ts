@@ -16,6 +16,7 @@ export interface HearingEvent {at:Position;strength:number;round:number}
 export interface Perception {saw:boolean;heard:boolean;lastKnown:Position|null;reason:string}
 export interface EnemyMemory {
  awareness:Awareness;lastKnown:Position|null;lastSeenRound:number;
+ lastKnownRound:number;lastKnownSense:"visual"|"sound"|null;
  searchRounds:number;noise:HearingEvent|null;sequence:number;
 }
 export interface BrainDecision {
@@ -29,6 +30,7 @@ const stationary=(at:Position,intent:string):EnemyPlan=>({
 const maxVision=6;
 export function initialEnemyMemory():EnemyMemory{
  return {awareness:"patrol",lastKnown:null,lastSeenRound:-1,
+  lastKnownRound:-1,lastKnownSense:null,
   searchRounds:0,noise:null,sequence:0};
 }
 /** Noise is transmitted only if the action happened, not by the future
@@ -79,8 +81,12 @@ export function decideEnemy(
  const heard=Boolean(sound);
  const seen=sight?copy(player):null;
  const newKnowledge=seen??(heard?copy(memory.noise!.at):null);
- const age=memory.lastSeenRound<0?100:round-memory.lastSeenRound;
- const previous=age<=3?memory.lastKnown:null;
+ // Remember HEARD locations for 2 rounds and SEEN locations for 3.
+ // Previously a sound vanished after one action if the agent had never
+ // directly seen the protagonist (lastSeenRound was still -1).
+ const maxAge=memory.lastKnownSense==="sound"?2:3;
+ const age=memory.lastKnownRound<0?100:round-memory.lastKnownRound;
+ const previous=age<=maxAge?memory.lastKnown:null;
  const target=newKnowledge??previous;
  const perception:Perception={
   saw:sight,heard,lastKnown:target?copy(target):null,
@@ -91,6 +97,9 @@ export function decideEnemy(
    awareness:sight?"engaged":heard?"investigate":target?"search":"patrol",
    lastKnown:target?copy(target):null,
    lastSeenRound:sight?round:memory.lastSeenRound,
+   lastKnownRound:newKnowledge?round:(target?memory.lastKnownRound:-1),
+   lastKnownSense:sight?"visual":heard?"sound":
+     target?memory.lastKnownSense:null,
    searchRounds:sight?0:Math.min(3,memory.searchRounds+1),
    noise:heard?null:memory.noise,sequence:memory.sequence+1
  };
