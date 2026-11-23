@@ -111,8 +111,14 @@ for(const room of EXPANSION_ROOM_DESIGNS){
     const hazard=Number(map.hotspots.has(mid.x+","+mid.y)||
       map.hotspots.has(end.x+","+end.y));
     const expected=Math.min(7,2+hazard+Math.max(pressure(mid),pressure(end)));
-    assert.equal(vigilRun(result.state,id).alert,expected,
-      "Sprint must count midpoint patrol/hazard exposure");
+    if(expected===7){
+     assert.equal(vigilRun(result.state,id).alert,2);
+     assert.equal(vigilRun(result.state,id).retreats,1,
+       "Critical midpoint detection must force a retreat");
+    }else{
+     assert.equal(vigilRun(result.state,id).alert,expected,
+       "Sprint must count midpoint patrol/hazard exposure");
+    }
     midpointChecks++;
    }
   }
