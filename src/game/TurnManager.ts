@@ -572,9 +572,19 @@ export class TurnManager {
       this.addLog("[PERCEPÇÃO] "+profile.name+" · "+decision.perception.reason+
         " · "+decision.reason+".");
       if(plan.action==="advance"||plan.action==="reposition"){
-        enemy.x=plan.target.x;
-        enemy.y=plan.target.y;
-        this.addLog("[IA TÁTICA] "+profile.name+" · "+plan.intent+".");
+        // The navigator may plan without knowing an occluded occupant.
+        // Validate ACTUAL collision/path at execution, never teleport or
+        // overlap the runner; a blocked route consumes no extra action.
+        const legalPath=findPath(enemy,plan.target,this.state.units,
+          enemy.id,this.arenaLayout);
+        if(legalPath&&legalPath.length>1&&
+           legalPath.length-1<=profile.mobility){
+          enemy.x=plan.target.x;
+          enemy.y=plan.target.y;
+          this.addLog("[IA TÁTICA] "+profile.name+" · "+plan.intent+".");
+        }else{
+          this.addLog("[IA TÁTICA] Rota ocupada ou alterada: movimento cancelado com segurança.");
+        }
       }
       if(pendingOverwatch){
         if(withinShot(player,enemy,this.weaponRange,this.arenaLayout)){
