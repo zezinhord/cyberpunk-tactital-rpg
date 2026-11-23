@@ -1,0 +1,42 @@
+name: Nova Arcádia 2.0 — Cinematic Narrative QA
+on:
+  push:
+    branches:
+      - feature/nova-arcadia-v20-cinematics-rework
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cinematic-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked project dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Compile all current game and cinematic TypeScript
+        run: npx tsc -b
+      - name: Run cinematic timeline and narrative-state tests
+        run: node --experimental-strip-types scripts/test-cinematics-v20.mjs
+      - name: Preserve the original eight-frame opening and NPC dialogue choices
+        run: |
+          node --experimental-strip-types scripts/test-opening.mjs
+          node --experimental-strip-types scripts/test-narrative-ui.mjs
+          node --experimental-strip-types scripts/test-patio-dialogues.mjs
+      - name: Preserve existing 2.0 mission state, save slots, combat and tactical maps
+        run: |
+          node --experimental-strip-types scripts/test-save-slots.mjs
+          node --experimental-strip-types scripts/test-eden-echoes.mjs
+          node --experimental-strip-types scripts/test-cisma-operations.mjs
+          node --experimental-strip-types scripts/test-battlefield-redesign-v20.mjs
+      - name: Generate existing character and environment art before Vite bundle
+        run: |
+          python -m pip install -r tools/requirements-characters.txt
+          npm run generate:characters
+          npm run generate:v20-art
+      - name: Bundle playable web game with unchanged sprites and assets
+        run: npx vite build
