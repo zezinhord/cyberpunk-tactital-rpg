@@ -12,6 +12,9 @@ import {enemyProfile,withinShot} from "./tactics";
 import {decideEnemy,hearEnemy,initialEnemyMemory,
   type EnemyMemory} from "./ai/tactical-brain.ts";
 import {hasLineOfSight} from "./map.ts";
+import {capacityForEnemy,enemyTacticTurn,initializeEnemyTactics,
+  type EnemyTacticPool} from "./ai/enemy-resources.ts";
+import type {EnemyRole} from "./tactics.ts";
 import {attackHits,attackHitChance} from "./combat/attack-rules.ts";
 import type {UrbanCombatSupport} from "./story/urban-chronicles.ts";
 import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types";
@@ -104,6 +107,7 @@ export class TurnManager {
       options.encounterId==="council-aurea"?3:trial||district||eden||cisma||council?2:1;
     const infiltration=options.infiltration?.encounter===options.encounterId?
       options.infiltration:null;
+    const firstEnemyRole=enemyProfile(options.encounterId??"test",1).role;
     const encounterHp=options.encounterId==="cisma-core"?25:
       options.encounterId==="cisma-containment"?22:
       options.encounterId==="cisma-intercept"?20:
@@ -144,6 +148,8 @@ export class TurnManager {
       wave:1,totalWaves:trialWaveCount,defeatedEnemyCount:0,
       archetypeId: archetype?.id??"field-operative",enemyAwareness:"patrol",
       enemyPerception:"Nenhuma percepção hostil confirmada",
+      enemyTacticalCharges:capacityForEnemy(firstEnemyRole),
+      enemyTacticalCooldown:0,enemyTacticalRole:firstEnemyRole,
       characterLevel: options.characterLevel ?? 1,
       originId: options.originId ?? "corporativo", classId: primary,multiclassId:secondary,
       characterAbilities: options.characterAbilities ?? [],characterSkillRanks:options.characterSkillRanks ?? {}, classCooldowns:{}, classGuardBonus:0, classGuardTurns:0,
@@ -535,6 +541,25 @@ export class TurnManager {
       this.setCue("emp", "enemy");
     }
     const profile=enemyProfile(this.state.encounterId,this.state.wave);
+    const role=(this.state.enemyTacticalRole??profile.role) as EnemyRole;
+    const pool:EnemyTacticPool={
+      role,charges:this.state.enemyTacticalCharges??capacityForEnemy(role),
+      cooldown:this.state.enemyTacticalCooldown??0,
+    };
+    // Once per enemy turn. Uses the enemy's current profile on a new wave,
+    // even when an old save/test changes the active wave directly.
+    const resolveDevice=(canFire:boolean)=>{
+      const decision=enemyTacticTurn(pool,profile.role,canFire,this.state.energy);
+      this.state.enemyTacticalRole=decision.next.role;
+      this.state.enemyTacticalCharges=decision.next.charges;
+      this.state.enemyTacticalCooldown=decision.next.cooldown;
+      if(decision.device){
+        this.addLog("[RECURSO HOSTIL] "+profile.name+" preparou "+
+          (decision.device==="suppression"?"supressão":"sabotagem")+
+          "; restam "+decision.next.charges+" cargas.");
+      }
+      return decision.device;
+    };
     const pendingOverwatch=this.state.overwatchReady;
     this.state.overwatchReady=false;
     if(!jammed){
@@ -571,6 +596,8 @@ export class TurnManager {
       const visibleNow=hasLineOfSight(enemy,player,this.arenaLayout)&&
         distance(enemy,player)<=6;
       if(visibleNow&&withinShot(enemy,player,profile.range,this.arenaLayout)){
+        // The charge is consumed on ATTEMPT, including a miss.
+        const device=resolveDevice(true);
         const cover=profile.range>1?coverArmorBonus(enemy,player,this.arenaLayout):0;
         const defense=player.armorClass+cover;
         const roll=rollDie(20);
@@ -579,11 +606,11 @@ export class TurnManager {
           player.hp=Math.max(0,player.hp-damage);
           this.setCue("hit","player",damage);
           this.addLog(`[INIMIGO] ${profile.range>1?"Disparo":"Golpe"}: d20 ${roll} + ${enemy.attackBonus} vs ${defense}. ${damage} dano.`);
-          if(profile.role==="suppressor"){
+          if(device==="suppression"){
             this.state.suppressionTurns=1;
             this.addLog("[SUPRESSÃO] Próximo deslocamento reduzido em 2 células.");
           }
-          if(profile.role==="saboteur"){
+          if(device==="sabotage"){
             const drained=Math.min(2,this.state.energy);
             this.state.energy-=drained;
             this.sabotageBlocksRecovery=true;
@@ -594,9 +621,10 @@ export class TurnManager {
           this.addLog(`[INIMIGO] Ataque não atingiu o protagonista (defesa ${defense}).`);
         }
       }else{
+        resolveDevice(false);
         this.addLog("[IA TÁTICA] "+profile.name+" aguarda abertura na linha de tiro.");
       }
-    }
+    }else resolveDevice(false);
     if(jammed&&pendingOverwatch)this.addLog("[VIGILÂNCIA] EMP bloqueou ação inimiga; reação consumida.");
     advanceBarrierAfterEnemyAction(this.state);
     advanceClassGuard(this.state);
@@ -683,6 +711,11 @@ export class TurnManager {
       this.state.movementRemaining=this.state.movementPerTurn;
       this.state.enemyJamTurns=0;
       this.aiMemory=initialEnemyMemory();
+      const nextRole=enemyProfile(this.state.encounterId,this.state.wave).role;
+      const nextPool=initializeEnemyTactics(nextRole);
+      this.state.enemyTacticalCharges=nextPool.charges;
+      this.state.enemyTacticalCooldown=nextPool.cooldown;
+      this.state.enemyTacticalRole=nextRole;
       this.state.enemyAwareness="patrol";
       this.state.enemyPerception="Nova onda: nenhum contato ainda";
       this.state.overwatchReady=false;this.state.suppressionTurns=0;
