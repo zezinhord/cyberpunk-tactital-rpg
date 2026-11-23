@@ -12,6 +12,8 @@ const {CINEMATIC_ARRIVAL_AREAS,arrivalForArea,validateCinematicArrivals}=await
  import("../src/game/story/cinematic-arrivals.ts");
 const {CINEMATIC_CONTACT_IDS,firstContactCinematic}=await
  import("../src/game/story/cinematic-contacts.ts");
+const {CINEMATIC_BATTLE_IDS,battleIntroFor}=await
+ import("../src/game/story/cinematic-battles.ts");
 const root=path=>readFileSync(path,"utf8");
 assert.equal(OPENING_PANELS.length,8);
 assert.ok(OPENING_TARGET_DURATION_MS>=60000&&OPENING_TARGET_DURATION_MS<=120000);
@@ -87,6 +89,15 @@ for(const id of CINEMATIC_CONTACT_IDS){
  assert.ok(dialoguePresentation(intro.speaker,intro.role,1,false)==="cinematic");
 }
 assert.equal(firstContactCinematic("SISTEMA DE MONITORAMENTO"),null);
+assert.equal(CINEMATIC_BATTLE_IDS.length,5);
+for(const id of CINEMATIC_BATTLE_IDS){
+ const intro=battleIntroFor(id);
+ assert.ok(intro&&intro.text.length>60);
+ assert.equal(intro.cinematicId,"battle-intro:"+id);
+ assert.equal(dialoguePresentation(intro.speaker,intro.role,1,false),"cinematic");
+}
+assert.equal(battleIntroFor("test"),null);
+
 
 const priorStorage=globalThis.localStorage;
 const memory=new Map();
@@ -107,6 +118,7 @@ try{
 const intro=root("src/components/OpeningCutscene.tsx");
 const panel=root("src/components/NpcDialoguePanel.tsx");
 const explore=root("src/screens/ExplorationScreen.tsx");
+const app=root("src/App.tsx");
 const styles=root("src/opening-cutscene.css")+root("src/dialogue-cinematic.css");
 for(const key of ["getPlayerLiteSpriteUrl","na-opening-autoplay",
  "na-cinema-confirm","setConfirmSkip(true)","reducedMotion","ORIGIN_CINEMATIC_MEMORY",
@@ -119,5 +131,7 @@ for(const key of ["arrivalForArea(area)","firstContactCinematic(pages[0]!.speake
  "readCinematicHistory(character.id)","cinematicId:arrival.id",
  "<NpcDialoguePanel","onAnswer={selectAnswer}"])
  assert.ok(explore.includes(key),"Existing mission interaction lost: "+key);
+assert.ok(app.includes("setBattleCinematic(intro")&&app.includes("<BattleCinematicDialogue"),
+ "Story boss scenes must use real battle flow and original exit controls");
 assert.ok(styles.includes(".origin-militar")&&styles.includes(".cinematic-cinematic"));
 console.log("Cutscene QA: 8 timed scenes (~89s), six origins, reactive dialogue, protected choices, seven district arrivals, slot isolation and UI contracts passed.");
