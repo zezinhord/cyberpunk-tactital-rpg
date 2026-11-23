@@ -66,3 +66,63 @@
 @media(prefers-reduced-motion:reduce){
  .na-portrait-scene.human,.na-portrait-scene .na-portrait-eyes,.na-dialogue-caret{animation:none!important}
 }
+
+/* 2.0 — three scales of dialogue within the SAME exploration overlay.
+ * Expressivity is intentional: portrait reaction follows authored words.
+ * The approved character portraits and gameplay callbacks are reused. */
+.na-dialogue-speed{display:flex;align-items:center;gap:4px;color:#d6c6ad;
+ font:600 10px var(--mono)}
+.na-dialogue-speed select{min-height:44px;min-width:75px;padding:3px 5px;
+ border:1px solid #69838b;border-radius:5px;background:#20333b;
+ color:#e9e6dd;font:600 11px var(--mono)}
+.na-narrative-panel.cinematic-simple{
+ width:min(780px,95vw);height:min(440px,calc(100dvh - 16px))}
+.na-narrative-panel.cinematic-simple .na-dialogue-main{
+ grid-template-columns:clamp(95px,17vw,145px) minmax(0,1fr)}
+.na-narrative-panel.cinematic-dramatic{
+ border-top-width:3px;box-shadow:0 18px 65px #030912c4}
+.na-narrative-panel.cinematic-cinematic{
+ background:linear-gradient(155deg,#112b35 0%,#08141d 69%,#172732);
+ border-top:3px solid #d5aa71;box-shadow:0 25px 80px #000d}
+.na-narrative-panel.cinematic-cinematic.tone-eden{
+ background:linear-gradient(125deg,#091a1c,#0d2d27);
+ border-color:#7dffb3}
+.na-dialogue-presence{position:relative}
+.na-dialogue-shot-label{position:absolute;z-index:2;bottom:22px;left:0;right:0;
+ padding:4px;background:#07151dc9;color:#e3c99c;
+ text-align:center;font:600 9px var(--mono)}
+.na-narrative-panel:not(.motion-reduced).cinematic-dramatic .na-portrait-scene.human{
+ animation:na-portrait-enter .45s cubic-bezier(.24,.8,.25,1) both}
+.na-narrative-panel:not(.motion-reduced).cinematic-cinematic .na-portrait-scene{
+ animation:na-cinematic-portrait-focus .85s cubic-bezier(.18,.75,.22,1) both}
+@keyframes na-cinematic-portrait-focus{
+ from{opacity:.35;transform:translateY(10px) scale(1.045);
+  filter:brightness(.7)}
+ to{opacity:1;transform:none;filter:brightness(1)}
+}
+.na-narrative-panel:not(.motion-reduced)[data-shot-index="1"]
+ .na-portrait-scene{transform-origin:70% 40%}
+.na-narrative-panel:not(.motion-reduced)[data-emotion="angry"]
+ .na-portrait-scene.human{filter:contrast(1.08) saturate(1.06)}
+.na-narrative-panel:not(.motion-reduced)[data-emotion="concerned"]
+ .na-portrait-scene.human{filter:saturate(.84)}
+.na-narrative-panel:not(.motion-reduced)[data-emotion="suspicious"]
+ .na-portrait-scene.human{filter:brightness(.88)}
+.na-narrative-panel.cinematic-cinematic .na-dialogue-body{
+ border-left:2px solid #bc986a;padding-left:9px}
+.na-narrative-panel.cinematic-cinematic.tone-eden .na-dialogue-body{
+ border-left-color:#7dffb3}
+.na-narrative-panel .dialogue-continue:disabled{
+ opacity:.64;cursor:not-allowed}
+@media(orientation:landscape) and (max-height:440px){
+ .na-narrative-panel.cinematic-simple{height:calc(100dvh - 16px)}
+ .na-dialogue-speed{font-size:0}
+ .na-dialogue-speed select{min-width:75px}
+ .na-dialogue-shot-label{bottom:18px;font-size:8px}
+}
+@media(prefers-reduced-motion:reduce){
+ .na-narrative-panel .na-portrait-scene{animation:none!important;
+  transition:none!important;transform:none!important;filter:none!important}
+}
+.na-narrative-panel.motion-reduced .na-portrait-scene{
+ animation:none!important;transition:none!important;transform:none!important}
