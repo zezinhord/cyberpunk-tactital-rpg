@@ -22,4 +22,7 @@ assert.ok(sprites.includes("npc:(id)=>get(id)"),
 assert.ok(world.includes("if(sector!==lastSector)")&&
  world.includes("if(near!==lastNearby)"),
  "Walking should not trigger duplicate React sector and access updates");
-console.log("Baixada visual QA: original art, eight eager resources, lazy NPCs, efficient HUD updates and occlusion protected.");
+assert.ok(world.includes("const v=view;"),"Pointer coordinates must use the last rendered camera");
+assert.ok(world.includes('frameIntervalMs=readGraphicsMode()==="balanced"?16.67:33.34'),
+ "The Android Canvas renderer must honor economy/balanced FPS");
+console.log("Baixada QA: sprites preserved, lazy NPCs, HUD updates, frame pacing, camera hit tests and occlusion verified.");
