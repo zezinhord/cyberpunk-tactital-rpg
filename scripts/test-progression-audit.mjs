@@ -5,11 +5,13 @@ registerHooks({resolve(specifier,context,next){
   !/\.[cm]?[jt]s$/.test(specifier))return next(specifier+".ts",context);
  return next(specifier,context);
 }});
-const {levelExperienceProgress,levelAtXp,LEVEL_XP,gainExperience,
+const {levelExperienceProgress,masteryExperienceProgress,
+ earnedMasterySkillPoints,MAX_MASTERY_SKILL_POINTS,MASTERY_XP_PER_POINT,
+ normalizeProgression,getSkillRank,levelAtXp,LEVEL_XP,gainExperience,
  grantUniqueExperience,availableSkillPoints,purchaseSkill,skillEffectPreview}=
  await import("../src/game/progression/tree.ts");
 const {createPlayerCharacter}=await import("../src/game/character/storage.ts");
-const {CLASS_IDS,ALL_CLASS_SKILLS}=await import("../src/game/classes/registry.ts");
+const {CLASS_IDS,ALL_CLASS_SKILLS,getClassBranches}=await import("../src/game/classes/registry.ts");
 const {checkClassSkill,executeClassSkill}=await import("../src/game/classes/engine.ts");
 const {readFileSync}=await import("node:fs");
 
@@ -31,6 +33,56 @@ assert.equal(levelExperienceProgress({level:7,experience:75}).percent,0,
  "An upgraded legacy level with insufficient XP must not show negative progress");
 assert.equal(levelExperienceProgress({level:2,experience:99}).percent,100,
  "A loaded XP milestone cannot overflow the visible level bar");
+
+// The original ten levels and all saved progression IDs stay unchanged.
+assert.equal(MASTERY_XP_PER_POINT,450);
+assert.equal(MAX_MASTERY_SKILL_POINTS,8);
+for(const [xp,expected] of [
+ [0,0],[809,0],[810,0],[1259,0],[1260,1],
+ [1709,1],[1710,2],[4409,7],[4410,8],[100000,8]
+]){
+ const profile={level:10,experience:xp};
+ assert.equal(earnedMasterySkillPoints(profile),expected,
+  "Mastery must unlock only at distinct post-max XP milestones");
+}
+assert.equal(earnedMasterySkillPoints({level:9,experience:4000}),0,
+ "No mastery on a non-max-level legacy character");
+assert.equal(masteryExperienceProgress({level:10,experience:810}).remaining,450);
+assert.equal(masteryExperienceProgress({level:10,experience:1260}).remaining,450);
+assert.equal(masteryExperienceProgress({level:10,experience:4409}).remaining,1);
+assert.equal(masteryExperienceProgress({level:10,experience:4410}).percent,100);
+// An endgame operative can spend 8 extra points on REAL class skills.
+// No increase to attributes or level beyond the original ten-level curve.
+let veteran=gainExperience(
+ createPlayerCharacter("Veteran","militar","solo"),4410).character;
+assert.equal(veteran.level,10);
+assert.equal(availableSkillPoints(veteran),26);
+for(const path of getClassBranches("solo")){
+ for(const id of path.skillIds){
+  if(veteran.abilities.includes(id))continue;
+  const result=purchaseSkill(veteran,id);
+  assert.ok(result.ok,"Mastery failed to unlock "+id+": "+result.message);
+  veteran=result.character;
+ }
+}
+for(const path of getClassBranches("solo")){
+ for(const id of path.skillIds){
+  while(getSkillRank(veteran,id)<ALL_CLASS_SKILLS[id].maxRank){
+   const result=purchaseSkill(veteran,id);
+   assert.ok(result.ok,"Mastery failed to upgrade "+id+": "+result.message);
+   veteran=result.character;
+  }
+ }
+}
+assert.equal(availableSkillPoints(veteran),0,
+ "Post-10 skill points must not cause infinite or free purchases");
+const persisted=normalizeProgression(veteran);
+assert.equal(availableSkillPoints(persisted),0);
+for(const path of getClassBranches("solo"))
+ for(const id of path.skillIds)
+  assert.equal(getSkillRank(persisted,id),ALL_CLASS_SKILLS[id].maxRank,
+   "Normalization must retain all purchased mastery ranks");
+assert.equal(persisted.level,10,"Mastery may not inflate historic level or combat stats");
 
 let a=createPlayerCharacter("QA","baixada","medtech");
 a=gainExperience(a,75).character;
@@ -133,6 +185,8 @@ assert.ok(purchaseHandlers.indexOf("if(!saveCharacter(purchase.character))")<
  "Never show a purchase as committed before persistence succeeds");
 const ui=readFileSync("src/components/ProgressionTree.tsx","utf8");
 assert.ok(ui.includes("levelExperienceProgress(character)"));
+assert.ok(ui.includes("masteryExperienceProgress(character)"),
+ "The max-level skill tree must display progress to the next mastery point");
 assert.ok(ui.includes("Grau atual:")&&ui.includes("Próximo grau:"),
  "Current ability effects and upgraded effects must both be visible");
 const picker=readFileSync("src/components/CombatAbilityPicker.tsx","utf8");
