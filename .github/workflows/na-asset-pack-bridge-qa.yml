@@ -84,6 +84,7 @@ on:
       - src/components/NpcDialoguePanel.tsx
       - scripts/test-ai-tactical.mjs
       - scripts/test-ai-world.mjs
+      - scripts/test-ai-combat-resources.mjs
       - src/game/story/market.ts
       - scripts/test-market-story.mjs
       - scripts/test-council-defenses-v20.mjs
@@ -189,6 +190,7 @@ jobs:
           node --experimental-strip-types scripts/test-multiclass.mjs
           node --experimental-strip-types scripts/test-ai-tactical.mjs
           node --experimental-strip-types scripts/test-ai-world.mjs
+          node --experimental-strip-types scripts/test-ai-combat-resources.mjs
           node --experimental-strip-types scripts/test-market-story.mjs
           node --experimental-strip-types scripts/test-movement.mjs
           node --experimental-strip-types scripts/test-baixada-collisions.mjs
