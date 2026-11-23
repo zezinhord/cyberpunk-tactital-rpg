@@ -3,7 +3,7 @@ import type {PlayerCharacter} from "../game/character/types";
 import {ALL_CLASS_SKILLS,getClassById,getClassBranches} from "../game/classes/registry";
 import {STATS,STAT_IDS,GENERAL_PASSIVES,MAX_STAT_RANK,
  availableAttributePoints,availableSkillPoints,statRank,statBreakdown,getSkillRank,
- LEVEL_XP,skillPrerequisite,combatProgression,skillEffectPreview,type StatId} from "../game/progression/tree";
+ levelExperienceProgress,skillPrerequisite,combatProgression,skillEffectPreview,type StatId} from "../game/progression/tree";
 
 export default function ProgressionTree({character,onAttribute,onSkill}:{
  character:PlayerCharacter;
@@ -14,8 +14,7 @@ export default function ProgressionTree({character,onAttribute,onSkill}:{
  const [feedback,setFeedback]=useState("");
  const attributePoints=availableAttributePoints(character);
  const skillPoints=availableSkillPoints(character);
- const xpCurrent=character.experience;
- const next=LEVEL_XP[character.level]??null;
+ const xpProgress=levelExperienceProgress(character);
  const branches=getClassBranches(character.classId);
  const statBefore=combatProgression(character);
  const preview=(id:StatId)=>{
@@ -35,10 +34,16 @@ export default function ProgressionTree({character,onAttribute,onSkill}:{
        <div><small>OPERATIVO · EVOLUÇÃO</small><h4>Nível {character.level} · {character.classId?getClassById(character.classId).name:"Classe pendente"}</h4></div>
        <div className="na-tree-points"><strong>ATR {attributePoints}</strong><strong>HAB {skillPoints}</strong></div>
      </div>
-     <p>{next===null?"Nível máximo atingido":xpCurrent+" XP acumulados · faltam "+Math.max(0,next-xpCurrent)+" XP para o nível "+(character.level+1)}</p>
+     <p>{xpProgress.nextLevel===null?
+        "Nível máximo atingido · "+character.experience+" XP totais":
+        character.experience+" XP totais · "+xpProgress.earned+" / "+
+         xpProgress.required+" XP neste nível · faltam "+xpProgress.remaining+
+         " XP para o nível "+xpProgress.nextLevel}</p>
      <div className="na-tree-xp-track" role="progressbar" aria-valuemin={0}
-       aria-valuemax={next??Math.max(1,xpCurrent)} aria-valuenow={xpCurrent}>
-       <span style={{width:(next?Math.min(100,xpCurrent/next*100):100)+"%"}}/>
+       aria-valuemax={xpProgress.required||1}
+       aria-valuenow={xpProgress.nextLevel===null?1:xpProgress.earned}
+       aria-label={xpProgress.nextLevel===null?"Nível máximo":"Progresso de XP do nível atual"}>
+       <span style={{width:xpProgress.percent+"%"}}/>
      </div>
      <div className="na-tree-tabs" role="group" aria-label="Seção de evolução">
        <button type="button" className={section==="attributes"?"selected":""}
@@ -106,7 +111,8 @@ export default function ProgressionTree({character,onAttribute,onSkill}:{
                <p>{skill.description}</p>
                <small>{skill.cost} energia · {skill.cooldown} turnos de recarga · alcance {skill.range}</small>
                <small>{prior?"Requer "+(ALL_CLASS_SKILLS[prior]?.name??prior):"Raiz independente da especialização"} · Nível {needsLevel}</small>
-               <span className="na-tree-preview">{maxed?"Efeito atual: ":"Próximo grau: "}{skillEffectPreview(skill,maxed?rank:rank+1)}</span>
+               {rank>0&&<span className="na-tree-preview">Grau atual: {skillEffectPreview(skill,rank)}</span>}
+               {!maxed&&<span className="na-tree-preview">Próximo grau: {skillEffectPreview(skill,rank+1)}</span>}
                <button type="button" disabled={maxed||locked||skillPoints<1}
                  onClick={()=>setFeedback(onSkill(id))}>
                  {maxed?"Grau máximo":locked?"Bloqueada":start?"Aprimorar · 1 HAB":rank?"Elevar grau · 1 HAB":"Desbloquear · 1 HAB"}
