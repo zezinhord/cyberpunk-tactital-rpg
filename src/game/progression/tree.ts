@@ -2,6 +2,8 @@ import type {PlayerCharacter} from "../character/types.ts";
 import type {OriginId} from "../character/origins.ts";
 import {ALL_CLASS_SKILLS,CLASS_IDS,getClassBranches,getStartingClassAbilities,
  isPlayableClass,type ClassId,type ClassSkill} from "../classes/registry.ts";
+import {isValidSecondary,effectiveSkillMinimumLevel,effectiveSkillMaxRank,
+ MULTICLASS_UNLOCK_LEVEL,MULTICLASS_SKILL_COST} from "../classes/hybrids.ts";
 
 export const STAT_IDS=["vigor","precisao","reflexos","interface","influencia"] as const;
 export type StatId=(typeof STAT_IDS)[number];
@@ -157,15 +159,15 @@ export function skillPrerequisite(id:string):string|null{
 }
 export function getSkillRank(char:PlayerCharacter,id:string):number{
  const spec=ALL_CLASS_SKILLS[id];
- if(!spec||spec.classId!==char.classId||!char.abilities.includes(id))return 0;
+ if(!spec||effectiveSkillMaxRank(char,spec)<1||!char.abilities.includes(id))return 0;
  const raw=char.skillRanks?.[id];
  return typeof raw==="number"&&Number.isSafeInteger(raw)?
- Math.min(spec.maxRank,Math.max(1,raw)):1;
+ Math.min(effectiveSkillMaxRank(char,spec),Math.max(1,raw)):1;
 }
 export function purchasedActiveSkills(char:PlayerCharacter):string[]{
  return char.abilities.filter(id=>{
    const node=ALL_CLASS_SKILLS[id];
-   return Boolean(node&&node.minimumLevel>1&&node.classId===char.classId);
+   return Boolean(node&&node.minimumLevel>1&&effectiveSkillMaxRank(char,node)>0);
  });
 }
 export function availableSkillPoints(char:PlayerCharacter):number{
@@ -173,7 +175,8 @@ export function availableSkillPoints(char:PlayerCharacter):number{
   new Set(char.skills.filter(id=>id in GENERAL_PASSIVES)).size+
   Object.keys(ALL_CLASS_SKILLS).reduce((sum,id)=>sum+Math.max(0,getSkillRank(char,id)-1),0);
  return Math.max(0,POINTS_PER_LEVEL.skills*(char.level-1)+
-  earnedMasterySkillPoints(char)-spent);
+  earnedMasterySkillPoints(char)-spent-
+  (isValidSecondary(char.classId,char.multiclassId)?MULTICLASS_SKILL_COST:0));
 }
 export function purchaseAttribute(char:PlayerCharacter,id:StatId):
  {ok:boolean;character:PlayerCharacter;message:string}{
@@ -182,6 +185,27 @@ export function purchaseAttribute(char:PlayerCharacter,id:StatId):
  if(statRank(char,id)>=MAX_STAT_RANK)return {ok:false,character:char,message:"Atributo no máximo (5)."};
  return {ok:true,character:{...char,attributes:{...char.attributes,[id]:sane(char.attributes[id])+1},
   updatedAt:new Date().toISOString()},message:"Ponto aplicado em "+STATS[id].name+"."};
+}
+/** 2 HAB buy a SECOND class at level four: no second attribute package,
+ * no extra turn, and no free extra skill budget. One role cannot be exchanged
+ * for a third without reconstructing this character from a different save.
+ */
+export function purchaseMulticlass(char:PlayerCharacter,id:ClassId):
+ {ok:boolean;character:PlayerCharacter;message:string}{
+ if(!char.classId||!isPlayableClass(char.classId))
+  return {ok:false,character:char,message:"Escolha primeiro uma classe principal."};
+ if(char.multiclassId)
+  return {ok:false,character:char,message:"O limite é de duas classes por personagem."};
+ if(!isValidSecondary(char.classId,id))
+  return {ok:false,character:char,message:"A classe secundária deve ser diferente da principal."};
+ if(char.level<MULTICLASS_UNLOCK_LEVEL)
+  return {ok:false,character:char,message:"Multiclasse é liberada no nível 4."};
+ if(availableSkillPoints(char)<MULTICLASS_SKILL_COST)
+  return {ok:false,character:char,message:"São necessários 2 pontos de habilidade para a multiclasse."};
+ return {ok:true,character:{...char,multiclassId:id,
+  abilities:[...new Set([...char.abilities,...getStartingClassAbilities(id)])],
+  updatedAt:new Date().toISOString()},
+  message:"Multiclasse adquirida: "+id+" · 2 HAB. Habilidades compartilham energia, ações e recargas."};
 }
 export function purchaseSkill(char:PlayerCharacter,id:string):
  {ok:boolean;character:PlayerCharacter;message:string}{
@@ -194,15 +218,19 @@ export function purchaseSkill(char:PlayerCharacter,id:string):
      message:"Passiva desbloqueada: "+passive.name+"."};
  }
  const skill=ALL_CLASS_SKILLS[id];
- if(!skill||skill.classId!==char.classId)return {ok:false,character:char,message:"Técnica exclusiva de outra classe."};
- if(char.level<skill.minimumLevel)return {ok:false,character:char,message:"Exige nível "+skill.minimumLevel+"."};
+ if(!skill||effectiveSkillMaxRank(char,skill)<1)
+  return {ok:false,character:char,message:"Técnica exige classe principal ou secundária escolhida."};
+ const effectiveLevel=effectiveSkillMinimumLevel(char,skill);
+ if(char.level<effectiveLevel)
+  return {ok:false,character:char,message:"Exige nível "+effectiveLevel+" nesta especialização."};
  const prior=skillPrerequisite(id);
  if(prior&&!char.abilities.includes(prior))
    return {ok:false,character:char,message:"Requer desbloquear "+(ALL_CLASS_SKILLS[prior]?.name??prior)+"."};
  const current=getSkillRank(char,id);
- if(current>=skill.maxRank)return {ok:false,character:char,message:"Habilidade no nível máximo."};
- if(current>0&&char.level<skill.minimumLevel+current)
-   return {ok:false,character:char,message:"Próxima melhoria exige nível "+(skill.minimumLevel+current)+"."};
+ if(current>=effectiveSkillMaxRank(char,skill))
+  return {ok:false,character:char,message:"Limite de grau desta classe alcançado."};
+ if(current>0&&char.level<effectiveLevel+current)
+   return {ok:false,character:char,message:"Próxima melhoria exige nível "+(effectiveLevel+current)+"."};
  const updated={...char,abilities:current?[...char.abilities]:[...char.abilities,id],
    skillRanks:{...char.skillRanks,[id]:current+1},updatedAt:new Date().toISOString()};
  return {ok:true,character:updated,
@@ -216,6 +244,9 @@ export function normalizeProgression(char:PlayerCharacter):PlayerCharacter{
  const level=Math.min(MAX_LEVEL,Math.max(1,levelAtXp(char.experience),sane(char.level,MAX_LEVEL)));
  const originStatBonuses={...ORIGIN_STAT_BONUSES[char.originId],...(char.originStatBonuses??{})};
  const classStatBonuses={...(char.classId?CLASS_STAT_BONUSES[char.classId]:{}),...(char.classStatBonuses??{})};
+ const multiclassId=level>=MULTICLASS_UNLOCK_LEVEL&&
+  isValidSecondary(char.classId,char.multiclassId)?char.multiclassId:null;
+ const roles={classId:char.classId,multiclassId};
  const baseAttributes={...BASE_ATTRIBUTES,...(char.baseAttributes??{})};
  const attr:Record<string,number>={};
  let attrBudget=POINTS_PER_LEVEL.attributes*(level-1);
@@ -227,24 +258,26 @@ export function normalizeProgression(char:PlayerCharacter):PlayerCharacter{
  // Sem classe definida, IDs legados são mantidos como arquivo inerte.
  // O motor só executa IDs cadastrados da classe ativa.
  const abilities=new Set<string>(char.classId&&isPlayableClass(char.classId)?
-   getStartingClassAbilities(char.classId):
+   [...getStartingClassAbilities(char.classId),
+    ...(multiclassId?getStartingClassAbilities(multiclassId):[])]:
    char.abilities.filter(id=>typeof id==="string"&&id.length<=80));
  // Identificadores históricos desconhecidos não são pontos compráveis e
  // permanecem no save inertes para não descartar informação de versões antigas.
  const general:string[]=char.skills.filter(id=>
    typeof id==="string"&&!(id in GENERAL_PASSIVES)&&id.length<=80);
  const ranks:Record<string,number>={};
- let budget=POINTS_PER_LEVEL.skills*(level-1)+
-   earnedMasterySkillPoints({...char,level});
+ let budget=Math.max(0,POINTS_PER_LEVEL.skills*(level-1)+
+   earnedMasterySkillPoints({...char,level})-
+   (multiclassId?MULTICLASS_SKILL_COST:0));
  // Legado possuía técnicas desbloqueadas sem mapa de ranks.
  const acquired=[...new Set(char.abilities)].filter(id=>{
    const node=ALL_CLASS_SKILLS[id];
-   return Boolean(node&&node.classId===char.classId);
+   return Boolean(node&&effectiveSkillMaxRank(roles,node)>0);
  })
    .sort((a,b)=>ALL_CLASS_SKILLS[a]!.minimumLevel-ALL_CLASS_SKILLS[b]!.minimumLevel);
  for(const id of acquired){
    const node=ALL_CLASS_SKILLS[id]!;
-   if(abilities.has(id)||level<node.minimumLevel||budget<1)continue;
+   if(abilities.has(id)||level<effectiveSkillMinimumLevel(roles,node)||budget<1)continue;
    const prior=skillPrerequisite(id);
    if(prior&&!abilities.has(prior))continue;
    abilities.add(id);budget--;
@@ -256,13 +289,14 @@ export function normalizeProgression(char:PlayerCharacter):PlayerCharacter{
  for(const id of abilities){
    const node=ALL_CLASS_SKILLS[id];
    if(!node)continue;
-   const claimed=sane(char.skillRanks?.[id],node.maxRank);
-   const capped=Math.min(node.maxRank,Math.max(1,claimed||1),
-     Math.max(1,level-node.minimumLevel+1));
+   const maxRank=effectiveSkillMaxRank(roles,node);
+   const claimed=sane(char.skillRanks?.[id],maxRank);
+   const capped=Math.min(maxRank,Math.max(1,claimed||1),
+     Math.max(1,level-effectiveSkillMinimumLevel(roles,node)+1));
    const desired=Math.min(budget,capped-1);
    if(desired>0){ranks[id]=desired+1;budget-=desired;}
  }
- return {...char,level,attributes:attr,baseAttributes,originStatBonuses,classStatBonuses,
+ return {...char,level,multiclassId,attributes:attr,baseAttributes,originStatBonuses,classStatBonuses,
    skills:general,abilities:[...abilities],skillRanks:ranks,
    questRewards:[...new Set(char.questRewards.filter(id=>typeof id==="string"&&id.length<120))]};
 }
