@@ -10,6 +10,7 @@ import {canStand,canTraverse,route,approachRoute,routeNearTarget} from "../game/
 import {smoothCamera,interpolateWalk,completedStepAt} from "../game/baixada/motion";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
 import {readGraphicsMode} from "../game/performance";
+import {createCanvasPerformanceDiagnostics} from "../game/performance-diagnostics";
 import type {OriginId} from "../game/character";
 import type {TestAppearance} from "../game/test-arena/appearance";
 
@@ -129,6 +130,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
   if(!host||!canvas)return;
   let disposed=false,context:CanvasRenderingContext2D|null=null;
   let frameId=0,painted=false,lastSave=0,lastRender=0,lastTick=0,suspendedAt=0;
+  const diagnostics=createCanvasPerformanceDiagnostics("Baixada · Android Canvas 2D");
   // Respect the actual Android settings: economy remains 30 FPS by default;
   // players with capable devices can opt into 60 FPS without initializing Phaser.
   const frameIntervalMs=readGraphicsMode()==="balanced"?16.67:33.34;
@@ -549,7 +551,11 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     // o próximo frame ocorra antes de 33 ms.
     if(now-lastRender>=frameIntervalMs||!painted||(!motion.step&&!cameraMoving)){
      lastRender=now;
-     try{paint();}catch(e){
+     try{
+      paint();
+      // Track presented Canvas frames, not RAF ticks. Idle frames are omitted.
+      diagnostics.frame(now,motion.step!==null||cameraMoving);
+     }catch(e){
       setStatus("failed");setError("O desenho leve encontrou um erro: "+String(e).slice(0,95));
       return;
      }
@@ -631,6 +637,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
   let residentTimer:number|null=null;
   const visibility=()=>{
     if(document.hidden){
+      diagnostics.frame(performance.now(),false);
       suspendedAt=performance.now();
       if(frameId)cancelAnimationFrame(frameId);
       frameId=0;
@@ -701,6 +708,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     document.removeEventListener("visibilitychange",visibility);
     scene.current=null;
     art?.dispose();
+    diagnostics.dispose();
     // Preservar o último tile confirmado mesmo após fechamento inesperado.
     notify(motion.position,true);
   };
