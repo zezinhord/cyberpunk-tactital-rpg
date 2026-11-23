@@ -3,7 +3,7 @@ import {readFileSync} from "node:fs";
 import {registerHooks} from "node:module";
 registerHooks({resolve(specifier,context,next){
   if((specifier.startsWith("./")||specifier.startsWith("../"))&&
-     !/\\.[cm]?[jt]s$/.test(specifier))
+     !/\.[cm]?[jt]s$/.test(specifier))
     return next(specifier+".ts",context);
   return next(specifier,context);
 }});
