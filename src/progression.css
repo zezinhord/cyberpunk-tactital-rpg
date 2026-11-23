@@ -42,3 +42,8 @@
 .na-level-up-alert strong{flex:1;min-width:160px}
 .na-level-up-alert button{min-height:48px;min-width:48px;border:1px solid #87d4de;border-radius:6px;background:#1b4d59;
  color:#f1f4ee;padding:8px 12px;font-weight:700;touch-action:manipulation}
+
+.na-tree-mastery-note{
+ display:block;color:#e9c388;font:600 10px/1.4 var(--mono);
+ padding:3px 2px;overflow-wrap:anywhere
+}
