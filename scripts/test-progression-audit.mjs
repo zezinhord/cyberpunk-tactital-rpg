@@ -118,6 +118,19 @@ const make=(id,{hp=30,energy=10,guard=0,armorDebuff=0,nextDamage=0}={})=>{
  assert.equal(checkClassSkill(state,ALL_CLASS_SKILLS["medtech-triagem"]).available,false);
  assert.equal(state.mainActionAvailable,true);
 }
+// Rapid taps must use the newest saved snapshot (not a stale React closure).
+const app=readFileSync("src/App.tsx","utf8");
+const purchaseHandlers=app.slice(app.indexOf("  const buyAttribute="),
+ app.indexOf("  useEffect(()=>{",app.indexOf("  const buyAttribute=")));
+assert.ok(purchaseHandlers.includes("purchaseAttribute(active,id)"));
+assert.ok(purchaseHandlers.includes("purchaseSkill(active,id)"));
+assert.equal(purchaseHandlers.split("const active=characterRef.current;").length-1,2,
+ "Both purchase handlers must read the latest committed character");
+assert.equal(purchaseHandlers.split("characterRef.current=purchase.character;").length-1,2,
+ "Both purchase handlers must update the ref after a successful write");
+assert.ok(purchaseHandlers.indexOf("if(!saveCharacter(purchase.character))")<
+ purchaseHandlers.indexOf("characterRef.current=purchase.character;"),
+ "Never show a purchase as committed before persistence succeeds");
 const ui=readFileSync("src/components/ProgressionTree.tsx","utf8");
 assert.ok(ui.includes("levelExperienceProgress(character)"));
 assert.ok(ui.includes("Grau atual:")&&ui.includes("Próximo grau:"),
