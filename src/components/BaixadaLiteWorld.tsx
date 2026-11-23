@@ -8,6 +8,7 @@ import {createLiteArtAssets,drawLiteSprite,LONG_NPC_SHEETS,type LiteArtAssets} f
 import {CitizenRoutine} from "../game/baixada/npc-routines.ts";
 import {canStand,canTraverse,route,approachRoute,routeNearTarget} from "../game/baixada/navigation";
 import {smoothCamera,interpolateWalk,completedStepAt} from "../game/baixada/motion";
+import {canvasFrameDeadline} from "../game/baixada/frame-pacing";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
 import {readGraphicsMode} from "../game/performance";
 import {createCanvasPerformanceDiagnostics} from "../game/performance-diagnostics";
@@ -133,7 +134,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
   const diagnostics=createCanvasPerformanceDiagnostics("Baixada · Android Canvas 2D");
   // Respect the actual Android settings: economy remains 30 FPS by default;
   // players with capable devices can opt into 60 FPS without initializing Phaser.
-  const frameIntervalMs=readGraphicsMode()==="balanced"?16.67:33.34;
+  const frameTargetFps=readGraphicsMode()==="balanced"?60:30;
   let width=0,height=0;
   let motion:Motion={
    position:loadWorldLocation(characterId),steps:[],step:null,pendingActor:null,
@@ -549,8 +550,13 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     // contínua e renderizamos até 30 FPS, sem GPU nem bitmaps full-world.
     // Ao terminar a caminhada pintamos sempre a posição final, mesmo que
     // o próximo frame ocorra antes de 33 ms.
-    if(now-lastRender>=frameIntervalMs||!painted||(!motion.step&&!cameraMoving)){
-     lastRender=now;
+    const residentAnimating=[...residents.values()].some(n=>now-n.movedAt<640);
+    const pacing=canvasFrameDeadline(now,lastRender,frameTargetFps);
+    // A static appearance change still needs an immediate frame. Roaming
+    // NPC animations remain capped by the selected 30/60 FPS graphics mode.
+    const finalIdleFrame=!motion.step&&!cameraMoving&&!residentAnimating;
+    if(pacing.due||!painted||finalIdleFrame){
+     lastRender=pacing.due?pacing.nextAt:now;
      try{
       paint();
       // Track presented Canvas frames, not RAF ticks. Idle frames are omitted.
@@ -560,7 +566,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
       return;
      }
     }
-    if(motion.step||cameraMoving||[...residents.values()].some(n=>now-n.movedAt<640))schedule();
+    if(motion.step||cameraMoving||residentAnimating)schedule();
   };
   const go=(destination:Tile,actor?:string)=>{
     const start=motion.step?.to??motion.position;
