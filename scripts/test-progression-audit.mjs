@@ -122,4 +122,9 @@ const ui=readFileSync("src/components/ProgressionTree.tsx","utf8");
 assert.ok(ui.includes("levelExperienceProgress(character)"));
 assert.ok(ui.includes("Grau atual:")&&ui.includes("Próximo grau:"),
  "Current ability effects and upgraded effects must both be visible");
+const picker=readFileSync("src/components/CombatAbilityPicker.tsx","utf8");
+assert.ok(picker.includes("skillEffectPreview(skill,rank)"),
+ "Combat must show the EXACT effects of the purchased skill rank");
+assert.ok(picker.includes("EFEITO NO GRAU")&&picker.includes("GRAU "),
+ "Purchased upgrades must be visibly identified in the skill picker");
 console.log("Progression audit: 10 XP thresholds, 11 classes, unique XP, safe mixed skills and rank previews passed.");
