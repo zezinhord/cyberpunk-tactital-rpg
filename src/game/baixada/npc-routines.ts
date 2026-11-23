@@ -1,7 +1,8 @@
 import { route, canTraverse } from "./navigation.ts";
 import type { Tile } from "./layout.ts";
+import type {CitizenContext} from "../ai/citizen-schedule.ts";
 
-export type CitizenState = "idle" | "walk" | "interact" | "return";
+export type CitizenState = "idle" | "walk" | "interact" | "return" | "rest" | "alert";
 export interface CitizenDefinition {
   id: string; name: string; route: readonly Tile[]; pauseTicks: number;
 }
@@ -20,7 +21,27 @@ export class CitizenRoutine {
     this.pauseRemaining=definition.pauseTicks;
   }
   interact():void { this.state="interact"; this.pauseRemaining=3; }
-  tick(position:Tile, occupied:ReadonlySet<string>):CitizenStep {
+  tick(position:Tile, occupied:ReadonlySet<string>,context?:CitizenContext):CitizenStep {
+    if(context&&(context.phase==="rest"||context.alarmed)){
+      // A frightened/resting resident returns home through real obstacles,
+      // then stops updating until the alert or night period ends.
+      const home=this.definition.route[0]!;
+      const state:CitizenState=context.alarmed?"alert":"rest";
+      if(position.x===home.x&&position.y===home.y){
+        this.state=state;this.waypointIndex=0;
+        return {tile:position,state,moved:false};
+      }
+      const path=route(position,home,{occupied});
+      if(!path||path.length<2||!canTraverse(position,path[1]!,{occupied})){
+        this.state="return";
+        return {tile:position,state:"return",moved:false};
+      }
+      this.state="return";
+      return {tile:path[1]!,state:"return",moved:true};
+    }
+    if(this.state==="rest"||this.state==="alert"){
+      this.state="idle";this.pauseRemaining=this.definition.pauseTicks;
+    }
     if(this.state==="interact"){
       this.pauseRemaining-=1;
       if(this.pauseRemaining<=0){this.state="return";this.pauseRemaining=0;}
