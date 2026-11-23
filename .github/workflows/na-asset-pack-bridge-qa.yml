@@ -54,6 +54,12 @@ on:
       - scripts/test-council-defenses-v20.mjs
       - src/game/TurnManager.ts
       - src/game/combat/attack-rules.ts
+      - src/game/baixada/mission-waypoint.ts
+      - src/components/BaixadaWorld.tsx
+      - src/screens/ExplorationScreen.tsx
+      - src/styles.css
+      - scripts/test-mission-waypoint.mjs
+      - scripts/test-council-defenses-v20.mjs
       - src/components/Battlefield.tsx
       - src/arena-v030.css
       - scripts/test-tactics.mjs
@@ -149,6 +155,7 @@ jobs:
           node --experimental-strip-types scripts/test-siege-terminals-v20.mjs
           node --experimental-strip-types scripts/test-tactics.mjs
           node --experimental-strip-types scripts/test-battlefield-navigation.mjs
+          node --experimental-strip-types scripts/test-mission-waypoint.mjs
           node --experimental-strip-types scripts/test-movement.mjs
           node --experimental-strip-types scripts/test-baixada-collisions.mjs
           node scripts/test-baixada-art.mjs
