@@ -8,7 +8,10 @@ import type { AbilityCheck } from "./abilities/engine.ts";
 import type { CombatVisual } from "./types";
 import { findPath,getReachableCells,coverBetween,coverArmorBonus,MOVEMENT_PER_TURN,
   type CoverGrade } from "./map";
-import {enemyProfile,planEnemyTurn,withinShot} from "./tactics";
+import {enemyProfile,withinShot} from "./tactics";
+import {decideEnemy,hearEnemy,initialEnemyMemory,
+  type EnemyMemory} from "./ai/tactical-brain.ts";
+import {hasLineOfSight} from "./map.ts";
 import {attackHits,attackHitChance} from "./combat/attack-rules.ts";
 import type {UrbanCombatSupport} from "./story/urban-chronicles.ts";
 import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types";
@@ -62,6 +65,7 @@ export class TurnManager {
   private nextAttackDamageBonus = 0;
   private nextAttackAccuracyBonus = 0;
   private sabotageBlocksRecovery=false;
+  private aiMemory:EnemyMemory=initialEnemyMemory();
   private state: GameState;
 
   constructor(options: TurnManagerOptions = {}) {
@@ -134,7 +138,9 @@ export class TurnManager {
       activeSide: "player",
       encounterId: options.encounterId ?? "test",
       wave:1,totalWaves:trialWaveCount,defeatedEnemyCount:0,
-      archetypeId: archetype?.id??"field-operative", characterLevel: options.characterLevel ?? 1,
+      archetypeId: archetype?.id??"field-operative",enemyAwareness:"patrol",
+      enemyPerception:"Nenhuma percepção hostil confirmada",
+      characterLevel: options.characterLevel ?? 1,
       originId: options.originId ?? "corporativo", classId: primary,multiclassId:secondary,
       characterAbilities: options.characterAbilities ?? [],characterSkillRanks:options.characterSkillRanks ?? {}, classCooldowns:{}, classGuardBonus:0, classGuardTurns:0,
       classExtraMovement:0,classNextDamageBonus:0,classNextAccuracyBonus:0,
@@ -239,6 +245,9 @@ export class TurnManager {
     const result=executeClassSkill(this.state,skill);
     if(!result.ok){this.setMessage(result.message);return;}
     this.addLog("[CLASSE] "+result.message);
+    const source=livingUnit(this.state.units,"runner");
+    if(source)this.aiMemory=hearEnemy(this.aiMemory,source,this.state.round,
+       skill.target==="enemy"?7:3);
     this.setCue(skill.visual,skill.target==="enemy"?"enemy":"player",result.amount);
     this.resolveEnemyDown();
     this.publish();
@@ -254,6 +263,8 @@ export class TurnManager {
       return;
     }
     this.addLog("[ESPECIAL] " + result.message);
+    const source=livingUnit(this.state.units,"runner");
+    if(source)this.aiMemory=hearEnemy(this.aiMemory,source,this.state.round,6);
     this.setCue(result.visual ?? "basic", result.target ?? "player", result.amount);
     this.resolveEnemyDown();
     this.publish();
@@ -339,8 +350,13 @@ export class TurnManager {
     const enemy=livingUnit(this.state.units,"drone");
     if(!player||!enemy||this.state.combatComplete)return "Sem ameaça ativa";
     if(this.state.enemyJamTurns>0)return "Interferência ativa: ação hostil bloqueada";
-    return planEnemyTurn(enemy,player,this.state.units,
-      enemyProfile(this.state.encounterId,this.state.wave),this.arenaLayout).intent;
+    const estimate=decideEnemy(enemy,player,this.state.units,
+      enemyProfile(this.state.encounterId,this.state.wave),
+      this.aiMemory,this.state.round,this.arenaLayout);
+    return estimate.perception.saw?estimate.plan.intent:
+      estimate.perception.heard?"Investigando ruído percebido":
+      estimate.perception.lastKnown?"Buscando último contato conhecido":
+      "Patrulhando sem contato visual";
   }
 
   activateOriginAbility(): void {
@@ -449,6 +465,7 @@ export class TurnManager {
     this.state.movementRemaining -= cost;
     this.state.message = `Movimento concluído: ${cost} célula(s) consumida(s).`;
     this.addLog(`[MOVIMENTO] ${player.name} avançou ${cost} célula(s).`);
+    this.aiMemory=hearEnemy(this.aiMemory,player,this.state.round,2);
     this.publish();
   }
 
@@ -481,6 +498,8 @@ export class TurnManager {
     }
     this.nextAttackDamageBonus=0;
     this.state.classNextDamageBonus=0;
+    this.aiMemory=hearEnemy(this.aiMemory,player,this.state.round,
+      preview.mode==="ranged"?8:4);
     this.resolveEnemyDown();
     this.publish();
   }
@@ -503,7 +522,14 @@ export class TurnManager {
     const pendingOverwatch=this.state.overwatchReady;
     this.state.overwatchReady=false;
     if(!jammed){
-      const plan=planEnemyTurn(enemy,player,this.state.units,profile,this.arenaLayout);
+      const decision=decideEnemy(enemy,player,this.state.units,
+        profile,this.aiMemory,this.state.round,this.arenaLayout);
+      this.aiMemory=decision.memory;
+      this.state.enemyAwareness=decision.memory.awareness;
+      this.state.enemyPerception=decision.perception.reason;
+      const plan=decision.plan;
+      this.addLog("[PERCEPÇÃO] "+profile.name+" · "+decision.perception.reason+
+        " · "+decision.reason+".");
       if(plan.action==="advance"||plan.action==="reposition"){
         enemy.x=plan.target.x;
         enemy.y=plan.target.y;
@@ -525,7 +551,10 @@ export class TurnManager {
         }else this.addLog("[VIGILÂNCIA] Sem linha de tiro: reação consumida.");
         if(enemy.hp<=0){this.resolveEnemyDown();this.publish();return;}
       }
-      if(withinShot(enemy,player,profile.range,this.arenaLayout)){
+      // Attack only after currently sensing the target, not its last known tile.
+      const visibleNow=hasLineOfSight(enemy,player,this.arenaLayout)&&
+        distance(enemy,player)<=6;
+      if(visibleNow&&withinShot(enemy,player,profile.range,this.arenaLayout)){
         const cover=profile.range>1?coverArmorBonus(enemy,player,this.arenaLayout):0;
         const defense=player.armorClass+cover;
         const roll=rollDie(20);
