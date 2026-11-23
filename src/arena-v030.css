@@ -52,7 +52,7 @@
 @media (orientation: landscape) {
  .game-shell.arena-v030 {
    display:grid!important;
-   grid-template-columns:minmax(0,1fr) clamp(264px,34vw,390px);
+   grid-template-columns:minmax(0,1fr) clamp(248px,29vw,340px);
    grid-template-rows:48px minmax(0,1fr);
    gap:5px 8px;
    width:100%; max-width:none; min-height:100dvh; height:100dvh!important;
@@ -346,3 +346,24 @@
 .na-ai-awareness[data-awareness="investigate"],
 .na-ai-awareness[data-awareness="search"]{color:#f1c889}
 .na-ai-awareness[data-awareness="patrol"]{color:#bbd5d8}
+
+/* Nova Arcádia 2.0: battle field takes priority over the lateral console.
+ * Actions retain >=48px touch height and remain in the existing fixed footer.
+ * This does not replace the visual identity or hide the victory exit.
+ */
+@media (orientation:landscape) and (max-width:980px){
+ .game-shell.arena-v030{
+   grid-template-columns:minmax(0,1fr) clamp(246px,29vw,290px);
+   gap:4px 6px;
+ }
+ .arena-v030 .arena-console{padding-right:0}
+ .arena-v030 .arena-console-scroll{overscroll-behavior-y:contain}
+ .arena-v030 .arena-presentation{min-height:36px}
+ .arena-v030 .arena-presentation>strong{font-size:10px}
+ .arena-v030 .battle-panel{border-color:#406470}
+ .arena-v030 .map-label{padding:2px 6px}
+}
+.na-iso-actionable:focus-visible{filter:drop-shadow(0 0 5px #ffd166)}
+.na-battlefield-svg .na-iso-enemy-target:focus-visible{
+ outline:2px solid #ff2e88;outline-offset:2px;
+}

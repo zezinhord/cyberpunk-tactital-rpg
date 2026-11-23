@@ -280,7 +280,8 @@ export default function App() {
   const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, multiclassId:character?.multiclassId,
     characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
     currentHp:loadHealth(character?.id??"",maximumHp),
-    progressionBonuses:combatProgression(character),encounterId:battleMode,weaponId:inventory.equipped.weapon,
+    progressionBonuses:combatProgression(character),encounterId:battleMode,
+    characterId:character?.id,weaponId:inventory.equipped.weapon,
      districtSupport:character?mergeRecoverySupport(
        urbanCombatSupport(readUrban(character.id),battleMode),
        recoveryCombatSupport(readRecovery(character.id),battleMode)):null,

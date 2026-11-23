@@ -4,7 +4,8 @@ import type {GameState,Position,Unit} from "../game/types";
 import type {TurnManager} from "../game/TurnManager";
 import type {TestAppearance} from "../game/test-arena/appearance";
 import type {OriginId} from "../game/character/origins";
-import type {TacticalSite} from "../game/combat/tactical-maps.ts";
+import type {TacticalSite,TacticalLayout} from "../game/combat/tactical-maps.ts";
+import {tileHeight} from "../game/map.ts";
 import {SIEGE_TERMINAL_NAMES} from "../game/combat/siege-terminals.ts";
 
 /** Campo tático SVG: dispensa WebGL/Canvas em Android, sem substituir a lógica
@@ -27,17 +28,19 @@ const BOARD=Array.from({length:BOARD_WIDTH*BOARD_HEIGHT},(_,i)=>{
  const x=i%BOARD_WIDTH,y=Math.floor(i/BOARD_WIDTH);
  return {x,y,id:i};
 }).sort((a,b)=>a.x+a.y-b.x-b.y||a.y-b.y);
-const point=(p:Position)=>({x:240+(p.x-p.y)*28,y:70+(p.x+p.y)*14});
+const point=(p:Position,layout:TacticalLayout|null=null)=>({
+ x:240+(p.x-p.y)*28,y:70+(p.x+p.y)*14-tileHeight(p,layout)*9
+});
 function diamond(x:number,y:number,w=56,h=28){
  return [[x,y-h/2],[x+w/2,y],[x,y+h/2],[x-w/2,y]]
   .map(p=>p.join(",")).join(" ");
 }
-function UnitSprite({unit,isPlayer,url,appearance,enemySheet,facing,pose}:{
+function UnitSprite({unit,isPlayer,url,appearance,enemySheet,facing,pose,layout}:{
  unit:Unit;isPlayer:boolean;url:string|undefined;appearance:TestAppearance;
- enemySheet?:string;facing:number;pose:number
+ enemySheet?:string;facing:number;pose:number;layout:TacticalLayout|null
 }){
  if(unit.hp<=0)return null;
- const p=point(unit),accent=isPlayer?"#00e5ff":"#ff2e88";
+ const p=point(unit,layout),accent=isPlayer?"#00e5ff":"#ff2e88";
  const hp=Math.max(0,Math.min(1,unit.hp/Math.max(1,unit.maxHp)));
  return <g data-unit={unit.id} transform={"translate("+p.x+" "+p.y+")"}
     pointerEvents="none">
@@ -132,7 +135,11 @@ export default function Battlefield({manager,appearance,originId}:{
    return manager.subscribe(next=>setState(next));
  },[manager]);
  const sceneTiles=useMemo(()=>BOARD.map(cell=>({...cell,
-   blocked:isBlocked(cell,manager.getArenaLayout())})),[manager]);
+   blocked:isBlocked(cell,manager.getArenaLayout()),
+   prop:manager.getArenaLayout()?.objects.get(cell.x+","+cell.y),
+   terrain:manager.getArenaLayout()?.terrain.get(cell.x+","+cell.y),
+   height:tileHeight(cell,manager.getArenaLayout())
+ })),[manager,state]);
  const reachable=useMemo(()=>new Set(manager.getReachableCells().map(p=>p.x+","+p.y)),
    [manager,state]);
  const player=state.units.find(u=>u.id==="runner");
@@ -147,11 +154,21 @@ export default function Battlefield({manager,appearance,originId}:{
    (Math.round(Math.atan2(player.y-enemy.y,player.x-enemy.x)*4/Math.PI)+8)%8:0;
  const enemyPose=state.activeSide==="enemy"?3:(state.round+state.wave)%3;
  const district=state.encounterId.startsWith("council-")?
-  state.encounterId.slice("council-".length):"";
+  state.encounterId.slice("council-".length):
+  state.encounterId.startsWith("district-")?state.encounterId.slice("district-".length):
+  state.encounterId==="trial-1"?"baixada":state.encounterId==="trial-2"?"ferrugem":
+  state.encounterId==="trial-3"?"aurea":
+  state.encounterId==="eden-relay"||state.encounterId==="cisma-intercept"?"prisma":
+  state.encounterId==="eden-core"||state.encounterId==="cisma-core"?"setor-zero":
+  state.encounterId==="cisma-containment"?"aurea":"";
  const theme=BATTLE_THEMES[district as keyof typeof BATTLE_THEMES]??null;
  const site=manager.getArenaLayout()?.site;
- function tap(cell:{x:number;y:number;blocked:boolean}){
-   if(!active||cell.blocked)return;
+ function tap(cell:{x:number;y:number;blocked:boolean;prop?:unknown}){
+   if(!active)return;
+   if(cell.blocked){
+     if(cell.prop)manager.interactWithObject(cell.x,cell.y);
+     return;
+   }
    if(cell.x===0&&cell.y===6){manager.interactWithTerminal(0,6);return;}
    // All free tiles respond to touch. Unreachable destinations report the
    // actual movement/collision cost instead of silently ignoring the player.
@@ -184,23 +201,39 @@ export default function Battlefield({manager,appearance,originId}:{
       fill="none" stroke="#67939d" strokeWidth="1.5" opacity=".42"/>
     <ellipse cx="232" cy="199" rx="210" ry="103" fill="#68b2c0" opacity=".08"/>
     {sceneTiles.map(cell=>{
-      const p=point(cell),canMove=active&&reachable.has(cell.x+","+cell.y);
+      const p=point(cell,manager.getArenaLayout()),
+        canMove=active&&reachable.has(cell.x+","+cell.y);
       const terminal=cell.x===0&&cell.y===6;
-      const interactive=active&&!cell.blocked;
+      const interactive=active&&(!cell.blocked||Boolean(cell.prop));
       const x=p.x,y=p.y;
       return <g key={cell.id} role={interactive?"button":undefined}
          tabIndex={interactive?0:undefined} className={interactive?"na-iso-actionable":undefined}
-         aria-label={interactive?(terminal?"Ativar terminal de energia":
+         aria-label={interactive?(cell.blocked&&cell.prop?
+           "Interagir com "+cell.prop.kind+" · "+cell.prop.state:
+           terminal?"Ativar terminal de energia":
            (canMove?"Mover para ":"Ver caminho até ")+
            "coluna "+(cell.x+1)+" linha "+(cell.y+1)):undefined}
          onClick={interactive?()=>tap(cell):undefined}
          onKeyDown={interactive?e=>{
            if(e.key==="Enter"||e.key===" "){e.preventDefault();tap(cell);}
          }:undefined}>
+        {cell.height>0&&<polygon pointerEvents="none"
+          points={[[x-28,y],[x,y+14],[x,y+14+9*cell.height],[x-28,y+9*cell.height]].map(v=>v.join(",")).join(" ")}
+          fill="#152331" stroke="#668292" strokeOpacity=".55"/>}
         <polygon points={diamond(x,y)}
-          fill={cell.blocked?"#29394a":theme?((cell.x+cell.y)%2?theme.ground:theme.alt):
-        (cell.x+cell.y)%2?"#1b2739":"#1e2d40"}
+          fill={cell.blocked?"#29394a":cell.terrain==="hazard"?"#64432a":
+            cell.terrain==="water"?"#225566":
+            cell.terrain==="shadow"?"#182733":
+            cell.terrain==="rubble"?"#49433b":
+            theme?((cell.x+cell.y)%2?theme.ground:theme.alt):
+            (cell.x+cell.y)%2?"#1b2739":"#1e2d40"}
           stroke={theme?.edge??"#546b80"} strokeWidth=".9"/>
+        {cell.height>0&&<text x={x} y={y+3} textAnchor="middle"
+          fill="#bad2d9" fontSize="7" pointerEvents="none">↑{cell.height}</text>}
+        {cell.terrain==="hazard"&&<g pointerEvents="none">
+          <path d={"M"+(x-7)+" "+(y+2)+"l7 -12 7 12z"} fill="none" stroke="#f5bb73" strokeWidth="1.5"/>
+          <text x={x} y={y+2} fontSize="8" fill="#f5bb73" textAnchor="middle">!</text>
+        </g>}
         {canMove&&!cell.blocked&&<polygon points={diamond(x,y,51,23)}
           fill="#00e5ff" fillOpacity=".18" stroke="#00e5ff" strokeWidth="1.5"/>}
         {cell.blocked&&<g pointerEvents="none">
@@ -211,6 +244,19 @@ export default function Battlefield({manager,appearance,originId}:{
           <polygon points={[[x,y-2],[x+15,y-10],[x+15,y+2],[x,y+10]].map(a=>a.join(",")).join(" ")}
              fill="#34495c"/>
           {site&&<SiegeProp site={site} x={x} y={y} light={theme?.light??"#b8c1cc"}/>}
+          {cell.prop&&<g><rect x={x-17} y={y-40} width="34" height="12" rx="2"
+            fill="#151c28" stroke="#ffd166" strokeOpacity=".8"/>
+            <text x={x} y={y-32} fontSize="6" textAnchor="middle" fill="#ffd166">
+              {cell.prop.state==="damaged"?"DANIFICADO":
+                cell.prop.kind==="security-door"?"PORTA":
+                cell.prop.kind==="generator"?"GERADOR":
+                cell.prop.kind==="pipe"?"TUBULAÇÃO":
+                cell.prop.kind==="barricade"?"BARRICADA":"CARGA"}</text></g>}
+        </g>}
+        {cell.prop&&!cell.blocked&&<g pointerEvents="none">
+          <circle cx={x} cy={y} r="6" fill="#ddad65" fillOpacity=".34"/>
+          <text x={x} y={y+2} textAnchor="middle" fontSize="7" fill="#ffd166">
+            {cell.prop.state==="destroyed"?"×":"◌"}</text>
         </g>}
         {terminal&&<g pointerEvents="none">
           <rect x={x-9} y={y-17} width="18" height="14" rx="2"
@@ -227,7 +273,8 @@ export default function Battlefield({manager,appearance,originId}:{
         isPlayer={unit.id==="runner"}
         url={unit.id==="runner"?spriteUrl:undefined}
         enemySheet={unit.id==="drone"?enemySheet:undefined}
-        facing={enemyFacing} pose={enemyPose} appearance={appearance}/>)}
+        facing={enemyFacing} pose={enemyPose} appearance={appearance}
+        layout={manager.getArenaLayout()}/>)}
     {/* The enemy silhouette is now a real touch target rather than inert art.
       The full-body hitbox is sized for mobile, and an invalid tap invokes
       the engine preview message without consuming a main action. */}
@@ -237,7 +284,8 @@ export default function Battlefield({manager,appearance,originId}:{
       aria-label={attackPreview.available?
         "Atacar "+enemy.name+" · chance de acerto "+attackPreview.hitChance+"%":
         "Inspecionar alvo "+enemy.name+" · "+attackPreview.reason}
-      transform={"translate("+point(enemy).x+" "+point(enemy).y+")"}
+      transform={"translate("+point(enemy,manager.getArenaLayout()).x+" "+
+        point(enemy,manager.getArenaLayout()).y+")"}
       onClick={()=>manager.attack()}
       onKeyDown={event=>{
         if(event.key==="Enter"||event.key===" "){
@@ -254,7 +302,7 @@ export default function Battlefield({manager,appearance,originId}:{
         strokeDasharray={attackPreview.available?undefined:"3 3"}/>
     </g>}
     <text x="15" y="16" fill="#b9d3d8" fontSize="9" letterSpacing="1">
-      {theme?.label??"NOVA ARCÁDIA · COMBATE TÁTICO"}</text>
+      {manager.getArenaLayout()?.title??theme?.label??"NOVA ARCÁDIA · COMBATE TÁTICO"}</text>
     <text x="460" y="16" fill="#ffd166" fontSize="9" textAnchor="end">
       ONDA {state.wave}/{state.totalWaves}</text>
     <text x="240" y="307" textAnchor="middle" fill="#cfdae0" fontSize="10">

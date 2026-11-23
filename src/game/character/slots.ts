@@ -75,10 +75,19 @@ export function removeCharacterSlot(id:string):boolean{
  if(!storage)return false;
  const remaining=slots.filter(char=>char.id!==id);
  const active=loadCharacter();
+ const environmentKeys:string[]=[];
+ try{
+  for(let i=0;i<storage.length;i++){
+   const key=storage.key(i);
+   if(key?.startsWith("nova-arcadia.tactical-env.v2."+id+"."))
+     environmentKeys.push(key);
+  }
+ }catch{return false;}
  const keys=[
   CHARACTER_SLOT_INDEX,CHARACTER_SLOT_PREFIX+id,
   ...(active?.id===id?[CHARACTER_SAVE_KEY]:[]),
   ...OWNED_DATA_KEYS.map(prefix=>prefix+id),
+  ...environmentKeys,
  ];
  const previous=new Map<string,string|null>();
  try{
@@ -94,6 +103,7 @@ export function removeCharacterSlot(id:string):boolean{
   }
   // Only delete exact per-character keys, including all 2.0 chapters.
   for(const prefix of OWNED_DATA_KEYS)storage.removeItem(prefix+id);
+  for(const key of environmentKeys)storage.removeItem(key);
   storage.removeItem(CHARACTER_SLOT_PREFIX+id);
   storage.setItem(CHARACTER_SLOT_INDEX,JSON.stringify(remaining.map(char=>char.id)));
   return true;

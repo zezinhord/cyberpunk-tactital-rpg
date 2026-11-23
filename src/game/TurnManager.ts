@@ -6,12 +6,13 @@ import { checkSpecial, useSpecial, advanceSpecialRound, isEnemyJammed, advanceBa
 import type { SpecialId } from "./abilities/catalog";
 import type { AbilityCheck } from "./abilities/engine.ts";
 import type { CombatVisual } from "./types";
-import { findPath,getReachableCells,coverBetween,coverArmorBonus,MOVEMENT_PER_TURN,
+import { findPath,getReachableCells,pathCost,elevationAccuracyBonus,
+  coverBetween,coverArmorBonus,MOVEMENT_PER_TURN,
   type CoverGrade } from "./map";
 import {enemyProfile,withinShot} from "./tactics";
 import {decideEnemy,hearEnemy,initialEnemyMemory,
   type EnemyMemory} from "./ai/tactical-brain.ts";
-import {hasLineOfSight} from "./map.ts";
+import {hasLineOfSight,hasObjectLineOfSight} from "./map.ts";
 import {capacityForEnemy,enemyTacticTurn,initializeEnemyTactics,
   type EnemyTacticPool} from "./ai/enemy-resources.ts";
 import type {EnemyRole} from "./tactics.ts";
@@ -23,7 +24,8 @@ import {ITEM_CATALOG,type ItemId,type EquipmentBonuses} from "./inventory.ts";
 import type {CompanionProfile,CompanionId} from "./companions.ts";
 import {chooseCompanionAction,type PartyPosture} from "./ai/companion-brain.ts";
 import type {StealthRecord} from "./stealth.ts";
-import {layoutForEncounter,type TacticalLayout} from "./combat/tactical-maps.ts";
+import {layoutForEncounter,copyTacticalLayout,updateTacticalProp,
+  type TacticalLayout,type TacticalPropState} from "./combat/tactical-maps.ts";
 import {activateSiegeTerminal} from "./combat/siege-terminals.ts";
 
 function rollDie(sides: number): number {
@@ -52,6 +54,8 @@ export interface TurnManagerOptions {
   characterSkillRanks?:Readonly<Record<string,number>>;
   weaponId?:string|null;
   encounterId?: EncounterId;
+  /** Slot identity isolates environmental changes between protagonists. */
+  characterId?:string;
   districtSupport?:UrbanCombatSupport|null;
   partySupport?:readonly CompanionProfile[];
   partyPosture?:PartyPosture;
@@ -62,6 +66,7 @@ export class TurnManager {
   private readonly events = new TypedEventBus<GameEvents>();
   private readonly originProfile?: OriginGameplayProfile;
   private readonly arenaLayout:TacticalLayout|null;
+  private readonly environmentStorageKey:string|null;
   private readonly weaponRange:number;
   private readonly districtSupport:UrbanCombatSupport|null;
   private readonly partySupport:readonly CompanionProfile[];
@@ -76,7 +81,10 @@ export class TurnManager {
 
   constructor(options: TurnManagerOptions = {}) {
     this.originProfile = options.originProfile;
-    this.arenaLayout=layoutForEncounter(options.encounterId??"test");
+    this.arenaLayout=copyTacticalLayout(layoutForEncounter(options.encounterId??"test"));
+    this.environmentStorageKey=options.characterId&&this.arenaLayout?
+      "nova-arcadia.tactical-env.v2."+options.characterId+"."+(options.encounterId??"test"):null;
+    this.restoreEnvironment();
     this.districtSupport=options.districtSupport??null;
     this.partySupport=(options.partySupport??[]).slice(0,2);
     this.partyPosture=options.partyPosture??"manual";
@@ -216,6 +224,73 @@ export class TurnManager {
   }
   getDistrictSupportDescription():string{return this.districtSupport?.label??"";}
   getArenaLayout():TacticalLayout|null{return this.arenaLayout;}
+  private restoreEnvironment():void{
+    if(!this.environmentStorageKey||!this.arenaLayout||typeof localStorage==="undefined")return;
+    try{
+      const record=JSON.parse(localStorage.getItem(this.environmentStorageKey)??"{}") as
+        Record<string,{state:TacticalPropState;hp:number}>;
+      for(const [key,entry] of Object.entries(record)){
+        const prop=this.arenaLayout.objects.get(key);
+        if(!prop||!entry||!["damaged","disabled","destroyed"].includes(entry.state))continue;
+        const updated=updateTacticalProp(this.arenaLayout,prop.position,entry.state);
+        if(updated&&Number.isInteger(entry.hp)&&entry.hp>=0&&entry.hp<=prop.maxHp)
+          (this.arenaLayout.objects as Map<string,typeof updated>).set(key,{...updated,hp:entry.hp});
+        if(entry.state==="destroyed"&&prop.kind==="pipe")this.releaseHazard(prop.position);
+      }
+    }catch{/* A corrupt optional environmental record never blocks loading. */}
+  }
+  private persistEnvironment():void{
+    if(!this.environmentStorageKey||!this.arenaLayout||typeof localStorage==="undefined")return;
+    const record:Record<string,{state:TacticalPropState;hp:number}>={};
+    for(const [key,prop] of this.arenaLayout.objects)
+      if(prop.state!=="intact")record[key]={state:prop.state,hp:prop.hp};
+    try{localStorage.setItem(this.environmentStorageKey,JSON.stringify(record));}
+    catch{this.addLog("[SISTEMA] Sem espaço para persistir as mudanças do cenário.");}
+  }
+  private releaseHazard(origin:Position):void{
+    if(!this.arenaLayout)return;
+    for(const offset of [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}]){
+      const x=origin.x+offset.x,y=origin.y+offset.y,key=x+","+y;
+      if(x>=0&&x<8&&y>=0&&y<8&&!this.arenaLayout.blocked.has(key))
+        (this.arenaLayout.terrain as Map<string,string>).set(key,"hazard");
+    }
+  }
+  /** Direct, adjacency-checked actions. Destroying a door updates LoS and A*. */
+  interactWithObject(x:number,y:number):boolean{
+    const player=livingUnit(this.state.units,"runner");
+    const object=this.arenaLayout?.objects.get(x+","+y);
+    if(!player||!object||!this.arenaLayout||this.state.combatComplete||
+       this.state.activeSide!=="player")return false;
+    const adjacent=distance(player,{x,y})<=1;
+    const canFire=this.weaponRange>1&&distance(player,{x,y})<=this.weaponRange&&
+      hasObjectLineOfSight(player,{x,y},this.arenaLayout);
+    if(!adjacent&&!canFire){
+      this.setMessage("Objeto fora do alcance ou atrás de cobertura. Aproxime-se ou equipe arma de longo alcance.");
+      return false;
+    }
+    if(!this.state.mainActionAvailable){this.setMessage("Ação principal já utilizada.");return false;}
+    if(object.state==="destroyed"||object.state==="disabled"){
+      this.setMessage("Equipamento já neutralizado.");return false;
+    }
+    const digital=this.state.classId==="netrunner"||this.state.classId==="tecnico";
+    const bypass=adjacent&&digital&&(object.kind==="security-door"||object.kind==="generator");
+    const result=bypass?"disabled":object.hp<=1?"destroyed":"damaged";
+    const updated=updateTacticalProp(this.arenaLayout,{x,y},result);
+    if(!updated)return false;
+    this.state.mainActionAvailable=false;
+    if(!adjacent)this.aiMemory=hearEnemy(this.aiMemory,player,this.state.round,6);
+    if(result==="destroyed"&&object.kind==="pipe")this.releaseHazard({x,y});
+    if(result==="disabled"&&object.kind==="generator"){
+      this.state.enemyJamTurns=Math.max(this.state.enemyJamTurns,1);
+      this.state.energy=Math.min(this.state.maxEnergy,this.state.energy+2);
+    }
+    this.persistEnvironment();
+    this.state.message=object.kind+" · "+(result==="disabled"?"sistema invadido":
+      result==="destroyed"?"obstáculo removido":"estrutura danificada")+".";
+    this.addLog("[AMBIENTE] "+this.state.message);
+    this.setCue(result==="disabled"?"emp":"hit","terminal");
+    this.publish();return true;
+  }
 
   getState(): GameState {
     return {
@@ -336,7 +411,8 @@ export class TurnManager {
     const range=this.weaponRange;
     const dist=player&&enemy?distance(player,enemy):0;
     const cover=player&&enemy&&range>1?coverBetween(player,enemy,this.arenaLayout):"none";
-    const defense=(enemy?.armorClass??0)+(cover==="partial"?2:0);
+    const defense=Math.max(1,(enemy?.armorClass??0)+(cover==="partial"?2:0)-
+      (player&&enemy?elevationAccuracyBonus(player,enemy,this.arenaLayout):0));
     let reason="";
     if(!player||!enemy)reason="Sem alvo disponível.";
     else if(this.state.combatComplete)reason="Combate encerrado.";
@@ -472,13 +548,20 @@ export class TurnManager {
       this.setMessage("Você já está nessa posição. Escolha outra célula.");
       return;
     }
-    const cost = path.length - 1;
+    const cost = pathCost(path,this.arenaLayout);
     if (cost > this.state.movementRemaining) {
       this.setMessage("Alvo distante: "+cost+" células necessárias, "+this.state.movementRemaining+" disponíveis. Avance por uma célula ciano.");
       return;
     }
     player.x = x;
     player.y = y;
+    const hazards=path.slice(1).filter(tile=>
+      this.arenaLayout?.terrain.get(tile.x+","+tile.y)==="hazard").length;
+    if(hazards){
+      player.hp=Math.max(0,player.hp-hazards*2);
+      this.addLog("[TERRENO] "+hazards+" zona(s) de risco: "+hazards*2+" dano.");
+      if(player.hp===0)this.state.combatComplete=true;
+    }
     this.setCue("move", "player",undefined,path);
     this.state.movementRemaining -= cost;
     this.state.message = `Movimento concluído: ${cost} célula(s) consumida(s).`;
@@ -578,9 +661,13 @@ export class TurnManager {
         const legalPath=findPath(enemy,plan.target,this.state.units,
           enemy.id,this.arenaLayout);
         if(legalPath&&legalPath.length>1&&
-           legalPath.length-1<=profile.mobility){
+           pathCost(legalPath,this.arenaLayout)<=profile.mobility){
           enemy.x=plan.target.x;
           enemy.y=plan.target.y;
+          if(this.arenaLayout?.terrain.get(enemy.x+","+enemy.y)==="hazard"){
+            enemy.hp=Math.max(1,enemy.hp-2);
+            this.addLog("[TERRENO] O hostil sofre 2 de dano em zona de risco.");
+          }
           this.addLog("[IA TÁTICA] "+profile.name+" · "+plan.intent+".");
         }else{
           this.addLog("[IA TÁTICA] Rota ocupada ou alterada: movimento cancelado com segurança.");
@@ -588,7 +675,9 @@ export class TurnManager {
       }
       if(pendingOverwatch){
         if(withinShot(player,enemy,this.weaponRange,this.arenaLayout)){
-          const defense=enemy.armorClass+coverArmorBonus(player,enemy,this.arenaLayout);
+          const defense=Math.max(1,enemy.armorClass+
+            coverArmorBonus(player,enemy,this.arenaLayout)-
+            elevationAccuracyBonus(player,enemy,this.arenaLayout));
           const reactionRoll=rollDie(20);
           if(attackHits(reactionRoll,player.attackBonus,defense)){
             const damage=rollDie(6)+2+(this.weaponRange===5?1:0);
@@ -609,7 +698,8 @@ export class TurnManager {
         // The charge is consumed on ATTEMPT, including a miss.
         const device=resolveDevice(true);
         const cover=profile.range>1?coverArmorBonus(enemy,player,this.arenaLayout):0;
-        const defense=player.armorClass+cover;
+        const defense=Math.max(1,player.armorClass+cover-
+          elevationAccuracyBonus(enemy,player,this.arenaLayout));
         const roll=rollDie(20);
         if(attackHits(roll,enemy.attackBonus,defense)){
           const damage=rollDie(profile.range>1?6:4)+(profile.range>1?1:1);

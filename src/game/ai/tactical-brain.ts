@@ -7,7 +7,7 @@
 import type {Position,Unit} from "../types.ts";
 import type {TacticalLayout} from "../combat/tactical-maps.ts";
 import {BOARD_WIDTH,BOARD_HEIGHT,findPath,hasLineOfSight,
-  isBlocked,coverArmorBonus} from "../map.ts";
+  isBlocked,coverArmorBonus,pathCost} from "../map.ts";
 import {manhattan,planEnemyTurn,type EnemyProfile,type EnemyPlan} from "../tactics.ts";
 
 export type Awareness="patrol"|"suspicious"|"investigate"|"search"|"engaged"|"retreat";
@@ -63,8 +63,8 @@ const reachable=(enemy:Unit,units:Unit[],mobility:number,layout:TacticalLayout|n
   const pos={x,y};if(isBlocked(pos,layout))continue;
   if(manhattan(enemy,pos)>mobility)continue;
   const path=findPath(enemy,pos,units,enemy.id,layout);
-  if(path&&path.length>1&&path.length-1<=mobility)
-   positions.push({pos,cost:path.length-1});
+  if(path&&path.length>1&&pathCost(path,layout)<=mobility)
+   positions.push({pos,cost:pathCost(path,layout)});
  }
  return positions;
 };
@@ -116,7 +116,8 @@ export function decideEnemy(
   retreats.sort((a,b)=>{
    const utility=(c:typeof a)=>
     (manhattan(c.pos,player)-manhattan(enemy,player))*8+
-    coverArmorBonus(player,c.pos,layout)*5-c.cost;
+    coverArmorBonus(player,c.pos,layout)*5-c.cost-
+    (layout?.terrain.get(c.pos.x+","+c.pos.y)==="hazard"?20:0);
    return utility(b)-utility(a)||a.cost-b.cost||a.pos.y-b.pos.y||a.pos.x-b.pos.x;
   });
   if(retreats.length){

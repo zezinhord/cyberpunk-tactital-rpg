@@ -1,0 +1,43 @@
+name: Nova Arcádia 2.0 — Tactical Map Redesign QA
+on:
+  push:
+    branches:
+      - feature/nova-arcadia-v20-battlefield-redesign
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tactical-regression:
+    name: TypeScript, existing combat and 20 district maps
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Check TypeScript project
+        run: npx tsc -b
+      - name: Validate tactical maps, verticality, terrain and interactive objects
+        run: node --experimental-strip-types scripts/test-battlefield-redesign-v20.mjs
+      - name: Preserve council battlefields and existing NPC AI
+        run: |
+          node --experimental-strip-types scripts/test-council-tactical-maps-v20.mjs
+          node --experimental-strip-types scripts/test-ai-tactical.mjs
+          node --experimental-strip-types scripts/test-ai-combat-resources.mjs
+      - name: Preserve mobile SVG, movement, turn exit, abilities and saves
+        run: |
+          node --experimental-strip-types scripts/test-battlefield-navigation.mjs
+          node --experimental-strip-types scripts/test-tactics.mjs
+          node --experimental-strip-types scripts/test-abilities.mjs
+          node --experimental-strip-types scripts/test-save-slots.mjs
+      - name: Generate the established character and room artwork before bundling
+        run: |
+          python -m pip install -r tools/requirements-characters.txt
+          npm run generate:characters
+          npm run generate:v20-art
+      - name: Bundle current tactical UI with original artwork references
+        run: npx vite build
