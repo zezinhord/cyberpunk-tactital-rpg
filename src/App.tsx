@@ -954,6 +954,10 @@ export default function App() {
             {attackPreview.available&&<span className="na-tactic-hit-chance">
               CHANCE DE ACERTO: {attackPreview.hitChance}% · D20 (1 = FALHA, 20 = ACERTO)
             </span>}
+            <span className="na-ai-awareness" data-awareness={state.enemyAwareness??"patrol"}>
+              PERCEPÇÃO HOSTIL: {(state.enemyAwareness??"patrol").toUpperCase()}
+              {" · "}{state.enemyPerception??"Nenhum contato confirmado"}
+            </span>
             <span>INTENÇÃO HOSTIL: {manager.getEnemyIntent()}</span>
             {manager.getDistrictSupportDescription()&&<span>APOIO REGIONAL: {manager.getDistrictSupportDescription()}</span>}
             {state.overwatchReady&&<span>VIGILÂNCIA PREPARADA · 2 EN INVESTIDOS</span>}
