@@ -18,7 +18,9 @@ export interface MissionWaypoint{
 export function firstMissionWaypoint(state:V09WaypointState):MissionWaypoint|null{
  if(!Number.isInteger(state.step)||state.step<0||state.step>3)return null;
  if(state.step<=2)
-  return {actorId:"enter-clinic",label:"Clínica Comunitária · Dra. Amara"};
+  return {actorId:"enter-clinic",label:state.step===1?
+    "Clínica Comunitária · terminal de atendimento":
+    "Clínica Comunitária · Dra. Amara"};
  if(!state.sentinelDefeated&&!state.hasSewerEvidence)
   return {actorId:"enter-sewer-drain",label:"Pátio do Reúso · acesso à drenagem"};
  if(!state.sentinelDefeated&&!state.patioConsoleRead)
