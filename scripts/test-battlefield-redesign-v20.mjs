@@ -9,7 +9,7 @@ registerHooks({resolve(specifier,context,next){
 }});
 const {TACTICAL_SIEGE_IDS,TACTICAL_SIEGE_MAPS,TACTICAL_MISSION_MAPS,
   layoutForEncounter,copyTacticalLayout}=await import("../src/game/combat/tactical-maps.ts");
-const {BOARD_WIDTH,BOARD_HEIGHT,isBlocked,hasLineOfSight,findPath,
+const {BOARD_WIDTH,BOARD_HEIGHT,isBlocked,hasLineOfSight,hasObjectLineOfSight,findPath,
   pathCost,coverBetween,canStep,movementCost,tileHeight}=await import("../src/game/map.ts");
 const {TurnManager}=await import("../src/game/TurnManager.ts");
 const {planEnemyTurn,enemyProfile}=await import("../src/game/tactics.ts");
@@ -48,6 +48,15 @@ for(const id of designs){
   assert.deepEqual(base.getArenaLayout(),layout,"One manager must own a fresh identical layout");
   const runner=base.getState().units[0],enemy=base.getState().units[1];
   assert.ok(base.getReachableCells().length>=3,"Trapped initial protagonist");
+  // The optimized single-pass overlay must agree with weighted per-tile paths.
+  const highlights=new Set(base.getReachableCells().map(p=>p.x+","+p.y));
+  for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+    const p={x,y};if(x===runner.x&&y===runner.y)continue;
+    const path=findPath(runner,p,base.getState().units,runner.id,base.getArenaLayout());
+    assert.equal(highlights.has(x+","+y),
+      Boolean(path&&pathCost(path,base.getArenaLayout())<=base.getState().movementRemaining),
+      "Movement overlay must match actual legal paths: "+id+" "+x+","+y);
+  }
   assert.ok(!isBlocked(runner,layout)&&!isBlocked(enemy,layout));
   const plan=planEnemyTurn(enemy,runner,base.getState().units,
     enemyProfile(id,1),layout);
@@ -120,6 +129,21 @@ try{
   assert.equal(isBlocked(gate.position,hacker.getArenaLayout()),false,
     "Netrunner can remotely disable a locked door when adjacent");
   assert.equal(hacker.getArenaLayout().objects.get(gate.position.x+","+gate.position.y).state,"disabled");
+  const armed=new TurnManager({encounterId:id,weaponId:"pistola_inducao"});
+  const shotLayout=armed.getArenaLayout();
+  const shotTarget=[...shotLayout.objects.values()].find(p=>p.kind==="barricade");
+  let sniper=null;
+  for(let y=0;y<8;y++)for(let x=0;x<8;x++){
+    const pos={x,y},d=Math.abs(x-shotTarget.position.x)+Math.abs(y-shotTarget.position.y);
+    if(d<2||d>3||isBlocked(pos,shotLayout))continue;
+    if(hasObjectLineOfSight(pos,shotTarget.position,shotLayout)){sniper=pos;break;}
+  }
+  assert.ok(sniper,"There must be at least one clear ranged shot at destructibles");
+  armed.state.units[0].x=sniper.x;armed.state.units[0].y=sniper.y;
+  assert.equal(armed.interactWithObject(shotTarget.position.x,shotTarget.position.y),true,
+    "Armed characters can damage a visible obstacle from a distance");
+  assert.equal(armed.getState().mainActionAvailable,false);
+
 }finally{
   if(priorStorage===undefined)delete globalThis.localStorage;
   else Object.defineProperty(globalThis,"localStorage",{configurable:true,value:priorStorage});
