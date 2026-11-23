@@ -87,6 +87,16 @@ assert.ok(gate.includes('phase==="failed"')&&gate.includes('Tentar novamente apÃ
 assert.ok(!menu.includes('label:"ConteÃºdo extra"')&&!menu.includes('label:"Arquivos do jogo"'));
 assert.ok(!menu.includes('assetpacks')&&!menu.includes('AssetPackControls'));
 assert.ok(native.includes("public void bundledStatus(")&&native.includes("public void installBundled("));
+// Native status must retain exact disk size and SHA receipt verification,
+// but execute its 7 x 544 file traversal off the UI thread on Android.
+const nativeStatus=native.slice(native.indexOf("public void status(PluginCall call)"),
+ native.indexOf("public void install(PluginCall call)"));
+assert.ok(nativeStatus.includes("io.execute(() ->"),
+ "Native asset integrity scan must not block the Android main thread");
+assert.ok(nativeStatus.includes('out.put("storedBytes", sizeOf(dir))'),
+ "Do not trust manifest byte counts instead of scanning actual files");
+assert.ok(nativeStatus.includes('receipt.optString("sha256"'),
+ "Keep SHA receipt checks after moving native inspection off-thread");
 assert.ok(native.includes('getAssets().open("na-game/NA20-" + id + ".zip")'));
 assert.ok(manager.includes('installEmbeddedDistrict')&&manager.includes('integratedApkStatus'));
 assert.ok(native.includes("signedContentByteCount(PluginCall call, String key)"));
