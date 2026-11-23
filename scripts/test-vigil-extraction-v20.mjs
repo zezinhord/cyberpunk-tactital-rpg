@@ -105,7 +105,13 @@ for(const room of EXPANSION_ROOM_DESIGNS){
     const result=moveVigil({...start,active:{[id]:run}},
       id,end.x,end.y,"corrida");
     assert.equal(result.ok,true);
-    assert.ok(vigilRun(result.state,id).alert>=2,
+    const pressure=point=>guards.reduce((max,g)=>Math.max(max,
+      distance(g,point)===0?3:distance(g,point)===1?2:
+      distance(g,point)===2?1:0),0);
+    const hazard=Number(map.hotspots.has(mid.x+","+mid.y)||
+      map.hotspots.has(end.x+","+end.y));
+    const expected=Math.min(7,2+hazard+Math.max(pressure(mid),pressure(end)));
+    assert.equal(vigilRun(result.state,id).alert,expected,
       "Sprint must count midpoint patrol/hazard exposure");
     midpointChecks++;
    }
