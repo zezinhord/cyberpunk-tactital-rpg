@@ -9,6 +9,7 @@ import {CitizenRoutine} from "../game/baixada/npc-routines.ts";
 import {canStand,route,approachRoute,routeNearTarget} from "../game/baixada/navigation";
 import {smoothCamera,interpolateWalk,completedStepAt} from "../game/baixada/motion";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
+import {readGraphicsMode} from "../game/performance";
 import type {OriginId} from "../game/character";
 import type {TestAppearance} from "../game/test-arena/appearance";
 
@@ -114,6 +115,9 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
   if(!host||!canvas)return;
   let disposed=false,context:CanvasRenderingContext2D|null=null;
   let frameId=0,painted=false,lastSave=0,lastRender=0,lastTick=0,suspendedAt=0;
+  // Respect the actual Android settings: economy remains 30 FPS by default;
+  // players with capable devices can opt into 60 FPS without initializing Phaser.
+  const frameIntervalMs=readGraphicsMode()==="balanced"?16.67:33.34;
   let width=0,height=0;
   let motion:Motion={
    position:loadWorldLocation(characterId),steps:[],step:null,pendingActor:null,
@@ -520,7 +524,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     // contínua e renderizamos até 30 FPS, sem GPU nem bitmaps full-world.
     // Ao terminar a caminhada pintamos sempre a posição final, mesmo que
     // o próximo frame ocorra antes de 33 ms.
-    if(now-lastRender>=33||!painted||(!motion.step&&!cameraMoving)){
+    if(now-lastRender>=frameIntervalMs||!painted||(!motion.step&&!cameraMoving)){
      lastRender=now;
      try{paint();}catch(e){
       setStatus("failed");setError("O desenho leve encontrou um erro: "+String(e).slice(0,95));
@@ -566,10 +570,10 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     event.preventDefault();
     const bounds=canvas.getBoundingClientRect();
     const point={x:event.clientX-bounds.left,y:event.clientY-bounds.top};
-    // Hit testing MUST use the camera that rendered the last frame.
-    // The smoothed camera lags behind the avatar while walking; using
-    // renderPosition targets a different tile from the one the player taps.
-    const v=getView(width,height,cameraPosition);
+    // Use exactly the camera of the last PAINTED frame, not the camera
+    // updated by an intermediate 30 FPS tick. Otherwise taps miss tiles
+    // on low-end Android when rendering skips a requestAnimationFrame.
+    const v=view;
     const nearest=ACTORS.map(a=>({a,p:project(v,actorWorld(a.id))}))
       .filter(({p})=>Math.abs(point.x-p.x)<36&&point.y>p.y-76&&point.y<p.y+18)
       .sort((a,b)=>Math.abs(a.p.x-point.x)+Math.abs(a.p.y-28-point.y)-
