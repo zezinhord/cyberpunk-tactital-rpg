@@ -19,6 +19,11 @@ const {PARTY_POSTURES,chooseCompanionAction}=await import("../src/game/ai/compan
 const {COMPANION_CATALOG,setPartyPosture,validateParty,saveParty,readParty}=
  await import("../src/game/companions.ts");
 const {TurnManager}=await import("../src/game/TurnManager.ts");
+const {CitizenRoutine}=await import("../src/game/baixada/npc-routines.ts");
+const {ROAMING_NPCS}=await import("../src/game/baixada/layout.ts");
+const {citizenPhase,citizenTickDivider}=
+ await import("../src/game/ai/citizen-schedule.ts");
+const {CHARACTER_BACKUP_KEYS}=await import("../src/game/character/backup.ts");
 const db=new Map();
 globalThis.localStorage={getItem:k=>db.get(k)??null,
  setItem:(k,v)=>db.set(k,String(v)),removeItem:k=>db.delete(k),
@@ -98,6 +103,28 @@ assert.equal(chooseCompanionAction([COMPANION_CATALOG.joana],
  "Companion must not waste healing on a full-HP protagonist");
 assert.equal(chooseCompanionAction([COMPANION_CATALOG.joana],
  fighter.getState(),"hold"),null);
+assert.equal(CHARACTER_BACKUP_KEYS.aiMemory,AI_WORLD_MEMORY_KEY,
+ "Portable character backups must include conversation memories");
+assert.equal(citizenPhase(23),"rest");
+assert.equal(citizenPhase(5),"rest");
+assert.equal(citizenPhase(15),"work");
+assert.equal(citizenTickDivider(3),1);
+assert.equal(citizenTickDivider(24),2);
+assert.equal(citizenTickDivider(100),3);
+const residentSpec=ROAMING_NPCS[0];
+assert.ok(residentSpec);
+const resident=new CitizenRoutine(residentSpec);
+const atHome=resident.tick(residentSpec.route[0],new Set(),
+ {phase:"rest",alarmed:false});
+assert.equal(atHome.state,"rest","Citizen must rest at home in night mode");
+assert.equal(atHome.moved,false);
+const cautious=resident.tick(residentSpec.route[1],new Set(),
+ {phase:"work",alarmed:true});
+assert.ok(["return","alert"].includes(cautious.state));
+const android=readFileSync("src/components/BaixadaLiteWorld.tsx","utf8");
+assert.ok(android.includes("citizenTickDivider(proximity)"));
+assert.ok(android.includes("citizenPhase(new Date().getHours())"));
+assert.ok(android.includes("resident.routine.interact()"));
 const app=readFileSync("src/screens/ExplorationScreen.tsx","utf8");
 for(const marker of ["contextualPatioConversation(","recordNpcMemory(",
   "observeEden(eden,reputation)","districtReaction(cityArea,reputation)"])
