@@ -309,3 +309,14 @@
 @media (prefers-reduced-motion:reduce){
  .na-defeat-backdrop{backdrop-filter:none;}
 }
+
+/* Touch-first tactical feedback: magenta is reserved for hostile targets,
+ * cyan for reachable movement, and amber for the neutral terminal.
+ * Keep the targeting hitbox visible to keyboard and screen-reader users.
+ */
+.na-iso-enemy-target{cursor:crosshair;touch-action:manipulation;outline:none}
+.na-iso-enemy-target:focus-visible rect{stroke:#ffd166;stroke-width:2;fill-opacity:.13}
+.na-iso-enemy-target.ready:focus-visible ellipse{stroke:#ffd166;stroke-width:3}
+.na-combat-tactical-readout .na-tactic-hit-chance{
+ color:#f5cee0;font-weight:800;letter-spacing:.015em
+}
