@@ -186,10 +186,12 @@ const purchaseHandlers=app.slice(app.indexOf("  const buyAttribute="),
  app.indexOf("  useEffect(()=>{",app.indexOf("  const buyAttribute=")));
 assert.ok(purchaseHandlers.includes("purchaseAttribute(active,id)"));
 assert.ok(purchaseHandlers.includes("purchaseSkill(active,id)"));
-assert.equal(purchaseHandlers.split("const active=characterRef.current;").length-1,2,
- "Both purchase handlers must read the latest committed character");
+assert.equal(purchaseHandlers.split("const active=characterRef.current;").length-1,3,
+ "All three purchase handlers must read the latest committed character");
 assert.equal(purchaseHandlers.split("characterRef.current=purchase.character;").length-1,2,
- "Both purchase handlers must update the ref after a successful write");
+ "Attribute and skill purchases must update the ref after a successful write");
+assert.ok(purchaseHandlers.includes("characterRef.current=choice.character;"),
+ "Buying the second class must also serialize state after successful persistence");
 assert.ok(purchaseHandlers.indexOf("if(!saveCharacter(purchase.character))")<
  purchaseHandlers.indexOf("characterRef.current=purchase.character;"),
  "Never show a purchase as committed before persistence succeeds");
