@@ -1,23 +1,32 @@
 import {useState} from "react";
 import type {PlayerCharacter} from "../game/character/types";
-import {ALL_CLASS_SKILLS,getClassById,getClassBranches} from "../game/classes/registry";
+import {ALL_CLASS_SKILLS,CLASS_IDS,getClassById,getClassBranches,type ClassId} from "../game/classes/registry";
+import {getHybridArchetype,effectiveSkillMinimumLevel,effectiveSkillMaxRank,
+ MULTICLASS_UNLOCK_LEVEL,MULTICLASS_SKILL_COST} from "../game/classes/hybrids.ts";
 import {STATS,STAT_IDS,GENERAL_PASSIVES,MAX_STAT_RANK,
  availableAttributePoints,availableSkillPoints,statRank,statBreakdown,getSkillRank,
  levelExperienceProgress,masteryExperienceProgress,influenceTrustBonus,
  skillPrerequisite,combatProgression,skillEffectPreview,type StatId} from "../game/progression/tree";
 
-export default function ProgressionTree({character,onAttribute,onSkill}:{
+export default function ProgressionTree({character,onAttribute,onSkill,onMulticlass}:{
  character:PlayerCharacter;
  onAttribute:(id:StatId)=>string;
  onSkill:(id:string)=>string;
+ onMulticlass:(id:ClassId)=>string;
 }){
  const [section,setSection]=useState<"attributes"|"skills">("attributes");
  const [feedback,setFeedback]=useState("");
+ const [pendingSecondary,setPendingSecondary]=useState<ClassId|null>(null);
+ const [skillTrack,setSkillTrack]=useState<"primary"|"secondary">("primary");
  const attributePoints=availableAttributePoints(character);
  const skillPoints=availableSkillPoints(character);
  const xpProgress=levelExperienceProgress(character);
  const mastery=masteryExperienceProgress(character);
- const branches=getClassBranches(character.classId);
+ const displayedClass=skillTrack==="secondary"&&character.multiclassId?
+   character.multiclassId:character.classId;
+ const branches=getClassBranches(displayedClass);
+ const previewArchetype=getHybridArchetype(character.classId,pendingSecondary);
+ const currentArchetype=getHybridArchetype(character.classId,character.multiclassId);
  const statBefore=combatProgression(character);
  const preview=(id:StatId)=>{
    if(id==="influencia"){
@@ -40,7 +49,9 @@ export default function ProgressionTree({character,onAttribute,onSkill}:{
  return <div className="na-tree" aria-label="Evolução de personagem">
    <header className="na-tree-intro">
      <div className="na-tree-summary">
-       <div><small>OPERATIVO · EVOLUÇÃO</small><h4>Nível {character.level} · {character.classId?getClassById(character.classId).name:"Classe pendente"}</h4></div>
+       <div><small>OPERATIVO · EVOLUÇÃO</small><h4>Nível {character.level} · {character.classId?getClassById(character.classId).name:"Classe pendente"}
+         {character.multiclassId?" + "+getClassById(character.multiclassId).name:""}</h4>
+         {currentArchetype&&<small>ARQUÉTIPO · {currentArchetype.name}</small>}</div>
        <div className="na-tree-points"><strong>ATR {attributePoints}</strong><strong>HAB {skillPoints}</strong></div>
      </div>
      <p>{xpProgress.nextLevel===null?
@@ -69,6 +80,48 @@ export default function ProgressionTree({character,onAttribute,onSkill}:{
      </div>
      {feedback&&<p className="na-tree-feedback" role="status">{feedback}</p>}
    </header>
+   {character.classId&&<section className="na-multiclass-panel" aria-label="Escolha de segunda classe">
+     <div className="na-multiclass-head">
+       <strong>CARREIRA HÍBRIDA · {character.multiclassId?"2/2 CLASSES":"1/2 CLASSES"}</strong>
+       <small>Uma classe secundária no máximo · sem atributos duplicados</small>
+     </div>
+     {character.multiclassId?
+       <div className="na-multiclass-result">
+         <strong>{getClassById(character.classId).name} + {getClassById(character.multiclassId).name}</strong>
+         {currentArchetype&&<p>{currentArchetype.name} · {currentArchetype.bonusText}.
+           Duas disciplinas, porém uma única ação principal, energia e recargas compartilhadas.</p>}
+       </div>:
+       <>
+         <p>Desbloqueie uma segunda classe no nível {MULTICLASS_UNLOCK_LEVEL}
+           por {MULTICLASS_SKILL_COST} pontos de habilidade. Ela recebe a técnica inicial,
+           mas não seus bônus de atributos; as técnicas secundárias possuem grau máximo 2.</p>
+         <div className="na-multiclass-actions">
+           <label htmlFor="na-secondary-class">Segunda classe</label>
+           <select id="na-secondary-class" value={pendingSecondary??""}
+             onChange={event=>setPendingSecondary(event.target.value as ClassId||null)}>
+             <option value="">Escolher classe secundária</option>
+             {CLASS_IDS.filter(id=>id!==character.classId).map(id=>
+               <option key={id} value={id}>{getClassById(id).name}</option>)}
+           </select>
+           <button type="button"
+             disabled={!pendingSecondary||character.level<MULTICLASS_UNLOCK_LEVEL||
+               skillPoints<MULTICLASS_SKILL_COST}
+             onClick={()=>{if(pendingSecondary){
+               const message=onMulticlass(pendingSecondary);
+               setFeedback(message);
+               setSkillTrack("secondary");
+             }}}>
+             {character.level<MULTICLASS_UNLOCK_LEVEL?"Exige nível 4":
+              skillPoints<MULTICLASS_SKILL_COST?"Exige 2 HAB":
+              "Confirmar multiclasse · 2 HAB"}
+           </button>
+         </div>
+         {previewArchetype&&<p className="na-archetype-preview">
+           <strong>{previewArchetype.name}</strong> · {previewArchetype.description}
+           <small> Benefício: {previewArchetype.bonusText}</small>
+         </p>}
+       </>}
+   </section>}
    {section==="attributes"?<section className="na-tree-section">
      <h4>Atributos universais</h4>
      <p>Base + pontos investidos + origem + classe. Os bônus históricos de origem continuam válidos.</p>
@@ -104,7 +157,19 @@ export default function ProgressionTree({character,onAttribute,onSkill}:{
      </div>
    </section>:<section className="na-tree-section">
      <h4>Especializações exclusivas</h4>
-     <p>Três caminhos por classe. Cada ligação mostra a exigência de desbloqueio; o grau das técnicas altera o efeito real no combate.</p>
+     {character.multiclassId&&<div className="na-tree-tabs na-hybrid-tabs" role="group" aria-label="Árvores de cada classe">
+       <button type="button" className={skillTrack==="primary"?"selected":""}
+         aria-pressed={skillTrack==="primary"} onClick={()=>setSkillTrack("primary")}>
+         Principal · {getClassById(character.classId!).name}
+       </button>
+       <button type="button" className={skillTrack==="secondary"?"selected":""}
+         aria-pressed={skillTrack==="secondary"} onClick={()=>setSkillTrack("secondary")}>
+         Secundária · {getClassById(character.multiclassId).name}
+       </button>
+     </div>}
+     <p>Três caminhos por classe; os mesmos pontos de habilidade são usados nas duas árvores.
+       {skillTrack==="secondary"&&character.multiclassId?
+         " Técnicas secundárias exigem níveis maiores e param no grau 2.":""}</p>
      {!character.classId&&<p>Escolha uma classe na aba Personagem para habilitar seus talentos.</p>}
      <div className="na-tree-branches">
        {branches.map(branch=><div className="na-tree-branch" key={branch.id}>
@@ -114,16 +179,18 @@ export default function ProgressionTree({character,onAttribute,onSkill}:{
            if(!skill)return null;
            const rank=getSkillRank(character,id);
            const prior=skillPrerequisite(id);
-           const needsLevel=rank>0?skill.minimumLevel+rank:skill.minimumLevel;
+           const minimum=effectiveSkillMinimumLevel(character,skill);
+           const needsLevel=rank>0?minimum+rank:minimum;
            const prereqLocked=Boolean(prior&&!character.abilities.includes(prior));
            const locked=character.level<needsLevel||prereqLocked;
-           const maxed=rank>=skill.maxRank;
+           const rankCap=effectiveSkillMaxRank(character,skill);
+           const maxed=rank>=rankCap;
            const start=skill.minimumLevel===1&&rank>=1;
            return <div className="na-tree-connected-node" key={id}>
              {index>0&&<div className="na-tree-connection" aria-hidden="true"><span>│</span><span>▼</span></div>}
              <article className={"na-tree-node "+(rank?"unlocked":"")+(locked?" locked":"")}>
                <div><strong><span aria-hidden="true">{skill.visual==="emp"?"⌁":skill.visual==="repair"?"✚":skill.visual==="shield"?"⬡":skill.visual==="move"?"➤":"⌖"}</span> {skill.name}</strong>
-                 <small>GRAU {rank}/{skill.maxRank}</small></div>
+                 <small>GRAU {rank}/{rankCap}</small></div>
                <p>{skill.description}</p>
                <small>{skill.cost} energia · {skill.cooldown} turnos de recarga · alcance {skill.range}</small>
                <small>{prior?"Requer "+(ALL_CLASS_SKILLS[prior]?.name??prior):"Raiz independente da especialização"} · Nível {needsLevel}</small>
