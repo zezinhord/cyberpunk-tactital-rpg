@@ -37,6 +37,8 @@ export interface GameState {
   characterLevel: number;
   originId: string;
   classId: string | null;
+  /** Chosen secondary role, or null on older single-class campaigns. */
+  multiclassId?: string | null;
   characterAbilities: readonly string[];
   characterSkillRanks?: Readonly<Record<string,number>>;
   classCooldowns: Record<string,number>;
