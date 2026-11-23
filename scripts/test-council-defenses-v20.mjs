@@ -46,7 +46,11 @@ for(const id of COUNCIL_IDS){
   manager.state.mainActionAvailable=true;
   manager.state.activeSide="player";
   manager.state.combatComplete=false;
-  manager.attack();
+  // Deterministic natural-20 roll: a high attack bonus is no longer a
+  // guaranteed hit because the real game treats natural 1 as a miss.
+  const random=Math.random;
+  try{Math.random=()=>.99999;manager.attack();}
+  finally{Math.random=random;}
   const state=manager.getState();
   assert.equal(state.defeatedEnemyCount,wave,version);
   if(wave<battle.waves){
