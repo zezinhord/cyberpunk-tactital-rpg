@@ -416,10 +416,17 @@ export class TurnManager {
     const player = livingUnit(this.state.units, "runner");
     if (!player || this.state.activeSide !== "player" || this.state.combatComplete) return;
     const path = findPath(player, { x, y }, this.state.units, player.id,this.arenaLayout);
-    if (!path || path.length < 2) return;
+    if (!path) {
+      this.setMessage("Destino bloqueado ou sem rota segura. Escolha uma célula ciano próxima.");
+      return;
+    }
+    if (path.length < 2) {
+      this.setMessage("Você já está nessa posição. Escolha outra célula.");
+      return;
+    }
     const cost = path.length - 1;
     if (cost > this.state.movementRemaining) {
-      this.setMessage("Movimento insuficiente para alcançar essa célula.");
+      this.setMessage("Alvo distante: "+cost+" células necessárias, "+this.state.movementRemaining+" disponíveis. Avance por uma célula ciano.");
       return;
     }
     player.x = x;
