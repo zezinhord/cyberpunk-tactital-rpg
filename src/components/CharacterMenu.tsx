@@ -22,6 +22,7 @@ import {getHybridArchetype} from "../game/classes/hybrids.ts";
 import {CYBERWARE_IDS,CYBERWARE_CATALOG,cyberwareCapacity,cyberwareLoad,
   cyberwareCostLabel,canInstallCyberware,type CyberwareId} from "../game/cyberware.ts";
 import {COMPANION_IDS,COMPANION_CATALOG,type CompanionId,type PartyState} from "../game/companions.ts";
+import {PARTY_POSTURES,PARTY_POSTURE_LABELS,type PartyPosture} from "../game/ai/companion-brain.ts";
 
 type MenuSection = "character" | "progression" | "inventory" | "equipment" | "cyberware" | "team" | "abilities" | "map" | "journal" | "settings";
 
@@ -66,6 +67,7 @@ interface Props {
   availableCompanions:readonly CompanionId[];
   onRecruitCompanion:(id:CompanionId)=>string;
   onToggleCompanion:(id:CompanionId)=>string;
+  onSetPartyPosture:(posture:PartyPosture)=>string;
   partyNotice:string;
 }
 
@@ -134,7 +136,8 @@ export default function CharacterMenu({
   onToggleEquipment,
   onCraft,
   onInstallCyberware,onRemoveCyberware,canOperateCyberware,
-  party,availableCompanions,onRecruitCompanion,onToggleCompanion,partyNotice,
+  party,availableCompanions,onRecruitCompanion,onToggleCompanion,
+  onSetPartyPosture,partyNotice,
 }: Props) {
   const [activeSection, setActiveSection] = useState<MenuSection>(initialSection??"character");
   const [pendingClass,setPendingClass]=useState<ClassId|null>(null);
@@ -404,6 +407,21 @@ export default function CharacterMenu({
                   <p>Aliados atuam como apoio tático remoto, sem sobrecarregar o tabuleiro.
                     Cada um oferece bônus passivo e uma ação exclusiva por confronto.</p>
                   <small>É necessário encontrar cada aliado em seu local de atuação.</small>
+                </section>
+                <section className="menu-info-panel" aria-label="Ordens dos companheiros">
+                  <span className="menu-panel-kicker">IA DE APOIO · ORDENS DO JOGADOR</span>
+                  <div className="na-party-postures" role="group" aria-label="Postura de apoio">
+                    {PARTY_POSTURES.map(posture=><button type="button"
+                      key={posture} aria-pressed={(party.posture??"manual")===posture}
+                      className={(party.posture??"manual")===posture?"selected":""}
+                      onClick={()=>setTeamNotice(onSetPartyPosture(posture))}>
+                      {PARTY_POSTURE_LABELS[posture]}
+                    </button>)}
+                  </div>
+                  <small>Manual: você decide. Ofensiva: preparar acerto.
+                    Defensiva: proteção e atendimento. Suporte: cura/energia.
+                    Manter posição: nenhum apoio automático.
+                    Toda ordem respeita o uso único e a ação bônus.</small>
                 </section>
                 <section className="menu-list-panel">
                   {COMPANION_IDS.map(id=>{
