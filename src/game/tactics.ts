@@ -1,7 +1,7 @@
 /** IA tática determinística: cada decisão considera alcance, geometria,
  * linhas de tiro e proteção. Sem efeitos colaterais e com custo limitado a 64
  * células por turno em tabuleiros 8×8 (adequado para Android de entrada). */
-import {BOARD_HEIGHT,BOARD_WIDTH,coverArmorBonus,coverBetween,findPath,
+import {BOARD_HEIGHT,BOARD_WIDTH,coverArmorBonus,coverBetween,findPath,pathCost,movementCost,elevationAccuracyBonus,
   hasLineOfSight,isBlocked} from "./map.ts";
 import type {EncounterId,Position,Unit} from "./types.ts";
 import type {TacticalLayout} from "./combat/tactical-maps.ts";
@@ -92,6 +92,21 @@ export function withinShot(attacker:Position,target:Position,range:number,
 export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
  profile:EnemyProfile,layout:TacticalLayout|null=null):EnemyPlan{
  const shot=(pos:Position)=>withinShot(pos,player,profile.range,layout);
+ // Environmental hazard is an actionable flanking cost, not just a VFX.
+ if(shot(enemy)&&layout?.terrain.get(enemy.x+","+enemy.y)==="hazard"){
+   const escapes:{pos:Position;cost:number}[]=[];
+   for(let y=0;y<BOARD_HEIGHT;y++)for(let x=0;x<BOARD_WIDTH;x++){
+     const pos={x,y};if(isBlocked(pos,layout)||!shot(pos)||
+       layout.terrain.get(x+","+y)==="hazard")continue;
+     const path=findPath(enemy,pos,units,enemy.id,layout);
+     if(path&&path.length>1&&pathCost(path,layout)<=profile.mobility)
+       escapes.push({pos,cost:pathCost(path,layout)});
+   }
+   escapes.sort((a,b)=>a.cost-b.cost||a.pos.y-b.pos.y||a.pos.x-b.pos.x);
+   if(escapes.length)return {action:"reposition",target:escapes[0]!.pos,
+     mode:"ranged",cover:coverBetween(player,escapes[0]!.pos,layout),
+     intent:"Abandonar área de risco ambiental"};
+ }
  if(shot(enemy)){
    // Atiradores de precisão tentam manter distância após aproximação do jogador.
    if(profile.role==="sniper"&&manhattan(enemy,player)<profile.preferredDistance){
@@ -99,8 +114,8 @@ export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
      for(let y=0;y<BOARD_HEIGHT;y++)for(let x=0;x<BOARD_WIDTH;x++){
        const pos={x,y};if(isBlocked(pos,layout)||!shot(pos))continue;
        const path=findPath(enemy,pos,units,enemy.id,layout);
-       if(path&&path.length>1&&path.length-1<=profile.mobility)
-         retreats.push({pos,distance:manhattan(pos,player),steps:path.length-1});
+       if(path&&path.length>1&&pathCost(path,layout)<=profile.mobility)
+         retreats.push({pos,distance:manhattan(pos,player),steps:pathCost(path,layout)});
      }
      retreats.sort((a,b)=>b.distance-a.distance||a.steps-b.steps||a.pos.y-b.pos.y||a.pos.x-b.pos.x);
      if(retreats.length&&retreats[0]!.distance>manhattan(enemy,player))
@@ -116,8 +131,8 @@ export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
        const pos={x,y};
        if(isBlocked(pos,layout)||!shot(pos)||coverArmorBonus(player,pos,layout)===0)continue;
        const path=findPath(enemy,pos,units,enemy.id,layout);
-       if(path&&path.length>1&&path.length-1<=profile.mobility)
-         shelters.push({pos,steps:path.length-1});
+       if(path&&path.length>1&&pathCost(path,layout)<=profile.mobility)
+         shelters.push({pos,steps:pathCost(path,layout)});
      }
      shelters.sort((a,b)=>a.steps-b.steps||
        manhattan(a.pos,player)-manhattan(b.pos,player)||
@@ -141,17 +156,20 @@ export function planEnemyTurn(enemy:Unit,player:Unit,units:Unit[],
    const pos={x,y};
    if(isBlocked(pos,layout)||manhattan(enemy,pos)>profile.mobility||pos.x===player.x&&pos.y===player.y)continue;
    const path=findPath(enemy,pos,units,enemy.id,layout);
-   if(!path||path.length-1>profile.mobility)continue;
+   if(!path||pathCost(path,layout)>profile.mobility)continue;
    const dist=manhattan(pos,player),canFire=shot(pos);
    // Distância ideal e cobertura entram na estratégia, evitando IA que
    // apenas se aproxima em linha reta ou gira aleatoriamente.
    const score=(canFire?75:0)+
      (profile.role==="sniper"?(dist>=profile.preferredDistance?12:-18):0)+
      (canFire?Math.max(0,15-Math.abs(dist-profile.preferredDistance)*5):0)+
-     (canFire?coverArmorBonus(player,pos,layout)*4:0)-
+     (canFire?coverArmorBonus(player,pos,layout)*4:0)+
+     elevationAccuracyBonus(pos,player,layout)*3-
+     (layout?.terrain.get(x+","+y)==="hazard"?24:0)-
+     Math.max(0,movementCost(pos,layout)-1)*2-
      Math.max(0,dist-profile.range)*5-
-     Math.max(0,dist-currentDistance)*5-(path.length-1)*1.2;
-   candidates.push({pos,cost:path.length-1,score});
+     Math.max(0,dist-currentDistance)*5-(pathCost(path,layout))*1.2;
+   candidates.push({pos,cost:pathCost(path,layout),score});
  }
  candidates.sort((a,b)=>b.score-a.score||a.cost-b.cost||
    a.pos.y-b.pos.y||a.pos.x-b.pos.x);
