@@ -1,6 +1,7 @@
 import {lazy,Suspense,useEffect,useState} from "react";
 import NpcDialoguePanel from "../components/NpcDialoguePanel";
 import {arrivalForArea} from "../game/story/cinematic-arrivals.ts";
+import {firstContactCinematic} from "../game/story/cinematic-contacts.ts";
 import {readCinematicHistory} from "../game/story/cinematic-engine.ts";
 import "../dialogue-cinematic.css";
 import "../eden-epilogue.css";
@@ -276,7 +277,14 @@ const [dossierOpen,setDossierOpen]=useState(false);
   }, [character.id, mission]);
   useEffect(()=>{saveMarket(character.id,market);},[character.id,market]);
 
-  const say = (pages: DialoguePage[]) => setDialogue({ pages, index: 0 });
+  const say = (pages: DialoguePage[]) => {
+    if(!pages.length)return;
+    const first=firstContactCinematic(pages[0]!.speaker);
+    // First appearances share the exact same dialogue UI and callbacks.
+    // The cinematic is a prelude, not a replacement for narrative choices.
+    const hasSeen=first&&readCinematicHistory(character.id).includes(first.cinematicId);
+    setDialogue({pages:first&&!hasSeen?[first,...pages]:pages,index:0});
+  };
   const openForensicQuestion=(id:ExpansionInnerId,prefix=""):void=>{
     const c=FORENSIC_CASES[id];
     say([{speaker:INNER_CONTRACTS[id].guide,role:"PARECER FORENSE · TRÊS PROVAS",
