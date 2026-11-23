@@ -102,12 +102,11 @@ const make=(id,{hp=30,energy=10,guard=0,armorDebuff=0,nextDamage=0}={})=>{
 }
 // A pure heal with no missing HP must remain blocked without consuming EN.
 {
- const state=make("medtech-hemostasia");
- // Skill IDs differ between branches: take actual healing-only node.
+ // Take an actual single-effect healing skill from the 11-class registry.
  const pure=Object.values(ALL_CLASS_SKILLS).find(s=>s.classId==="medtech"&&
   s.effects.length===1&&s.effects[0].type==="heal");
  assert.ok(pure,"Medical healing-only skill must exist");
- state.characterAbilities=[pure.id];
+ const state=make(pure.id);
  const previous=state.energy;
  assert.equal(checkClassSkill(state,pure).available,false);
  assert.equal(executeClassSkill(state,pure).ok,false);
