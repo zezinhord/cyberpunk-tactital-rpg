@@ -79,3 +79,37 @@ export function assertRoute(path: readonly Tile[], options: WalkOptions = {}): b
   return path.slice(1).every((tile,i)=>canTraverse(path[i]!,tile,options));
 }
 export const WORLD_TILES = GRID_WIDTH*GRID_HEIGHT;
+
+/** Find a reachable sidewalk near a blocked touchscreen destination.
+ * A single flood-fill retains diagonal corner restrictions and avoids
+ * repeated searches for each obstacle-adjacent cell.
+ */
+export function routeNearTarget(start:Tile,target:Tile,
+ options:WalkOptions={},radius=3):Tile[]|null{
+ if(!isInside(start)||!isInside(target)||!canStand(start,options)||
+  !Number.isInteger(radius)||radius<1)return null;
+ if(canStand(target,options))return route(start,target,options);
+ const queue:Tile[]=[start];
+ const parent=new Map<string,string|null>([[cellKey(start),null]]);
+ let best:Tile|null=null,bestDistance=radius+1;
+ for(let i=0;i<queue.length;i++){
+  const current=queue[i]!;
+  const proximity=Math.abs(current.x-target.x)+Math.abs(current.y-target.y);
+  if(proximity<bestDistance){bestDistance=proximity;best=current;}
+  for(const direction of WALK_STEPS){
+   const next={x:current.x+direction.x,y:current.y+direction.y};
+   const key=cellKey(next);
+   if(parent.has(key)||!canTraverse(current,next,options))continue;
+   parent.set(key,cellKey(current));queue.push(next);
+  }
+ }
+ if(!best||bestDistance>radius)return null;
+ const path:Tile[]=[];
+ let key:string|null=cellKey(best);
+ while(key){
+  const [x,y]=key.split(",").map(Number);
+  path.push({x:x!,y:y!});
+  key=parent.get(key)??null;
+ }
+ return path.reverse();
+}
