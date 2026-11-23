@@ -475,21 +475,29 @@ export default function App() {
   };
 
   const buyAttribute=(id:StatId):string=>{
-    if(!character)return "Nenhum personagem ativo.";
-    const purchase=purchaseAttribute(character,id);
+    // Android users can tap multiple buttons before React commits the next
+    // render. Always purchase against the latest successfully saved snapshot,
+    // never a stale character captured by this render's event handler.
+    const active=characterRef.current;
+    if(!active)return "Nenhum personagem ativo.";
+    const purchase=purchaseAttribute(active,id);
     if(!purchase.ok)return purchase.message;
     if(!saveCharacter(purchase.character))return "Falha ao salvar o atributo.";
+    characterRef.current=purchase.character;
     setCharacter(purchase.character);
     setSlots(listCharacterSlots());
-    const hp=18+getOriginGameplay(character.originId).maxHpBonus+combatProgression(purchase.character).hp;
-    setHealthValue(loadHealth(character.id,hp));
+    const hp=18+getOriginGameplay(active.originId).maxHpBonus+
+      combatProgression(purchase.character).hp;
+    setHealthValue(loadHealth(active.id,hp));
     return purchase.message;
   };
   const buySkill=(id:string):string=>{
-    if(!character)return "Nenhum personagem ativo.";
-    const purchase=purchaseSkill(character,id);
+    const active=characterRef.current;
+    if(!active)return "Nenhum personagem ativo.";
+    const purchase=purchaseSkill(active,id);
     if(!purchase.ok)return purchase.message;
     if(!saveCharacter(purchase.character))return "Falha ao salvar a habilidade.";
+    characterRef.current=purchase.character;
     setCharacter(purchase.character);
     setSlots(listCharacterSlots());
     return purchase.message;
