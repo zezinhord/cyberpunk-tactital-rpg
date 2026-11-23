@@ -54,16 +54,26 @@ const native=`public class MainActivity extends BridgeActivity {
     }
     private void scheduleImmersiveRecheck() {
         final View root = getWindow().getDecorView();
-        root.postDelayed(() -> {
-            if (isFinishing() || isDestroyed() || !root.hasWindowFocus()) return;
-            enterImmersiveMode();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                WindowInsets insets = root.getRootWindowInsets();
-                if (insets != null) Log.i(IMMERSIVE_TAG,
-                    "statusVisible=" + insets.isVisible(WindowInsets.Type.statusBars()) +
-                    " navigationVisible=" + insets.isVisible(WindowInsets.Type.navigationBars()));
-            }
-        }, 250L);
+        // Android can return from HOME before the decor view regains focus.
+        // A single 250 ms recheck missed this real lifecycle race on API 35.
+        // Bounded delayed checks restore fullscreen once focus is available;
+        // every assertion logs REAL WindowInsets, never a fabricated success.
+        final long[] delays = {250L, 750L, 1500L, 3000L};
+        for (final long delay : delays) {
+            root.postDelayed(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (root.hasWindowFocus()) enterImmersiveMode();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    final WindowInsets insets = root.getRootWindowInsets();
+                    if (insets != null) Log.i(IMMERSIVE_TAG,
+                        "statusVisible=" + insets.isVisible(WindowInsets.Type.statusBars()) +
+                        " navigationVisible=" + insets.isVisible(WindowInsets.Type.navigationBars()) +
+                        " focus=" + root.hasWindowFocus());
+                    else Log.i(IMMERSIVE_TAG,
+                        "insetsPending focus=" + root.hasWindowFocus());
+                }
+            }, delay);
+        }
     }
     private void enterImmersiveMode() {
         final Window window = getWindow();
