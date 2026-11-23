@@ -25,4 +25,10 @@ assert.ok(world.includes("if(sector!==lastSector)")&&
 assert.ok(world.includes("const v=view;"),"Pointer coordinates must use the last rendered camera");
 assert.ok(world.includes('frameIntervalMs=readGraphicsMode()==="balanced"?16.67:33.34'),
  "The Android Canvas renderer must honor economy/balanced FPS");
-console.log("Baixada QA: sprites preserved, lazy NPCs, HUD updates, frame pacing, camera hit tests and occlusion verified.");
+assert.ok(world.includes("if(next&&!canTraverse(motion.position,next,{occupied}))"),
+ "NPCs moving into a route must trigger a safe replan before stepping");
+assert.ok(world.includes("if(motion.step)occupied.add(motion.step.to.x"),
+ "Roaming citizens must not enter an avatar tile already reserved mid-step");
+assert.ok(world.includes("Math.max(4000,(path.length-1)*195+2800)"),
+ "NPC interaction lock must use the current route duration");
+console.log("Baixada QA: original sprites, 30/60fps, touch camera, NPC collision reroute and preservation passed.");
