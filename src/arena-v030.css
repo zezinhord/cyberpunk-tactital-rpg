@@ -338,3 +338,11 @@
  background:rgba(75,59,28,.28);border-radius:5px}
 .na-archetype-summary>strong{color:#f4d7a6}
 .na-archetype-summary small{display:block;color:#e8c27e;margin-top:4px}
+
+/* Calm, non-animated enemy awareness with accessible textual equivalent. */
+.na-ai-awareness{font:700 10px/1.4 var(--mono);letter-spacing:.015em}
+.na-ai-awareness[data-awareness="engaged"],
+.na-ai-awareness[data-awareness="retreat"]{color:#f4a1c8}
+.na-ai-awareness[data-awareness="investigate"],
+.na-ai-awareness[data-awareness="search"]{color:#f1c889}
+.na-ai-awareness[data-awareness="patrol"]{color:#bbd5d8}
