@@ -993,7 +993,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
       const collected=onCollectDistrictCache("baixada");
       if(collected){audioDirector.effect("archive");onQuestXp("discovery-baixada",discovery.xp);}
       say([{speaker:"ARQUIVO DE MEMÓRIAS",role:"REDE AUTÔNOMA · HISTÓRIAS DA BAIXADA",
-        portrait:"▤",text:collected?
+        portrait:"▤",text:(collected?
           discovery.story+" +"+discovery.xp+" XP e arquivo recuperado.":
           "Os registros já foram recolhidos ou não foi possível gravar o inventário.")+
           (edenSignal?"\n\n"+edenSignal.title+": "+edenSignal.transmission:"")}]);
