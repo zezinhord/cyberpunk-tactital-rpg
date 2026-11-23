@@ -6,7 +6,7 @@ import {paintCityBackground,drawCityBuilding,drawCityProp,tileWorld,
   type PropKind,type Point} from "../game/baixada/lite-city-art";
 import {createLiteArtAssets,drawLiteSprite,LONG_NPC_SHEETS,type LiteArtAssets} from "../game/baixada/lite-art-assets";
 import {CitizenRoutine} from "../game/baixada/npc-routines.ts";
-import {canStand,route,approachRoute} from "../game/baixada/navigation";
+import {canStand,route,approachRoute,routeNearTarget} from "../game/baixada/navigation";
 import {smoothCamera,interpolateWalk,completedStepAt} from "../game/baixada/motion";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
 import type {OriginId} from "../game/character";
@@ -527,11 +527,12 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     const target=actor?actorTile(actor):null;
     const resident=actor?residents.get(actor):undefined;
     if(resident)resident.lockUntil=performance.now()+Math.max(4000,motion.steps.length*190+2800);
-    const path=target?approachRoute(start,target):route(start,destination);
+    const path=target?approachRoute(start,target):
+      canStand(destination)?route(start,destination):routeNearTarget(start,destination);
     if(!path)return;
     motion.steps=path.slice(1);
     motion.pendingActor=actor??null;
-    marker=target??destination;
+    marker=target??path.at(-1)??destination;
     if(!motion.step)startStep(performance.now());
     schedule();
   };
@@ -572,7 +573,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     const rx=(realX-ORIGIN_X)/(TILE_W/2);
     const ry=(realY-ORIGIN_Y)/(TILE_H/2);
     const target={x:Math.round((rx+ry)/2),y:Math.round((ry-rx)/2)};
-    if(canStand(target))go(target);
+    go(target); // Obstacles are approached without crossing collisions.
   };
   const keydown=(event:KeyboardEvent)=>{
     const dirs:Record<string,Tile>={
