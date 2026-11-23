@@ -47,6 +47,7 @@ import { readV09,markV09Reported } from "../game/story/v09";
 import { MARKET_CLUE_TEXT,applyMarketAction,getMarketConversation,isMarketActor,readMarket,saveMarket } from "../game/story/market";
 import { getSectorById,sectorAt,type SectorId } from "../game/baixada/layout";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
+import {firstMissionWaypoint} from "../game/baixada/mission-waypoint";
 import {loadWorldArea,saveWorldArea} from "../game/baixada/world-area";
 import {readSewer,saveSewer,sewerNextObjective,sewerStatus,applySewerEvent,
  hasSewerEvidence,type SewerEvent} from "../game/story/sewer-v09";
@@ -398,6 +399,15 @@ const [dossierOpen,setDossierOpen]=useState(false);
     : !hasSewerEvidence(sewer) ? sewerNextObjective(sewer)
     : mission.clues.includes("patio") ? "Confronte a unidade de vigilância V-09 junto ao console do Pátio."
     : "Explore o Pátio do Reúso, converse com seus moradores e consulte o console V-09.";
+  // Compact wayfinding for the original V-09 investigation only. Future
+  // quest contacts remain undisclosed until their campaigns are unlocked.
+  const currentWaypoint=!trial.started&&!eden.started&&!cisma.started&&
+    !operations.started&&!ferrugem.started?
+    firstMissionWaypoint({
+      step:mission.step,hasSewerEvidence:hasSewerEvidence(sewer),
+      patioConsoleRead:mission.clues.includes("patio"),
+      sentinelDefeated:v09.defeated,evidenceReported:v09.reported,
+    }):null;
   const addClue = (id: string) => {
     setMission((current) =>
       current.clues.includes(id)
@@ -1567,6 +1577,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
           </Suspense></SceneRecovery>
         ) : (
           <BaixadaWorld originId={character.originId} appearance={appearance} characterId={character.id}
+            objectiveActorId={currentWaypoint?.actorId??null}
             onSectorChange={setSectorId} onNearbyAccess={setNearSewerAccess} onInteract={handleInteract} />
         )}
         <div className="world-instructions">
@@ -1714,6 +1725,9 @@ const [dossierOpen,setDossierOpen]=useState(false);
             eden.started?edenObjective(eden):
             trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
             objective}</strong>
+          {currentWaypoint&&<small className="na-quest-next-stop">
+            ⌖ PRÓXIMA PARADA · {currentWaypoint.label}
+          </small>}
           {favors.ready.some(id=>!favors.claimed.includes(id))&&
             <small>◆ Favor concluído · procure o contato</small>}
         </div>}
@@ -1743,6 +1757,9 @@ const [dossierOpen,setDossierOpen]=useState(false);
               eden.started?edenObjective(eden):
               trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
               objective}</p>
+            {currentWaypoint&&<small className="na-quest-next-stop">
+              ⌖ PRÓXIMA PARADA · {currentWaypoint.label}
+            </small>}
             {operations.started&&!operations.completed&&<small>
               Operações · Ato {currentOperation(operations)?.act} · etapa {operations.step+1} de {OPERATIONS_STAGES.length}
               {" · "}2 confrontos do clímax em etapas separadas</small>}
