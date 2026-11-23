@@ -304,3 +304,16 @@
 @media (prefers-reduced-motion:reduce){
  .na-opening-art{transform:none!important;transition:none!important;will-change:auto}
 }
+
+/* Visible only under Vite DEV; no control ships in a production bundle. */
+.na-cinema-dev-tools{position:absolute;z-index:9;left:12px;bottom:68px;
+ display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-width:calc(100vw - 24px);
+ padding:5px 8px;background:#14232cf4;color:#ecd5aa;
+ border:1px solid #caab7a;border-radius:5px;font:600 10px var(--mono)}
+.na-cinema-dev-tools label{display:flex;align-items:center;gap:4px}
+.na-cinema-dev-tools select,.na-cinema-dev-tools button{min-height:32px;
+ padding:3px 5px;color:#eaf3f2;background:#213b45;border:1px solid #77929a;
+ border-radius:3px;font:500 10px var(--mono)}
+@media (orientation:landscape) and (max-height:440px){
+ .na-cinema-dev-tools{bottom:60px;left:5px;max-height:75px;overflow-y:auto}
+}
