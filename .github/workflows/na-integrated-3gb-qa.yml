@@ -24,6 +24,8 @@ on:
       - src/game/character/backup.ts
       - src/components/DossierGallery.tsx
       - src/components/BaixadaLiteWorld.tsx
+      - src/game/baixada/lite-art-assets.ts
+      - scripts/test-baixada-art.mjs
       - src/game/baixada/navigation.ts
       - src/game/baixada/motion.ts
       - scripts/test-movement.mjs
@@ -145,6 +147,7 @@ jobs:
           node --experimental-strip-types scripts/test-battlefield-navigation.mjs
           node --experimental-strip-types scripts/test-movement.mjs
           node --experimental-strip-types scripts/test-baixada-collisions.mjs
+          node scripts/test-baixada-art.mjs
       - name: Generate original scene mural and test 12 authored dossier designs
         run: |
           python tools/generate_v20_illustrations.py
