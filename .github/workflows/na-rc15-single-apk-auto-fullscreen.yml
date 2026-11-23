@@ -248,7 +248,8 @@ jobs:
           menu=Path("src/components/CharacterMenu.tsx").read_text()
           immersive=Path("scripts/enable-android-immersive.mjs").read_text()
           injector=Path("scripts/install-asset-pack-plugin.mjs").read_text()
-          assert "else void prepareFullGame()" in gate
+          assert "else void prepareFullGame(latest)" in gate
+          assert "const verified=initial??await readInstalled()" in gate
           assert "installEmbeddedDistrict(id,event" in gate
           assert "integratedApkStatus()" in gate
           assert "phase===\"failed\"" in gate
