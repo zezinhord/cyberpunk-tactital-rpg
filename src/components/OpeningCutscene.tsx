@@ -1,6 +1,7 @@
 import {useEffect,useMemo,useRef,useState,type CSSProperties} from "react";
 import type {PlayerCharacter} from "../game/character/types";
 import {getOriginById} from "../game/character";
+import {ORIGIN_IDS,type OriginId} from "../game/character/origins.ts";
 import {getClassById} from "../game/classes/registry";
 import type {TestAppearance} from "../game/test-arena/appearance";
 import {getPlayerLiteSpriteUrl} from "../game/baixada/lite-art-assets";
@@ -97,6 +98,9 @@ function SceneArtwork({visual,character,appearance,reducedMotion,shot}:{
 export default function OpeningCutscene({character,appearance,onFinish,error}:Props){
  const [index,setIndex]=useState(0);
  const [visible,setVisible]=useState(0);
+ const [previewOrigin,setPreviewOrigin]=useState<OriginId|null>(null);
+ const previewCharacter=import.meta.env.DEV&&previewOrigin?
+   {...character,originId:previewOrigin}:character;
  const [settings,setSettings]=useState<CinematicPreferences>(readCinematicPreferences);
  const [confirmSkip,setConfirmSkip]=useState(false);
  const [historyOpen,setHistoryOpen]=useState(false);
@@ -109,10 +113,10 @@ export default function OpeningCutscene({character,appearance,onFinish,error}:Pr
    [character.id,character.originId,character.classId]);
  const panel=OPENING_PANELS[index]??OPENING_PANELS[0]!;
  const shot=safeShot(panel.shot);
- const memory=ORIGIN_CINEMATIC_MEMORY[character.originId];
- const fullText=useMemo(()=>openingLines(panel,character).join("\n\n")+
+ const memory=ORIGIN_CINEMATIC_MEMORY[previewCharacter.originId];
+ const fullText=useMemo(()=>openingLines(panel,previewCharacter).join("\n\n")+
    (panel.id==="you"?"\n\n"+memory.detail:""),
-   [panel,character,memory.detail]);
+   [panel,previewCharacter,memory.detail]);
  const changeSettings=(patch:Partial<CinematicPreferences>)=>{
    setSettings(previous=>{
      const updated={...previous,...patch};
@@ -174,7 +178,7 @@ export default function OpeningCutscene({character,appearance,onFinish,error}:Pr
    </div>
   </header>
   <section className="na-opening-layout" key={panel.id} data-shot-id={panel.id}>
-   <SceneArtwork visual={panel.visual} character={character} appearance={appearance}
+   <SceneArtwork visual={panel.visual} character={previewCharacter} appearance={appearance}
      reducedMotion={reducedMotion} shot={shot}/>
    <article className="na-opening-narrative">
     <p className="na-opening-chapter">{panel.label} · {shot.mood.toUpperCase()}</p>
@@ -193,7 +197,7 @@ export default function OpeningCutscene({character,appearance,onFinish,error}:Pr
     <header><strong>Registro das cenas vistas</strong>
       <button type="button" onClick={()=>setHistoryOpen(false)}>Voltar à cena</button></header>
     {OPENING_PANELS.slice(0,index+1).map(scene=><p key={scene.id}>
-      <strong>{scene.title}</strong> · {openingLines(scene,character).join(" ")}</p>)}
+      <strong>{scene.title}</strong> · {openingLines(scene,previewCharacter).join(" ")}</p>)}
    </aside>}
   {confirmSkip&&<div className="na-cinema-confirm" role="presentation">
     <section role="dialog" aria-modal="true" aria-labelledby="na-skip-opening-title">
@@ -205,6 +209,22 @@ export default function OpeningCutscene({character,appearance,onFinish,error}:Pr
        Confirmar e continuar</button></div>
     </section>
    </div>}
+  {import.meta.env.DEV&&<aside className="na-cinema-dev-tools"
+    aria-label="Pré-visualização cinematográfica exclusiva de desenvolvimento">
+    <strong>DEV · CÂMERA</strong>
+    <label>Enquadramento <select value={index}
+      onChange={event=>setIndex(Number(event.target.value))}>
+      {OPENING_PANELS.map((scene,i)=><option value={i} key={scene.id}>
+        {scene.id} · {scene.title}</option>)}
+     </select></label>
+    <label>Origem de prévia <select value={previewOrigin??character.originId}
+      onChange={event=>setPreviewOrigin(event.target.value as OriginId)}>
+      {ORIGIN_IDS.map(id=><option key={id} value={id}>{getOriginById(id).name}</option>)}
+     </select></label>
+    <span>{shot.focus} · x {shot.panX}%, y {shot.panY}% · zoom {shot.zoom.toFixed(2)}</span>
+    <button type="button" onClick={()=>{setIndex(0);setPreviewOrigin(null);}}>
+      Reiniciar prévia</button>
+   </aside>}
   <footer className="na-opening-footer">
    <div className="na-opening-progress" role="progressbar"
     aria-label="Progresso do prólogo" aria-valuemin={0}
