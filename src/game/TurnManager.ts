@@ -1,5 +1,6 @@
 import { TypedEventBus } from "./EventBus";
-import { ALL_CLASS_SKILLS,getClassSkills } from "./classes/registry";
+import { ALL_CLASS_SKILLS,getClassSkills,isPlayableClass } from "./classes/registry";
+import {getHybridArchetype,isValidSecondary,MULTICLASS_UNLOCK_LEVEL} from "./classes/hybrids.ts";
 import { checkClassSkill,executeClassSkill,advanceClassRound,advanceClassGuard,advanceClassEnemyDebuffs } from "./classes/engine";
 import { checkSpecial, useSpecial, advanceSpecialRound, isEnemyJammed, advanceBarrierAfterEnemyAction } from "./abilities/engine.ts";
 import type { SpecialId } from "./abilities/catalog";
@@ -39,6 +40,7 @@ export interface TurnManagerOptions {
   progressionBonuses?:{hp:number;attack:number;armor:number;movement:number;energy:number};
   originId?: string;
   classId?: string | null;
+  multiclassId?: string | null;
   characterAbilities?: readonly string[];
   characterSkillRanks?:Readonly<Record<string,number>>;
   weaponId?:string|null;
@@ -74,9 +76,15 @@ export class TurnManager {
     this.weaponRange=options.weaponId?
       (ITEM_CATALOG[options.weaponId as ItemId]?.range??1):1;
     const bonus=options.progressionBonuses;
-    const movementPerTurn = Math.max(1,MOVEMENT_PER_TURN+(this.originProfile?.movementBonus??0)+(bonus?.movement??0)+(options.equipmentBonuses?.movementBonus??0)+(this.districtSupport?.movement??0)+party.movement);
+    const primary=isPlayableClass(options.classId)?options.classId:null;
+    const secondary=primary&&(options.characterLevel??1)>=MULTICLASS_UNLOCK_LEVEL&&
+      isValidSecondary(primary,options.multiclassId)?options.multiclassId:null;
+    const archetype=getHybridArchetype(primary,secondary);
+    const bonusKind=archetype?.bonus;
+    const movementPerTurn = Math.max(1,MOVEMENT_PER_TURN+
+      (bonusKind==="movement"?1:0)+(this.originProfile?.movementBonus??0)+(bonus?.movement??0)+(options.equipmentBonuses?.movementBonus??0)+(this.districtSupport?.movement??0)+party.movement);
     const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0)+(options.equipmentBonuses?.hpBonus??0)+party.hp;
-    const maxEnergy=10+(bonus?.energy??0)+(options.equipmentBonuses?.energyBonus??0)+(this.districtSupport?.energy??0)+party.energy;
+    const maxEnergy=10+(bonus?.energy??0)+(options.equipmentBonuses?.energyBonus??0)+(this.districtSupport?.energy??0)+party.energy+(bonusKind==="energy"?1:0);
     const trial=options.encounterId?.startsWith("trial-")??false;
     const eden=options.encounterId?.startsWith("eden-")??false;
     const district=options.encounterId?.startsWith("district-")??false;
@@ -104,8 +112,8 @@ export class TurnManager {
             ? Math.min(maxHp,Math.max(1,Math.floor(options.currentHp!)))
             : maxHp,
           maxHp,
-          armorClass: 12 + (this.originProfile?.armorBonus ?? 0) + (options.equipmentBonuses?.armorBonus ?? 0) + (bonus?.armor??0)+(this.districtSupport?.armor??0)+party.armor,
-          attackBonus: 5 + (this.originProfile?.attackBonus ?? 0) + (options.equipmentBonuses?.attackBonus ?? 0) + (bonus?.attack??0)+(this.districtSupport?.attack??0)+party.attack,
+          armorClass: 12 + (this.originProfile?.armorBonus ?? 0) + (options.equipmentBonuses?.armorBonus ?? 0) + (bonus?.armor??0)+(this.districtSupport?.armor??0)+party.armor+(bonusKind==="armor"?1:0),
+          attackBonus: 5 + (this.originProfile?.attackBonus ?? 0) + (options.equipmentBonuses?.attackBonus ?? 0) + (bonus?.attack??0)+(this.districtSupport?.attack??0)+party.attack+(bonusKind==="attack"?1:0),
         },
         {
           id: "drone",
@@ -126,8 +134,8 @@ export class TurnManager {
       activeSide: "player",
       encounterId: options.encounterId ?? "test",
       wave:1,totalWaves:trialWaveCount,defeatedEnemyCount:0,
-      archetypeId: "field-operative", characterLevel: options.characterLevel ?? 1,
-      originId: options.originId ?? "corporativo", classId: options.classId ?? null,
+      archetypeId: archetype?.id??"field-operative", characterLevel: options.characterLevel ?? 1,
+      originId: options.originId ?? "corporativo", classId: primary,multiclassId:secondary,
       characterAbilities: options.characterAbilities ?? [],characterSkillRanks:options.characterSkillRanks ?? {}, classCooldowns:{}, classGuardBonus:0, classGuardTurns:0,
       classExtraMovement:0,classNextDamageBonus:0,classNextAccuracyBonus:0,
       classEnemyArmorReduction:0,classEnemyArmorTurns:0,
@@ -211,9 +219,15 @@ export class TurnManager {
   }
 
   getClassAbilities(){
-    return getClassSkills(this.state.classId).filter(skill=>
-      this.state.characterAbilities.includes(skill.id)
-      && this.state.characterLevel>=skill.minimumLevel);
+    // Secondary skills share ONE primary action, energy reserve and global
+    // tactical cooldown system. There is never a second combat turn.
+    return [...getClassSkills(this.state.classId),
+      ...getClassSkills(this.state.multiclassId??null)].filter(skill=>
+       this.state.characterAbilities.includes(skill.id)&&
+       this.state.characterLevel>=
+        (skill.classId===this.state.multiclassId?
+          Math.max(MULTICLASS_UNLOCK_LEVEL,skill.minimumLevel+2):
+          skill.minimumLevel));
   }
   getClassAvailability(id:string):AbilityCheck{
     const skill=ALL_CLASS_SKILLS[id];
