@@ -33,6 +33,7 @@ on:
       - src/game/baixada/lite-art-assets.ts
       - scripts/test-baixada-art.mjs
       - src/game/baixada/motion.ts
+      - src/game/baixada/frame-pacing.ts
       - src/game/baixada/navigation.ts
       - scripts/test-movement.mjs
       - scripts/test-baixada-collisions.mjs
