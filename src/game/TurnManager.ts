@@ -666,6 +666,9 @@ export class TurnManager {
       this.state.energy=Math.min(this.state.maxEnergy,this.state.energy+3);
       this.state.movementRemaining=this.state.movementPerTurn;
       this.state.enemyJamTurns=0;
+      this.aiMemory=initialEnemyMemory();
+      this.state.enemyAwareness="patrol";
+      this.state.enemyPerception="Nova onda: nenhum contato ainda";
       this.state.overwatchReady=false;this.state.suppressionTurns=0;
       this.state.classEnemyArmorTurns=0;
       this.state.classEnemyArmorReduction=0;
