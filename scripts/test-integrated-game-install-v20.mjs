@@ -72,7 +72,15 @@ const menu=readFileSync("src/components/CharacterMenu.tsx","utf8");
 const root=readFileSync("src/main.tsx","utf8");
 const native=readFileSync("native/NovaAssetPacks.java","utf8");
 const manager=readFileSync("src/game/assets/native-pack-manager.ts","utf8");
-assert.ok(root.includes("<GameInstallationGate><App /></GameInstallationGate>"));
+assert.ok(root.includes('const App=React.lazy(()=>import("./App"))'),
+ "The entire story/combat bundle must not block the initial Android install gate");
+assert.ok(!root.includes('import App from "./App"'),
+ "Eager game imports prevent the installation progress from appearing on slow devices");
+assert.ok(root.includes("<GameInstallationGate>")&&
+ root.includes("<React.Suspense fallback=")&&root.includes("<App />"),
+ "Lazy gameplay must remain behind the mandatory seven-district gate");
+assert.ok(root.indexOf("<GameInstallationGate>")<root.indexOf("<App />"),
+ "No gameplay before native SHA verification and offline asset preparation");
 assert.ok(gate.includes('isCompleteGameCatalog(catalog)'));
 assert.ok(gate.includes('else void prepareFullGame(latest)'));
 assert.ok(gate.includes('const verified=initial??await readInstalled()'),
