@@ -12,8 +12,9 @@ import { getOriginById, getOriginGameplay } from "../game/character";
 import CharacterMenu from "../components/CharacterMenu";
 import {ITEM_CATALOG,type InventoryState,type ItemId} from "../game/inventory";
 import type {CyberwareId} from "../game/cyberware.ts";
-import {readParty,saveParty,recruitCompanion,toggleCompanion,
+import {readParty,saveParty,recruitCompanion,toggleCompanion,setPartyPosture,
   type CompanionId} from "../game/companions.ts";
+import type {PartyPosture} from "../game/ai/companion-brain.ts";
 import {readStealth,saveStealth,planStealth,
  type StealthMode} from "../game/stealth.ts";
 import type {RecipeId} from "../game/crafting";
@@ -2016,6 +2017,14 @@ const [dossierOpen,setDossierOpen]=useState(false);
             if(!result.ok)return result.message;
             if(!saveParty(character.id,result.state))return "Não foi possível salvar este recrutamento.";
             setParty(result.state);setPartyNotice(result.message);return result.message;
+          }}
+          onSetPartyPosture={(posture:PartyPosture)=>{
+            const result=setPartyPosture(party,posture);
+            if(!result.ok)return result.message;
+            if(!saveParty(character.id,result.state))
+              return "A ordem não foi salva. Libere espaço e tente novamente.";
+            setParty(result.state);
+            return result.message;
           }}
           onToggleCompanion={id=>{
             const result=toggleCompanion(party,id);
