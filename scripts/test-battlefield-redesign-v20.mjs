@@ -125,7 +125,7 @@ try{
   else Object.defineProperty(globalThis,"localStorage",{configurable:true,value:priorStorage});
 }
 const ui=readFileSync("src/components/Battlefield.tsx","utf8");
-for(const marker of ["manager.interactWithObject(","cell.terrain==="hazard"",
+for(const marker of ["manager.interactWithObject(",'cell.terrain==="hazard"',
     "tileHeight","cell.height>0","data-unit={unit.id}","manager.movePlayerTo(cell.x,cell.y)"])
   assert.ok(ui.includes(marker),"Missing visible tactical feedback: "+marker);
 console.log("20 distinct campaign tactical maps: connected spawns, cost-aware paths, height, AI, LoS, cover, destructibles, hacking, save isolation and mobile UI verified.");
