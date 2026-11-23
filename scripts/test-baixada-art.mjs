@@ -31,4 +31,12 @@ assert.ok(world.includes("if(motion.step)occupied.add(motion.step.to.x"),
  "Roaming citizens must not enter an avatar tile already reserved mid-step");
 assert.ok(world.includes("Math.max(4000,(path.length-1)*195+2800)"),
  "NPC interaction lock must use the current route duration");
-console.log("Baixada QA: original sprites, 30/60fps, touch camera, NPC collision reroute and preservation passed.");
+assert.ok(world.includes("const TILE_PALETTES={"),"Tiles must reuse shared palettes");
+for(const key of ["outside","commercialRoad","commercialGround","industrialRoad",
+ "industrialGround","localRoad","localGround"]){
+ assert.ok(world.includes("TILE_PALETTES."+key),
+  "District colors must keep their original visual identity: "+key);
+}
+assert.ok(!world.includes("const palette=outside\n"),
+ "Drawing each tile must not allocate a new array on every frame");
+console.log("Baixada QA: graphics, NPC collision reroute, touch accuracy and low-GC palettes verified.");
