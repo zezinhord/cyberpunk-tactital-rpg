@@ -105,7 +105,10 @@ export function decideEnemy(
  };
  const temperament=enemyTemperament(profile.role);
  const hpRatio=enemy.maxHp>0?enemy.hp/enemy.maxHp:1;
- const candidates=reachable(enemy,units,profile.mobility,layout);
+ // The hidden player's true tile must not bias PATROL candidates either.
+ // Real occupancy is checked by the executor just before committing movement.
+ const perceivedOccupancy=sight?units:units.filter(u=>u.id!==player.id);
+ const candidates=reachable(enemy,perceivedOccupancy,profile.mobility,layout);
  // Retreat is selected only after VISUAL contact; otherwise it would
  // leak the exact hidden player location into a tactical decision.
  if(sight&&hpRatio<=.32&&temperament!=="aggressive"){
