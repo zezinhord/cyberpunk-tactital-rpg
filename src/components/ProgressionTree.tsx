@@ -3,7 +3,8 @@ import type {PlayerCharacter} from "../game/character/types";
 import {ALL_CLASS_SKILLS,getClassById,getClassBranches} from "../game/classes/registry";
 import {STATS,STAT_IDS,GENERAL_PASSIVES,MAX_STAT_RANK,
  availableAttributePoints,availableSkillPoints,statRank,statBreakdown,getSkillRank,
- levelExperienceProgress,influenceTrustBonus,skillPrerequisite,combatProgression,skillEffectPreview,type StatId} from "../game/progression/tree";
+ levelExperienceProgress,masteryExperienceProgress,influenceTrustBonus,
+ skillPrerequisite,combatProgression,skillEffectPreview,type StatId} from "../game/progression/tree";
 
 export default function ProgressionTree({character,onAttribute,onSkill}:{
  character:PlayerCharacter;
@@ -15,6 +16,7 @@ export default function ProgressionTree({character,onAttribute,onSkill}:{
  const attributePoints=availableAttributePoints(character);
  const skillPoints=availableSkillPoints(character);
  const xpProgress=levelExperienceProgress(character);
+ const mastery=masteryExperienceProgress(character);
  const branches=getClassBranches(character.classId);
  const statBefore=combatProgression(character);
  const preview=(id:StatId)=>{
@@ -42,16 +44,23 @@ export default function ProgressionTree({character,onAttribute,onSkill}:{
        <div className="na-tree-points"><strong>ATR {attributePoints}</strong><strong>HAB {skillPoints}</strong></div>
      </div>
      <p>{xpProgress.nextLevel===null?
-        "Nível máximo atingido · "+character.experience+" XP totais":
+        "Nível 10 · Maestria "+mastery.points+"/"+mastery.cap+" · "+
+        (mastery.points===mastery.cap?
+          "Especialização máxima alcançada":
+          "faltam "+mastery.remaining+" XP para +1 ponto de habilidade"):
         character.experience+" XP totais · "+xpProgress.earned+" / "+
          xpProgress.required+" XP neste nível · faltam "+xpProgress.remaining+
          " XP para o nível "+xpProgress.nextLevel}</p>
      <div className="na-tree-xp-track" role="progressbar" aria-valuemin={0}
-       aria-valuemax={xpProgress.required||1}
-       aria-valuenow={xpProgress.nextLevel===null?1:xpProgress.earned}
-       aria-label={xpProgress.nextLevel===null?"Nível máximo":"Progresso de XP do nível atual"}>
-       <span style={{width:xpProgress.percent+"%"}}/>
+       aria-valuemax={xpProgress.nextLevel===null?mastery.required:xpProgress.required||1}
+       aria-valuenow={xpProgress.nextLevel===null?mastery.earned:xpProgress.earned}
+       aria-label={xpProgress.nextLevel===null?"Progresso de maestria":"Progresso de XP do nível atual"}>
+       <span style={{width:(xpProgress.nextLevel===null?mastery.percent:xpProgress.percent)+"%"}}/>
      </div>
+     {xpProgress.nextLevel===null&&<small className="na-tree-mastery-note">
+       A cada 450 XP após o nível 10, ganhe +1 ponto de habilidade (até 8).
+       Seus atributos e níveis existentes permanecem inalterados.
+     </small>}
      <div className="na-tree-tabs" role="group" aria-label="Seção de evolução">
        <button type="button" className={section==="attributes"?"selected":""}
          aria-pressed={section==="attributes"} onClick={()=>setSection("attributes")}>Atributos</button>
