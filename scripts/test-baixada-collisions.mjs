@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { BUILDINGS, PROPS, ACTOR_TILES, PLAYER_START, BUILDING_CELLS, cellKey } from "../src/game/baixada/layout.ts";
-import { canStand, canTraverse, route, approachRoute, assertRoute, collisionAt, ORTHOGONAL_STEPS } from "../src/game/baixada/navigation.ts";
+import { canStand, canTraverse, route, approachRoute, routeNearTarget, assertRoute, collisionAt, ORTHOGONAL_STEPS } from "../src/game/baixada/navigation.ts";
 for (const building of BUILDINGS) {
   for(let x=building.x;x<building.x+building.width;x++)
   for(let y=building.y;y<building.y+building.depth;y++) {
@@ -30,6 +30,20 @@ for(const [id,tile] of Object.entries(ACTOR_TILES)){
   const last=path.at(-1);
   assert.equal(Math.abs(last.x-tile.x)+Math.abs(last.y-tile.y),1);
 }
+// Taps on roofs should move to nearby reachable pavement, never through walls.
+const clinic=BUILDINGS.find(b=>b.id==="clinica");
+assert.ok(clinic);
+const rooftop={x:clinic.x+1,y:clinic.y+1};
+assert.equal(canStand(rooftop),false);
+const roofRoute=routeNearTarget(PLAYER_START,rooftop);
+assert.ok(roofRoute&&roofRoute.length>1,"Blocked roof needs a reachable approach");
+assert.ok(assertRoute(roofRoute),"Nearest route cannot cut building corners");
+const facade=roofRoute.at(-1);
+assert.ok(canStand(facade));
+assert.ok(Math.abs(facade.x-rooftop.x)+Math.abs(facade.y-rooftop.y)<=3);
+assert.equal(routeNearTarget(PLAYER_START,{x:-1,y:0}),null);
+assert.equal(routeNearTarget(PLAYER_START,rooftop,{},0),null);
+assert.deepEqual(routeNearTarget(PLAYER_START,PLAYER_START),[PLAYER_START]);
 const dynamic=new Set(["7,9"]);
 assert.equal(route({x:6,y:9},{x:7,y:9},{occupied:dynamic}),null);
 assert.equal(canStand({x:7,y:9},{occupied:dynamic}),false);
