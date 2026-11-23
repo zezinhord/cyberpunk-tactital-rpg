@@ -47,6 +47,8 @@ import { isPatioCitizen, getPatioConversation, type ConversationOption } from ".
 import {readWorldMemory,saveWorldMemory,recordNpcMemory,npcRemembers,
   type MemoryKind} from "../game/ai/world-memory.ts";
 import {contextualPatioConversation} from "../game/ai/contextual-dialogue.ts";
+import {observeEden} from "../game/ai/eden-observer.ts";
+import {districtReaction} from "../game/ai/faction-reactivity.ts";
 import { readV09,markV09Reported } from "../game/story/v09";
 import { MARKET_CLUE_TEXT,applyMarketAction,getMarketConversation,isMarketActor,readMarket,saveMarket } from "../game/story/market";
 import { getSectorById,sectorAt,type SectorId } from "../game/baixada/layout";
@@ -304,6 +306,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
   };
   const v09=readV09(character.id);
   const reputation=calculateReputation({favors,market,ferrugem,eden,cisma,operations,chapters:cityChapters,urban,councils,recovery});
+  const edenSignal=observeEden(eden,reputation);
   const rememberNpc=(actor:string,kind:MemoryKind,source:string,summary:string)=>{
     const current=readWorldMemory(character.id);
     const next=recordNpcMemory(current,actor,kind,"baixada",source,summary);
@@ -314,6 +317,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
   const cityArea:RadioDistrict=isInnerId(interior)?
     INNER_BLUEPRINTS[interior].parent??"baixada":
     isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":"baixada";
+  const localReaction=districtReaction(cityArea,reputation);
   const urbanCase=currentUrbanCase(urban,cityArea,v09.defeated);
   const epilogue=createEdenEpilogue(eden,{
     name:character.name,origin:origin.name,
@@ -633,7 +637,8 @@ const [dossierOpen,setDossierOpen]=useState(false);
         say([{speaker:blueprint.guide,role:"CONTATO LOCAL · "+blueprint.title,portrait:"◆",
           text:blueprint.guideWords+(reputation.factions[favor]>=2
             ?" Sua ajuda anterior foi reconhecida pela rede local."
-            :" A confiança é conquistada pelas decisões que realmente ajudam o bairro.")}]);
+            :" A confiança é conquistada pelas decisões que realmente ajudam o bairro.")+
+            " "+localReaction.reason}]);
         return;
       }
       const found=isInnerInteract(id);
@@ -990,7 +995,8 @@ const [dossierOpen,setDossierOpen]=useState(false);
       say([{speaker:"ARQUIVO DE MEMÓRIAS",role:"REDE AUTÔNOMA · HISTÓRIAS DA BAIXADA",
         portrait:"▤",text:collected?
           discovery.story+" +"+discovery.xp+" XP e arquivo recuperado.":
-          "Os registros já foram recolhidos ou não foi possível gravar o inventário."}]);
+          "Os registros já foram recolhidos ou não foi possível gravar o inventário.")+
+          (edenSignal?"\n\n"+edenSignal.title+": "+edenSignal.transmission:"")}]);
       return;
     }
     if(isMarketActor(id)){
@@ -1761,6 +1767,9 @@ const [dossierOpen,setDossierOpen]=useState(false);
           {currentWaypoint&&<small className="na-quest-next-stop">
             ⌖ PRÓXIMA PARADA · {currentWaypoint.label}
           </small>}
+          <small className="na-ai-faction-cue" aria-label="Reação social do distrito">
+            <span aria-hidden="true">◈</span> {localReaction.label}
+          </small>
           {favors.ready.some(id=>!favors.claimed.includes(id))&&
             <small>◆ Favor concluído · procure o contato</small>}
         </div>}
