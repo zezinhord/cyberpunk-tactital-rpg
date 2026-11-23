@@ -81,6 +81,7 @@ export function createPlayerCharacter(name:string,originId:PlayerCharacter["orig
     name: name.trim(),
     originId,
     classId,
+    multiclassId:null,
     attributes: {},
     baseAttributes:{...BASE_ATTRIBUTES},
     originStatBonuses:{...ORIGIN_STAT_BONUSES[originId]},
