@@ -74,7 +74,7 @@ if(!isBlocked(shooter,sample)&&!isBlocked(target,sample)){
 }
 assert.ok(movementCost({x:0,y:0},null)>=1);
 assert.equal(tileHeight({x:6,y:6},sample),2);
-assert.equal(tileHeight({x:4,y:4},sample),1);
+assert.equal(tileHeight({x:4,y:5},sample),1);
 const store=new Map();
 const priorStorage=globalThis.localStorage;
 Object.defineProperty(globalThis,"localStorage",{configurable:true,value:{
