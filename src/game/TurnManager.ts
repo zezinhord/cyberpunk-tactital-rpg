@@ -362,9 +362,12 @@ export class TurnManager {
     if(this.aiMemory.noise&&this.aiMemory.noise.round>=this.state.round-2&&
       distance(enemy,this.aiMemory.noise.at)<=this.aiMemory.noise.strength)
       return "SUSPEITA · ruído identificado";
-    if(this.aiMemory.lastKnown&&
-      this.state.round-this.aiMemory.lastSeenRound<=3)
-      return "BUSCA · investigando último contato";
+    if(this.aiMemory.lastKnown&&this.aiMemory.lastKnownRound>=0&&
+       this.state.round-this.aiMemory.lastKnownRound<=
+       (this.aiMemory.lastKnownSense==="sound"?2:3))
+      return this.aiMemory.lastKnownSense==="sound"?
+        "BUSCA · último ruído percebido":
+        "BUSCA · último contato visual";
     return "PATRULHA · nenhum alvo identificado";
   }
 
