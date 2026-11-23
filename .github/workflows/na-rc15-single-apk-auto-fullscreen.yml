@@ -46,6 +46,12 @@ on:
       - src/screens/ExplorationScreen.tsx
       - src/styles.css
       - scripts/test-mission-waypoint.mjs
+      - src/game/progression/tree.ts
+      - src/game/classes/engine.ts
+      - src/components/ProgressionTree.tsx
+      - scripts/test-progression.mjs
+      - scripts/test-class-abilities.mjs
+      - scripts/test-progression-audit.mjs
       - scripts/test-council-defenses-v20.mjs
       - src/components/Battlefield.tsx
       - src/arena-v030.css
@@ -216,6 +222,9 @@ jobs:
           node --experimental-strip-types scripts/test-tactics.mjs
           node --experimental-strip-types scripts/test-battlefield-navigation.mjs
           node --experimental-strip-types scripts/test-mission-waypoint.mjs
+          node --experimental-strip-types scripts/test-progression.mjs
+          node --experimental-strip-types scripts/test-class-abilities.mjs
+          node --experimental-strip-types scripts/test-progression-audit.mjs
           node --experimental-strip-types scripts/test-cisma-v20.mjs
           node --experimental-strip-types scripts/test-cisma-operations.mjs
           node --experimental-strip-types scripts/test-inner-contracts-v20.mjs
