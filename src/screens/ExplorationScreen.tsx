@@ -43,6 +43,9 @@ import {statRank,type StatId} from "../game/progression/tree";
 import {TRIAL_STEPS,readTrial,saveTrial,startTrial,
  currentTrialStep,trialCombatForActor,advanceTrial,reconcileTrial} from "../game/story/field-test";
 import { isPatioCitizen, getPatioConversation, type ConversationOption } from "../game/dialogues/patio";
+import {readWorldMemory,saveWorldMemory,recordNpcMemory,npcRemembers,
+  type MemoryKind} from "../game/ai/world-memory.ts";
+import {contextualPatioConversation} from "../game/ai/contextual-dialogue.ts";
 import { readV09,markV09Reported } from "../game/story/v09";
 import { MARKET_CLUE_TEXT,applyMarketAction,getMarketConversation,isMarketActor,readMarket,saveMarket } from "../game/story/market";
 import { getSectorById,sectorAt,type SectorId } from "../game/baixada/layout";
@@ -222,6 +225,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
     periferia:readDistrictProgress(character.id,"periferia"),
   }));
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
+  const [conversationActor,setConversationActor]=useState<string|null>(null);
   const [hubTab,setHubTab]=useState<"mission"|"favors"|"city">("mission");
   const [urban,setUrban]=useState(()=>readUrban(character.id));
   const [urbanNotice,setUrbanNotice]=useState("");
@@ -299,6 +303,13 @@ const [dossierOpen,setDossierOpen]=useState(false);
   };
   const v09=readV09(character.id);
   const reputation=calculateReputation({favors,market,ferrugem,eden,cisma,operations,chapters:cityChapters,urban,councils,recovery});
+  const rememberNpc=(actor:string,kind:MemoryKind,source:string,summary:string)=>{
+    const current=readWorldMemory(character.id);
+    const next=recordNpcMemory(current,actor,kind,"baixada",source,summary);
+    // Memory is presentation-only. Failed storage never changes gameplay
+    // receipts, inventory, quest progress or a saved dialogue decision.
+    if(next.changed)saveWorldMemory(character.id,next.state);
+  };
   const cityArea:RadioDistrict=isInnerId(interior)?
     INNER_BLUEPRINTS[interior].parent??"baixada":
     isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":"baixada";
@@ -982,11 +993,18 @@ const [dossierOpen,setDossierOpen]=useState(false);
       return;
     }
     if(isMarketActor(id)){
+      const remembered=readWorldMemory(character.id);
       const node=getMarketConversation(id,character.classId,market,v09.reported,character.originId,reputation);
+      setConversationActor(id);
       say([{speaker:node.speaker,role:node.role,portrait:node.portrait,
-        text:node.text+(id==="feira-corretor"&&favors.honor>=2?
+        text:node.text+
+          (npcRemembers(remembered,id,"help")?
+            " Sua colaboração anterior continua registrada por nossos contatos.":
+           npcRemembers(remembered,id,"met")?" Reconheço você da última visita.":"")+
+          (id==="feira-corretor"&&favors.honor>=2?
           " Sua reputação de ajuda aos moradores já chegou ao Mercado.":""),
         choices:[...node.choices,...favorChoicesFor(id)]}]);
+      rememberNpc(id,"met","first-contact","Conversa iniciada no Mercado dos Cabos");
       return;
     }
     if(isPatioCitizen(id)){
@@ -996,8 +1014,13 @@ const [dossierOpen,setDossierOpen]=useState(false);
           text:"Os registros estavam com a unidade. Agora podemos provar que a autorização não veio da cooperativa. O pessoal do Pátio vai manter uma cópia fora da rede oficial. Você nos deu tempo para agir."}]);
         return;
       }
-      const node=getPatioConversation(id,character.originId,v09.defeated);
-      say([{speaker:node.speaker,role:node.role,portrait:node.portrait,text:node.text,choices:[...node.choices,...favorChoicesFor(id)]}]);
+      const node=contextualPatioConversation(id,
+        getPatioConversation(id,character.originId,v09.defeated),
+        {character,reputation,memory:readWorldMemory(character.id)});
+      setConversationActor(id);
+      say([{speaker:node.speaker,role:node.role,portrait:node.portrait,
+        text:node.text,choices:[...node.choices,...favorChoicesFor(id)]}]);
+      rememberNpc(id,"met","first-contact","Conversa registrada com morador do Pátio");
       return;
     }
     if(id==="patio-console"){
@@ -1466,6 +1489,8 @@ const [dossierOpen,setDossierOpen]=useState(false);
           return;
         }
         setMarket(result.state);
+        if(conversationActor)rememberNpc(conversationActor,"help",
+          "market-"+choice.marketAction,"Acordo social confirmado no Mercado");
         if(result.clue)addClue(result.clue);
         if(!onSyncFactionAids())setFavorNotice("Acordo registrado. O suprimento será entregue após sincronizar o inventário.");
       }else{
@@ -1474,7 +1499,11 @@ const [dossierOpen,setDossierOpen]=useState(false);
         return;
       }
     }
-    if(choice.clue)addClue(choice.clue);
+    if(choice.clue){
+      addClue(choice.clue);
+      if(conversationActor)rememberNpc(conversationActor,"clue",
+         "clue-"+choice.clue,"Testemunho compartilhado pelo próprio morador");
+    }
     const current=dialogue?.pages[dialogue.index];
     if(!current)return;
     audioDirector.effect("interact");
