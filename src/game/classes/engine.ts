@@ -12,6 +12,31 @@ function entities(state:GameState):{player?:Unit;enemy?:Unit}{
 function hasEffect(ability:ClassSkill,type:ClassEffect["type"]):boolean {
  return ability.effects.some(e=>e.type===type);
 }
+/** One exhausted component must not disable an otherwise useful combination.
+ * Active armor/debuff/focus buffs cannot stack; the other components may fire.
+ */
+function effectWouldHelp(state:GameState,ability:ClassSkill,effect:ClassEffect):boolean{
+ const {player,enemy}=entities(state);
+ const rawRank=state.characterSkillRanks?.[ability.id]??1;
+ const rank=Number.isSafeInteger(rawRank)?
+   Math.max(1,Math.min(rawRank,ability.maxRank)):1;
+ switch(effect.type){
+  case "heal":return Boolean(player&&player.hp<player.maxHp);
+  case "guard":return state.classGuardTurns<=0;
+  case "energy":{
+   const power=effect.amount+(rank-1);
+   return Math.min(state.maxEnergy,state.energy-ability.cost+power)>state.energy;
+  }
+  case "jam":return Boolean(enemy&&enemy.hp>0&&
+    state.enemyJamTurns<effect.turns+(rank>=3?1:0));
+  case "enemyArmor":return Boolean(enemy&&enemy.hp>0&&state.classEnemyArmorTurns<=0);
+  case "enemyAttack":return Boolean(enemy&&enemy.hp>0&&state.classEnemyAttackTurns<=0);
+  case "nextDamage":return state.classNextDamageBonus<=0;
+  case "nextAccuracy":return state.classNextAccuracyBonus<=0;
+  case "damage":return Boolean(enemy&&enemy.hp>0);
+  case "movement":return true;
+ }
+}
 
 /** Valida a economia de ações antes de qualquer mutação do estado. */
 export function checkClassSkill(state:GameState,ability:ClassSkill):ClassCheck {
@@ -36,16 +61,19 @@ export function checkClassSkill(state:GameState,ability:ClassSkill):ClassCheck {
       !hasLineOfSight(player,enemy))
      return {available:false,reason:"Obstáculo bloqueia a técnica ofensiva."};
  }
- if(hasEffect(ability,"heal")&&player.hp>=player.maxHp)
-   return {available:false,reason:"Vida já está no máximo."};
- if(hasEffect(ability,"guard")&&state.classGuardTurns>0)
-   return {available:false,reason:"Proteção da classe ainda ativa."};
- if(hasEffect(ability,"enemyArmor")&&state.classEnemyArmorTurns>0)
-   return {available:false,reason:"Vulnerabilidade do alvo já exposta."};
- if(hasEffect(ability,"enemyAttack")&&state.classEnemyAttackTurns>0)
-   return {available:false,reason:"Alvo já está contido."};
- if(hasEffect(ability,"nextDamage")&&state.classNextDamageBonus>0)
-   return {available:false,reason:"Próximo ataque já está potencializado."};
+ if(!ability.effects.some(effect=>effectWouldHelp(state,ability,effect))){
+   if(hasEffect(ability,"heal")&&player.hp>=player.maxHp)
+     return {available:false,reason:"Vida já está no máximo e os demais efeitos não são úteis."};
+   if(hasEffect(ability,"guard")&&state.classGuardTurns>0)
+     return {available:false,reason:"Proteção da classe ainda ativa."};
+   if(hasEffect(ability,"enemyArmor")&&state.classEnemyArmorTurns>0)
+     return {available:false,reason:"Vulnerabilidade do alvo já exposta."};
+   if(hasEffect(ability,"enemyAttack")&&state.classEnemyAttackTurns>0)
+     return {available:false,reason:"Alvo já está contido."};
+   if(hasEffect(ability,"nextDamage")&&state.classNextDamageBonus>0)
+     return {available:false,reason:"Próximo ataque já está potencializado."};
+   return {available:false,reason:"Todos os efeitos já estão ativos ou sem benefício."};
+ }
  return {available:true};
 }
 
@@ -90,6 +118,7 @@ export function executeClassSkill(state:GameState,ability:ClassSkill):ClassResul
        break;
      }
      case "guard":
+       if(state.classGuardTurns>0)break;
        player.armorClass+=power;
        state.classGuardBonus+=power;
        state.classGuardTurns=Math.max(state.classGuardTurns,duration);
@@ -107,15 +136,17 @@ export function executeClassSkill(state:GameState,ability:ClassSkill):ClassResul
        notes.push("Movimento +"+power+" neste turno");
        break;
      case "nextDamage":
+       if(state.classNextDamageBonus>0)break;
        state.classNextDamageBonus+=power;
        notes.push("Próximo ataque básico +"+power+" dano");
        break;
      case "nextAccuracy":
+       if(state.classNextAccuracyBonus>0)break;
        state.classNextAccuracyBonus+=power;
        notes.push("Próximo ataque básico +"+power+" acerto");
        break;
      case "enemyArmor":
-       if(enemy){
+       if(enemy&&state.classEnemyArmorTurns<=0){
          enemy.armorClass-=power;
          state.classEnemyArmorReduction=power;
          state.classEnemyArmorTurns=duration;
@@ -123,7 +154,7 @@ export function executeClassSkill(state:GameState,ability:ClassSkill):ClassResul
        }
        break;
      case "enemyAttack":
-       if(enemy){
+       if(enemy&&state.classEnemyAttackTurns<=0){
          enemy.attackBonus-=power;
          state.classEnemyAttackReduction=power;
          state.classEnemyAttackTurns=duration;
