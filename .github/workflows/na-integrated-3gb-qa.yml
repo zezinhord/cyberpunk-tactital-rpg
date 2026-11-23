@@ -94,6 +94,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: na-full-install-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   validate-native-distribution:
     runs-on: ubuntu-latest
