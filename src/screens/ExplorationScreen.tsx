@@ -93,6 +93,7 @@ interface Props {
   onChooseClass: (classId: ClassId) => void;
   onPurchaseAttribute:(id:StatId)=>string;
   onPurchaseSkill:(id:string)=>string;
+  onPurchaseMulticlass:(id:ClassId)=>string;
   onQuestXp:(eventId:string,amount:number)=>boolean;
   onClaimFavor:(id:FavorId)=>{ok:boolean;message:string};
   onBuyWithCredits:(item:ItemId)=>{ok:boolean;message:string};
@@ -171,6 +172,7 @@ export default function ExplorationScreen({
   onChooseClass,
   onPurchaseAttribute,
   onPurchaseSkill,
+  onPurchaseMulticlass,
   onQuestXp,
   onClaimFavor,
   onBuyWithCredits,
@@ -1952,6 +1954,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
           onChooseClass={onChooseClass}
           onPurchaseAttribute={onPurchaseAttribute}
           onPurchaseSkill={onPurchaseSkill}
+          onPurchaseMulticlass={onPurchaseMulticlass}
           originName={origin.name}
           originDescription={origin.description}
           originProfile={getOriginGameplay(character.originId)}
