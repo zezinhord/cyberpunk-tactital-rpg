@@ -23,6 +23,7 @@ import {VIGIL_KEY,validVigil} from "../story/vigil-escorts.ts";
 import {SHELTER_KEY,validShelter} from "../story/shelter-network.ts";
 import {NEXUS_KEY,validNexus} from "../story/nexus-eden.ts";
 import {URBAN_KEY,validateUrbanBackup} from "../story/urban-chronicles.ts";
+import {AI_WORLD_MEMORY_KEY,validWorldMemoryBackup} from "../ai/world-memory.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
  */
@@ -56,6 +57,7 @@ export const CHARACTER_BACKUP_KEYS={
  shelter:SHELTER_KEY,
  nexus:NEXUS_KEY,
  urban:URBAN_KEY,
+ aiMemory:AI_WORLD_MEMORY_KEY,
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
 export interface CharacterBackup{
@@ -108,6 +110,8 @@ export function importCharacterBackup(text:string,overwrite=false):
        return {ok:false,message:"Quadro de favores e carteira inválidos."};
      if(field==="urban"&&!validateUrbanBackup(decoded))
        return {ok:false,message:"Ocorrências urbanas inválidas no backup."};
+      if(field==="aiMemory"&&!validWorldMemoryBackup(decoded))
+        return {ok:false,message:"Memória contextual dos moradores inválida."};
      if(field==="eden"&&!validateEdenBackup(decoded))
        return {ok:false,message:"Campanha Éden inválida no backup."};
      if(field==="cisma"&&!validateCismaBackup(decoded))
