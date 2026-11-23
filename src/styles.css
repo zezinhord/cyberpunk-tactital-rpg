@@ -590,3 +590,14 @@ button:disabled { cursor: not-allowed; }
  overflow-wrap:anywhere
 }
 .na-quest-hud.collapsed .na-quest-next-stop{max-height:2.6em;overflow:hidden}
+
+/* World reactivity is advisory, not an extra expandable HUD. */
+.na-ai-faction-cue{display:block;margin-top:4px;
+ color:#d8bf90;font:600 10px/1.3 var(--mono)}
+.na-party-postures{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.na-party-postures button{min-height:48px;min-width:76px;padding:8px 10px;
+ border-radius:7px;color:#d7edef;background:#203a45;border:1px solid #567983;
+ touch-action:manipulation;font:700 11px/1.3 var(--mono)}
+.na-party-postures button.selected,.na-party-postures button[aria-pressed="true"]{
+ background:#235865;border-color:#83ced7;color:#f4fbf8}
+.na-party-postures button:focus-visible{outline:2px solid #f2c882;outline-offset:2px}
