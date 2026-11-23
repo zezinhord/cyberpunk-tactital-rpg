@@ -28,6 +28,8 @@ on:
       - src/components/NexusPanel.tsx
       - scripts/test-nexus-eden-v20.mjs
       - src/components/BaixadaLiteWorld.tsx
+      - src/game/performance-diagnostics.ts
+      - scripts/test-performance.mjs
       - src/game/baixada/lite-art-assets.ts
       - scripts/test-baixada-art.mjs
       - src/game/baixada/motion.ts
@@ -217,6 +219,7 @@ jobs:
           node --experimental-strip-types scripts/test-movement.mjs
           node --experimental-strip-types scripts/test-baixada-collisions.mjs
           node scripts/test-baixada-art.mjs
+          node --experimental-strip-types scripts/test-performance.mjs
       - name: Install ffprobe for verification of original sound archives
         run: |
           sudo apt-get update -qq
