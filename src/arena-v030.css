@@ -320,3 +320,11 @@
 .na-combat-tactical-readout .na-tactic-hit-chance{
  color:#f5cee0;font-weight:800;letter-spacing:.015em
 }
+
+/* Purchased rank has meaningful, readable effects during combat; the
+ * designer's cyan allies / magenta enemies / amber interactables remain. */
+.na-ability-picker-selected .na-ability-actual-effect{
+ padding:6px 9px;margin:4px 0;border-left:3px solid #7ed6dc;
+ background:rgba(25,73,81,.35);color:#c7eff1;
+ font:600 11px/1.4 var(--mono);white-space:normal
+}
