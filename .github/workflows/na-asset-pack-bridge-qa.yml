@@ -72,6 +72,18 @@ on:
       - src/game/character/types.ts
       - src/components/ClassSelection.tsx
       - scripts/test-multiclass.mjs
+      - src/game/ai/**
+      - src/game/companions.ts
+      - src/game/tactics.ts
+      - src/game/baixada/npc-routines.ts
+      - src/game/dialogues/patio.ts
+      - src/game/character/backup.ts
+      - src/game/character/slots.ts
+      - src/game/story/reputation.ts
+      - src/game/story/eden-echoes.ts
+      - src/components/NpcDialoguePanel.tsx
+      - scripts/test-ai-tactical.mjs
+      - scripts/test-ai-world.mjs
       - src/game/story/market.ts
       - scripts/test-market-story.mjs
       - scripts/test-council-defenses-v20.mjs
@@ -175,6 +187,8 @@ jobs:
           node --experimental-strip-types scripts/test-class-abilities.mjs
           node --experimental-strip-types scripts/test-progression-audit.mjs
           node --experimental-strip-types scripts/test-multiclass.mjs
+          node --experimental-strip-types scripts/test-ai-tactical.mjs
+          node --experimental-strip-types scripts/test-ai-world.mjs
           node --experimental-strip-types scripts/test-market-story.mjs
           node --experimental-strip-types scripts/test-movement.mjs
           node --experimental-strip-types scripts/test-baixada-collisions.mjs
