@@ -74,6 +74,8 @@ on:
       - scripts/test-progression.mjs
       - scripts/test-class-abilities.mjs
       - scripts/test-progression-audit.mjs
+      - src/game/story/market.ts
+      - scripts/test-market-story.mjs
       - scripts/test-council-defenses-v20.mjs
       - src/components/Battlefield.tsx
       - src/arena-v030.css
@@ -176,6 +178,7 @@ jobs:
           node --experimental-strip-types scripts/test-progression.mjs
           node --experimental-strip-types scripts/test-class-abilities.mjs
           node --experimental-strip-types scripts/test-progression-audit.mjs
+          node --experimental-strip-types scripts/test-market-story.mjs
           node --experimental-strip-types scripts/test-movement.mjs
           node --experimental-strip-types scripts/test-baixada-collisions.mjs
           node scripts/test-baixada-art.mjs
