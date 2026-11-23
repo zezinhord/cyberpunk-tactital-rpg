@@ -16,7 +16,7 @@ export function contextualPatioConversation(
  const {character,reputation,memory}=ctx;
  const classes=[character.classId,character.multiclassId];
  const technical=classes.includes("tecnico")||classes.includes("netrunner")||
-  classes.includes("pesquisador" as never)||
+  character.originId==="pesquisador"||
   statRank(character,"interface")>=3;
  const medical=classes.includes("medtech")||statRank(character,"vigor")>=4;
  const diplomacy=statRank(character,"influencia")>=3;
