@@ -3,6 +3,8 @@
  * No combat stats, quest progression or rewards are modified here.
  */
 import type {EncounterId} from "../types.ts";
+import type {PlayerCharacter} from "../character/types.ts";
+import type {ClassId} from "../classes/registry.ts";
 export interface BattleCinematicBeat{
  cinematicId:string;speaker:string;role:string;portrait:string;text:string;
 }
@@ -24,6 +26,31 @@ const INTRO:Readonly<Partial<Record<EncounterId,BattleCinematicBeat>>>={
   text:"O núcleo protegido mantém a infraestrutura sob contenção automatizada. As unidades de defesa impedem a auditoria; preserve a possibilidade de escolha depois da batalha."},
 };
 export const CINEMATIC_BATTLE_IDS=Object.keys(INTRO) as EncounterId[];
-export function battleIntroFor(encounter:EncounterId):BattleCinematicBeat|null{
- return INTRO[encounter]??null;
+/** Class-specific tactical framing without inventing success, rewards or lore. */
+const CLASS_FRAMING:Readonly<Record<ClassId,string>>={
+ solo:"Seu treinamento favorece aproximação, fogo e uso inteligente de cobertura.",
+ netrunner:"Interfaces e painéis próximos podem oferecer uma abertura para invasão digital.",
+ tecnico:"Equipamentos e obstáculos danificados podem alterar as rotas de combate.",
+ medtech:"Posições protegidas oferecem tempo para estabilizar aliados e conservar recursos.",
+ rockerboy:"A transmissão terá alcance social; manter a equipe em ação importa.",
+ midia:"Os registros são parte da disputa: preserve a prova enquanto atravessa a área.",
+ corporativo:"Os protocolos de segurança da instalação têm padrões identificáveis.",
+ policial:"Controle do espaço e proteção de testemunhas são prioridades.",
+ nomade:"Rotas alternativas podem evitar posições expostas e emboscadas.",
+ marginal:"Becos e passagens laterais podem oferecer cobertura contra hostis.",
+ fixador:"Recursos e contatos disponíveis precisam ser empregados com precisão.",
+};
+export function battleIntroFor(encounter:EncounterId,
+ character?:Pick<PlayerCharacter,"classId"|"multiclassId"|"originId">|null
+):BattleCinematicBeat|null{
+ const base=INTRO[encounter];
+ if(!base)return null;
+ const classes=[character?.classId,character?.multiclassId].filter(
+   (v):v is ClassId=>Boolean(v));
+ const contextual=classes.map(cls=>CLASS_FRAMING[cls]).filter(Boolean);
+ const background=character?.originId==="baixada"&&encounter==="v09"?
+   "A Baixada não pode perder outra cópia dos registros.":
+   character?.originId==="corporativo"&&encounter==="eden-core"?
+   "A infraestrutura da Helix lhe parece familiar, mas não explica todos os protocolos.":"";
+ return {...base,text:[base.text,...contextual,background].filter(Boolean).join("\n\n")};
 }
