@@ -93,12 +93,23 @@ try{
  const check=await snapshot('(async()=>{const p=globalThis.Capacitor?.Plugins?.NovaAssetPacks; if(!p)return {error:"No native plugin"}; const ids=["baixada","ferrugem","aurea","subsolo","setor-zero","prisma","periferia"];const out=await Promise.all(ids.map(async id=>({id,...await p.status({id})})));return {count:out.length,verified:out.every(x=>x.installed&&typeof x.sha256==="string"&&x.sha256.length===64),details:out.map(x=>({id:x.id,storedBytes:x.storedBytes}))};})()');
  diagnostic.gameFiles=check;
  if(!check?.verified||check?.count!==7)throw Error("One APK did not install all 7 districts: "+JSON.stringify(check));
- // The Android status bar must remain hidden when the game regains focus.
+ // Native insets follow the Android view-focus lifecycle. Do not assume
+ // a log was emitted synchronously the instant the WebView becomes playable.
+ // Keep the real two-bars-hidden assertion, with a bounded 8 s retry window.
+ async function verifyImmersive(phase){
+  let entries=[];
+  for(let attempt=0;attempt<12;attempt++){
+   const raw=await reliableAdb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
+   entries=raw.split("\n").filter(x=>x.includes("NovaArcadiaImmersive")).slice(-20);
+   if(entries.some(x=>x.includes("statusVisible=false")&&
+     x.includes("navigationVisible=false")))return entries;
+   if(attempt<11)await sleep(650);
+  }
+  throw Error("Android did not confirm native hidden bars during "+phase+
+    ": "+JSON.stringify(entries));
+ }
  diagnostic.resumePhase="check-immersive-before-HOME";
- const barLogs=await reliableAdb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
- diagnostic.immersiveLog=barLogs.split("\n").filter(x=>x.includes("NovaArcadiaImmersive")).slice(-10);
- if(!diagnostic.immersiveLog.some(x=>x.includes("statusVisible=false")&&x.includes("navigationVisible=false")))
-  throw Error("Android did not confirm fullscreen hidden system bars after launch: "+JSON.stringify(diagnostic.immersiveLog));
+ diagnostic.immersiveLog=await verifyImmersive("initial launch");
  diagnostic.resumePhase="return-from-HOME";
  console.log("NA_OFFLINE_INSTALL_COMPLETE",JSON.stringify({
   preparationSeconds:diagnostic.preparationSeconds,verifiedDistricts:check.count,
@@ -122,13 +133,7 @@ try{
  if(!diagnostic.afterResume.activityResumed||!diagnostic.afterResume.pid)
   throw Error("Android Activity not resumed after returning from HOME");
  diagnostic.resumePhase="confirm-immersive-after-HOME";
- const resumeLog=await reliableAdb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
- diagnostic.afterResume.immersiveLog=resumeLog.split("\n")
-  .filter(x=>x.includes("NovaArcadiaImmersive")).slice(-8);
- if(!diagnostic.afterResume.immersiveLog.some(x=>x.includes("statusVisible=false")&&
-  x.includes("navigationVisible=false")))
-  throw Error("Android system bars were not hidden after returning to game: "+
-    JSON.stringify(diagnostic.afterResume.immersiveLog));
+ diagnostic.afterResume.immersiveLog=await verifyImmersive("returning from HOME");
  console.log("ANDROID_SINGLE_APK_AUTO_FULL_GAME_IMMERSIVE_PASS="+JSON.stringify(diagnostic));
 }catch(e){
  const result=spawnSync("adb",["get-state"],{encoding:"utf8",timeout:4000});
