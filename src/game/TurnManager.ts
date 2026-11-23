@@ -18,6 +18,7 @@ import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types"
 import type { OriginGameplayProfile } from "./character/types";
 import {ITEM_CATALOG,type ItemId,type EquipmentBonuses} from "./inventory.ts";
 import type {CompanionProfile,CompanionId} from "./companions.ts";
+import {chooseCompanionAction,type PartyPosture} from "./ai/companion-brain.ts";
 import type {StealthRecord} from "./stealth.ts";
 import {layoutForEncounter,type TacticalLayout} from "./combat/tactical-maps.ts";
 import {activateSiegeTerminal} from "./combat/siege-terminals.ts";
@@ -50,6 +51,7 @@ export interface TurnManagerOptions {
   encounterId?: EncounterId;
   districtSupport?:UrbanCombatSupport|null;
   partySupport?:readonly CompanionProfile[];
+  partyPosture?:PartyPosture;
   infiltration?:StealthRecord|null;
 }
 
@@ -60,6 +62,7 @@ export class TurnManager {
   private readonly weaponRange:number;
   private readonly districtSupport:UrbanCombatSupport|null;
   private readonly partySupport:readonly CompanionProfile[];
+  private readonly partyPosture:PartyPosture;
   private temporaryArmorBonus = 0;
   private temporaryMovementBonus = 0;
   private nextAttackDamageBonus = 0;
@@ -73,6 +76,7 @@ export class TurnManager {
     this.arenaLayout=layoutForEncounter(options.encounterId??"test");
     this.districtSupport=options.districtSupport??null;
     this.partySupport=(options.partySupport??[]).slice(0,2);
+    this.partyPosture=options.partyPosture??"manual";
     const party=this.partySupport.reduce((sum,c)=>({
       attack:sum.attack+c.attack,armor:sum.armor+c.armor,
       hp:sum.hp+c.hp,energy:sum.energy+c.energy,movement:sum.movement+c.movement,
@@ -509,6 +513,10 @@ export class TurnManager {
     const player = livingUnit(this.state.units, "runner");
     const enemy = livingUnit(this.state.units, "drone");
     if (!player || !enemy) return;
+    // Player-selected autonomous order. Uses the ORIGINAL one-use support
+    // function, so it cannot bypass bonus action economy or heal full HP.
+    const ally=chooseCompanionAction(this.partySupport,this.state,this.partyPosture);
+    if(ally)this.useCompanionSupport(ally);
     this.state.activeSide = "enemy";
     this.state.message = "Turno hostil. Observe a linha de tiro e as coberturas.";
     this.addLog("[TURNO] A unidade hostil está agindo.");
