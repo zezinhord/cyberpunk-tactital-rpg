@@ -126,7 +126,10 @@ export function decideEnemy(
   // Substitute an observed/heard last-known position, never the actual
   // hidden position, in the legacy route planner.
   const ghost={...player,x:target.x,y:target.y};
-  const plan=planEnemyTurn(enemy,ghost,units,profile,layout);
+  // Do not even leak the ACTUAL hidden player's position as an occupied
+  // cell into A*: unknown occupancy must be calculated from known targets.
+  const perceivedUnits=units.map(unit=>unit.id===player.id?ghost:unit);
+  const plan=planEnemyTurn(enemy,ghost,perceivedUnits,profile,layout);
   if(plan.action==="attack"||plan.action==="blocked"||
       plan.target.x===enemy.x&&plan.target.y===enemy.y){
    return {plan:stationary(enemy,"Procurar sinais no último ponto conhecido"),
