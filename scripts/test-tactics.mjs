@@ -8,6 +8,43 @@ registerHooks({resolve(specifier,context,nextResolve){
 const {hasLineOfSight,coverBetween,coverArmorBonus}=await import("../src/game/map.ts");
 const {planEnemyTurn,enemyProfile,withinShot}=await import("../src/game/tactics.ts");
 const {TurnManager}=await import("../src/game/TurnManager.ts");
+const {attackHits,attackHitChance}=await import("../src/game/combat/attack-rules.ts");
+// The exact tactical probability and every damage roll use the same
+// rules. Critical 1 is always a miss; critical 20 always hits.
+assert.equal(attackHitChance(5,13),65);
+assert.equal(attackHitChance(999,13),95,"Natural 1 still fails");
+assert.equal(attackHitChance(-999,13),5,"Natural 20 still hits");
+assert.equal(attackHits(1,999,13),false);
+assert.equal(attackHits(20,-999,13),true);
+assert.equal(attackHits(8,5,13),true);
+assert.equal(attackHits(7,5,13),false);
+assert.equal(attackHits(0,10,13),false);
+{
+ const critMiss=new TurnManager({encounterId:"test"});
+ critMiss.state.units[0].x=1;critMiss.state.units[0].y=2;
+ critMiss.state.units[1].x=1;critMiss.state.units[1].y=3;
+ critMiss.state.units[0].attackBonus=100;
+ assert.equal(critMiss.getBasicAttackPreview().hitChance,95);
+ const previous=Math.random;
+ const hp=critMiss.state.units[1].hp;
+ try{Math.random=()=>0;critMiss.attack();}finally{Math.random=previous;}
+ assert.equal(critMiss.state.units[1].hp,hp,
+  "Natural 1 may not cause damage regardless of accumulated attack bonuses");
+ assert.equal(critMiss.state.mainActionAvailable,false,
+  "A missed attack consumes the primary action");
+}
+{
+ const critHit=new TurnManager({encounterId:"test"});
+ critHit.state.units[0].x=1;critHit.state.units[0].y=2;
+ critHit.state.units[1].x=1;critHit.state.units[1].y=3;
+ critHit.state.units[0].attackBonus=-100;
+ assert.equal(critHit.getBasicAttackPreview().hitChance,5);
+ const hp=critHit.state.units[1].hp;
+ const previous=Math.random;
+ try{Math.random=()=>.99999;critHit.attack();}finally{Math.random=previous;}
+ assert.ok(critHit.state.units[1].hp<hp,
+  "Natural 20 must hit even if armor otherwise exceeds the roll");
+}
 assert.equal(hasLineOfSight({x:1,y:2},{x:5,y:2}),false,"Tiro atravessou parede");
 assert.equal(hasLineOfSight({x:1,y:6},{x:1,y:2}),true,"Linha livre negada");
 assert.equal(hasLineOfSight({x:2,y:2},{x:4,y:4}),false,"Tiro cruzou canto sólido");
