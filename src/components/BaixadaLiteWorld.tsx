@@ -155,15 +155,20 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     ...ACTORS.map(actor=>({kind:"actor" as const,actor,
       pos:tileWorld(actor.tile),depth:tileWorld(actor.tile).y+.2})),
   ].sort((a,b)=>a.depth-b.depth);
+  let lastSector:SectorId|null=null;
+  let lastNearby:string|null|undefined=undefined;
   const notify=(tile:Tile,settled:boolean)=>{
    const now=Date.now();
    if(settled||now-lastSave>=1200){
     saveWorldLocation(characterId,tile);
     lastSave=now;
    }
-   callbacks.current.onSectorChange?.(sectorAt(tile));
-   const near=ACCESS.find(id=>distance(tile,ACTOR_TILES[id])<=2);
-   callbacks.current.onNearbyAccess?.(near??null);
+   // Dispatch only actual changes: 6-7 tile steps per second used to
+   // trigger needless full ExplorationScreen React updates on low-end phones.
+   const sector=sectorAt(tile);
+   if(sector!==lastSector){lastSector=sector;callbacks.current.onSectorChange?.(sector);}
+   const near=ACCESS.find(id=>distance(tile,ACTOR_TILES[id])<=2)??null;
+   if(near!==lastNearby){lastNearby=near;callbacks.current.onNearbyAccess?.(near);}
   };
   const paint=()=>{
    if(!context||disposed)return;
@@ -258,9 +263,11 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
    // Renderização Canvas 2D da mesma arquitetura, sprites e props Phaser.
    // A câmera e a projeção compartilham a geometria do mapa original;
    // não há textura única gigantesca nem carregamento de sprites ociosos.
-   const visible=layers.map(layer=>layer.kind==="actor"&&residents.has(layer.actor.id)?
-      {...layer,pos:actorWorld(layer.actor.id),depth:actorWorld(layer.actor.id).y+.2}:layer)
-     .sort((a,b)=>a.depth-b.depth).filter(layer=>{
+   const visible=layers.map(layer=>{
+     if(layer.kind!=="actor"||!residents.has(layer.actor.id))return layer;
+     const pos=actorWorld(layer.actor.id);
+     return {...layer,pos,depth:pos.y+.2};
+   }).sort((a,b)=>a.depth-b.depth).filter(layer=>{
      const p=project(view,layer.pos);
      return p.x>=-205&&p.x<=width+205&&p.y>=-245&&p.y<=height+215;
    });
