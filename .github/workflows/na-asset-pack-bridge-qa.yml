@@ -62,6 +62,7 @@ on:
       - src/game/progression/tree.ts
       - src/game/classes/engine.ts
       - src/components/ProgressionTree.tsx
+      - src/components/CombatAbilityPicker.tsx
       - scripts/test-progression.mjs
       - scripts/test-class-abilities.mjs
       - scripts/test-progression-audit.mjs
