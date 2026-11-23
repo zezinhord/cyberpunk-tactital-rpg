@@ -48,7 +48,7 @@ import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity
 import {exportCharacterBackup,importCharacterBackup} from "./game/character/backup";
 import {loadHealth,saveHealth,healAtClinic} from "./game/combat/health";
 import {isOperativeDefeated,recoverFromDefeat,type DefeatChoice} from "./game/combat/defeat.ts";
-import {combatProgression,grantUniqueExperience,purchaseAttribute,purchaseSkill,
+import {combatProgression,grantUniqueExperience,earnedMasterySkillPoints,purchaseAttribute,purchaseSkill,
   type StatId} from "./game/progression/tree";
 import {advanceTrialBattle,isTrialEncounter,readTrial,saveTrial,reconcileTrial} from "./game/story/field-test";
 import {isDistrictId} from "./game/districts/catalog";
@@ -321,6 +321,8 @@ export default function App() {
     if(!current)return false;
     const next=grantUniqueExperience(current,eventId,amount);
     if(!next.awarded)return current.questRewards.includes(eventId);
+    const masteryGained=earnedMasterySkillPoints(next.character)-
+      earnedMasterySkillPoints(current);
     if(!saveCharacter(next.character)){
       setSaveMessage("Erro ao gravar XP. Verifique o espaço disponível.");return false;
     }
@@ -330,7 +332,10 @@ export default function App() {
     setSaveMessage(next.levelsGained>0
       ? "SUBIU DE NÍVEL! Nível "+next.character.level+
         " · +"+(next.levelsGained*2)+" pontos de cada tipo na Árvore."
-      : "+"+amount+" XP · "+eventId.replaceAll("-"," ")+".");
+      : masteryGained>0
+        ? "MAESTRIA AVANÇOU! +"+masteryGained+
+          " HAB para especializar sua classe · Abra a Árvore."
+        : "+"+amount+" XP · "+eventId.replaceAll("-"," ")+".");
     return true;
   };
   /** Sincroniza recibos pendentes depois de uma suspensão/crash sem duplicar XP ou itens. */
