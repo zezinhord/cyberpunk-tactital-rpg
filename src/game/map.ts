@@ -140,6 +140,17 @@ export function hasLineOfSight(start:Position,target:Position,
  }
  return true;
 }
+/** The target obstacle can be hit even when it itself blocks traversal/shot
+ * continuation. All intervening solid geometry remains fully opaque. */
+export function hasObjectLineOfSight(attacker:Position,target:Position,
+ layout:TacticalLayout|null):boolean{
+ const key=positionKey(target);
+ if(!layout?.objects.has(key)||!isInsideBoard(attacker)||!isInsideBoard(target))return false;
+ const testLayout:TacticalLayout={...layout,
+   blocked:new Set([...layout.blocked].filter(cell=>cell!==key)),
+   opaque:new Set([...layout.opaque].filter(cell=>cell!==key))};
+ return hasLineOfSight(attacker,target,testLayout);
+}
 export type CoverGrade="none"|"partial"|"full";
 export function coverBetween(attacker:Position,target:Position,
  layout:TacticalLayout|null=null):CoverGrade{
