@@ -16,7 +16,7 @@ import {FACTION_NAMES,factionStanding,type Reputation} from "../game/story/reput
 import {EDEN_STEPS,edenObjective,type EdenProgress} from "../game/story/eden-echoes.ts";
 import {sewerStatus,type SewerProgress} from "../game/story/sewer-v09";
 import {FERRUGEM_STEPS,ferrugemObjective,type FerrugemProgress} from "../game/ferrugem/story";
-import type {StatId} from "../game/progression/tree";
+import {STAT_IDS,STATS,statBreakdown,statRank,type StatId} from "../game/progression/tree";
 import {getClassById,CLASS_SKILLS,getClassSkills,type ClassId} from "../game/classes/registry";
 import {getHybridArchetype} from "../game/classes/hybrids.ts";
 import {CYBERWARE_IDS,CYBERWARE_CATALOG,cyberwareCapacity,cyberwareLoad,
@@ -145,7 +145,9 @@ export default function CharacterMenu({
   const [graphicsNotice,setGraphicsNotice]=useState("");
   const [performanceReport]=useState(readPerformanceReport);
   const activeItem = MENU_ITEMS.find((item) => item.id === activeSection)!;
-  const attributeEntries = Object.entries(character.attributes);
+  const attributeEntries=STAT_IDS.map(id=>({id,
+    name:STATS[id].name,total:statRank(character,id),
+    components:statBreakdown(character,id)}));
   const progress = Math.max(0, Math.min(3, missionStep));
 
   return (
@@ -280,13 +282,16 @@ export default function CharacterMenu({
 
                 <section className="menu-info-panel">
                   <span className="menu-panel-kicker">ATRIBUTOS</span>
-                  {attributeEntries.length > 0 ? (
-                    <div className="menu-attribute-grid">
-                      {attributeEntries.map(([name, value]) => <DataCard key={name} label={name} value={String(value)} />)}
-                    </div>
-                  ) : (
-                    <p>Os atributos ainda não foram distribuídos. A ficha já reserva este espaço para a futura progressão do protagonista.</p>
-                  )}
+                  <div className="menu-attribute-grid">
+                    {attributeEntries.map(stat=><DataCard key={stat.id} label={stat.name}
+                      value={stat.total+" / 5"}
+                      detail={"Base "+stat.components.base+" · Inv. +"+
+                        stat.components.allocated+" · Origem +"+
+                        stat.components.origin+" · Classe +"+
+                        stat.components.profession}/>)}
+                  </div>
+                  <p>Os valores mostrados são efetivos. A multiclasse não soma
+                     os bônus de atributos da profissão secundária.</p>
                 </section>
               </div>
             )}
