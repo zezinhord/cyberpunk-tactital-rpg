@@ -138,6 +138,7 @@ export default function Battlefield({manager,appearance,originId}:{
  const player=state.units.find(u=>u.id==="runner");
  const enemy=state.units.find(u=>u.id==="drone");
  const active=!state.combatComplete&&state.activeSide==="player";
+ const attackPreview=manager.getBasicAttackPreview();
  const spriteUrl=SPRITES["../assets/characters/player-"+originId+"-"+appearance+".png"];
  // Only the current battle/wave image is fetched; others remain on disk.
  const enemySheet=state.encounterId.startsWith("council-")?
@@ -224,13 +225,39 @@ export default function Battlefield({manager,appearance,originId}:{
         url={unit.id==="runner"?spriteUrl:undefined}
         enemySheet={unit.id==="drone"?enemySheet:undefined}
         facing={enemyFacing} pose={enemyPose} appearance={appearance}/>)}
+    {/* The enemy silhouette is now a real touch target rather than inert art.
+      The full-body hitbox is sized for mobile, and an invalid tap invokes
+      the engine preview message without consuming a main action. */}
+    {active&&enemy&&enemy.hp>0&&<g
+      className={"na-iso-enemy-target"+(attackPreview.available?" ready":"")}
+      role="button" tabIndex={0} data-tactical-target="enemy"
+      aria-label={attackPreview.available?
+        "Atacar "+enemy.name+" · chance de acerto "+attackPreview.hitChance+"%":
+        "Inspecionar alvo "+enemy.name+" · "+attackPreview.reason}
+      transform={"translate("+point(enemy).x+" "+point(enemy).y+")"}
+      onClick={()=>manager.attack()}
+      onKeyDown={event=>{
+        if(event.key==="Enter"||event.key===" "){
+          event.preventDefault();manager.attack();
+        }
+      }}>
+      <title>{attackPreview.available?
+        "Atacar · "+attackPreview.hitChance+"% de acerto":attackPreview.reason}</title>
+      <rect x="-29" y="-84" width="58" height="93" rx="10"
+        fill="#ff2e88" fillOpacity=".025"/>
+      <ellipse cx="0" cy="1" rx="21" ry="9" fill="none"
+        stroke={attackPreview.available?"#ff2e88":"#a66f8a"}
+        strokeWidth={attackPreview.available?2.4:1.5}
+        strokeDasharray={attackPreview.available?undefined:"3 3"}/>
+    </g>}
     <text x="15" y="16" fill="#b9d3d8" fontSize="9" letterSpacing="1">
       {theme?.label??"NOVA ARCÁDIA · COMBATE TÁTICO"}</text>
     <text x="460" y="16" fill="#ffd166" fontSize="9" textAnchor="end">
       ONDA {state.wave}/{state.totalWaves}</text>
     <text x="240" y="307" textAnchor="middle" fill="#cfdae0" fontSize="10">
       {state.combatComplete?"CONFRONTO ENCERRADO · VOLTE AO MAPA":
-       active?"TOQUE NAS CÉLULAS CIANO PARA MOVER":"AGUARDE O INIMIGO"}
+       active?(attackPreview.available?"TOQUE NO HOSTIL PARA ATACAR · CIANO: MOVER":
+         "CIANO: MOVER · TOQUE NO HOSTIL PARA VER O IMPEDIMENTO"):"AGUARDE O INIMIGO"}
     </text>
    </svg>
  </div>;
