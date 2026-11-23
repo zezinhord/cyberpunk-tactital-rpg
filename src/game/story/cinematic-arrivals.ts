@@ -15,14 +15,14 @@ export interface CinematicArrival{
 }
 const FERRUGEM:CinematicArrival={
  id:"arrival:ferrugem",area:"ferrugem",title:"Ferrugem · turno de trabalho",
- speaker:"NOVA ARCÁDIA",role:"CHEGADA AO DISTRITO · FERRUGEM",
+ speaker:"CENTRAL DE TRANSPORTE",role:"CHEGADA AO DISTRITO · FERRUGEM",
  portrait:"▤",
  text:"As caldeiras de Ferrugem continuam acesas enquanto operários e oficinas disputam cada turno. Entre trilhos e depósitos, os registros de manutenção podem revelar quem controla o abastecimento.",
  durationMs:8200
 };
 const ESGOTOS:CinematicArrival={
  id:"arrival:sewer-deep",area:"sewer-deep",title:"Câmara de Recalque · acesso subterrâneo",
- speaker:"NOVA ARCÁDIA",role:"CHEGADA AO DISTRITO · REDE DE ESGOTOS",
+ speaker:"CENTRAL DE TRANSPORTE",role:"CHEGADA AO DISTRITO · REDE DE ESGOTOS",
  portrait:"▤",
  text:"Os canais subterrâneos levam os resíduos e os registros que a superfície prefere esquecer. A manutenção da rede pluvial é parte da investigação V-09.",
  durationMs:8000
@@ -35,7 +35,7 @@ export function arrivalForArea(area:string|null):CinematicArrival|null{
  return {
   id:"arrival:"+district.id,area:district.id,
   title:district.name+" · "+district.subtitle.toLocaleLowerCase("pt-BR"),
-  speaker:"NOVA ARCÁDIA",
+  speaker:"CENTRAL DE TRANSPORTE",
   role:"CHEGADA AO DISTRITO · "+district.name.toLocaleUpperCase("pt-BR"),
   portrait:"▤",
   text:district.intro,
