@@ -79,6 +79,20 @@ const ACTOR_SKIN:Readonly<Record<string,string>>={
  lia:"lia",ramon:"ramon",duda:"duda",iza:"iza",tomas:"tomas",
 };
 
+/** Immutable street colors allocated once per scene module.
+ * Recreating 5-element arrays per visible tile at 30/60 FPS put avoidable
+ * short-lived objects on the Galaxy A07/Redmi Android garbage collector.
+ */
+const TILE_PALETTES={
+ outside:["#2b3739","#303b3b","#34403f","#303d3d","#2d393b"],
+ commercialRoad:["#534c44","#554a41","#594f44","#53463d","#514941"],
+ commercialGround:["#6b6152","#6d6253","#665d4e","#716253","#686052"],
+ industrialRoad:["#393e40","#394044","#3f4242","#363e41","#414849"],
+ industrialGround:["#514d44","#555247","#4c4d48","#54504a","#524e46"],
+ localRoad:["#424846","#3d4747","#404b48","#424846","#3e4747"],
+ localGround:["#475046","#424c45","#4a4e43","#485046","#435048"],
+} as const;
+
 /** Detecta a silhueta da fachada para manter o marcador do herói visível.
  * Não muda o bloqueio real nem desenha o sprite por cima do prédio.
  */
@@ -207,16 +221,10 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
      const commercial=isCommercialSector({x,y});
      const road=!outside&&isStreet({x,y});
      const shade=((x*7+y*11)%5+5)%5;
-     const palette=outside
-       ? ["#2b3739","#303b3b","#34403f","#303d3d","#2d393b"]
-       : commercial
-       ? road?["#534c44","#554a41","#594f44","#53463d","#514941"]:
-         ["#6b6152","#6d6253","#665d4e","#716253","#686052"]
-       : industrial
-       ? road?["#393e40","#394044","#3f4242","#363e41","#414849"]:
-         ["#514d44","#555247","#4c4d48","#54504a","#524e46"]
-       : road?["#424846","#3d4747","#404b48","#424846","#3e4747"]:
-         ["#475046","#424c45","#4a4e43","#485046","#435048"];
+     const palette=outside?TILE_PALETTES.outside:
+       commercial?(road?TILE_PALETTES.commercialRoad:TILE_PALETTES.commercialGround):
+       industrial?(road?TILE_PALETTES.industrialRoad:TILE_PALETTES.industrialGround):
+       road?TILE_PALETTES.localRoad:TILE_PALETTES.localGround;
      diamond(ctx,p,view.zoom,palette[shade]??"#424846",
        outside?"rgba(93,119,119,.1)":"rgba(108,130,121,.19)");
      if(outside){
