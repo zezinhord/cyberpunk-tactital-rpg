@@ -1,5 +1,8 @@
 import {lazy,Suspense,useEffect,useState} from "react";
 import NpcDialoguePanel from "../components/NpcDialoguePanel";
+import {arrivalForArea} from "../game/story/cinematic-arrivals.ts";
+import {firstContactCinematic} from "../game/story/cinematic-contacts.ts";
+import {readCinematicHistory} from "../game/story/cinematic-engine.ts";
 import "../dialogue-cinematic.css";
 import "../eden-epilogue.css";
 import BaixadaWorld from "../components/BaixadaWorld";
@@ -90,7 +93,8 @@ const sceneLabel=(area:RadioDistrict)=>({baixada:"Baixada",ferrugem:"Ferrugem",
  prisma:"Prisma",periferia:"Periferia"} as const)[area];
 type MissionStep = 0 | 1 | 2 | 3;
 interface MissionProgress { step: MissionStep; clues: string[] }
-interface DialoguePage { speaker: string; role: string; portrait: string; text: string; choices?: readonly ConversationOption[] }
+interface DialoguePage { speaker: string; role: string; portrait: string; text: string;
+ choices?: readonly ConversationOption[];cinematicId?:string }
 interface DialogueState { pages: DialoguePage[]; index: number }
 interface Props {
   character: PlayerCharacter;
@@ -203,10 +207,17 @@ export default function ExplorationScreen({
   const [mission, setMission] = useState<MissionProgress>(() => readMission(character.id));
   const [interior, setInteriorState] = useState<InteriorId | null>(()=>loadWorldArea(character.id));
   const setInterior=(area:InteriorId|null):void=>{
+    const changed=area!==interior;
     setInteriorState(area);
-    // Não impede explorar se o disco ficar cheio; falha será visível no
-    // diagnóstico de salvamento, e o progresso da missão permanece separado.
+    // Keep canonical exploration location and existing quest flags intact.
     saveWorldArea(character.id,area);
+    const arrival=changed?arrivalForArea(area):null;
+    if(arrival&&!readCinematicHistory(character.id).includes(arrival.id)){
+      // Same dialogue compositor remains above the mounted Phaser world.
+      // Only the original mission callbacks can grant evidence or XP.
+      setDialogue({pages:[{speaker:arrival.speaker,role:arrival.role,
+        portrait:arrival.portrait,text:arrival.text,cinematicId:arrival.id}],index:0});
+    }
   };
   const [returnFromDeep,setReturnFromDeep] = useState(false);
   const [nearSewerAccess,setNearSewerAccess] = useState<string|null>(null);
@@ -266,7 +277,14 @@ const [dossierOpen,setDossierOpen]=useState(false);
   }, [character.id, mission]);
   useEffect(()=>{saveMarket(character.id,market);},[character.id,market]);
 
-  const say = (pages: DialoguePage[]) => setDialogue({ pages, index: 0 });
+  const say = (pages: DialoguePage[]) => {
+    if(!pages.length)return;
+    const first=firstContactCinematic(pages[0]!.speaker);
+    // First appearances share the exact same dialogue UI and callbacks.
+    // The cinematic is a prelude, not a replacement for narrative choices.
+    const hasSeen=first&&readCinematicHistory(character.id).includes(first.cinematicId);
+    setDialogue({pages:first&&!hasSeen?[first,...pages]:pages,index:0});
+  };
   const openForensicQuestion=(id:ExpansionInnerId,prefix=""):void=>{
     const c=FORENSIC_CASES[id];
     say([{speaker:INNER_CONTRACTS[id].guide,role:"PARECER FORENSE · TRÊS PROVAS",
@@ -2069,6 +2087,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
 
       {currentDialogue && (
        <NpcDialoguePanel key={dialogue?.index} page={currentDialogue}
+        characterId={character.id}
         pageIndex={dialogue?.index??0} totalPages={dialogue?.pages.length??1} pages={dialogue?.pages}
         onClose={()=>setDialogue(null)}
         onNext={()=>{

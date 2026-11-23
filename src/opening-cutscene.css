@@ -223,3 +223,97 @@
 @media(prefers-reduced-motion:reduce){
  .na-opening-layout,.na-opening-art *{animation:none!important;transition:none!important}
 }
+
+/* NOVA ARCÁDIA 2.0 — light cinematic dolly, never WebGL or video decode.
+   Camera limits are validated by cinematic-engine.ts; the stage itself clips.
+   Green remains reserved for Éden; the origin memories use district colors. */
+.na-opening-layout{overflow:hidden}
+.na-opening-art:not(.reduced){
+ transform:translate(var(--na-pan-x,0%),var(--na-pan-y,0%))
+   scale(var(--na-zoom,1));
+ transition:transform var(--na-camera-duration,950ms) cubic-bezier(.2,.72,.2,1);
+ will-change:transform;
+}
+.na-opening-art.reduced{transform:none!important;transition:none!important}
+.na-opening-art.visual-skyline:after{
+ content:"FERRUGEM // PRODUÇÃO";position:absolute;z-index:4;top:9%;right:3%;
+ display:block;padding:5px 8px;border-left:2px solid #bd845d;
+ background:#122633cf;color:#f1c5a0;font:700 9px var(--mono);
+}
+.na-opening-origin-atmosphere{
+ position:absolute;inset:0;overflow:hidden;z-index:1;
+ background:repeating-linear-gradient(115deg,transparent 0 44px,
+ rgba(226,180,124,.1) 45px 47px,transparent 48px 78px);
+}
+.na-opening-origin-atmosphere>span{
+ position:absolute;left:5%;top:8%;padding:5px 8px;
+ border-left:2px solid #dfac73;background:#101e27c9;
+ color:#f5d5ac;font:700 9px var(--mono);letter-spacing:.08em;
+}
+.na-opening-origin-atmosphere i{display:block;position:absolute;z-index:0;
+ bottom:4%;width:18%;height:68%;border:1px solid #729ba499;
+ background:linear-gradient(90deg,#253c49,#172833);
+ transform:skewY(-12deg)}
+.na-opening-origin-atmosphere i:first-of-type{left:4%;height:37%}
+.na-opening-origin-atmosphere i:nth-of-type(2){right:5%;height:72%}
+.na-opening-origin-atmosphere i:nth-of-type(3){right:26%;height:50%}
+.origin-corporativo .na-opening-origin-atmosphere{
+ background:linear-gradient(125deg,#123243,#3c5365 52%,#111f2d)}
+.origin-baixada .na-opening-origin-atmosphere{
+ background:linear-gradient(135deg,#30473f,#85664e 67%,#223139)}
+.origin-gangue .na-opening-origin-atmosphere{
+ background:linear-gradient(155deg,#191d2a,#4c3549 63%,#1b2734)}
+.origin-militar .na-opening-origin-atmosphere{
+ background:repeating-linear-gradient(90deg,#313538 0 27px,#624a3c 28px 32px)}
+.origin-pesquisador .na-opening-origin-atmosphere{
+ background:linear-gradient(140deg,#24394a,#6d8590 65%,#293b43)}
+.origin-nomade .na-opening-origin-atmosphere{
+ background:linear-gradient(#5c4d3d,#94704d 61%,#292e30)}
+.na-cinema-speed-label{display:flex;align-items:center;gap:4px;
+ color:#e4ccb0;font:600 10px var(--mono)}
+.na-cinema-speed-label select{min-height:44px;min-width:72px;
+ border:1px solid #6b858b;border-radius:5px;color:#e4eff0;
+ background:#142630;font:600 11px var(--mono);padding:0 4px}
+.na-cinema-transcript{position:absolute;inset:58px 5% 74px;z-index:8;
+ overflow:auto;padding:12px 18px;background:#0c1c24f5;
+ color:#d6e6e4;border:1px solid #cba573;border-radius:8px;
+ overscroll-behavior:contain}
+.na-cinema-transcript header{position:sticky;top:0;display:flex;align-items:center;
+ justify-content:space-between;background:#102631;padding:4px 0}
+.na-cinema-transcript button{min-height:48px;padding:6px 10px;
+ border-radius:6px;border:1px solid #d8b18b;color:#e9e9de;background:#223843}
+.na-cinema-transcript p{font:500 14px/1.5 var(--body);padding-bottom:6px;
+ border-bottom:1px solid #48616a}
+.na-cinema-confirm{position:fixed;inset:0;display:flex;
+ align-items:center;justify-content:center;z-index:30;padding:16px;
+ background:#061017dd}
+.na-cinema-confirm section{max-width:480px;max-height:90dvh;overflow-y:auto;
+ display:flex;flex-direction:column;gap:10px;padding:18px;
+ color:#e9ede8;background:#1a2d36;border:2px solid #e3b57a;border-radius:8px}
+.na-cinema-confirm h2,.na-cinema-confirm p{margin:0}
+.na-cinema-confirm div{display:flex;gap:8px;flex-wrap:wrap}
+.na-cinema-confirm button{min-height:48px;flex:1;padding:7px 9px;
+ border-radius:5px;border:1px solid #cba573;color:#f4e4ce;background:#2a414a}
+@media (orientation:landscape) and (max-height:440px){
+ .na-opening-top-controls{overflow-x:auto;max-width:76vw;scrollbar-width:thin}
+ .na-opening-top-controls button{min-width:max-content}
+ .na-cinema-speed-label{flex:none}
+ .na-opening-layout{gap:8px}
+ .na-cinema-transcript{inset:45px 2% 61px}
+}
+@media (prefers-reduced-motion:reduce){
+ .na-opening-art{transform:none!important;transition:none!important;will-change:auto}
+}
+
+/* Visible only under Vite DEV; no control ships in a production bundle. */
+.na-cinema-dev-tools{position:absolute;z-index:9;left:12px;bottom:68px;
+ display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-width:calc(100vw - 24px);
+ padding:5px 8px;background:#14232cf4;color:#ecd5aa;
+ border:1px solid #caab7a;border-radius:5px;font:600 10px var(--mono)}
+.na-cinema-dev-tools label{display:flex;align-items:center;gap:4px}
+.na-cinema-dev-tools select,.na-cinema-dev-tools button{min-height:32px;
+ padding:3px 5px;color:#eaf3f2;background:#213b45;border:1px solid #77929a;
+ border-radius:3px;font:500 10px var(--mono)}
+@media (orientation:landscape) and (max-height:440px){
+ .na-cinema-dev-tools{bottom:60px;left:5px;max-height:75px;overflow-y:auto}
+}
