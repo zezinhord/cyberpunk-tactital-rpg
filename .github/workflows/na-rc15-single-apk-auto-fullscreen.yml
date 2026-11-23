@@ -39,6 +39,7 @@ on:
       - scripts/test-baixada-collisions.mjs
       - native/NovaAssetPacks.java
       - src/game/character/slots.ts
+      - src/game/character/slot-core.ts
       - scripts/test-save-slots.mjs
   workflow_dispatch:
 
