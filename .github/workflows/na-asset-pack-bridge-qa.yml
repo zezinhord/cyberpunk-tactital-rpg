@@ -61,6 +61,7 @@ on:
       - scripts/test-mission-waypoint.mjs
       - src/game/progression/tree.ts
       - src/game/classes/engine.ts
+      - src/game/classes/branches.ts
       - src/components/ProgressionTree.tsx
       - src/progression.css
       - src/components/CombatAbilityPicker.tsx
