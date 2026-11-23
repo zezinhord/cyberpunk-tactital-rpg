@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {createPlayerCharacter,loadCharacter,saveCharacter,CHARACTER_SAVE_KEY} from "../src/game/character/storage.ts";
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,MAX_CHARACTER_SLOTS,
   readCharacterSlot,containsCharacterSlot} from "../src/game/character/slots.ts";
-import {exportCharacterBackup,importCharacterBackup} from "../src/game/character/backup.ts";
+import {exportCharacterBackup,importCharacterBackup,CHARACTER_BACKUP_KEYS} from "../src/game/character/backup.ts";
 import {CHARACTER_SLOT_INDEX,setActiveRaw} from "../src/game/character/slot-core.ts";
 import {createStartingInventory,saveInventory} from "../src/game/inventory.ts";
 import {HEALTH_KEY,loadHealth,saveHealth,healAtClinic} from "../src/game/combat/health.ts";
@@ -228,7 +228,54 @@ assert.deepEqual(loadDistrictPosition(a.id,"aurea"),{x:5,y:10},"Posição isomé
 assert.equal(db.get("cyberpunk-tactical-rpg.world-location.v068."+id),JSON.stringify({x:12,y:26}));
 assert.ok(listCharacterSlots().length===1);
 assert.equal(loadCharacterSlot(b.id),null,"Slots não existentes neste dispositivo não devem aparecer");
+// Every Nova Arcadia 2.0 chapter belongs to one protagonist, including the
+// eight expansion systems added after the original slot-deletion workflow.
+const newChapterFields=["archives","councils","recovery","simulations",
+ "perimeter","vigil","shelter","nexus"];
+const foreignId="unrelated-slot-preserve";
+for(const field of newChapterFields){
+ const key=CHARACTER_BACKUP_KEYS[field];
+ assert.ok(key,"Unknown backup field: "+field);
+ db.set(key+a.id,JSON.stringify({chapter:field,owner:a.id}));
+ db.set(key+foreignId,JSON.stringify({chapter:field,owner:foreignId}));
+}
+const snapshotBeforeDeletion=()=>[...db.entries()].sort(([a],[b])=>a.localeCompare(b));
+const expectedBeforeDeletion=snapshotBeforeDeletion();
+const store=globalThis.localStorage;
+const normalRemove=store.removeItem;
+const normalSet=store.setItem;
+// Mid-delete storage failure: no active slot, index, or unrelated quest is lost.
+let failChapterOnce=true;
+store.removeItem=key=>{
+ if(key===CHARACTER_BACKUP_KEYS.recovery+a.id&&failChapterOnce){
+  failChapterOnce=false;throw new Error("Android WebView storage interruption");
+ }
+ db.delete(key);
+};
+assert.equal(removeCharacterSlot(a.id),false,"Missing disk space must abort deletion");
+store.removeItem=normalRemove;
+assert.deepEqual(snapshotBeforeDeletion(),expectedBeforeDeletion,
+ "Interrupted character deletion must restore all old slot/story data");
+assert.equal(loadCharacter()?.id,a.id);
+// Failure at the last index write is also atomic after per-chapter deletes.
+let failIndexOnce=true;
+store.setItem=(key,value)=>{
+ if(key===CHARACTER_SLOT_INDEX&&failIndexOnce){
+  failIndexOnce=false;throw new Error("Android storage quota during index write");
+ }
+ db.set(key,String(value));
+};
+assert.equal(removeCharacterSlot(a.id),false,"Failed index commit must roll back");
+store.setItem=normalSet;
+assert.deepEqual(snapshotBeforeDeletion(),expectedBeforeDeletion,
+ "Index failure must restore all 2.0 chapters and original active character");
 assert.equal(removeCharacterSlot(a.id),true);
+for(const field of newChapterFields){
+ const key=CHARACTER_BACKUP_KEYS[field];
+ assert.equal(db.has(key+a.id),false,"Removed avatar must not keep "+field);
+ assert.equal(db.get(key+foreignId),JSON.stringify({chapter:field,owner:foreignId}),
+  "Removing an avatar must preserve another character's "+field);
+}
 assert.equal(db.get(HEALTH_KEY+a.id),undefined);
 assert.equal(db.get("cyberpunk-tactical-rpg.inventory.v1."+a.id),undefined);
 assert.equal(db.get("cyberpunk-tactical-rpg.mission.v1."+a.id),undefined);
