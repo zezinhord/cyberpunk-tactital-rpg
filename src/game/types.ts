@@ -37,6 +37,10 @@ export interface GameState {
   /** Visible perception state; never reveals unseen player location. */
   enemyAwareness?: "patrol"|"suspicious"|"investigate"|"search"|"engaged"|"retreat";
   enemyPerception?: string;
+  /** Finite enemy suppressor/saboteur devices (reset on new wave). */
+  enemyTacticalCharges?: number;
+  enemyTacticalCooldown?: number;
+  enemyTacticalRole?: string;
   characterLevel: number;
   originId: string;
   classId: string | null;
