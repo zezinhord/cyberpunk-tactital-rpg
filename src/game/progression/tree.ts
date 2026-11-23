@@ -11,8 +11,18 @@ export const STATS:Readonly<Record<StatId,{name:string;description:string}>>={
  precisao:{name:"Precisão",description:"+1 bônus no ataque básico por ponto."},
  reflexos:{name:"Reflexos",description:"+1 Defesa por ponto; cada 2 pontos dão +1 movimento."},
  interface:{name:"Interface",description:"+2 Energia máxima por ponto."},
- influencia:{name:"Influência",description:"Ajuda a obter confiança comunitária ao agir na Feira."},
+ influencia:{name:"Influência",description:"Confiança nas escolhas da Feira: +1 no grau 1–2, +2 no 3–4 e +3 no grau 5."},
 };
+/** Social milestone bonuses for the Mercado dos Cabos.
+ * Unlike the old rank>0 check, investment in higher ranks now has
+ * persistent, bounded value without bypassing story prerequisites.
+ */
+export function influenceTrustBonus(rank:number):number{
+ if(!Number.isSafeInteger(rank)||rank<1)return 0;
+ if(rank>=5)return 3;
+ if(rank>=3)return 2;
+ return 1;
+}
 export const BASE_ATTRIBUTES:Readonly<Record<StatId,number>>={
  vigor:0,precisao:0,reflexos:0,interface:0,influencia:0,
 };
