@@ -153,7 +153,9 @@ export default function Battlefield({manager,appearance,originId}:{
  function tap(cell:{x:number;y:number;blocked:boolean}){
    if(!active||cell.blocked)return;
    if(cell.x===0&&cell.y===6){manager.interactWithTerminal(0,6);return;}
-   if(reachable.has(cell.x+","+cell.y))manager.movePlayerTo(cell.x,cell.y);
+   // All free tiles respond to touch. Unreachable destinations report the
+   // actual movement/collision cost instead of silently ignoring the player.
+   manager.movePlayerTo(cell.x,cell.y);
  }
  return <div className="battlefield-canvas na-svg-battlefield"
    data-battlefield-renderer="svg"
@@ -184,12 +186,13 @@ export default function Battlefield({manager,appearance,originId}:{
     {sceneTiles.map(cell=>{
       const p=point(cell),canMove=active&&reachable.has(cell.x+","+cell.y);
       const terminal=cell.x===0&&cell.y===6;
-      const interactive=active&&!cell.blocked&&(canMove||terminal);
+      const interactive=active&&!cell.blocked;
       const x=p.x,y=p.y;
       return <g key={cell.id} role={interactive?"button":undefined}
          tabIndex={interactive?0:undefined} className={interactive?"na-iso-actionable":undefined}
          aria-label={interactive?(terminal?"Ativar terminal de energia":
-           "Mover para coluna "+(cell.x+1)+" linha "+(cell.y+1)):undefined}
+           (canMove?"Mover para ":"Ver caminho até ")+
+           "coluna "+(cell.x+1)+" linha "+(cell.y+1)):undefined}
          onClick={interactive?()=>tap(cell):undefined}
          onKeyDown={interactive?e=>{
            if(e.key==="Enter"||e.key===" "){e.preventDefault();tap(cell);}
