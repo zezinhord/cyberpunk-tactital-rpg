@@ -8,6 +8,7 @@ import type { CombatVisual } from "./types";
 import { findPath,getReachableCells,coverBetween,coverArmorBonus,MOVEMENT_PER_TURN,
   type CoverGrade } from "./map";
 import {enemyProfile,planEnemyTurn,withinShot} from "./tactics";
+import {attackHits,attackHitChance} from "./combat/attack-rules.ts";
 import type {UrbanCombatSupport} from "./story/urban-chronicles.ts";
 import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types";
 import type { OriginGameplayProfile } from "./character/types";
@@ -292,7 +293,7 @@ export class TurnManager {
   /** Prévia única para lógica, HUD e ação real: evita indicadores mentirosos. */
   getBasicAttackPreview():{
     available:boolean;reason:string;range:number;distance:number;
-    mode:"melee"|"ranged";cover:CoverGrade;defense:number;
+    mode:"melee"|"ranged";cover:CoverGrade;defense:number;hitChance:number;
   }{
     const player=livingUnit(this.state.units,"runner");
     const enemy=livingUnit(this.state.units,"drone");
@@ -308,7 +309,10 @@ export class TurnManager {
     else if(!this.state.mainActionAvailable)reason="Ação principal já utilizada.";
     else if(dist>range)reason="Alvo fora do alcance ("+range+" células).";
     else if(range>1&&cover==="full")reason="Disparo bloqueado por obstáculo.";
-    return {available:reason==="",reason,range,distance:dist,mode,cover,defense};
+    const totalBonus=(player?.attackBonus??0)+this.nextAttackAccuracyBonus+
+      this.state.classNextAccuracyBonus;
+    const hitChance=reason?0:attackHitChance(totalBonus,defense);
+    return {available:reason==="",reason,range,distance:dist,mode,cover,defense,hitChance};
   }
 
   canAttack(): boolean {
@@ -439,7 +443,7 @@ export class TurnManager {
     this.state.mainActionAvailable=false;
     this.nextAttackAccuracyBonus=0;
     this.state.classNextAccuracyBonus=0;
-    if(roll===20||total>=preview.defense){
+    if(attackHits(roll,attackBonus,preview.defense)){
       const baseDamage=rollDie(preview.mode==="ranged"?6:6)+2+
         (this.weaponRange===5?1:0);
       const damage=baseDamage+this.nextAttackDamageBonus+this.state.classNextDamageBonus;
@@ -488,7 +492,7 @@ export class TurnManager {
         if(withinShot(player,enemy,this.weaponRange,this.arenaLayout)){
           const defense=enemy.armorClass+coverArmorBonus(player,enemy,this.arenaLayout);
           const reactionRoll=rollDie(20);
-          if(reactionRoll===20||reactionRoll+player.attackBonus>=defense){
+          if(attackHits(reactionRoll,player.attackBonus,defense)){
             const damage=rollDie(6)+2+(this.weaponRange===5?1:0);
             enemy.hp=Math.max(0,enemy.hp-damage);
             this.setCue("hit","enemy",damage);
@@ -504,7 +508,7 @@ export class TurnManager {
         const cover=profile.range>1?coverArmorBonus(enemy,player,this.arenaLayout):0;
         const defense=player.armorClass+cover;
         const roll=rollDie(20),total=roll+enemy.attackBonus;
-        if(roll===20||total>=defense){
+        if(attackHits(roll,enemy.attackBonus,defense)){
           const damage=rollDie(profile.range>1?6:4)+(profile.range>1?1:1);
           player.hp=Math.max(0,player.hp-damage);
           this.setCue("hit","player",damage);
