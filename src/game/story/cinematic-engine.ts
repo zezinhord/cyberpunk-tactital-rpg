@@ -98,7 +98,7 @@ export function dialoguePresentation(
  speaker:string,role:string,totalPages:number,hasChoices:boolean
 ):DialoguePresentation{
  const text=(speaker+" "+role).toLocaleLowerCase("pt-BR");
- if(/éden|eden|cisma|última autorização|decisão coletiva|assembleia|fim da campanha|projeto éden|projeto eden|v-09|nó de retransmissão|quarentena|revelação/.test(text))
+ if(/éden|eden|cisma|última autorização|decisão coletiva|assembleia|fim da campanha|projeto éden|projeto eden|v-09|chegada ao distrito|nó de retransmissão|quarentena|revelação/.test(text))
    return "cinematic";
  if(hasChoices||totalPages>=3||
     /helix|amara|helena|elias|mara|dorian|auditoria|investigação|conselho|testemunh|interceptaç|câmara|sabotagem|rostos/.test(text))
