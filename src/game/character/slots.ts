@@ -23,6 +23,7 @@ const OWNED_DATA_KEYS=[
  "cyberpunk-tactical-rpg.cisma-v20.v1.",
  "cyberpunk-tactical-rpg.cisma-operations.v1.",
  "cyberpunk-tactical-rpg.party-v20.v1.",
+ "cyberpunk-tactical-rpg.ai-world-memory.v1.",
  "cyberpunk-tactical-rpg.stealth-v20.v1.",
  "cyberpunk-tactical-rpg.inner-contracts-v20.v1.",
  // Nova Arcádia 2.0: clearing a character must also clear the newer
