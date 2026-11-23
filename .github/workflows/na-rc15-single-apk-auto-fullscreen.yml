@@ -40,6 +40,11 @@ on:
       - native/NovaAssetPacks.java
       - src/game/character/slots.ts
       - src/game/character/slot-core.ts
+      - src/game/combat/attack-rules.ts
+      - src/components/Battlefield.tsx
+      - src/arena-v030.css
+      - scripts/test-tactics.mjs
+      - scripts/test-battlefield-navigation.mjs
       - scripts/test-save-slots.mjs
   workflow_dispatch:
 
@@ -203,6 +208,7 @@ jobs:
           npx tsc -b
           node --experimental-strip-types scripts/test-asset-packs-v20.mjs
           node --experimental-strip-types scripts/test-tactics.mjs
+          node --experimental-strip-types scripts/test-battlefield-navigation.mjs
           node --experimental-strip-types scripts/test-cisma-v20.mjs
           node --experimental-strip-types scripts/test-cisma-operations.mjs
           node --experimental-strip-types scripts/test-inner-contracts-v20.mjs
