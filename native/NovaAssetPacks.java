@@ -130,41 +130,55 @@ public class NovaAssetPacks extends Plugin {
         notifyListeners("progress", event);
     }
 
+    /** Check disk receipts off the Android/WebView UI thread.
+     * Every installed district contains 544 individual assets; synchronous
+     * recursive sizeOf() for all seven districts caused long cold-start
+     * input stalls on low-RAM devices. Keep the full size/SHA checks, but
+     * serialize filesystem reads with the native extraction executor.
+     */
     @PluginMethod
     public void status(PluginCall call) {
-        String id = call.getString("id");
+        final String id = call.getString("id");
         if (!validId(id)) { call.reject("Unknown district"); return; }
-        File dir = installedDir(id);
-        JSObject out = new JSObject();
-        out.put("id", id);
-        File record = new File(dir, "na-install.json");
-        out.put("installed", record.exists());
-        if (record.exists()) {
-            try (InputStream in = new FileInputStream(record)) {
-                byte[] bytes = new byte[(int)Math.min(record.length(), 4096L)];
-                int n = in.read(bytes);
-                if (n > 0) {
-                    JSONObject receipt = new JSONObject(new String(bytes, 0, n, StandardCharsets.UTF_8));
-                    out.put("sha256", receipt.optString("sha256", ""));
+        io.execute(() -> {
+            try {
+                File dir = installedDir(id);
+                JSObject out = new JSObject();
+                out.put("id", id);
+                File record = new File(dir, "na-install.json");
+                out.put("installed", record.exists());
+                if (record.exists()) {
+                    try (InputStream in = new FileInputStream(record)) {
+                        byte[] bytes = new byte[(int)Math.min(record.length(), 4096L)];
+                        int n = in.read(bytes);
+                        if (n > 0) {
+                            JSONObject receipt = new JSONObject(
+                                new String(bytes, 0, n, StandardCharsets.UTF_8));
+                            out.put("sha256", receipt.optString("sha256", ""));
+                        }
+                    } catch (Exception e) {
+                        out.put("installed", false);
+                    }
                 }
+                // Never restore an unverified or missing private directory.
+                if (out.optBoolean("installed", false) && dir.isDirectory())
+                    out.put("baseUri", "file://" + dir.getAbsolutePath() + "/");
+                // Preserve the real on-disk byte count. Do not replace this
+                // with unchecked manifest metadata for speed.
+                out.put("storedBytes", sizeOf(dir));
+                out.put("freeBytes", baseDir().getUsableSpace());
+                JSObject current = progress.get(id);
+                if (current != null) {
+                    out.put("stage", current.optString("stage", "idle"));
+                    out.put("bytes", current.optLong("bytes", 0L));
+                    out.put("total", current.optLong("total", 0L));
+                }
+                call.resolve(out);
             } catch (Exception e) {
-                out.put("installed", false);
+                call.reject("Cannot inspect game files for " + id + ": " +
+                    e.getMessage());
             }
-        }
-        // A signed/verified pack is a permanent game resource. Re-expose its
-        // private URI after process death or Android app updates, including
-        // installs made by older QA201 versions. Never expose a missing path.
-        if (out.optBoolean("installed", false) && dir.isDirectory())
-            out.put("baseUri", "file://" + dir.getAbsolutePath() + "/");
-        out.put("storedBytes", sizeOf(dir));
-        out.put("freeBytes", baseDir().getUsableSpace());
-        JSObject current = progress.get(id);
-        if (current != null) {
-            out.put("stage", current.optString("stage", "idle"));
-            out.put("bytes", current.optLong("bytes", 0L));
-            out.put("total", current.optLong("total", 0L));
-        }
-        call.resolve(out);
+        });
     }
 
     @PluginMethod
