@@ -48,7 +48,8 @@ import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity
 import {exportCharacterBackup,importCharacterBackup} from "./game/character/backup";
 import {loadHealth,saveHealth,healAtClinic} from "./game/combat/health";
 import {isOperativeDefeated,recoverFromDefeat,type DefeatChoice} from "./game/combat/defeat.ts";
-import {combatProgression,grantUniqueExperience,earnedMasterySkillPoints,purchaseAttribute,purchaseSkill,
+import {combatProgression,grantUniqueExperience,earnedMasterySkillPoints,
+  purchaseAttribute,purchaseSkill,purchaseMulticlass,
   type StatId} from "./game/progression/tree";
 import {advanceTrialBattle,isTrialEncounter,readTrial,saveTrial,reconcileTrial} from "./game/story/field-test";
 import {isDistrictId} from "./game/districts/catalog";
@@ -275,7 +276,8 @@ export default function App() {
   const originProfile = useMemo(() => character ? getOriginGameplay(character.originId) : undefined, [character?.originId]);
   const progressionBonuses=combatProgression(character);
   const maximumHp=18+(originProfile?.maxHpBonus??0)+progressionBonuses.hp+bonuses.hpBonus;
-  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
+  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, multiclassId:character?.multiclassId,
+    characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
     currentHp:loadHealth(character?.id??"",maximumHp),
     progressionBonuses:combatProgression(character),encounterId:battleMode,weaponId:inventory.equipped.weapon,
      districtSupport:character?mergeRecoverySupport(
@@ -495,6 +497,17 @@ export default function App() {
       combatProgression(purchase.character).hp;
     setHealthValue(loadHealth(active.id,hp));
     return purchase.message;
+  };
+  const buyMulticlass=(id:ClassId):string=>{
+    const active=characterRef.current;
+    if(!active)return "Nenhum personagem ativo.";
+    const choice=purchaseMulticlass(active,id);
+    if(!choice.ok)return choice.message;
+    if(!saveCharacter(choice.character))return "Falha ao salvar a segunda classe. Seus pontos não foram usados.";
+    characterRef.current=choice.character;
+    setCharacter(choice.character);
+    setSlots(listCharacterSlots());
+    return choice.message;
   };
   const buySkill=(id:string):string=>{
     const active=characterRef.current;
@@ -834,6 +847,7 @@ export default function App() {
         onChooseClass={assignExistingClass}
         onPurchaseAttribute={buyAttribute}
         onPurchaseSkill={buySkill}
+        onPurchaseMulticlass={buyMulticlass}
         onQuestXp={grantTrialXp}
         onClaimFavor={claimNpcFavor}
         onBuyWithCredits={buyWorkshopItem}
