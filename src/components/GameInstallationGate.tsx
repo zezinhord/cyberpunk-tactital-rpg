@@ -53,17 +53,20 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
   return latest;
  }
 
- async function prepareFullGame():Promise<void>{
+ async function prepareFullGame(initial?:Record<PackId,boolean>):Promise<void>{
   if(busy.current)return; // Includes StrictMode double-mount and manual retries.
   busy.current=true;
   setPhase("installing");
   setError("");
   let currentDistrict:PackId="baixada";
   try{
+   // Inspect the seven private game districts once at boot or retry.
+   // A redundant native status round-trip for each district would walk
+   // thousands of installed files and block slower Android devices.
+   const verified=initial??await readInstalled();
    for(const id of PACK_IDS){
     currentDistrict=id;
-    const state=await inspectPack(id);
-    if(state.installed){
+    if(verified[id]){
      setInstalled(old=>({...old,[id]:true}));
      continue;
     }
@@ -116,7 +119,7 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
     const latest=await readInstalled();
     if(!active)return;
     if(hasInstalledEntireGame(latest))setPhase("ready");
-    else void prepareFullGame(); // Automatically start, no button and no choice.
+    else void prepareFullGame(latest); // Reuse verified state, no duplicate disk scan.
    }catch(e){
     if(!active)return;
     setError("Falha ao verificar os arquivos obrigatórios: "+
