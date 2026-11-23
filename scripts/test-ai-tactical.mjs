@@ -26,6 +26,15 @@ assert.equal(decision.perception.heard,true);
 assert.equal(decision.memory.awareness,"investigate");
 assert.deepEqual(decision.memory.lastKnown,{x:2,y:2},
  "Investigate the noise, not the unseen player's exact position");
+// Two equally unseen positions must not change search behavior through
+// collision occupancy or distance calculations in the path planner.
+const alternateHidden=unit("runner",1,3);
+const dA=decideEnemy(occludedEnemy,occludedPlayer,
+ [occludedEnemy,occludedPlayer],profile,memory,1);
+const dB=decideEnemy(occludedEnemy,alternateHidden,
+ [occludedEnemy,alternateHidden],profile,memory,1);
+assert.deepEqual(dA.plan,dB.plan,
+ "Unseen real coordinates must not leak through pathfinding occupation");
 const seenEnemy=unit("drone",5,0),seenPlayer=unit("runner",4,0);
 const spotted=decideEnemy(seenEnemy,seenPlayer,[seenEnemy,seenPlayer],profile,
  initialEnemyMemory(),2);
