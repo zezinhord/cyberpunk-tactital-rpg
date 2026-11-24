@@ -5,7 +5,7 @@ import type {Tile} from "./catalog.ts";
 import {isEconomyMode} from "../performance.ts";
 import {isV20IllustratedRoom,environmentArtKey,environmentArtUrl}
   from "./v20-illustrations.ts";
-import {packAssetUrl} from "../assets/native-pack-manager.ts";
+
 import {audioDirector} from "../../audio/director.ts";
 import {preloadCharacterSprites,createCharacterAnimations,getPlayerTexture,
  frameForDirection,ActorAnimationController,playIdle,type IsoDirection} from "../baixada/sprites.ts";
@@ -39,9 +39,12 @@ export class DistrictInteriorScene extends Phaser.Scene{
  private walking=false;
  private queued:Tile|null=null;
  private staticKey:string;
- constructor(id:InnerId,interact:(id:string)=>void,origin:OriginId,appearance:TestAppearance){
+ private readonly artPreviews:Readonly<Record<string,string>>;
+ constructor(id:InnerId,interact:(id:string)=>void,origin:OriginId,appearance:TestAppearance,
+  artPreviews:Readonly<Record<string,string>>={}){
   super({key:"NovaArcadia-Interior-"+id});this.id=id;this.interact=interact;
   this.origin=origin;this.appearance=appearance;
+  this.artPreviews=artPreviews;
   this.staticKey="na-interior-map-"+id+"-v081";
  }
  setAppearance(p:TestAppearance):void{
@@ -51,14 +54,15 @@ export class DistrictInteriorScene extends Phaser.Scene{
  preload():void{
   const blueprint=INNER_BLUEPRINTS[this.id];
   preloadCharacterSprites(this,this.origin,[blueprint.guideTexture]);
-  // All 112 illustrations remain on disk. Only this room's mural and
-  // three physical evidence sprites are decoded into RAM when entered.
+  // Only one preview mural and three downsampled prop illustrations may
+  // enter Phaser GPU memory. Originals remain untouched on disk and are
+  // available for full-resolution dossier reading when requested.
   if(isV20IllustratedRoom(this.id)){
     this.load.image(environmentArtKey(this.id),
-      packAssetUrl(this.id,"mural")??environmentArtUrl(this.id));
+      this.artPreviews.mural??environmentArtUrl(this.id));
     for(const prop of blueprint.props)
       this.load.image(environmentArtKey(this.id,prop.id),
-        packAssetUrl(this.id,"prop",prop.id)??environmentArtUrl(this.id,prop.id));
+        this.artPreviews[prop.id]??environmentArtUrl(this.id,prop.id));
   }
  }
  create():void{

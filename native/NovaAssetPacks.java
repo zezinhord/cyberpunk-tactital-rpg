@@ -12,6 +12,8 @@ import org.json.JSONObject;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -517,6 +519,80 @@ public class NovaAssetPacks extends Plugin {
             out.put("bytes", file.length());
             call.resolve(out);
         } catch (Exception ex) { call.reject("Cannot resolve asset: " + ex.getMessage()); }
+    }
+
+    /**
+     * Render a verified on-disk artwork as a bounded, JPEG-compressed preview.
+     * District archives contain 2880x1620 images; loading several at native
+     * resolution in Phaser consumes >50MB of GPU and crashes low-RAM phones.
+     * This API never touches the signed original, runs on the IO executor and
+     * never downloads an asset. Android's cache directory may evict previews.
+     */
+    @PluginMethod
+    public void preview(PluginCall call) {
+        final String id = call.getString("id"), path = call.getString("path");
+        final Integer requested = call.getInt("maxWidth");
+        final int maxWidth = requested == null ? 512 : requested;
+        if (!validId(id) || path == null ||
+            !path.matches("^(murals|props|dossiers|cutscenes|spritesheets|routes|evacs|shelters|nexus)/[a-z0-9/_-]+\\.(png|webp)$") ||
+            path.contains("..") || maxWidth < 128 || maxWidth > 768) {
+            call.reject("Invalid artwork preview request");
+            return;
+        }
+        io.execute(() -> {
+            Bitmap bitmap = null, reduced = null;
+            try {
+                File district = installedDir(id);
+                if (!new File(district, "na-install.json").isFile())
+                    throw new IllegalStateException("District not installed");
+                File source = new File(district, path);
+                if (!source.getCanonicalPath().startsWith(district.getCanonicalPath() + File.separator) ||
+                    !source.isFile()) throw new IllegalStateException("Artwork missing");
+
+                File cache = new File(getContext().getCacheDir(), "na-art-previews/" + id);
+                if (!cache.isDirectory() && !cache.mkdirs())
+                    throw new IllegalStateException("Preview cache unavailable");
+                String digest = hex(hashBytes(path.getBytes(StandardCharsets.UTF_8)));
+                File target = new File(cache, digest + "-" + maxWidth + ".jpg");
+                if (!target.isFile() || target.length() == 0L) {
+                    BitmapFactory.Options bounds = new BitmapFactory.Options();
+                    bounds.inJustDecodeBounds = true;
+                    BitmapFactory.decodeFile(source.getAbsolutePath(), bounds);
+                    if (bounds.outWidth < 1 || bounds.outHeight < 1 ||
+                        bounds.outWidth > 32768 || bounds.outHeight > 32768)
+                        throw new IllegalStateException("Unsupported image dimensions");
+                    BitmapFactory.Options opts = new BitmapFactory.Options();
+                    opts.inPreferredConfig = Bitmap.Config.RGB_565;
+                    int sample = 1;
+                    while (Math.max(bounds.outWidth, bounds.outHeight) / sample > maxWidth * 2)
+                        sample *= 2;
+                    opts.inSampleSize = sample;
+                    bitmap = BitmapFactory.decodeFile(source.getAbsolutePath(), opts);
+                    if (bitmap == null) throw new IllegalStateException("Artwork decode failed");
+                    int width = Math.min(maxWidth, bitmap.getWidth());
+                    int height = Math.max(1, Math.round(bitmap.getHeight() * (width / (float) bitmap.getWidth())));
+                    reduced = Bitmap.createScaledBitmap(bitmap, width, height, true);
+                    File partial = new File(cache, target.getName() + ".part");
+                    try (FileOutputStream out = new FileOutputStream(partial)) {
+                        if (!reduced.compress(Bitmap.CompressFormat.JPEG, 78, out))
+                            throw new IllegalStateException("Preview encode failed");
+                    }
+                    if (!partial.renameTo(target)) {
+                        partial.delete();
+                        throw new IllegalStateException("Could not publish preview");
+                    }
+                }
+                JSObject result = new JSObject();
+                result.put("uri", "file://" + target.getAbsolutePath());
+                result.put("bytes", target.length());
+                call.resolve(result);
+            } catch (Exception e) {
+                call.reject("Cannot prepare game artwork: " + e.getMessage());
+            } finally {
+                if (reduced != null && reduced != bitmap) reduced.recycle();
+                if (bitmap != null) bitmap.recycle();
+            }
+        });
     }
 
     @PluginMethod
