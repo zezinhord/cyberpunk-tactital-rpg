@@ -1,0 +1,78 @@
+/* RC20 unified mobile command rail and accessibility. These are the SAME
+ * full-game mechanics; the economical profile never switches to Lite art. */
+.na-target-selector{display:flex;align-items:center;gap:7px;color:#eef6f8;
+ font:600 12px/1.2 var(--display);min-width:0}
+.na-target-selector select{width:100%;min-width:0;min-height:44px;
+ color:#f5f8ff;background:#14242f;border:1px solid #88a2b4;
+ border-radius:7px;padding:4px 7px;font-size:12px}
+.na-command-rail,.na-mobile-supply{display:none}
+.na-tactical-secondary{border:1px solid #384e5e;border-radius:7px;
+ background:#102332;color:#d9ecf2;min-width:0}
+.na-tactical-secondary>summary{min-height:43px;display:flex;align-items:center;
+ cursor:pointer;padding:5px 9px;font:650 11px var(--display)}
+.na-tactical-secondary[open]>.secondary-actions{padding:4px 5px 7px;
+ display:flex;flex-wrap:wrap;gap:5px}
+.na-tactical-secondary .secondary-actions button{flex:1 1 46%;min-height:48px}
+.na-calibration-panel{display:grid;gap:5px;padding:9px 0;
+ border-top:1px solid rgba(155,179,192,.35);min-width:0}
+.na-calibration-panel>span{font-size:12px;font-weight:800;color:#e5c48f}
+.na-calibration-panel>small{overflow-wrap:anywhere;color:#dce5e8;line-height:1.45}
+.na-calibration-panel button{min-height:48px}
+.na-victory-aftermath{padding:9px;border:1px solid #897754;
+ border-radius:7px;background:rgba(22,40,48,.96);margin:7px 0}
+.na-victory-aftermath strong{font:700 14px var(--display);color:#ffdb9c}
+.na-victory-aftermath p{margin:5px 0 7px}
+.na-victory-salvage{border-left:3px solid #b99253;padding:8px;
+ background:#192d2f;color:#fff1ce;overflow-wrap:anywhere}
+@media (orientation:landscape) and (max-height:540px){
+ .arena-v030 .na-abilities-open,.arena-v030 .actions{display:none}
+ .arena-v030 .na-command-rail{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:4px}
+ .arena-v030 .na-command-rail button{min-width:0;min-height:54px;
+  touch-action:manipulation;border:1px solid #78939c;border-radius:8px;
+  background:#162833;color:#f0f9ff;padding:3px 2px;
+  font:700 10px/1.2 var(--display);display:grid;place-items:center}
+ .arena-v030 .na-command-rail button:disabled{opacity:.52}
+ .arena-v030 .na-command-rail .na-rail-attack:not(:disabled){
+  background:#842f51;border-color:#f48cb0;color:#fff}
+ .arena-v030 .na-command-rail .na-rail-abilities:not(:disabled){
+  background:#194751;border-color:#7ee2ec}
+ .arena-v030 .na-mobile-supply{display:block}
+ .arena-v030 .na-mobile-supply select{width:100%;height:36px;
+  color:#e4f9ff;background:#142b32;border:1px solid #7297a1;
+  border-radius:6px;font-size:11px;padding:2px 6px}
+ .arena-v030 .na-target-selector select{min-height:40px}
+ .arena-v030 .control-sheet{gap:3px}
+ .arena-v030 .na-tactical-secondary>summary{min-height:36px}
+}
+html[data-na-text="large"] .arena-v030 .control-sheet button,
+html[data-na-text="large"] .arena-v030 .control-sheet select,
+html[data-na-text="large"] .arena-v030 .na-target-selector,
+html[data-na-text="large"] .arena-v030 .combat-message,
+html[data-na-text="large"] .arena-v030 .board-hint,
+html[data-na-text="large"] .na-narrative-panel .na-dialogue-spoken,
+html[data-na-text="large"] .character-menu-shell .menu-info-panel p,
+html[data-na-text="large"] .character-menu-shell .na-item-row p{
+ font-size:max(13px,1rem)!important;line-height:1.4}
+html[data-na-text="large"] .na-dialogue-footer button{font-size:15px}
+html[data-na-contrast="high"] .arena-v030 .control-sheet,
+html[data-na-contrast="high"] .arena-v030 .arena-console-scroll,
+html[data-na-contrast="high"] .na-narrative-panel,
+html[data-na-contrast="high"] .character-menu-shell{
+ background:#07141c!important;color:#fff!important;border-color:#f1e9d4!important}
+html[data-na-contrast="high"] .arena-v030 button,
+html[data-na-contrast="high"] .arena-v030 select,
+html[data-na-contrast="high"] .character-menu-shell button,
+html[data-na-contrast="high"] .na-narrative-panel button{
+ color:#fff!important;border-color:#a6dce8!important;
+ text-shadow:0 0 1px #000}
+html[data-na-contrast="high"] :is(.arena-v030,.character-menu-shell,.na-narrative-panel)
+ :is(p,small,span){color:#fff!important}
+html[data-na-motion="reduced"] *,html[data-na-motion="reduced"] *::before,
+html[data-na-motion="reduced"] *::after{
+ animation-duration:.01ms!important;transition-duration:.01ms!important;
+ scroll-behavior:auto!important}
+html[data-na-contrast="high"] button:focus-visible,
+html[data-na-text="large"] button:focus-visible,
+html[data-na-motion="reduced"] button:focus-visible{
+ outline:3px solid #fff49a!important;outline-offset:2px}
