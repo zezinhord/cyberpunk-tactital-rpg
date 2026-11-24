@@ -3,8 +3,11 @@ import {drawDistrictSkyline,drawDistrictPavement,drawDistrictBuilding,drawDistri
 import {DISTRICT_GUIDE_TEXTURE} from "./guide-textures";
 import {isEconomyMode} from "../performance";
 import {audioDirector} from "../../audio/director";
+import {citizensForDistrict,chooseDistrictCitizenStep,districtCitizenSpeech,
+ type DistrictCitizenSpec} from "../ai/district-citizens.ts";
+import type {NpcAttitude} from "../ai/faction-reactivity.ts";
 import {preloadCharacterSprites,createCharacterAnimations,
- ActorAnimationController,getPlayerTexture,frameForDirection,playIdle,
+ ActorAnimationController,getPlayerTexture,frameForDirection,playIdle,playWalk,
  type IsoDirection} from "../baixada/sprites";
 import type {OriginId} from "../character/origins";
 import type {TestAppearance} from "../test-arena/appearance";
@@ -44,14 +47,21 @@ export class DistrictScene extends Phaser.Scene{
  private buildingLayers:{image:Phaser.GameObjects.Image;x:number;y:number;w:number;h:number}[]=[];
  private buildingTextureKeys:string[]=[];
  private coverMarker?:Phaser.GameObjects.Arc;
+ private residents:Array<{spec:DistrictCitizenSpec;tile:Tile;
+   visual:Phaser.GameObjects.Sprite;busy:boolean}>=[];
+ private citizenSpeech?:Phaser.GameObjects.Text;
+ private citizenTimer?:Phaser.Time.TimerEvent;
+ private citizenTicks=0;
+ private localAttitude:NpcAttitude;
  constructor(id:DistrictId,onInteract:(id:string)=>void,origin:OriginId,
   appearance:TestAppearance,objective:NodeSlot|null=null,start?:Tile,
-  onMove?:(tile:Tile,settled?:boolean)=>void){
+  onMove?:(tile:Tile,settled?:boolean)=>void,
+  attitude:NpcAttitude="neutral"){
   super({key:"District-"+id});
   this.id=id;this.spec=getDistrict(id);this.onInteract=onInteract;
   this.origin=origin;this.appearance=appearance;this.currentObjective=objective;
   if(start&&districtWalkable(id,start))this.tile={...start};
-  this.onMove=onMove;
+  this.onMove=onMove;this.localAttitude=attitude;
  }
  setAppearance(appearance:TestAppearance):void{
   if(this.appearance===appearance)return;
@@ -61,12 +71,22 @@ export class DistrictScene extends Phaser.Scene{
  setObjective(slot:NodeSlot|null):void{
   this.currentObjective=slot;this.updateObjectiveMarker();
  }
- preload():void{preloadCharacterSprites(this,this.origin,[DISTRICT_GUIDE_TEXTURE[this.id]]);}
+ setReaction(attitude:NpcAttitude):void{
+  this.localAttitude=attitude;
+  this.updateCitizenSpeech();
+ }
+ preload():void{
+  preloadCharacterSprites(this,this.origin,[
+    DISTRICT_GUIDE_TEXTURE[this.id],
+    ...citizensForDistrict(this.id).map(citizen=>citizen.texture),
+  ]);
+ }
  create():void{
   createCharacterAnimations(this);
   this.buildStaticMap();
   this.buildBuildingLayers();
   this.buildInteractables();
+  this.buildCitizens();
   this.objective=this.add.text(0,0,"◆ OBJETIVO ATUAL",{
     fontFamily:"IBM Plex Mono,monospace",fontSize:"12px",fontStyle:"bold",
     color:"#18222c",backgroundColor:"#f3c58a",padding:{x:7,y:4},
@@ -92,11 +112,16 @@ export class DistrictScene extends Phaser.Scene{
   camera.startFollow(this.player,true,.22,.22);
   this.input.on(Phaser.Input.Events.POINTER_DOWN,this.tap,this);
   this.input.keyboard?.on("keydown",this.keyDown,this);
+  this.citizenTimer=this.time.addEvent({delay:1500,loop:true,
+    callback:()=>this.tickCitizens()});
+  this.updateCitizenSpeech();
   this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
    this.scale.off("resize",this.updateZoom,this);
    this.input.off(Phaser.Input.Events.POINTER_DOWN,this.tap,this);
    this.input.keyboard?.off("keydown",this.keyDown,this);
    this.anim?.dispose();
+   this.citizenTimer?.remove(false);
+   this.residents=[];this.citizenSpeech=undefined;
    for(const key of this.buildingTextureKeys)
     if(this.textures.exists(key))this.textures.remove(key);
    this.buildingTextureKeys=[];this.buildingLayers=[];
@@ -210,6 +235,64 @@ export class DistrictScene extends Phaser.Scene{
    }).setOrigin(.5).setDepth(c.y+130);
   }
  }
+ /** Real district residents, independent from mission contacts and
+  * managed with the same collision predicates as the player.
+  * Faraway citizens do not cause expensive pathfinding or frame updates.
+  */
+ private buildCitizens():void{
+  for(const spec of citizensForDistrict(this.id)){
+   if(!districtWalkable(this.id,spec.home))continue;
+   const p=center(spec.home);
+   const visual=this.add.sprite(p.x,p.y,spec.texture,frameForDirection(spec.texture,2))
+     .setOrigin(.5,.95).setScale(.76).setDepth(p.y+119);
+   playIdle(visual,spec.texture,2);
+   this.residents.push({spec,tile:{...spec.home},visual,busy:false});
+  }
+  this.citizenSpeech=this.add.text(0,0,"",{
+   fontFamily:"IBM Plex Mono,monospace",fontSize:"11px",color:"#f6e6c9",
+   backgroundColor:"#152831e8",padding:{x:7,y:5},
+   wordWrap:{width:225},
+  }).setOrigin(.5,1).setDepth(1805).setVisible(false);
+ }
+ private updateCitizenSpeech():void{
+  if(!this.citizenSpeech||!this.player)return;
+  const nearest=this.residents.map(resident=>({
+   resident,distance:Math.abs(resident.tile.x-this.tile.x)+
+     Math.abs(resident.tile.y-this.tile.y),
+  })).sort((a,b)=>a.distance-b.distance)[0];
+  if(!nearest||nearest.distance>4){
+   this.citizenSpeech.setVisible(false);return;
+  }
+  const at=center(nearest.resident.tile);
+  this.citizenSpeech.setText(nearest.resident.spec.name+": "+
+    districtCitizenSpeech(nearest.resident.spec,this.localAttitude))
+    .setPosition(at.x,at.y-92).setVisible(true);
+ }
+ private tickCitizens():void{
+  this.citizenTicks++;
+  const occupied=new Set<string>(this.residents.map(c=>c.tile.x+","+c.tile.y));
+  occupied.add(this.tile.x+","+this.tile.y);
+  for(const resident of this.residents){
+   if(resident.busy)continue;
+   occupied.delete(resident.tile.x+","+resident.tile.y);
+   const next=chooseDistrictCitizenStep(this.id,resident.spec,resident.tile,
+     this.tile,this.citizenTicks,occupied,this.localAttitude);
+   occupied.add(next.x+","+next.y);
+   if(next.x===resident.tile.x&&next.y===resident.tile.y)continue;
+   const direction=facing(resident.tile,next),p=center(next);
+   resident.tile=next;resident.busy=true;
+   playWalk(resident.visual,resident.spec.texture,direction);
+   this.tweens.add({targets:resident.visual,x:p.x,y:p.y,
+    duration:560,ease:"Sine.easeInOut",
+    onUpdate:()=>resident.visual.setDepth(resident.visual.y+119),
+    onComplete:()=>{
+     resident.busy=false;
+     playIdle(resident.visual,resident.spec.texture,direction);
+     this.updateCitizenSpeech();
+    }});
+  }
+  this.updateCitizenSpeech();
+ }
  private approach(slot:NodeSlot):void{
   const target=NODE_TILES[slot],path=districtApproach(this.id,this.tile,target);
   if(!path)return;
@@ -289,6 +372,7 @@ export class DistrictScene extends Phaser.Scene{
     onComplete:()=>{
       if(++this.footstep%4===0)audioDirector.effect("step");
       this.onMove?.({...this.tile},false);
+      this.updateCitizenSpeech();
       advance();
     }});
   };
