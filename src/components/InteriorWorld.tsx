@@ -11,6 +11,7 @@ import {isInnerId,INNER_BLUEPRINTS} from "../game/districts/interiors.ts";
 import {isV20IllustratedRoom} from "../game/districts/v20-illustrations.ts";
 import {packArtworkPreviewUrl} from "../game/assets/native-pack-manager.ts";
 import type {NpcAttitude} from "../game/ai/faction-reactivity.ts";
+import type {CinematicCameraFocus} from "../game/story/cinematic-camera.ts";
 import {isDistrictId,type NodeSlot} from "../game/districts/catalog";
 import {loadDistrictPosition,saveDistrictPosition} from "../game/districts/positions";
 import {isSewerId} from "../game/baixada/sewer-layout";
@@ -29,6 +30,7 @@ export default function InteriorWorld({
   districtTarget=null,
   characterId,
   worldAttitude="neutral",
+  cinematicFocus=null,
 }: {
   interior: InteriorId;
   originId: OriginId;
@@ -40,6 +42,7 @@ export default function InteriorWorld({
   districtTarget?:NodeSlot|null;
   characterId:string;
   worldAttitude?:NpcAttitude;
+  cinematicFocus?:CinematicCameraFocus|null;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<InteriorScene | SewerScene | FerrugemScene | DistrictScene | DistrictInteriorScene | null>(null);
@@ -47,6 +50,8 @@ export default function InteriorWorld({
   callbackRef.current = onInteract;
   const attitudeRef=useRef(worldAttitude);
   attitudeRef.current=worldAttitude;
+  const cinematicRef=useRef(cinematicFocus);
+  cinematicRef.current=cinematicFocus;
 
   useEffect(() => {
     const host=hostRef.current;
@@ -100,6 +105,8 @@ export default function InteriorWorld({
             appearance,sewerProgress,returnFromDeep)
         : new InteriorScene(interior,(id)=>callbackRef.current(id),originId,appearance);
       sceneRef.current=scene;
+      if(scene instanceof DistrictScene||scene instanceof DistrictInteriorScene)
+        scene.setCinematicFocus(cinematicRef.current);
       host.textContent="";
       game=new Phaser.Game({
         type:isAndroidDevice()&&isEconomyMode()?Phaser.CANVAS:Phaser.AUTO,
@@ -133,6 +140,11 @@ export default function InteriorWorld({
   useEffect(()=>{if(sceneRef.current instanceof DistrictScene)sceneRef.current.setObjective(districtTarget);},[districtTarget]);
   useEffect(()=>{if(sceneRef.current instanceof DistrictScene)
     sceneRef.current.setReaction(worldAttitude);},[worldAttitude]);
+  useEffect(()=>{
+    const scene=sceneRef.current;
+    if(scene instanceof DistrictScene||scene instanceof DistrictInteriorScene)
+      scene.setCinematicFocus(cinematicFocus);
+  },[cinematicFocus]);
 
   return <div className={`baixada-world interior-world ${interior}`} ref={hostRef} aria-label={interior === "clinic" ? "Interior isométrico da clínica comunitária" : interior === "workshop" ? "Interior isométrico da oficina do Nilo" : interior === "canal" ? "Interior isométrico da Galeria do Canal"
    : interior === "sewer-drain" ? "Galeria de Drenagem Sul subterrânea, isométrica e caminhável"
