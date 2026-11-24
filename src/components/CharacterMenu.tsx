@@ -2,6 +2,8 @@ import { useState } from "react";
 import AudioControls from "./AudioControls";
 import {readGraphicsMode,saveGraphicsMode,type GraphicsMode} from "../game/performance";
 import {readPerformanceReport} from "../game/performance-diagnostics";
+import {readAccessibility,saveAccessibility,
+  type AccessibilityPreferences} from "../game/accessibility.ts";
 import type { OriginGameplayProfile, PlayerCharacter } from "../game/character";
 import { ITEM_CATALOG, ITEM_IDS,equippedCalibration,calibrationCostLabel,
  EQUIPMENT_CALIBRATIONS } from "../game/inventory";
@@ -152,6 +154,17 @@ export default function CharacterMenu({
   const [teamNotice,setTeamNotice]=useState("");
   const [graphicsMode,setGraphicsMode]=useState<GraphicsMode>(readGraphicsMode);
   const [graphicsNotice,setGraphicsNotice]=useState("");
+  const [accessibility,setAccessibility]=useState(readAccessibility);
+  const [accessibilityNotice,setAccessibilityNotice]=useState("");
+  const changeAccessibility=(key:Exclude<keyof AccessibilityPreferences,"version">)=>{
+    const next={...accessibility,[key]:!accessibility[key]};
+    if(!saveAccessibility(next)){
+      setAccessibilityNotice("Não foi possível salvar as preferências no dispositivo.");
+      return;
+    }
+    setAccessibility(next);
+    setAccessibilityNotice("Preferência aplicada imediatamente e salva no aparelho.");
+  };
   const [performanceReport]=useState(readPerformanceReport);
   const activeItem = MENU_ITEMS.find((item) => item.id === activeSection)!;
   const attributeEntries=STAT_IDS.map(id=>({id,
@@ -648,6 +661,26 @@ export default function CharacterMenu({
                   <DataCard label="MOVIMENTAÇÃO" value="Toque no cenário" detail="Deslocamento por navegação automática" />
                   <DataCard label="SALVAMENTO" value="Neste dispositivo" detail="Personagem e missão em armazenamento local" />
                   <DataCard label="PLATAFORMA" value="Android" detail="Aplicativo compilado via Capacitor" />
+                </section>
+                <section className="na-performance-options na-accessibility-options"
+                  aria-label="Acessibilidade e controles Android">
+                  <strong>ACESSIBILIDADE · APLICAÇÃO IMEDIATA</strong>
+                  <p>Texto ampliado, contraste elevado e movimento reduzido funcionam
+                    na edição integral do jogo, sem alterar missões, saves ou gráficos.
+                    Os botões principais de combate continuam visíveis em landscape.</p>
+                  <div role="group" aria-label="Preferências de acessibilidade">
+                    {([
+                      ["largeText","Texto ampliado"],
+                      ["highContrast","Alto contraste"],
+                      ["reduceMotion","Movimento reduzido"],
+                    ] as const).map(([key,label])=>
+                      <button type="button" key={key}
+                        aria-pressed={accessibility[key]}
+                        onClick={()=>changeAccessibility(key)}>
+                        {label} · {accessibility[key]?"Ativo":"Desativado"}
+                      </button>)}
+                  </div>
+                  {accessibilityNotice&&<small role="status">{accessibilityNotice}</small>}
                 </section>
                 <section className="na-performance-options" aria-label="Qualidade gráfica e desempenho">
                   <strong>DESEMPENHO NO ANDROID</strong>
