@@ -27,18 +27,18 @@ jobs:
       - name: Checkout pinned RC19 game source within original QA201 signing cache scope
         uses: actions/checkout@v4
         with:
-          ref: 11eee3eec75d9b5353232f1609e2ea90794b5e5e
+          ref: f801439e1a7d8057fb5741e39113f747586cc939
       - name: Verify source includes the latest tactical maps and cinematics and is not an older detached commit
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "11eee3eec75d9b5353232f1609e2ea90794b5e5e"
+          test "$(git rev-parse HEAD)" = "f801439e1a7d8057fb5741e39113f747586cc939"
           test -s src/game/combat/tactical-maps.ts
           test -s src/game/story/cinematic-engine.ts
           test -s src/game/story/cinematic-battles.ts
           test -s src/components/OpeningCutscene.tsx
           test -s scripts/test-battlefield-redesign-v20.mjs
           test -s scripts/test-cinematics-v20.mjs
-          echo "RC19 SOURCE SHA (pinned): 11eee3eec75d9b5353232f1609e2ea90794b5e5e" >> "$GITHUB_STEP_SUMMARY"
+          echo "RC19 SOURCE SHA (pinned): f801439e1a7d8057fb5741e39113f747586cc939" >> "$GITHUB_STEP_SUMMARY"
           echo "QA201 SIGNING CACHE WORKFLOW REF: $GITHUB_REF" >> "$GITHUB_STEP_SUMMARY"
       - name: Node.js 22
         uses: actions/setup-node@v4
