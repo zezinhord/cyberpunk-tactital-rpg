@@ -1,0 +1,70 @@
+name: Nova Arcadia RC20 — Stages 5, 6, 7 Narrative, Equipment Economy and Mobile Accessibility QA
+on:
+  push:
+    branches:
+      - feature/nova-arcadia-v20-rc20-story-equipment-mobile
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  game-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies and illustration tools
+        run: |
+          npm ci --no-audit --no-fund
+          python -m pip install -r tools/requirements-characters.txt
+          npm run generate:characters
+          npm run generate:v20-art
+      - name: RC20 21 narrative aftermaths, stat-calibrated equipment, rare salvage, Android mobile accessibility
+        run: |
+          node --experimental-strip-types scripts/test-rc20-story-equipment.mjs
+          node --experimental-strip-types scripts/test-rc20-mobile-accessibility.mjs
+          node --experimental-strip-types scripts/test-rc18-stage1.mjs
+          node --experimental-strip-types scripts/test-rc19-squad-combat.mjs
+          node --experimental-strip-types scripts/test-ai-combat-resources.mjs
+          node --experimental-strip-types scripts/test-council-defenses-v20.mjs
+          node --experimental-strip-types scripts/test-class-abilities.mjs
+          node --experimental-strip-types scripts/test-progression-audit.mjs
+          node --experimental-strip-types scripts/test-companions-v20.mjs
+          node --experimental-strip-types scripts/test-stealth-v20.mjs
+          node --experimental-strip-types scripts/test-siege-terminals-v20.mjs
+          node --experimental-strip-types scripts/test-rc19-cinematic-camera.mjs
+          node --experimental-strip-types scripts/test-rc18-stage3.mjs
+          node --experimental-strip-types scripts/test-crafting.mjs
+          node --experimental-strip-types scripts/test-opening.mjs
+          node --experimental-strip-types scripts/test-narrative-ui.mjs
+          node --experimental-strip-types scripts/test-abilities.mjs
+          node --experimental-strip-types scripts/test-tactical-viewport-rc18.mjs
+          node --experimental-strip-types scripts/test-district-citizens-rc18.mjs
+          node --experimental-strip-types scripts/test-districts.mjs
+          node --experimental-strip-types scripts/test-battlefield-navigation.mjs
+          node --experimental-strip-types scripts/test-council-tactical-maps-v20.mjs
+          node --experimental-strip-types scripts/test-full-phaser-android.mjs
+          npx tsc -b
+          node --experimental-strip-types scripts/test-asset-packs-v20.mjs
+          node --experimental-strip-types scripts/test-inner-contracts-v20.mjs
+          node --experimental-strip-types scripts/test-v20-illustrations.mjs
+          node --experimental-strip-types scripts/test-integrated-game-install-v20.mjs
+          node --experimental-strip-types scripts/test-ai-tactical.mjs
+          node --experimental-strip-types scripts/test-ai-world.mjs
+          node --experimental-strip-types scripts/test-cinematics-v20.mjs
+          node --experimental-strip-types scripts/test-battlefield-redesign-v20.mjs
+          node --experimental-strip-types scripts/test-save-slots.mjs
+      - name: Bundle playable application after regression checks
+        run: npx vite build
+      - name: Android-sized boot, original hero/NPC art and movement
+        run: node scripts/test-android-cold-boot.mjs
+      - name: Publish original art Android-sized visual capture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-RC20-Android-Visual-QA
+          path: qa/baixada-android-boot-frio-914x411.png
+          if-no-files-found: ignore

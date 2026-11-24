@@ -9,7 +9,11 @@ import OpeningCutscene from "./components/OpeningCutscene";
 import {nextStoryScreen,markOpeningSeen} from "./game/story/opening";
 import {markCinematicSeen,readCinematicHistory} from "./game/story/cinematic-engine.ts";
 import {battleIntroFor,type BattleCinematicBeat} from "./game/story/cinematic-battles.ts";
+import {battleAftermathFor} from "./game/story/battle-aftermath.ts";
+import {grantBattleSalvage} from "./game/story/battle-salvage.ts";
 import "./dialogue-cinematic.css";
+import "./accessibility-rc20.css";
+import {applyAccessibility,readAccessibility} from "./game/accessibility.ts";
 import CombatAbilityPicker from "./components/CombatAbilityPicker";
 import { loadTestAppearance, saveTestAppearance } from "./game/test-arena/appearance";
 import type { TestAppearance } from "./game/test-arena/appearance";
@@ -33,7 +37,8 @@ const ExplorationScreen=lazy(()=>import("./screens/ExplorationScreen"));
 import TitleScreen from "./screens/TitleScreen";
 import {
   createStartingInventory, loadInventory, saveInventory,
-  toggleEquipment, consumeItem, getEquipmentBonuses, grantItem, grantRewardInventoryItem, ITEM_CATALOG,ITEM_IDS,
+  toggleEquipment, consumeItem, getEquipmentBonuses, calibrateEquipment,
+  grantItem, grantRewardInventoryItem, ITEM_CATALOG,ITEM_IDS,
 } from "./game/inventory";
 import type { ItemId, InventoryState } from "./game/inventory";
 import {craftRecipe,type RecipeId} from "./game/crafting";
@@ -245,7 +250,10 @@ function IntroductionScreen({ character, onContinue }: { character: PlayerCharac
 }
 
 export default function App() {
-  useEffect(()=>{audioDirector.install();},[]);
+  useEffect(()=>{
+    audioDirector.install();
+    applyAccessibility(readAccessibility());
+  },[]);
   const [character, setCharacter] = useState<PlayerCharacter | null>(() => loadCharacter());
   // A referência evita perder XP quando duas recompensas são concedidas no
   // mesmo tick (por exemplo, inimigo final + objetivo da missão).
@@ -261,6 +269,8 @@ export default function App() {
   const [defeatNotice,setDefeatNotice]=useState("");
   const [abilityPickerOpen,setAbilityPickerOpen] = useState(false);
   const [victoryDetailsOpen,setVictoryDetailsOpen] = useState(false);
+  const [battleDebriefOpen,setBattleDebriefOpen]=useState(false);
+  const [salvageNotice,setSalvageNotice]=useState("");
   useEffect(()=>{audioDirector.setScene(screen==="battle"?"battle":screen==="exploration"?"exploration":screen==="title"?"menu":"story");},[screen]);
   const [appearance, setAppearance] = useState<TestAppearance>(() => loadTestAppearance(loadCharacter()?.id ?? ""));
   const chooseAppearance = (choice: TestAppearance) => {
@@ -270,7 +280,8 @@ export default function App() {
   const [inventory, setInventory] = useState<InventoryState>(() => loadInventory(loadCharacter()?.id ?? ""));
   const [selectedSupply,setSelectedSupply]=useState<ItemId>("curativo_campo");
   const bonuses = useMemo(() => getEquipmentBonuses(inventory),
-    [inventory.equipped.weapon,inventory.equipped.armor,inventory.equipped.implant,inventory.cyberware]);
+    [inventory.equipped.weapon,inventory.equipped.armor,inventory.equipped.implant,
+      inventory.cyberware,inventory.calibrations]);
   useEffect(() => {
     if (character && inventory.ownerId === character.id) saveInventory(inventory);
   }, [character?.id, inventory]);
@@ -304,6 +315,8 @@ export default function App() {
   const victory=Boolean(state.combatComplete&&player&&player.hp>0&&
     threatCount===0);
   const defeated=isOperativeDefeated(state);
+  const aftermath=character&&victory?
+    battleAftermathFor(state.encounterId,character):null;
 
   useEffect(() => {
     setState(manager.getState());
@@ -321,11 +334,29 @@ export default function App() {
     });
   }, [manager,screen,character?.id]);
 
+  /** True loot belongs to the actual final wave, never a death, pause or
+   * a replay: reward receipts live in the existing inventory save.
+   */
+  useEffect(()=>{
+    if(screen!=="battle"||!character?.id||!victory)return;
+    const original=loadInventory(character.id);
+    const result=grantBattleSalvage(original,state);
+    if(!result.awarded)return;
+    if(!saveInventory(result.state)){
+      setSalvageNotice("Armazenamento indisponível. O resgate não foi debitado; confira espaço livre.");
+      return;
+    }
+    setInventory(result.state);
+    setSalvageNotice(result.message);
+  },[screen,character?.id,victory,state]);
+
   const beginBattle = (mode: EncounterId = "test") => {
     const intro=battleIntroFor(mode,character);
     setBattleCinematic(intro&&character?.id&&
       !readCinematicHistory(character.id).includes(intro.cinematicId)?intro:null);
     setVictoryDetailsOpen(false);
+    setBattleDebriefOpen(false);
+    setSalvageNotice("");
     setDefeatNotice("");
     setAbilityPickerOpen(false);
     setBattleMode(mode);
@@ -483,6 +514,16 @@ export default function App() {
     const result=removeCyberware(inventory,id);
     if(!result.ok)return result.message;
     if(!saveInventory(result.state))return "Falha ao salvar remoção; o implante continua instalado.";
+    setInventory(result.state);
+    return result.message;
+  };
+  const calibrateAtWorkshop=(id:ItemId):string=>{
+    if(!character||inventory.ownerId!==character.id)
+      return "Nenhum protagonista ativo para calibrar.";
+    const result=calibrateEquipment(inventory,id,character.level);
+    if(!result.ok)return result.message;
+    if(!saveInventory(result.state))
+      return "Não foi possível salvar. Nenhum material foi consumido.";
     setInventory(result.state);
     return result.message;
   };
@@ -802,6 +843,7 @@ export default function App() {
    * A vitória real continua sendo tratada pelo efeito de persistência anterior.
    */
   const exitBattle=():void=>{
+    setBattleDebriefOpen(false);
     setBattleCinematic(null);
     setAbilityPickerOpen(false);
     setDefeatNotice("");
@@ -886,6 +928,7 @@ export default function App() {
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
         onCraft={craftAtWorkshop}
+        onCalibrateEquipment={calibrateAtWorkshop}
         onInstallCyberware={installCyberwareItem}
         onRemoveCyberware={removeCyberwareItem}
         onCollectDistrictCache={area=>{
@@ -1012,6 +1055,16 @@ export default function App() {
         </details>
         </div>
         <section className="control-sheet" aria-label="Comandos do turno">
+          <label className="na-target-selector">
+            ALVO
+            <select aria-label="Selecionar alvo hostil na lista"
+              value={enemy&&enemy.hp>0?enemy.id:""}
+              disabled={state.combatComplete||threatCount===0}
+              onChange={event=>manager.setEnemyTarget(event.target.value)}>
+              {activeEnemies(state).map(hostile=><option key={hostile.id}
+                value={hostile.id}>{hostile.name} · {hostile.hp}/{hostile.maxHp} HP</option>)}
+            </select>
+          </label>
           <button type="button" className="na-abilities-open" disabled={state.combatComplete} onClick={()=>setAbilityPickerOpen(true)}
             aria-haspopup="dialog" aria-expanded={abilityPickerOpen}
             aria-label="Escolher habilidades de combate">
@@ -1028,6 +1081,30 @@ export default function App() {
             <ActionChip label="Principal" ready={state.mainActionAvailable} />
             <ActionChip label="Bônus" ready={state.bonusActionAvailable} />
           </div>
+          <label className="na-mobile-supply" aria-label="Selecionar suprimento para usar no combate">
+            <select value={selectedSupply}
+              onChange={event=>setSelectedSupply(event.target.value as ItemId)}
+              aria-label="Suprimento rápido">
+              {consumables.map(id=><option key={id} value={id}>
+                {ITEM_CATALOG[id].name} · {inventory.quantities[id]}×
+              </option>)}
+            </select>
+          </label>
+          <nav className="na-command-rail" aria-label="Comandos rápidos de combate">
+            <button type="button" className="na-rail-attack"
+              disabled={!canAttack} title={attackPreview.reason||"Atacar alvo escolhido"}
+              onClick={()=>{buzz(20);manager.attack();}}>ATAQUE</button>
+            <button type="button" className="na-rail-abilities"
+              disabled={state.combatComplete}
+              onClick={()=>setAbilityPickerOpen(true)}>PODERES</button>
+            <button type="button" disabled={state.activeSide!=="player"||
+              state.combatComplete||!state.bonusActionAvailable||
+              !supplyUseful||inventory.quantities[selectedSupply]<1}
+              onClick={handleUseSupply}>ITEM</button>
+            <button type="button" disabled={state.activeSide!=="player"||
+              state.combatComplete}
+              onClick={()=>{buzz();manager.endPlayerTurn();}}>PASSAR</button>
+          </nav>
           <div className="actions">
             <label className="na-supply-select">
               <span>SUPRIMENTO</span>
@@ -1041,6 +1118,8 @@ export default function App() {
               title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense} · ${attackPreview.hitChance}% de chance`:attackPreview.reason}
               disabled={!canAttack}>{attackPreview.mode==="ranged"?"Disparar":"Ataque corpo a corpo"}</button>
           </div>
+          <details className="na-tactical-secondary">
+            <summary>Mais ações · Vigilância, apoio e saída</summary>
           <div className="secondary-actions">
             {manager.getCompanionSupports().map(member=><button type="button"
               className="end-turn-button" key={member.id}
@@ -1061,10 +1140,11 @@ export default function App() {
               data-combat-exit="true" onClick={exitBattle}>
               {state.combatComplete?"✓ CONTINUAR EXPLORANDO":"← Voltar à exploração"}
             </button></div>
+          </details>
         </section>
 
       </aside>
-      {victory&&!victoryDetailsOpen&&<div className="na-victory-backdrop"
+      {victory&&!victoryDetailsOpen&&!battleDebriefOpen&&<div className="na-victory-backdrop"
          data-combat-victory="true">
         <section className="na-victory-dialog" role="dialog" aria-modal="true"
           aria-labelledby="na-victory-title">
@@ -1073,8 +1153,20 @@ export default function App() {
           <p>{battleMode==="v09"?"Unidade V-09 neutralizada. A investigação continua no mapa da Baixada.":
             battleMode.startsWith("district-")?"Segurança Helix neutralizada. A investigação distrital continua.":
             "Hostis neutralizados. Retorne à exploração para seguir as missões."}</p>
-          <p className="na-victory-save-note">Recompensas, XP e eventos da missão são registrados
-            pelo sistema de progresso do personagem.</p>
+          <p className="na-victory-save-note">Recompensas e XP de missão são registrados
+            pelo sistema de progresso do personagem. Materiais recuperados
+            são gravados uma única vez por confronto, sem repetir no replay.</p>
+          {salvageNotice&&<p role="status" className="na-victory-salvage"
+            data-salvage-rc20="persisted">{salvageNotice}</p>}
+          {aftermath&&<section className="na-victory-aftermath">
+            <strong>{aftermath.title}</strong>
+            <p>Uma cena inédita registra a repercussão do confronto, sem
+              escolher um final por você.</p>
+            <button type="button" className="na-victory-report"
+              onClick={()=>setBattleDebriefOpen(true)}>
+              Rever o desfecho narrativo
+            </button>
+          </section>}
           <button type="button" className="na-victory-continue"
             data-combat-exit="true" onClick={exitBattle}>✓ CONTINUAR EXPLORANDO</button>
           <button type="button" className="na-victory-report"
@@ -1105,6 +1197,17 @@ export default function App() {
           </button>
         </section>
       </div>}
+      {victory&&battleDebriefOpen&&aftermath&&
+        <Suspense fallback={null}>
+          <BattleCinematicDialogue page={aftermath}
+            pageIndex={0} totalPages={1} characterId={character.id}
+            onClose={()=>setBattleDebriefOpen(false)}
+            onNext={()=>{
+              markCinematicSeen(character.id,aftermath.cinematicId);
+              setBattleDebriefOpen(false);
+            }}
+            onAnswer={()=>setBattleDebriefOpen(false)}/>
+        </Suspense>}
       {battleCinematic&&<Suspense fallback={null}>
         <BattleCinematicDialogue page={battleCinematic}
           pageIndex={0} totalPages={1} characterId={character.id}

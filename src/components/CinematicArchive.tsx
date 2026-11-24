@@ -4,11 +4,12 @@ import {readCinematicHistory} from "../game/story/cinematic-engine.ts";
 import {CINEMATIC_ARRIVAL_AREAS,arrivalForArea} from "../game/story/cinematic-arrivals.ts";
 import {CINEMATIC_CONTACT_IDS,firstContactCinematic} from "../game/story/cinematic-contacts.ts";
 import {CINEMATIC_BATTLE_IDS,battleIntroFor} from "../game/story/cinematic-battles.ts";
+import {BATTLE_AFTERMATH_IDS,battleAftermathFor} from "../game/story/battle-aftermath.ts";
 import NpcDialoguePanel,{type DialoguePageProps} from "./NpcDialoguePanel";
 import "../cinematic-archive.css";
 
 interface RecordedScene{
- id:string;category:"arrival"|"contact"|"battle";title:string;
+ id:string;category:"arrival"|"contact"|"battle"|"aftermath";title:string;
  speaker:string;role:string;portrait:string;text:string;
 }
 /** The archive is READ-ONLY. It uses only canonical dialogue from scenes
@@ -37,6 +38,13 @@ export function recordedScenes(character:PlayerCharacter):readonly RecordedScene
    title:scene.role.replace("ABERTURA DE CONFRONTO · ",""),
    speaker:scene.speaker,role:scene.role,portrait:scene.portrait,text:scene.text});
  }
+ for(const encounter of BATTLE_AFTERMATH_IDS){
+  const scene=battleAftermathFor(encounter,character);
+  if(scene)available.set(scene.cinematicId,{
+   id:scene.cinematicId,category:"aftermath",title:scene.title,
+   speaker:scene.speaker,role:scene.role,
+   portrait:scene.portrait,text:scene.text});
+ }
  const seen=new Set(readCinematicHistory(character.id));
  return [...available.values()].filter(scene=>seen.has(scene.id));
 }
@@ -48,7 +56,8 @@ function replayPages(scene:RecordedScene):DialoguePageProps[]{
   portrait:scene.portrait,text,cinematicId:scene.id}));
 }
 const LABELS:Readonly<Record<RecordedScene["category"],string>>={
- arrival:"CHEGADA AO DISTRITO",contact:"PRIMEIRO CONTATO",battle:"ANTES DO COMBATE",
+ arrival:"CHEGADA AO DISTRITO",contact:"PRIMEIRO CONTATO",
+ battle:"ANTES DO COMBATE",aftermath:"DESFECHO DE CONFRONTO",
 };
 export default function CinematicArchive({character}:{character:PlayerCharacter}){
  const scenes=useMemo(()=>recordedScenes(character),[character]);

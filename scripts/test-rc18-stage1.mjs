@@ -32,7 +32,7 @@ assert.match(native,/new File\(district, "na-install\.json"\)\.isFile\(\)/);
 assert.match(native,/maxWidth < 128 \|\| maxWidth > 768/);
 assert.match(assets,/preview\(options:\{id:PackId;path:string;maxWidth:number\}/);
 assert.match(assets,/previewPattern\.test\(String\(result\.uri\)\)/);
-assert.match(pkg.version,/^2\.0\.0-rc\.(18|19)$/);
+assert.match(pkg.version,/^2\.0\.0-rc\.(18|19|20)$/);
 assert.equal(lock.version,pkg.version);
 assert.equal(lock.packages[""].version,pkg.version);
 assert.match(get("README.md"),/APK ÚNICO INTEGRAL|APK ÚNICO RC18|APK ÚNICO COMPLETO/);

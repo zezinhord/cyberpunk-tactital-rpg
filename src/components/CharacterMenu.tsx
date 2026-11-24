@@ -2,8 +2,11 @@ import { useState } from "react";
 import AudioControls from "./AudioControls";
 import {readGraphicsMode,saveGraphicsMode,type GraphicsMode} from "../game/performance";
 import {readPerformanceReport} from "../game/performance-diagnostics";
+import {readAccessibility,saveAccessibility,
+  type AccessibilityPreferences} from "../game/accessibility.ts";
 import type { OriginGameplayProfile, PlayerCharacter } from "../game/character";
-import { ITEM_CATALOG, ITEM_IDS } from "../game/inventory";
+import { ITEM_CATALOG, ITEM_IDS,equippedCalibration,calibrationCostLabel,
+ EQUIPMENT_CALIBRATIONS } from "../game/inventory";
 import {CRAFTING_RECIPES,canCraft,craftingIngredientsLabel,type RecipeId} from "../game/crafting";
 import type { InventoryState, ItemId } from "../game/inventory";
 import type { TestAppearance } from "../game/test-arena/appearance";
@@ -61,6 +64,7 @@ interface Props {
   inventory: InventoryState;
   onToggleEquipment: (id: ItemId) => void;
   onCraft:(id:RecipeId,quantity?:number)=>string;
+  onCalibrateEquipment:(id:ItemId)=>string;
   onInstallCyberware:(id:CyberwareId)=>string;
   onRemoveCyberware:(id:CyberwareId)=>string;
   canOperateCyberware:boolean;
@@ -136,7 +140,7 @@ export default function CharacterMenu({
   onOpenTestArena,
   inventory,
   onToggleEquipment,
-  onCraft,
+  onCraft,onCalibrateEquipment,
   onInstallCyberware,onRemoveCyberware,canOperateCyberware,
   party,availableCompanions,onRecruitCompanion,onToggleCompanion,
   onSetPartyPosture,partyNotice,
@@ -144,11 +148,23 @@ export default function CharacterMenu({
   const [activeSection, setActiveSection] = useState<MenuSection>(initialSection??"character");
   const [pendingClass,setPendingClass]=useState<ClassId|null>(null);
   const [craftNotice,setCraftNotice]=useState("");
+  const [calibrationNotice,setCalibrationNotice]=useState("");
   const [craftQuantity,setCraftQuantity]=useState<1|2|3|5>(1);
   const [cyberwareNotice,setCyberwareNotice]=useState("");
   const [teamNotice,setTeamNotice]=useState("");
   const [graphicsMode,setGraphicsMode]=useState<GraphicsMode>(readGraphicsMode);
   const [graphicsNotice,setGraphicsNotice]=useState("");
+  const [accessibility,setAccessibility]=useState(readAccessibility);
+  const [accessibilityNotice,setAccessibilityNotice]=useState("");
+  const changeAccessibility=(key:Exclude<keyof AccessibilityPreferences,"version">)=>{
+    const next={...accessibility,[key]:!accessibility[key]};
+    if(!saveAccessibility(next)){
+      setAccessibilityNotice("Não foi possível salvar as preferências no dispositivo.");
+      return;
+    }
+    setAccessibility(next);
+    setAccessibilityNotice("Preferência aplicada imediatamente e salva no aparelho.");
+  };
   const [performanceReport]=useState(readPerformanceReport);
   const activeItem = MENU_ITEMS.find((item) => item.id === activeSection)!;
   const attributeEntries=STAT_IDS.map(id=>({id,
@@ -370,12 +386,33 @@ export default function CharacterMenu({
                         <span className="menu-panel-kicker">{slot === "weapon" ? "ARMA" : slot==="armor"?"PROTEÇÃO":"IMPLANTE"}</span>
                         <h4>{id ? ITEM_CATALOG[id].name : "Espaço livre"}</h4>
                         <p>{id ? ITEM_CATALOG[id].description : "Abra o Inventário para equipar um item."}</p>
+                        {id&&<div className="na-calibration-panel"
+                          data-calibrated-slot={slot}>
+                          <span>CALIBRAÇÃO {equippedCalibration(inventory,slot)}/2 ·
+                            {" "}{equippedCalibration(inventory,slot)===0?"PADRÃO":
+                              equippedCalibration(inventory,slot)===1?"INCOMUM":"RARO"}</span>
+                          {equippedCalibration(inventory,slot)<2&&
+                          <small>{EQUIPMENT_CALIBRATIONS[slot][equippedCalibration(inventory,slot)]!.name}
+                            {" · "}Nível {EQUIPMENT_CALIBRATIONS[slot][equippedCalibration(inventory,slot)]!.minLevel}
+                            {" · "}{calibrationCostLabel(inventory,id)}</small>}
+                          <button type="button"
+                            disabled={equippedCalibration(inventory,slot)>=2}
+                            onClick={()=>setCalibrationNotice(onCalibrateEquipment(id))}>
+                            {equippedCalibration(inventory,slot)>=2?
+                              "Calibração máxima":"Calibrar equipamento"}
+                          </button>
+                        </div>}
                         {id && <button type="button" className="na-item-unequip" onClick={() => onToggleEquipment(id)}>Remover equipamento</button>}
                       </section>
                     );
                   })}
                 </div>
-                <p className="menu-footnote">Armas, armaduras e implantes alteram alcance, Vida, energia, movimento e defesa no combate. O equipamento ativo é salvo por personagem.</p>
+                {calibrationNotice&&<p role="status" className="menu-footnote">{calibrationNotice}</p>}
+                <p className="menu-footnote">Armas, armaduras e implantes alteram alcance, Vida,
+                  energia, movimento e defesa. A calibração consome materiais reais, acompanha
+                  o item específico e concede +1/+2 ATQ (arma), DEF (armadura)
+                  ou EN (implante). Itens calibrados não transferem bônus para outros
+                  itens ao trocar equipamento. Os dados permanecem no save v1.</p>
               </div>
             )}
 
@@ -624,6 +661,26 @@ export default function CharacterMenu({
                   <DataCard label="MOVIMENTAÇÃO" value="Toque no cenário" detail="Deslocamento por navegação automática" />
                   <DataCard label="SALVAMENTO" value="Neste dispositivo" detail="Personagem e missão em armazenamento local" />
                   <DataCard label="PLATAFORMA" value="Android" detail="Aplicativo compilado via Capacitor" />
+                </section>
+                <section className="na-performance-options na-accessibility-options"
+                  aria-label="Acessibilidade e controles Android">
+                  <strong>ACESSIBILIDADE · APLICAÇÃO IMEDIATA</strong>
+                  <p>Texto ampliado, contraste elevado e movimento reduzido funcionam
+                    na edição integral do jogo, sem alterar missões, saves ou gráficos.
+                    Os botões principais de combate continuam visíveis em landscape.</p>
+                  <div role="group" aria-label="Preferências de acessibilidade">
+                    {([
+                      ["largeText","Texto ampliado"],
+                      ["highContrast","Alto contraste"],
+                      ["reduceMotion","Movimento reduzido"],
+                    ] as const).map(([key,label])=>
+                      <button type="button" key={key}
+                        aria-pressed={accessibility[key]}
+                        onClick={()=>changeAccessibility(key)}>
+                        {label} · {accessibility[key]?"Ativo":"Desativado"}
+                      </button>)}
+                  </div>
+                  {accessibilityNotice&&<small role="status">{accessibilityNotice}</small>}
                 </section>
                 <section className="na-performance-options" aria-label="Qualidade gráfica e desempenho">
                   <strong>DESEMPENHO NO ANDROID</strong>
