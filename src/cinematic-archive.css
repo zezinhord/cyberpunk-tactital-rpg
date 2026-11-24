@@ -1,0 +1,14 @@
+.na-cinema-archive{display:flex;flex-direction:column;gap:13px;color:#e7f0ee}
+.na-cinema-archive header{display:flex;flex-direction:column;gap:7px}
+.na-cinema-archive header h3{margin:0;font:800 22px var(--display);color:#f3d8aa}
+.na-cinema-archive header p{margin:0;font:500 12px/1.55 var(--body);max-width:680px;color:#cdd8d4}
+.na-cinema-archive header>strong{font:700 11px var(--mono);color:#98dce6}
+.na-cinema-archive-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,195px),1fr));gap:9px}
+.na-cinema-archive-grid button{display:flex;flex-direction:column;gap:7px;text-align:left;
+ background:linear-gradient(135deg,#1a353f,#202b3a);color:#eaf2ee;border:1px solid #658790;
+ border-radius:9px;min-height:98px;padding:11px 12px;cursor:pointer}
+.na-cinema-archive-grid button:focus-visible{outline:3px solid #00e5ff;outline-offset:2px}
+.na-cinema-archive-grid small{font:700 10px var(--mono);color:#f3c28d}
+.na-cinema-archive-grid strong{font:700 14px var(--display)}
+.na-cinema-archive-grid span{font:500 11px var(--body);color:#becfd1}
+.na-cinema-archive-grid em{margin-top:auto;font:700 11px var(--mono);font-style:normal;color:#88e1ea}
