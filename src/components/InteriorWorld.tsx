@@ -10,6 +10,7 @@ import {DistrictInteriorScene} from "../game/districts/DistrictInteriorScene";
 import {isInnerId,INNER_BLUEPRINTS} from "../game/districts/interiors.ts";
 import {isV20IllustratedRoom} from "../game/districts/v20-illustrations.ts";
 import {packArtworkPreviewUrl} from "../game/assets/native-pack-manager.ts";
+import type {NpcAttitude} from "../game/ai/faction-reactivity.ts";
 import {isDistrictId,type NodeSlot} from "../game/districts/catalog";
 import {loadDistrictPosition,saveDistrictPosition} from "../game/districts/positions";
 import {isSewerId} from "../game/baixada/sewer-layout";
@@ -27,6 +28,7 @@ export default function InteriorWorld({
   ferrugemTargetId=null,
   districtTarget=null,
   characterId,
+  worldAttitude="neutral",
 }: {
   interior: InteriorId;
   originId: OriginId;
@@ -37,11 +39,14 @@ export default function InteriorWorld({
   ferrugemTargetId?:string|null;
   districtTarget?:NodeSlot|null;
   characterId:string;
+  worldAttitude?:NpcAttitude;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<InteriorScene | SewerScene | FerrugemScene | DistrictScene | DistrictInteriorScene | null>(null);
   const callbackRef = useRef(onInteract);
   callbackRef.current = onInteract;
+  const attitudeRef=useRef(worldAttitude);
+  attitudeRef.current=worldAttitude;
 
   useEffect(() => {
     const host=hostRef.current;
@@ -86,7 +91,7 @@ export default function InteriorWorld({
                 saveDistrictPosition(characterId,interior,tile);
                 lastCheckpoint=now;
               }
-            })
+            },attitudeRef.current)
         : interior==="ferrugem"
          ? new FerrugemScene((id)=>callbackRef.current(id),originId,appearance,
              ferrugemTargetId)
@@ -126,6 +131,8 @@ export default function InteriorWorld({
   useEffect(()=>{if(sceneRef.current instanceof SewerScene)sceneRef.current.setProgress(sewerProgress);},[sewerProgress]);
   useEffect(()=>{if(sceneRef.current instanceof FerrugemScene)sceneRef.current.setObjective(ferrugemTargetId);},[ferrugemTargetId]);
   useEffect(()=>{if(sceneRef.current instanceof DistrictScene)sceneRef.current.setObjective(districtTarget);},[districtTarget]);
+  useEffect(()=>{if(sceneRef.current instanceof DistrictScene)
+    sceneRef.current.setReaction(worldAttitude);},[worldAttitude]);
 
   return <div className={`baixada-world interior-world ${interior}`} ref={hostRef} aria-label={interior === "clinic" ? "Interior isométrico da clínica comunitária" : interior === "workshop" ? "Interior isométrico da oficina do Nilo" : interior === "canal" ? "Interior isométrico da Galeria do Canal"
    : interior === "sewer-drain" ? "Galeria de Drenagem Sul subterrânea, isométrica e caminhável"
