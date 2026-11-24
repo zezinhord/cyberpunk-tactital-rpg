@@ -24,6 +24,8 @@ jobs:
           python -m pip install -r tools/requirements-characters.txt
       - name: Verify full world routing, TypeScript and narrative regressions
         run: |
+          node --check scripts/test-android-single-apk-offline.mjs
+          node --check scripts/test-android-cold-boot.mjs
           node --experimental-strip-types scripts/test-full-phaser-android.mjs
           npx tsc -b
           node --experimental-strip-types scripts/test-cinematics-v20.mjs
