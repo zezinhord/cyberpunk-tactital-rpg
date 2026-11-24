@@ -86,7 +86,9 @@ export class DistrictScene extends Phaser.Scene{
      NODE_TILES[this.currentObjective]:this.tile;
   const p=center(spot);
   const reduced=typeof window!=="undefined"&&
-    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches||
+    (typeof localStorage!=="undefined"&&localStorage.getItem(
+      "cyberpunk-tactical-rpg.settings.reduce-motion.v1")==="true");
   camera.stopFollow();
   camera.pan(p.x,p.y-50,reduced?0:690,"Sine.easeInOut",true);
   camera.zoomTo(Math.min(camera.zoom*1.10,1.48),
