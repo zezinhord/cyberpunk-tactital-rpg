@@ -51,6 +51,17 @@ for(const id of COUNCIL_IDS){
   const random=Math.random;
   try{Math.random=()=>.99999;manager.attack();}
   finally{Math.random=random;}
+  assert.equal(manager.getState().wave,wave,
+   "RC19: captain defeated while other squad members live");
+  assert.equal(manager.getState().defeatedEnemyCount,wave-1,
+   "RC19: captain alone cannot generate a quest/XP receipt");
+  assert(manager.getSquadThreatCount()>=1,
+   "RC19: council must deploy physical flank units");
+  // Neutralize the full wave before testing its original story receipts.
+  manager.state.units.filter(unit=>unit.side==="enemy").forEach(unit=>{
+   unit.hp=0;
+  });
+  manager.resolveEnemyDown();
   const state=manager.getState();
   assert.equal(state.defeatedEnemyCount,wave,version);
   if(wave<battle.waves){
