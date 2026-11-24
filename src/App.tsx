@@ -15,6 +15,7 @@ import { loadTestAppearance, saveTestAppearance } from "./game/test-arena/appear
 import type { TestAppearance } from "./game/test-arena/appearance";
 import { TurnManager } from "./game/TurnManager";
 import type { GameState, Unit,EncounterId } from "./game/types";
+import {activeEnemies,targetEnemy} from "./game/combat/squad-encounters.ts";
 import {
   createPlayerCharacter,
   assignCharacterClass,
@@ -296,10 +297,12 @@ export default function App() {
      [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
   const [state, setState] = useState<GameState>(() => manager.getState());
   const player = getUnit(state, "runner");
-  const enemy = getUnit(state, "drone");
+  const enemy = targetEnemy(state)??getUnit(state,"drone");
+  const threatCount=activeEnemies(state).length;
   const attackPreview=manager.getBasicAttackPreview();
   const canAttack = attackPreview.available;
-  const victory = Boolean(state.combatComplete && enemy && enemy.hp <= 0);
+  const victory=Boolean(state.combatComplete&&player&&player.hp>0&&
+    threatCount===0);
   const defeated=isOperativeDefeated(state);
 
   useEffect(() => {
@@ -534,7 +537,11 @@ export default function App() {
 
   useEffect(()=>{
     if(screen!=="battle" || !characterRef.current || !state.combatComplete)return;
-    const enemyDefeated=state.units.find(u=>u.id==="drone")?.hp===0;
+    // A neutralized leader is NOT victory when flanking enemies remain.
+    // A player defeat never completes story missions or grants quest XP.
+    const enemyDefeated=Boolean(state.units.find(u=>u.id==="runner")?.hp&&
+      activeEnemies(state).length===0&&
+      state.units.some(u=>u.side==="enemy"));
     const active=characterRef.current;
     if(!active)return;
     if(enemyDefeated&&state.encounterId.startsWith("council-")){
@@ -607,7 +614,8 @@ export default function App() {
       return;
     }
     if(state.encounterId!=="v09")return;
-    const defeated=state.units.find(u=>u.id==="drone")?.hp===0;
+    const defeated=Boolean(state.units.find(u=>u.id==="runner")?.hp&&
+      activeEnemies(state).length===0);
     if(!defeated)return;
     const reward=grantV09Experience(characterRef.current ?? active);
     if(!reward.awarded){
@@ -983,7 +991,12 @@ export default function App() {
         <div className="arena-console-scroll" aria-label="Informações e habilidades">
         <section className="units" aria-label="Unidades em combate">
           <UnitCard unit={player} role="Protagonista" accent="cyan" />
-          <UnitCard unit={enemy} role={battleMode==="v09"?"VIGILÂNCIA · V-09":"Sentinela"} accent="pink" />
+          <div className="na-squad-target-info">
+            <span>HOSTIS ATIVOS: <strong>{threatCount}</strong></span>
+            <UnitCard unit={enemy}
+              role={battleMode==="v09"?"VIGILÂNCIA · V-09":"Alvo selecionado"}
+              accent="pink" />
+          </div>
         </section>
         <AbilityBar state={state} manager={manager} />
         <p className="combat-message" role="status">{state.message}</p>

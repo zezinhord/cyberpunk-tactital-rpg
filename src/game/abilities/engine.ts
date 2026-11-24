@@ -1,6 +1,7 @@
 import { SPECIAL_IDS, SPECIALS } from "./catalog.ts";
 import type { SpecialId } from "./catalog.ts";
 import type { GameState, Unit } from "../types";
+import {activeEnemies,targetEnemy} from "../combat/squad-encounters.ts";
 
 export type AbilityCheck = { available: true } | { available: false; reason: string };
 export interface AbilityResult {
@@ -12,7 +13,7 @@ export interface AbilityResult {
 }
 
 function getUnits(state: GameState): { player?: Unit; enemy?: Unit } {
-  return { player: state.units.find((u) => u.id === "runner"), enemy: state.units.find((u) => u.id === "drone") };
+  return { player: state.units.find((u) => u.id === "runner"), enemy: targetEnemy(state) };
 }
 
 export function distanceManhattan(a: { x: number; y: number }, b: { x: number; y: number }): number {
@@ -78,7 +79,7 @@ export function useSpecial(state: GameState, id: SpecialId): AbilityResult {
   if (def.healing) message += " Vida recuperada: " + amount + ".";
   if (def.armorBonus) message += " Defesa +" + def.armorBonus + " por " + def.durationTurns + " turno(s) hostis.";
   if (state.enemyJamTurns > 0 && def.jamTurns) message += " Interferência: sentinela bloqueada por 1 ação.";
-  if (enemy && enemy.hp <= 0) {
+  if (enemy && enemy.hp <= 0 && activeEnemies(state).length===0) {
     state.combatComplete = true;
     message += " Sentinela neutralizada.";
   }

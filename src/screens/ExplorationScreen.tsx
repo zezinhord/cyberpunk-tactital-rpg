@@ -3,6 +3,7 @@ import NpcDialoguePanel from "../components/NpcDialoguePanel";
 import {arrivalForArea} from "../game/story/cinematic-arrivals.ts";
 import {firstContactCinematic} from "../game/story/cinematic-contacts.ts";
 import {readCinematicHistory} from "../game/story/cinematic-engine.ts";
+import {focusForNarrativeCue} from "../game/story/cinematic-camera.ts";
 import "../dialogue-cinematic.css";
 import "../eden-epilogue.css";
 import BaixadaWorld from "../components/BaixadaWorld";
@@ -1535,6 +1536,9 @@ const [dossierOpen,setDossierOpen]=useState(false);
     say([{speaker:current.speaker,role:current.role,portrait:current.portrait,text:choice.reply}]);
   };
   const currentDialogue = dialogue?.pages[dialogue.index] ?? null;
+  const cinematicFocus=focusForNarrativeCue(currentDialogue,
+    isInnerId(interior)?INNER_BLUEPRINTS[interior].guide:
+    isDistrictId(interior)?getDistrict(interior).guideName:"");
   const sceneTitle = isInnerId(interior)?INNER_BLUEPRINTS[interior].title+" · Nova Arcádia"
     : isDistrictId(interior) ? getDistrict(interior).name+" · Nova Arcádia"
     : interior === "ferrugem" ? "Ferrugem · Distrito Industrial"
@@ -1624,6 +1628,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
             interior={interior}
             characterId={character.id}
             worldAttitude={localReaction.attitude}
+            cinematicFocus={cinematicFocus}
             districtTarget={isDistrictId(interior)?districtCurrentStep(interior,cityChapters[interior])?.slot??null:null}
             originId={character.originId}
             appearance={appearance}

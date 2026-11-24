@@ -7,6 +7,7 @@ import type {OriginId} from "../game/character/origins";
 import type {TacticalSite,TacticalLayout} from "../game/combat/tactical-maps.ts";
 import {tileHeight} from "../game/map.ts";
 import {SIEGE_TERMINAL_NAMES} from "../game/combat/siege-terminals.ts";
+import {activeEnemies,targetEnemy} from "../game/combat/squad-encounters.ts";
 import {DEFAULT_TACTICAL_VIEWPORT,panTacticalViewport,tacticalViewBox,
  zoomTacticalViewport,type TacticalViewport} from "../game/combat/tactical-viewport.ts";
 
@@ -37,9 +38,9 @@ function diamond(x:number,y:number,w=56,h=28){
  return [[x,y-h/2],[x+w/2,y],[x,y+h/2],[x-w/2,y]]
   .map(p=>p.join(",")).join(" ");
 }
-function UnitSprite({unit,isPlayer,url,appearance,enemySheet,facing,pose,layout}:{
+function UnitSprite({unit,isPlayer,url,appearance,enemySheet,facing,pose,layout,selected}:{
  unit:Unit;isPlayer:boolean;url:string|undefined;appearance:TestAppearance;
- enemySheet?:string;facing:number;pose:number;layout:TacticalLayout|null
+ enemySheet?:string;facing:number;pose:number;layout:TacticalLayout|null;selected?:boolean
 }){
  if(unit.hp<=0)return null;
  const p=point(unit,layout),accent=isPlayer?"#00e5ff":"#ff2e88";
@@ -48,6 +49,8 @@ function UnitSprite({unit,isPlayer,url,appearance,enemySheet,facing,pose,layout}
     pointerEvents="none">
    <ellipse rx="19" ry="6" fill="#060d15" opacity=".8"/>
    <ellipse rx="15" ry="5" fill={accent} opacity=".22"/>
+   {selected&&<ellipse rx="24" ry="10" fill="none"
+      stroke="#ffe099" strokeWidth="2" strokeDasharray="4 3"/>}
    {isPlayer&&url?
      <svg x="-24" y="-65" width="48" height="62" viewBox="0 80 64 80"
        overflow="hidden">
@@ -169,7 +172,8 @@ export default function Battlefield({manager,appearance,originId}:{
  const reachable=useMemo(()=>new Set(manager.getReachableCells().map(p=>p.x+","+p.y)),
    [manager,state]);
  const player=state.units.find(u=>u.id==="runner");
- const enemy=state.units.find(u=>u.id==="drone");
+ const enemies=activeEnemies(state);
+ const enemy=targetEnemy(state);
  const active=!state.combatComplete&&state.activeSide==="player";
  const attackPreview=manager.getBasicAttackPreview();
  const spriteUrl=SPRITES["../assets/characters/player-"+originId+"-"+appearance+".png"];
@@ -296,44 +300,51 @@ export default function Battlefield({manager,appearance,originId}:{
         </g>}
       </g>;
     })}
-    {[...(player?[player]:[]),...(enemy?[enemy]:[])]
-      .sort((a,b)=>a.x+a.y-b.x-b.y)
+    {[...(player?[player]:[]),...enemies]
+      .sort((a,b)=>a.x+a.y-b.x-b.y||a.y-b.y)
       .map(unit=><UnitSprite key={unit.id} unit={unit}
         isPlayer={unit.id==="runner"}
+        selected={unit.side==="enemy"&&enemy?.id===unit.id}
         url={unit.id==="runner"?spriteUrl:undefined}
-        enemySheet={unit.id==="drone"?enemySheet:undefined}
+        enemySheet={unit.side==="enemy"?enemySheet:undefined}
         facing={enemyFacing} pose={enemyPose} appearance={appearance}
         layout={manager.getArenaLayout()}/>)}
-    {/* The enemy silhouette is now a real touch target rather than inert art.
-      The full-body hitbox is sized for mobile, and an invalid tap invokes
-      the engine preview message without consuming a main action. */}
-    {active&&enemy&&enemy.hp>0&&<g
-      className={"na-iso-enemy-target"+(attackPreview.available?" ready":"")}
-      role="button" tabIndex={0} data-tactical-target="enemy"
-      aria-label={attackPreview.available?
-        "Atacar "+enemy.name+" · chance de acerto "+attackPreview.hitChance+"%":
-        "Inspecionar alvo "+enemy.name+" · "+attackPreview.reason}
-      transform={"translate("+point(enemy,manager.getArenaLayout()).x+" "+
-        point(enemy,manager.getArenaLayout()).y+")"}
-      onClick={()=>{if(!draggedRef.current)manager.attack();}}
-      onKeyDown={event=>{
-        if(event.key==="Enter"||event.key===" "){
-          event.preventDefault();manager.attack();
-        }
-      }}>
-      <title>{attackPreview.available?
-        "Atacar · "+attackPreview.hitChance+"% de acerto":attackPreview.reason}</title>
-      <rect x="-29" y="-84" width="58" height="93" rx="10"
-        fill="#ff2e88" fillOpacity=".025"/>
-      <ellipse cx="0" cy="1" rx="21" ry="9" fill="none"
-        stroke={attackPreview.available?"#ff2e88":"#a66f8a"}
-        strokeWidth={attackPreview.available?2.4:1.5}
-        strokeDasharray={attackPreview.available?undefined:"3 3"}/>
-    </g>}
+    {/* Real separate physical hitbox for each surviving squad member:
+        clicking an unreachable enemy merely reports its range/cover. */}
+    {active&&enemies.map(hostile=>{
+      const preview=manager.getBasicAttackPreview(hostile.id);
+      const selected=hostile.id===enemy?.id;
+      const location=point(hostile,manager.getArenaLayout());
+      return <g key={hostile.id}
+        className={"na-iso-enemy-target"+(preview.available?" ready":"")+
+          (selected?" selected":"")}
+        role="button" tabIndex={0} data-tactical-target="enemy"
+        data-enemy-id={hostile.id}
+        aria-label={preview.available?
+          "Atacar "+hostile.name+" · chance de acerto "+preview.hitChance+"%":
+          "Selecionar "+hostile.name+" · "+preview.reason}
+        transform={"translate("+location.x+" "+location.y+")"}
+        onClick={()=>{if(!draggedRef.current)manager.attack(hostile.id);}}
+        onKeyDown={event=>{
+          if(event.key==="Enter"||event.key===" "){
+            event.preventDefault();manager.attack(hostile.id);
+          }
+        }}>
+        <title>{hostile.name+" · HP "+hostile.hp+"/"+hostile.maxHp+
+          (preview.available?" · "+preview.hitChance+"% de acerto":
+            " · "+preview.reason)}</title>
+        <rect x="-29" y="-84" width="58" height="93" rx="10"
+          fill="#ff2e88" fillOpacity=".025"/>
+        <ellipse cx="0" cy="1" rx="21" ry="9" fill="none"
+          stroke={selected?"#ffe099":preview.available?"#ff2e88":"#a66f8a"}
+          strokeWidth={selected?3:preview.available?2.4:1.5}
+          strokeDasharray={preview.available?undefined:"3 3"}/>
+      </g>;
+    })}
     <text x="15" y="16" fill="#b9d3d8" fontSize="9" letterSpacing="1">
       {manager.getArenaLayout()?.title??theme?.label??"NOVA ARCÁDIA · COMBATE TÁTICO"}</text>
     <text x="460" y="16" fill="#ffd166" fontSize="9" textAnchor="end">
-      ONDA {state.wave}/{state.totalWaves}</text>
+      ONDA {state.wave}/{state.totalWaves} · HOSTIS {enemies.length}</text>
     <text x="240" y="307" textAnchor="middle" fill="#cfdae0" fontSize="10">
       {state.combatComplete?"CONFRONTO ENCERRADO · VOLTE AO MAPA":
        active?(attackPreview.available?"TOQUE NO HOSTIL PARA ATACAR · CIANO: MOVER":

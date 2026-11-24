@@ -21,8 +21,8 @@ assert.ok(!ui.includes('import Phaser from "phaser"'),
  "Arena não pode depender do contexto Canvas que falha no Android.");
 // The hostile silhouette must be a real 58x93 touch target, including
 // keyboard access and unavailable-attack feedback without wasted actions.
-for(const marker of ['data-tactical-target="enemy"','onClick={()=>{if(!draggedRef.current)manager.attack();}}',
- 'role="button" tabIndex={0}','attackPreview.hitChance',
+for(const marker of ['data-tactical-target="enemy"','onClick={()=>{if(!draggedRef.current)manager.attack(hostile.id);}}',
+ 'role="button" tabIndex={0}','preview.hitChance',
  'width="58" height="93"','manager.movePlayerTo(cell.x,cell.y)'])
  assert.ok(ui.includes(marker),"Touch-first combat lost: "+marker);
 assert.ok(app.includes("CHANCE DE ACERTO: {attackPreview.hitChance}%"),

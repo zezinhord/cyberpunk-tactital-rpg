@@ -18,6 +18,13 @@
 .na-tactical-camera-controls output{min-width:43px;text-align:center;
  color:#fee1a5;font:700 10px var(--mono)}
 @media (max-height:410px){.na-tactical-camera-controls button{min-height:42px;min-width:42px}}
+.na-iso-enemy-target{cursor:crosshair;outline:none}
+.na-iso-enemy-target:focus-visible ellipse:last-child{
+ stroke:#ffe099;stroke-width:3;stroke-dasharray:none}
+.na-iso-enemy-target.selected ellipse:last-child{filter:drop-shadow(0 0 3px #f3ba77)}
+.na-squad-target-info{display:flex;flex-direction:column;gap:4px;min-width:0}
+.na-squad-target-info>span{font:700 10px var(--mono);color:#ffb6d0;letter-spacing:.05em}
+.na-squad-target-info .unit-card{min-width:0;flex:1}
 .na-iso-actionable{cursor:pointer;outline:none}
 .na-iso-actionable:focus-visible polygon:first-child{stroke:#ffd166;stroke-width:3}
 .arena-v030 .arena-head{display:flex;align-items:center;gap:8px}
