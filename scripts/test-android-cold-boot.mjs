@@ -117,11 +117,12 @@ try{
  await evalJS('document.querySelector(".na-cinema-confirm section div button:last-child").click();true');
  await until(()=>has(".intro-shell .primary-button"),"introdução da origem");
  await evalJS('document.querySelector(".intro-shell .primary-button").click();true');
- await until(()=>has(".baixada-world[data-engine=native-2d]"),"motor independente Android");
+ await until(()=>has('.baixada-world[data-engine="phaser-full"][data-world-edition="complete"]'),
+  "motor Phaser oficial em Android, sem roteamento Lite",90);
  await until(()=>evalJS('document.querySelector(".baixada-world")?.dataset.sceneState==="ready"'),
-  "mapa nativo realmente desenhado",40);
- await until(()=>evalJS('document.querySelector(".baixada-world")?.dataset.artReady==="true"'),
-  "sprites originais das classes e NPCs carregados",55);
+  "mapa Phaser completo realmente desenhado",95);
+ await until(()=>evalJS('document.querySelector(".baixada-world")?.dataset.originalSprites==="true"'),
+  "spritesheets oficiais de jogador e NPCs carregadas",45);
  const metrics=await evalJS(`(()=>{
    const host=document.querySelector(".baixada-world");
    const canvas=host.querySelector("canvas"),ctx=canvas.getContext("2d");
@@ -134,23 +135,23 @@ try{
     colors.add(value);
     if(pixels.length<9)pixels.push(value);
    }
-   return {engine:host.dataset.engine,ready:host.dataset.sceneState,
-    colors:colors.size,pixels,bytes:canvas.width*canvas.height*4,
+   return {engine:host.dataset.engine,edition:host.dataset.worldEdition,
+    ready:host.dataset.sceneState,originalSprites:host.dataset.originalSprites,
+    renderer:host.dataset.renderer,colors:colors.size,pixels,
+    bytes:canvas.width*canvas.height*4,
     canvasWidth:canvas.width,canvasHeight:canvas.height,
-    artStyle:host.dataset.artStyle,artReady:host.dataset.artReady,
-    artLoaded:Number(host.dataset.artLoaded),heroSprite:host.dataset.heroSprite,
     ctxState:ctx.isContextLost?.()??false,
     w:host.clientWidth,h:host.clientHeight,
     loading:!!host.querySelector(".na-world-startup"),
     saved:!!localStorage.getItem("cyberpunk-tactical-rpg.character.v1")};
  })()`);
  console.log("DIAGNÓSTICO CANVAS ANDROID:",JSON.stringify(metrics));
- if(metrics.error||metrics.engine!=="native-2d"||metrics.ready!=="ready"||
-    metrics.artStyle!=="restored-phaser"||metrics.artReady!=="true"||
-    metrics.artLoaded<8||metrics.heroSprite!=="loaded"||
-    metrics.colors<12||metrics.bytes>4_500_000||metrics.w<600||metrics.h<300||
+ if(metrics.error||metrics.engine!=="phaser-full"||metrics.edition!=="complete"||
+    metrics.originalSprites!=="true"||metrics.ready!=="ready"||
+    metrics.renderer!=="canvas"||metrics.ctxState||metrics.colors<8||
+    metrics.bytes>5_000_000||metrics.w<600||metrics.h<300||
     metrics.loading||!metrics.saved)
-   throw new Error("Android voltou ao mapa vazio: "+JSON.stringify(metrics));
+   throw new Error("Android não abriu o mapa oficial Phaser: "+JSON.stringify(metrics));
  await mkdir("qa",{recursive:true});
  const png=await send("Page.captureScreenshot",{format:"png",captureBeyondViewport:false});
  await writeFile("qa/baixada-android-boot-frio-914x411.png",Buffer.from(png.data,"base64"));
@@ -164,9 +165,8 @@ try{
   const at=JSON.parse(localStorage.getItem("cyberpunk-tactical-rpg.world-location.v068."+c.id));
   return at.x===7&&at.y===9;
  })()`),"movimento e save em boot frio",30);
- console.log("Android frio com ARTE ORIGINAL: "+metrics.artLoaded+
-   " imagens originais, personagem em spritesheet, "+metrics.colors+
-   " cores e "+metrics.bytes+" bytes de canvas; movimento e save prontos.");
+ console.log("Android frio FULL PHASER: spritesheets oficiais e "+
+   metrics.colors+" cores, "+metrics.bytes+" bytes de canvas; movimento e save prontos.");
 }finally{
  cdp?.close();
  for(const child of [browser,preview])if(child?.pid){
