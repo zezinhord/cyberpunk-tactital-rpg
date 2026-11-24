@@ -117,7 +117,7 @@ export function preloadCharacterSprites(scene:Phaser.Scene,
   new Set(Object.keys(PLAYER_SPRITES[originId]).map(appearance=>
     getPlayerTexture(originId,appearance as TestAppearance))):null;
  const neededNpcs=npcs?new Set(npcs):null;
- for(const [key,spec] of Object.entries(SPRITES)){
+ for(const key of Object.keys(SPRITES)){
   if(neededPlayers&&!key.startsWith("npc-")&&!neededPlayers.has(key))continue;
   if(neededNpcs&&key.startsWith("npc-")&&!neededNpcs.has(key))continue;
   if(scene.textures.exists(key))continue;
