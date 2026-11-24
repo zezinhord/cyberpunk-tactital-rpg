@@ -1,13 +1,13 @@
 import {lazy,Suspense} from "react";
-import {isAndroidDevice} from "../game/performance";
-import BaixadaLiteWorld from "./BaixadaLiteWorld";
 import type {OriginId} from "../game/character";
 import type {TestAppearance} from "../game/test-arena/appearance";
 import type {SectorId} from "../game/baixada/layout";
 
-/** Android não precisa criar Phaser.Game nem carregar atlases extensos para
- * abrir a Baixada. O Phaser anterior permanece disponível em navegadores
- * desktop e é importado somente quando necessário.
+/** A Baixada usa um único mapa oficial Phaser em Android e navegadores.
+ * Economia/Balanced controlam somente FPS/renderização, jamais trocam
+ * conteúdo, NPCs, progressão ou mapa por uma experiência Lite.
+ * O chunk é carregado só depois de entrar na exploração, reduzindo o
+ * custo do primeiro boot sem reduzir o jogo.
  */
 const PhaserWorld=lazy(()=>import("./BaixadaPhaserWorld"));
 interface Props{
@@ -21,8 +21,9 @@ interface Props{
   worldAlert?:boolean;
 }
 export default function BaixadaWorld(props:Props){
-  if(isAndroidDevice())return <BaixadaLiteWorld {...props}/>;
-  return <Suspense fallback={<div className="baixada-world" role="status">Carregando mapa isométrico...</div>}>
+  return <Suspense fallback={<div className="baixada-world na-world-host" role="status">
+    Carregando o mapa completo de Nova Arcádia…
+  </div>}>
     <PhaserWorld {...props}/>
   </Suspense>;
 }
