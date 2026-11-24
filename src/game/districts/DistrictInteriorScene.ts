@@ -8,7 +8,7 @@ import {isV20IllustratedRoom,environmentArtKey,environmentArtUrl}
   from "./v20-illustrations.ts";
 
 import {audioDirector} from "../../audio/director.ts";
-import {preloadCharacterSprites,createCharacterAnimations,getPlayerTexture,
+import {HD_SPRITE_SCALE, preloadCharacterSprites,createCharacterAnimations,getPlayerTexture,
  frameForDirection,ActorAnimationController,playIdle,type IsoDirection} from "../baixada/sprites.ts";
 import type {OriginId} from "../character/origins.ts";
 import type {TestAppearance} from "../test-arena/appearance.ts";
@@ -96,7 +96,7 @@ export class DistrictInteriorScene extends Phaser.Scene{
   const start=project(this.tile);
   const tex=getPlayerTexture(this.origin,this.appearance);
   this.hero=this.add.sprite(start.x,start.y,tex,frameForDirection(tex,2))
-   .setOrigin(.5,.95).setScale(.89).setDepth(start.y+122);
+   .setOrigin(.5,.95).setScale(.89 * HD_SPRITE_SCALE).setDepth(start.y+122);
   this.animator=new ActorAnimationController(this.hero,tex,2);
   this.cameras.main.setBounds(0,0,W,H);
   this.adjustZoom();this.scale.on("resize",this.adjustZoom,this);
@@ -407,7 +407,7 @@ export class DistrictInteriorScene extends Phaser.Scene{
  private addCharacters():void{
   const bp=INNER_BLUEPRINTS[this.id],c=project(bp.guideAt),tex=bp.guideTexture;
   const npc=this.add.sprite(c.x,c.y,tex,frameForDirection(tex,2))
-   .setOrigin(.5,.95).setScale(.90).setDepth(c.y+133);
+   .setOrigin(.5,.95).setScale(.90 * HD_SPRITE_SCALE).setDepth(c.y+133);
   playIdle(npc,tex,2);
   this.add.text(c.x,c.y-76,bp.guide.toUpperCase(),{
    fontFamily:"IBM Plex Mono,monospace",fontSize:"12px",fontStyle:"bold",

@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";
+import {createElement,Fragment} from "react";
+import {visibleDialogueChoices} from "../src/components/dialogue-choices.ts";
+import {performanceGameConfig} from "../src/game/performance.ts";
+const button=createElement("button",null,"Publicar");
+assert.equal(visibleDialogueChoices([null,false]).length,0,"Amara intro has two empty conditional slots");
+assert.equal(visibleDialogueChoices([undefined,false,null,[false]]).length,0);
+assert.equal(visibleDialogueChoices(createElement(Fragment,null,false,null)).length,0);
+assert.equal(visibleDialogueChoices([false,button]).length,1,"Actual district decision stays mandatory");
+assert.equal(visibleDialogueChoices(createElement(Fragment,null,button)).length,1);
+assert.equal(performanceGameConfig("economy").fps.limit,30);
+assert.equal(performanceGameConfig("economy").render.antialias,false);
+assert.equal(performanceGameConfig("balanced").render.antialias,true);
+console.log("RC20 HOTFIX: empty dialogue slots, real decisions and graphics profiles passed.");

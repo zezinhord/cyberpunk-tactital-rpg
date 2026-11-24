@@ -57,7 +57,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   preload(): void {
-    preloadCharacterSprites(this);
+    preloadCharacterSprites(this,this.originId,[]);
     this.load.svg("arena-sentinel", "/assets/arena/sentinel.svg", { width: 128, height: 192 });
   }
 

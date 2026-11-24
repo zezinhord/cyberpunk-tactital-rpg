@@ -44,7 +44,7 @@ def hx(c):
 def shifted(color, amount):
     r,g,b=hx(color); return (max(0,min(255,r+amount)),max(0,min(255,g+amount)),max(0,min(255,b+amount)))
 
-def draw_frame(cfg, row, frame, action="walk"):
+def draw_frame(cfg, row, frame, action="walk", output_scale=1):
     """Sprite procedural direcional. Caminhada: 4 quadros; ações: 2 poses cada."""
     feminine = cfg.get("presentation") == "feminine"
     origin = cfg.get("origin")
@@ -241,11 +241,28 @@ def draw_frame(cfg, row, frame, action="walk"):
     line([(22,35+bob),(22,49+bob)],shifted(cfg['top'],35),1)
     if frame in (1,3):
         line([(30,54+bob),(33,54+bob)],acc,1)
+    # Fine authored details for the 2x output, drawn BEFORE downsampling.
+    if output_scale == 2:
+        def fine(points, color, weight=0.5):
+            d.line([(int(x*S),int(y*S)) for x,y in points],fill=color,
+                   width=max(1,round(weight*S)),joint='curve')
+        fine([(26,57+bob),(28,60+bob),(26,66+leg_shift)],shifted(cfg['pants'],25))
+        fine([(35,57+bob),(38,60+bob),(36,66-leg_shift)],shifted(cfg['pants'],-18))
+        fine([(23,70+leg_shift),(29,70+leg_shift)],shifted(cfg['shoes'],45))
+        fine([(34,70-leg_shift),(40,70-leg_shift)],shifted(cfg['shoes'],45))
+        fine([(24,33+bob),(26,38+bob),(25,44+bob)],shifted(cfg['top'],45))
+        fine([(39,34+bob),(38,41+bob),(40,47+bob)],shifted(cfg['top'],-24))
+        if facing != 'back' and acc_type not in ('visor','goggles','bandana') and origin not in ('militar','nomade'):
+            fine([(eyeX-1.5,17.2+bob),(eyeX+1.5,17.0+bob)],shifted(cfg['skin'],-42))
+            fine([(cheekX-1.1,22.0+bob),(cheekX+0.5,22.7+bob)],shifted(cfg['skin'],24))
+            fine([(30.5,26.0+bob),(33.7,26.2+bob)],shifted(cfg['skin'],-27))
+        fine([(28,11+bob),(31,9+bob),(34,10+bob)],shifted(cfg['hair'],32))
+        fine([(29,50+bob),(33,50+bob),(35,49+bob)],shifted(cfg['inner'],35))
     # Incapacitado: corpo deitado, posição consistente com a âncora dos pés.
     if action == "down":
         im = im.rotate(68 if frame % 2 else 50, resample=Image.Resampling.BICUBIC,
             center=(32*S, 61*S))
-    return im.resize((CW,CH),Image.Resampling.LANCZOS)
+    return im.resize((CW*output_scale,CH*output_scale),Image.Resampling.LANCZOS)
 
 # Os 11 spritesheets originais seguem intactos para compatibilidade com NPCs
 # e para comparação de regressões de arte.
@@ -333,3 +350,23 @@ atlas.save(QA/"npc-matrix-v076.png")
 
 print("Gerados:",len(CHARS),"sprites legados +",
       len(ORIGINS)*2,"spritesheets direcionais 12x4; atlas de QA em qa/character-matrix.png.")
+
+# RC20 HD: render the original directional geometry directly at twice the
+# output resolution. Never enlarge the 64x80 raster. Keep old menu assets.
+HD=ROOT/"public/assets/characters-hd"
+HD.mkdir(parents=True,exist_ok=True)
+def save_hd(name,cfg):
+    w,h=CW*2,CH*2
+    sheet=Image.new("RGBA",(w*len(ACTION_COLUMNS),h*4),(0,0,0,0))
+    for direction in range(4):
+        for index,(state,frame) in enumerate(ACTION_COLUMNS):
+            sheet.alpha_composite(draw_frame(cfg,direction,frame,state,output_scale=2),
+                                  (index*w,direction*h))
+    sheet.save(HD/f"{name}.png",optimize=True)
+for origin,(masc_hair,fem_hair) in ORIGINS.items():
+    for gender,hairstyle in [("masculine",masc_hair),("feminine",fem_hair)]:
+        save_hd(f"player-{origin}-{gender}",{**CHARS["player-"+origin],
+                "presentation":gender,"origin":origin,"hair_style":hairstyle})
+for name in NPC_FULL_NAMES:
+    save_hd(name,CHARS[name])
+print("HD character atlases: 128x160 per frame, 12 columns, four directions.")

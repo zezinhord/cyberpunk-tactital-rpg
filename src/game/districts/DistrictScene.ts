@@ -7,7 +7,7 @@ import {audioDirector} from "../../audio/director";
 import {citizensForDistrict,chooseDistrictCitizenStep,districtCitizenSpeech,
  type DistrictCitizenSpec} from "../ai/district-citizens.ts";
 import type {NpcAttitude} from "../ai/faction-reactivity.ts";
-import {preloadCharacterSprites,createCharacterAnimations,
+import {HD_SPRITE_SCALE, preloadCharacterSprites,createCharacterAnimations,
  ActorAnimationController,getPlayerTexture,frameForDirection,playIdle,playWalk,
  type IsoDirection} from "../baixada/sprites";
 import type {OriginId} from "../character/origins";
@@ -121,7 +121,7 @@ export class DistrictScene extends Phaser.Scene{
   const p=center(this.tile);
   const texture=getPlayerTexture(this.origin,this.appearance);
   this.player=this.add.sprite(p.x,p.y,texture,frameForDirection(texture,2))
-    .setOrigin(.5,.95).setScale(.92).setDepth(p.y+120);
+    .setOrigin(.5,.95).setScale(.92 * HD_SPRITE_SCALE).setDepth(p.y+120);
   this.anim=new ActorAnimationController(this.player,texture,2);
   this.coverMarker=this.add.circle(p.x,p.y-47,6,0x00e5ff,.12)
     .setStrokeStyle(2,0x00e5ff,.94).setDepth(1810).setVisible(false);
@@ -255,7 +255,7 @@ export class DistrictScene extends Phaser.Scene{
    if(slot==="guide"){
     const texture=DISTRICT_GUIDE_TEXTURE[this.id];
     const sprite=this.add.sprite(c.x,c.y,texture,frameForDirection(texture,2))
-      .setOrigin(.5,.95).setScale(.92).setDepth(c.y+120);
+      .setOrigin(.5,.95).setScale(.92 * HD_SPRITE_SCALE).setDepth(c.y+120);
     playIdle(sprite,texture,2);
    }else drawDistrictInteractable(g,this.id,slot,c,this.spec);
    const text=slot==="guide"?this.spec.guideName.toUpperCase():NODE_NAMES[slot].toUpperCase();
@@ -274,7 +274,7 @@ export class DistrictScene extends Phaser.Scene{
    if(!districtWalkable(this.id,spec.home))continue;
    const p=center(spec.home);
    const visual=this.add.sprite(p.x,p.y,spec.texture,frameForDirection(spec.texture,2))
-     .setOrigin(.5,.95).setScale(.76).setDepth(p.y+119);
+     .setOrigin(.5,.95).setScale(.76 * HD_SPRITE_SCALE).setDepth(p.y+119);
    playIdle(visual,spec.texture,2);
    this.residents.push({spec,tile:{...spec.home},visual,busy:false});
   }

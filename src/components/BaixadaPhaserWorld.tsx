@@ -114,7 +114,8 @@ export default function BaixadaPhaserWorld({ onInteract, originId, appearance, c
       const hero=getPlayerTexture(originId,appearance);
       const textures=[hero,NPC_TEXTURES.nilo,NPC_TEXTURES.joana,
         NPC_TEXTURES.saira,NPC_TEXTURES.teo];
-      if(!textures.every(texture=>scene.textures.exists(texture))){
+      if(!textures.every(texture=>scene.textures.exists(texture)&&
+        scene.textures.get(texture).getSourceImage().width===1536)){
         if(frames>=45)recover("As spritesheets originais não carregaram.");
         return;
       }
@@ -202,6 +203,7 @@ export default function BaixadaPhaserWorld({ onInteract, originId, appearance, c
   return <div className="baixada-world na-world-host" ref={hostRef}
     data-engine="phaser-full" data-world-edition="complete"
     data-original-sprites={sceneStatus==="ready"?"true":"false"}
+    data-sprite-resolution="128x160"
     data-renderer={useCanvas?"canvas":"webgl-auto"}
     data-scene-state={sceneStatus}
     aria-label="Baixada semiaberta expandida: ruas, Pátio Sul, Mercado dos Cabos e esgotos">

@@ -126,3 +126,8 @@
 }
 .na-narrative-panel.motion-reduced .na-portrait-scene{
  animation:none!important;transition:none!important;transform:none!important}
+
+/* RC20 hotfix: keep choices visible even on very short landscape screens. */
+.na-narrative-panel .na-dialogue-body{overflow-y:auto;overscroll-behavior:contain}
+.na-narrative-panel .na-dialogue-choices:empty{display:none}
+.na-narrative-panel .na-dialogue-choices:not(:empty){flex:0 0 auto;min-height:48px}

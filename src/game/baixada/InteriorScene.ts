@@ -12,7 +12,7 @@ import {
   getPlayerTexture,
   frameForDirection,
   playIdle,
-  preloadCharacterSprites,
+  HD_SPRITE_SCALE, preloadCharacterSprites,
   type IsoDirection,
 } from "./sprites";
 
@@ -223,7 +223,7 @@ export class InteriorScene extends Phaser.Scene {
     for (const actor of this.actors) {
       const p = center(actor.tile);
       if (actor.kind === "person" && actor.texture) {
-        actor.visual = this.add.sprite(p.x, p.y, actor.texture, 12).setOrigin(0.5, 0.95).setScale(0.86).setDepth(p.y + 100);
+        actor.visual = this.add.sprite(p.x, p.y, actor.texture, 12).setOrigin(0.5, 0.95).setScale(0.86 * HD_SPRITE_SCALE).setDepth(p.y + 100);
         playIdle(actor.visual, actor.texture, 2);
         this.tweens.add({ targets: actor.visual, y: p.y - 1.5, duration: 1650 + (actor.tile.x % 3) * 180, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
       } else if (actor.kind === "terminal") {
@@ -248,7 +248,7 @@ export class InteriorScene extends Phaser.Scene {
   private createPlayer(): void {
     const p = center(this.playerTile);
     const texture = getPlayerTexture(this.originId, this.appearance);
-    this.player = this.add.sprite(p.x, p.y, texture, frameForDirection(texture, this.direction)).setOrigin(0.5, 0.95).setScale(0.9).setDepth(p.y + 120);
+    this.player = this.add.sprite(p.x, p.y, texture, frameForDirection(texture, this.direction)).setOrigin(0.5, 0.95).setScale(0.9 * HD_SPRITE_SCALE).setDepth(p.y + 120);
     this.playerAnimator = new ActorAnimationController(this.player, texture, this.direction);
   }
 

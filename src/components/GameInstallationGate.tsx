@@ -37,9 +37,13 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
  const [error,setError]=useState("");
  const [selected,setSelected]=useState<PackId|null>(null);
  const [free,setFree]=useState(0);
+ const [apkBytes,setApkBytes]=useState(0);
  const busy=useRef(false);
  const currentBytes=installedGameBytes(catalog,installed);
  const progress=fullGameProgress(catalog,installed,transfer);
+ const activeBytes=transfer&&!installed[transfer.id]?
+  Math.min(Math.max(0,transfer.bytes),catalog.packs.find(p=>p.id===transfer.id)?.compressedBytes??0):0;
+ const preparedBytes=currentBytes+activeBytes;
  const total=deliverySize(catalog);
 
  async function readInstalled():Promise<Record<PackId,boolean>>{
@@ -111,6 +115,7 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
    try{
     const bundle=await integratedApkStatus();
     if(!active)return;
+    if(Number.isFinite(bundle.apkBytes)&&Number(bundle.apkBytes)>0)setApkBytes(Number(bundle.apkBytes));
     if(!bundle.allBundled||bundle.bundledCount!==PACK_IDS.length){
      setError("Este instalador não contém os sete distritos obrigatórios da versão 2.0. Instale o APK completo, sem remover seus dados.");
      setPhase("invalid");
@@ -149,13 +154,12 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
     {(phase==="installing"||phase==="failed")&&<>
      <div className="na-install-meter">
       <div><strong>{progress}% preparado</strong>
-       <span>{formatAssetSize(currentBytes)}/{formatAssetSize(catalog.totalBytes)}</span></div>
+       <span>{formatAssetSize(preparedBytes)}/{formatAssetSize(catalog.totalBytes)} · arquivos dos distritos</span></div>
       <div className="na-install-track" role="progressbar" aria-valuenow={progress}
        aria-label="Preparação automática dos distritos" aria-valuemin={0} aria-valuemax={100}>
        <span style={{width:progress+"%"}}/>
       </div>
-      <small>APK integral: {formatAssetSize(total.totalBytes)}. Nenhuma conexão
-       à internet é necessária para preparar os recursos.</small>
+      <small>{apkBytes>0?"APK integral medido: ":"Pacote integral previsto: "}{formatAssetSize(apkBytes||total.totalBytes)} · recursos-base e estrutura do APK: {formatAssetSize(Math.max(0,(apkBytes||total.totalBytes)-catalog.totalBytes))} · arquivos dos distritos a verificar: {formatAssetSize(catalog.totalBytes)}. A barra mede somente os arquivos dos distritos; nenhum download adicional.</small>
      </div>
      <div className="na-install-districts">
       {PACK_IDS.map(id=><div key={id}

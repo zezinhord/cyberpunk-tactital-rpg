@@ -14,7 +14,7 @@ interface NativePackStatus{id:string;installed:boolean;sha256?:string;baseUri?:s
  storedBytes:number;freeBytes:number;stage?:string;bytes?:number;total?:number}
 interface NativePackInstall{id:string;installed:true;storedBytes:number;baseUri:string}
 interface NativePackApi{
- bundledStatus():Promise<{bundledCount:number;allBundled:boolean}>;
+ bundledStatus():Promise<{bundledCount:number;allBundled:boolean;apkBytes?:number}>;
  installBundled(options:{id:PackId;sha256:string;compressedBytes:number;
   uncompressedBytes:number;artworkCount:number}):Promise<NativePackInstall>;
  status(options:{id:PackId}):Promise<NativePackStatus>;
@@ -88,7 +88,7 @@ export async function packArtworkPreviewUrl(
 /** True only if ALL seven original ZIP archives are built into the APK.
  * An older 1.14GB QA201 app returns false, never a false positive.
  */
-export async function integratedApkStatus():Promise<{allBundled:boolean;bundledCount:number}>{
+export async function integratedApkStatus():Promise<{allBundled:boolean;bundledCount:number;apkBytes?:number}>{
  if(!nativePackPlatform())return {allBundled:false,bundledCount:0};
  return plugin.bundledStatus();
 }

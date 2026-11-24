@@ -346,6 +346,7 @@ public class NovaAssetPacks extends Plugin {
             JSObject state = new JSObject();
             state.put("bundledCount", count);
             state.put("allBundled", count == DISTRICTS.length);
+            state.put("apkBytes", new java.io.File(getContext().getApplicationInfo().sourceDir).length());
             call.resolve(state);
         } catch (Exception e) {
             call.reject("Cannot inspect game assets: " + e.getMessage());
