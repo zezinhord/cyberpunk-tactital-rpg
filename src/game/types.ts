@@ -33,6 +33,9 @@ export type EncounterId="test"|"v09"|"trial-1"|"trial-2"|"trial-3"|
  "council-periferia";
 export interface GameState {
   units: Unit[];
+  /** Selected living hostile for normal attack, class skills and specials. */
+  selectedEnemyId?:string;
+  /** Current faction unit count is read from units; no duplicate save array. */
   archetypeId: string;
   /** Visible perception state; never reveals unseen player location. */
   enemyAwareness?: "patrol"|"suspicious"|"investigate"|"search"|"engaged"|"retreat";
