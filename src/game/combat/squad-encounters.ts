@@ -19,8 +19,13 @@ export function squadSizeForEncounter(id:EncounterId,wave:number):number{
   return 2;
  return 1;
 }
+/** Old in-memory test encounters used the canonical drone id but omitted
+ * the newer side field. Accept that legacy shape without ever treating the
+ * protagonist as a hostile or fabricating a squad member.
+ */
 export const activeEnemies=(state:Pick<GameState,"units">):Unit[]=>
- state.units.filter(unit=>unit.side==="enemy"&&unit.hp>0);
+ state.units.filter(unit=>(unit.side==="enemy"||
+   (unit.side===undefined&&unit.id.startsWith("drone")))&&unit.hp>0);
 export function targetEnemy(state:Pick<GameState,"units"|"selectedEnemyId">):Unit|undefined{
  const enemies=activeEnemies(state);
  return enemies.find(e=>e.id===state.selectedEnemyId)??enemies[0];
