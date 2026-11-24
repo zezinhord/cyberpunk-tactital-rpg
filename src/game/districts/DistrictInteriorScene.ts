@@ -3,6 +3,7 @@ import {INNER_BLUEPRINTS,INNER_WIDTH,INNER_HEIGHT,INNER_SPAWN,INNER_EXIT_AT,
  innerPath,innerApproach,innerBlock,type InnerId,type InnerProp} from "./interiors.ts";
 import type {Tile} from "./catalog.ts";
 import {isEconomyMode} from "../performance.ts";
+import type {CinematicCameraFocus} from "../story/cinematic-camera.ts";
 import {isV20IllustratedRoom,environmentArtKey,environmentArtUrl}
   from "./v20-illustrations.ts";
 
@@ -37,6 +38,7 @@ export class DistrictInteriorScene extends Phaser.Scene{
  private animator?:ActorAnimationController;
  private pending:string|null=null;
  private walking=false;
+ private cinematicFocus:CinematicCameraFocus|null=null;
  private queued:Tile|null=null;
  private staticKey:string;
  private readonly artPreviews:Readonly<Record<string,string>>;
@@ -46,6 +48,27 @@ export class DistrictInteriorScene extends Phaser.Scene{
   this.origin=origin;this.appearance=appearance;
   this.artPreviews=artPreviews;
   this.staticKey="na-interior-map-"+id+"-v081";
+ }
+ setCinematicFocus(focus:CinematicCameraFocus|null):void{
+  if(this.cinematicFocus===focus)return;
+  this.cinematicFocus=focus;
+  if(!this.hero||!this.sys.isActive())return;
+  const camera=this.cameras.main;
+  if(focus===null){
+   camera.startFollow(this.hero,true,.17,.17);
+   this.adjustZoom();
+   return;
+  }
+  const blueprint=INNER_BLUEPRINTS[this.id];
+  const spot=focus==="guide"?blueprint.guideAt:
+   focus==="objective"?blueprint.props[0]?.at??this.tile:this.tile;
+  const p=project(spot);
+  const reduced=typeof window!=="undefined"&&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  camera.stopFollow();
+  camera.pan(p.x,p.y-44,reduced?0:690,"Sine.easeInOut",true);
+  camera.zoomTo(Math.min(camera.zoom*1.13,1.45),
+   reduced?0:590,"Sine.easeInOut",true);
  }
  setAppearance(p:TestAppearance):void{
   if(p===this.appearance)return;this.appearance=p;
@@ -77,6 +100,10 @@ export class DistrictInteriorScene extends Phaser.Scene{
   this.adjustZoom();this.scale.on("resize",this.adjustZoom,this);
   this.cameras.main.startFollow(this.hero,true,.17,.17);
   this.cameras.main.centerOn(start.x,start.y-32);
+  if(this.cinematicFocus){
+   const cue=this.cinematicFocus;this.cinematicFocus=null;
+   this.setCinematicFocus(cue);
+  }
   this.input.on(Phaser.Input.Events.POINTER_DOWN,this.tap,this);
   this.events.once(Phaser.Scenes.Events.SHUTDOWN,()=>{
    this.input.off(Phaser.Input.Events.POINTER_DOWN,this.tap,this);
