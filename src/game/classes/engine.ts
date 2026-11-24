@@ -1,6 +1,7 @@
 import type { GameState, Unit } from "../types";
 import type { ClassSkill, ClassEffect } from "./registry";
 import {hasLineOfSight} from "../map.ts";
+import {activeEnemies,targetEnemy} from "../combat/squad-encounters.ts";
 import {MULTICLASS_UNLOCK_LEVEL,SECONDARY_MAX_RANK} from "./hybrids.ts";
 
 export type ClassCheck={available:true}|{available:false;reason:string};
@@ -8,7 +9,7 @@ export interface ClassResult {ok:boolean;message:string;amount:number}
 const distance=(a:{x:number;y:number},b:{x:number;y:number})=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
 
 function entities(state:GameState):{player?:Unit;enemy?:Unit}{
- return {player:state.units.find(u=>u.id==="runner"),enemy:state.units.find(u=>u.id==="drone")};
+ return {player:state.units.find(u=>u.id==="runner"),enemy:targetEnemy(state)};
 }
 function hasEffect(ability:ClassSkill,type:ClassEffect["type"]):boolean {
  return ability.effects.some(e=>e.type===type);
@@ -157,6 +158,7 @@ export function executeClassSkill(state:GameState,ability:ClassSkill):ClassResul
        if(enemy&&state.classEnemyArmorTurns<=0){
          enemy.armorClass-=power;
          state.classEnemyArmorReduction=power;
+         state.classDebuffTargetId=enemy.id;
          state.classEnemyArmorTurns=duration;
          notes.push("Defesa inimiga -"+power+" por "+duration+" ação(ões)");
        }
@@ -165,13 +167,15 @@ export function executeClassSkill(state:GameState,ability:ClassSkill):ClassResul
        if(enemy&&state.classEnemyAttackTurns<=0){
          enemy.attackBonus-=power;
          state.classEnemyAttackReduction=power;
+         state.classDebuffTargetId=enemy.id;
          state.classEnemyAttackTurns=duration;
          notes.push("Ataque inimigo -"+power+" por "+duration+" ação(ões)");
        }
        break;
    }
  }
- if(enemy && enemy.hp<=0)state.combatComplete=true;
+ if(enemy&&enemy.hp<=0&&activeEnemies(state).length===0)
+  state.combatComplete=true;
  const message=ability.name+": "+notes.join("; ")+".";
  state.message=message;
  return {ok:true,message,amount};
@@ -193,7 +197,7 @@ export function advanceClassGuard(state:GameState):void {
  }
 }
 export function advanceClassEnemyDebuffs(state:GameState):void {
- const enemy=state.units.find(u=>u.id==="drone");
+ const enemy=state.units.find(u=>u.id===state.classDebuffTargetId)??targetEnemy(state);
  if(state.classEnemyArmorTurns>0 && --state.classEnemyArmorTurns===0){
    if(enemy)enemy.armorClass+=state.classEnemyArmorReduction;
    state.classEnemyArmorReduction=0;
