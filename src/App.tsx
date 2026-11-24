@@ -35,17 +35,22 @@ import {craftRecipe,type RecipeId} from "./game/crafting";
 import { getPlayerSpriteUrl } from "./game/baixada/sprites";
 import ClassSelection from "./components/ClassSelection";
 import {getClassById,type ClassId} from "./game/classes/registry";
+import {getHybridArchetype} from "./game/classes/hybrids.ts";
 import {installCyberware,removeCyberware,type CyberwareId} from "./game/cyberware.ts";
 import {readParty,activeCompanions} from "./game/companions.ts";
 import {readStealth,stealthCombatEntry} from "./game/stealth.ts";
 import {readContracts,INNER_CONTRACTS} from "./game/story/inner-contracts.ts";
+import {FORENSIC_CASES} from "./game/story/forensic-cases.ts";
+import {DISTRICT_COUNCILS,COUNCIL_DEFENSES,readCouncils,saveCouncils,isCouncilId,
+  finishCouncilDefense} from "./game/story/district-councils.ts";
 import { audioDirector } from "./audio/director";
 import { markV09Defeated,grantV09Experience } from "./game/story/v09";
 import {listCharacterSlots,loadCharacterSlot,removeCharacterSlot,hasSlotCapacity} from "./game/character/slots";
 import {exportCharacterBackup,importCharacterBackup} from "./game/character/backup";
 import {loadHealth,saveHealth,healAtClinic} from "./game/combat/health";
 import {isOperativeDefeated,recoverFromDefeat,type DefeatChoice} from "./game/combat/defeat.ts";
-import {combatProgression,grantUniqueExperience,purchaseAttribute,purchaseSkill,
+import {combatProgression,grantUniqueExperience,earnedMasterySkillPoints,
+  purchaseAttribute,purchaseSkill,purchaseMulticlass,
   type StatId} from "./game/progression/tree";
 import {advanceTrialBattle,isTrialEncounter,readTrial,saveTrial,reconcileTrial} from "./game/story/field-test";
 import {isDistrictId} from "./game/districts/catalog";
@@ -59,6 +64,14 @@ import {readCisma,CISMA_STEPS} from "./game/story/cisma-v20.ts";
 import {claimDiscovery,DISCOVERY_AREAS,DISCOVERY_REWARDS} from "./game/story/discoveries.ts";
 import {collectInnerProp,reconcileInnerExperience} from "./game/story/indoor-rewards.ts";
 import {readReputation,syncFactionAids} from "./game/story/reputation";
+import {SIEGE_TERMINAL_NAMES} from "./game/combat/siege-terminals.ts";
+import {readSimulations,SIMULATION_PHASES,SIMULATION_REWARD_XP} from "./game/story/field-simulations.ts";
+import {readPerimeter,PERIMETER_XP} from "./game/story/perimeter-routes.ts";
+import {readVigil} from "./game/story/vigil-escorts.ts";
+import {readShelter} from "./game/story/shelter-network.ts";
+import {readNexus} from "./game/story/nexus-eden.ts";
+import {readRecovery,RECOVERY_TASKS,mergeRecoverySupport,
+ recoveryCombatSupport} from "./game/story/recovery-network.ts";
 import {readUrban,urbanCombatSupport} from "./game/story/urban-chronicles.ts";
 import {readDistrictProgress,saveDistrictProgress,advanceDistrict,
  districtCurrentStep} from "./game/districts/progress";
@@ -264,11 +277,15 @@ export default function App() {
   const originProfile = useMemo(() => character ? getOriginGameplay(character.originId) : undefined, [character?.originId]);
   const progressionBonuses=combatProgression(character);
   const maximumHp=18+(originProfile?.maxHpBonus??0)+progressionBonuses.hp+bonuses.hpBonus;
-  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
+  const manager = useMemo(() => new TurnManager({ playerName: character?.name, originProfile, equipmentBonuses: bonuses, characterLevel: character?.level, originId: character?.originId, classId: character?.classId, multiclassId:character?.multiclassId,
+    characterAbilities:character?.abilities,characterSkillRanks:character?.skillRanks,
     currentHp:loadHealth(character?.id??"",maximumHp),
     progressionBonuses:combatProgression(character),encounterId:battleMode,weaponId:inventory.equipped.weapon,
-     districtSupport:character?urbanCombatSupport(readUrban(character.id),battleMode):null,
+     districtSupport:character?mergeRecoverySupport(
+       urbanCombatSupport(readUrban(character.id),battleMode),
+       recoveryCombatSupport(readRecovery(character.id),battleMode)):null,
      partySupport:character?activeCompanions(readParty(character.id)):[],
+     partyPosture:character?readParty(character.id).posture??"manual":"manual",
      infiltration:character?stealthCombatEntry(readStealth(character.id),battleMode):null }),
      [character?.id, battleReset, battleMode, originProfile, bonuses, inventory.equipped.weapon]);
   const [state, setState] = useState<GameState>(() => manager.getState());
@@ -308,6 +325,8 @@ export default function App() {
     if(!current)return false;
     const next=grantUniqueExperience(current,eventId,amount);
     if(!next.awarded)return current.questRewards.includes(eventId);
+    const masteryGained=earnedMasterySkillPoints(next.character)-
+      earnedMasterySkillPoints(current);
     if(!saveCharacter(next.character)){
       setSaveMessage("Erro ao gravar XP. Verifique o espaço disponível.");return false;
     }
@@ -317,7 +336,10 @@ export default function App() {
     setSaveMessage(next.levelsGained>0
       ? "SUBIU DE NÍVEL! Nível "+next.character.level+
         " · +"+(next.levelsGained*2)+" pontos de cada tipo na Árvore."
-      : "+"+amount+" XP · "+eventId.replaceAll("-"," ")+".");
+      : masteryGained>0
+        ? "MAESTRIA AVANÇOU! +"+masteryGained+
+          " HAB para especializar sua classe · Abra a Árvore."
+        : "+"+amount+" XP · "+eventId.replaceAll("-"," ")+".");
     return true;
   };
   /** Sincroniza recibos pendentes depois de uma suspensão/crash sem duplicar XP ou itens. */
@@ -347,6 +369,49 @@ export default function App() {
     const innerContracts=readContracts(active.id);
     for(const id of innerContracts.completed)
       if(!grantTrialXp("inner-contract-"+id,INNER_CONTRACTS[id].rewardXp))return false;
+    for(const id of innerContracts.analysed??[])
+      if(!grantTrialXp("inner-forensic-"+id,FORENSIC_CASES[id].rewardXp))return false;
+    const councilProgress=readCouncils(active.id);
+    for(const id of Object.keys(councilProgress.choices))
+      if(isCouncilId(id)&&!grantTrialXp("district-council-"+id,DISTRICT_COUNCILS[id].rewardXp))
+        return false;
+    for(const id of councilProgress.defended??[])
+      if(!grantTrialXp("council-defense-"+id,COUNCIL_DEFENSES[id].xp))
+        return false;
+    const recovered=readRecovery(active.id);
+    for(const region of Object.keys(recovered.repairs)){
+      if(!isCouncilId(region))continue;
+      const locations=recovered.repairs[region]??[];
+      for(const location of locations){
+        const task=RECOVERY_TASKS[region].find(x=>x.room===location);
+        if(task&&!grantTrialXp("recovery-repair-"+location,task.xp))return false;
+      }
+    }
+    for(const region of Object.keys(recovered.outcomes)){
+      if(isCouncilId(region)&&!grantTrialXp("recovery-final-"+region,78))
+        return false;
+    }
+    const scenes=readSimulations(active.id);
+    for(const [room,phase] of Object.entries(scenes.solved)){
+      if(phase===SIMULATION_PHASES&&
+        !grantTrialXp("field-simulation-"+room,SIMULATION_REWARD_XP))return false;
+    }
+    const perimeter=readPerimeter(active.id);
+    for(const room of Object.keys(perimeter.completed)){
+      if(!grantTrialXp("perimeter-"+room,PERIMETER_XP))return false;
+    }
+    const vigils=readVigil(active.id);
+    for(const [room,outcome] of Object.entries(vigils.completed)){
+      if(outcome&&!grantTrialXp("vigil-"+room,outcome.xp))return false;
+    }
+    const shelters=readShelter(active.id);
+    for(const [room,outcome] of Object.entries(shelters.completed)){
+      if(outcome&&!grantTrialXp("shelter-"+room,outcome.xp))return false;
+    }
+    const nexus=readNexus(active.id);
+    for(const [room,outcome] of Object.entries(nexus.completed)){
+      if(outcome&&!grantTrialXp("nexus-"+room,outcome.xp))return false;
+    }
     const cisma=readCisma(active.id);
     for(const id of cisma.history){
       const step=CISMA_STEPS.find(s=>s.id===id);
@@ -419,21 +484,40 @@ export default function App() {
   };
 
   const buyAttribute=(id:StatId):string=>{
-    if(!character)return "Nenhum personagem ativo.";
-    const purchase=purchaseAttribute(character,id);
+    // Android users can tap multiple buttons before React commits the next
+    // render. Always purchase against the latest successfully saved snapshot,
+    // never a stale character captured by this render's event handler.
+    const active=characterRef.current;
+    if(!active)return "Nenhum personagem ativo.";
+    const purchase=purchaseAttribute(active,id);
     if(!purchase.ok)return purchase.message;
     if(!saveCharacter(purchase.character))return "Falha ao salvar o atributo.";
+    characterRef.current=purchase.character;
     setCharacter(purchase.character);
     setSlots(listCharacterSlots());
-    const hp=18+getOriginGameplay(character.originId).maxHpBonus+combatProgression(purchase.character).hp;
-    setHealthValue(loadHealth(character.id,hp));
+    const hp=18+getOriginGameplay(active.originId).maxHpBonus+
+      combatProgression(purchase.character).hp;
+    setHealthValue(loadHealth(active.id,hp));
     return purchase.message;
   };
+  const buyMulticlass=(id:ClassId):string=>{
+    const active=characterRef.current;
+    if(!active)return "Nenhum personagem ativo.";
+    const choice=purchaseMulticlass(active,id);
+    if(!choice.ok)return choice.message;
+    if(!saveCharacter(choice.character))return "Falha ao salvar a segunda classe. Seus pontos não foram usados.";
+    characterRef.current=choice.character;
+    setCharacter(choice.character);
+    setSlots(listCharacterSlots());
+    return choice.message;
+  };
   const buySkill=(id:string):string=>{
-    if(!character)return "Nenhum personagem ativo.";
-    const purchase=purchaseSkill(character,id);
+    const active=characterRef.current;
+    if(!active)return "Nenhum personagem ativo.";
+    const purchase=purchaseSkill(active,id);
     if(!purchase.ok)return purchase.message;
     if(!saveCharacter(purchase.character))return "Falha ao salvar a habilidade.";
+    characterRef.current=purchase.character;
     setCharacter(purchase.character);
     setSlots(listCharacterSlots());
     return purchase.message;
@@ -444,6 +528,22 @@ export default function App() {
     const enemyDefeated=state.units.find(u=>u.id==="drone")?.hp===0;
     const active=characterRef.current;
     if(!active)return;
+    if(enemyDefeated&&state.encounterId.startsWith("council-")){
+      const region=state.encounterId.slice("council-".length);
+      if(isCouncilId(region)){
+        const completed=finishCouncilDefense(readCouncils(active.id),region);
+        if(completed.ok){
+          if(saveCouncils(active.id,completed.state)){
+            if(!grantTrialXp("council-defense-"+region,completed.xp))
+              setSaveMessage("A defesa do conselho foi salva; a XP será reconciliada ao carregar.");
+            else setSaveMessage(COUNCIL_DEFENSES[region].title+" concluído · +"+
+              completed.xp+" XP.");
+            audioDirector.effect("victory");
+          }else setSaveMessage("Sem espaço para registrar a defesa. Libere armazenamento e retorne.");
+        }
+      }
+      return;
+    }
     if(enemyDefeated&&isOperationsCombat(state.encounterId)){
       const result=advanceOperationBattle(readOperations(active.id),state.encounterId);
       if(result.advanced&&result.stage){
@@ -749,6 +849,7 @@ export default function App() {
         onChooseClass={assignExistingClass}
         onPurchaseAttribute={buyAttribute}
         onPurchaseSkill={buySkill}
+        onPurchaseMulticlass={buyMulticlass}
         onQuestXp={grantTrialXp}
         onClaimFavor={claimNpcFavor}
         onBuyWithCredits={buyWorkshopItem}
@@ -797,12 +898,15 @@ export default function App() {
     <main className="app-shell game-shell arena-v030">
       <header className="topbar arena-head">
         <div className="mission">
-          <h1>{battleMode.startsWith("district-")?"Defesa do Distrito · Interceptação Helix":battleMode==="v09"?"Pátio do Reúso · Encontro V-09":
+          <h1>{battleMode.startsWith("council-")?"Defesa do Conselho · "+
+            COUNCIL_DEFENSES[battleMode.slice(8) as keyof typeof COUNCIL_DEFENSES]?.title:
+            battleMode.startsWith("district-")?"Defesa do Distrito · Interceptação Helix":battleMode==="v09"?"Pátio do Reúso · Encontro V-09":
             isTrialEncounter(battleMode)?"Operação Circuito Fantasma · Interceptação":
             "Limbo de Teste · Personagens e Habilidades"}</h1>
-          <p>{battleMode.startsWith("district-")?"OPERAÇÃO INTERDISTRITAL · "+state.wave+" / "+state.totalWaves+" ONDAS":battleMode==="v09"?"MISSÃO PRINCIPAL · O NOME QUE SUMIU":
+          <p>{battleMode.startsWith("council-")?"ACORDO COMUNITÁRIO · "+state.wave+" / "+state.totalWaves+" ONDAS":
+            battleMode.startsWith("district-")?"OPERAÇÃO INTERDISTRITAL · "+state.wave+" / "+state.totalWaves+" ONDAS":battleMode==="v09"?"MISSÃO PRINCIPAL · O NOME QUE SUMIU":
             isTrialEncounter(battleMode)?"CAMPANHA TÁTICA · "+state.wave+" / "+state.totalWaves+" ONDAS":
-            "Operativo de Campo // módulo experimental 0.3.0"}</p>
+            "LIMBO DE TESTE · MECÂNICAS TÁTICAS E ARQUÉTIPOS"}</p>
         </div>
         <button type="button" className="na-arena-exit-quick"
           data-combat-exit="true" onClick={exitBattle}
@@ -819,15 +923,24 @@ export default function App() {
       </header>
       <section className="arena-field" aria-label="Arena e visualização de personagens">
         <div className="arena-presentation">
-          <strong>{character.name} · {origin.name} · {character.classId?getClassById(character.classId).name:"Sem classe"}</strong>
+          <div className="na-hybrid-combat-identity">
+            <strong>{character.name} · {origin.name} · {character.classId?getClassById(character.classId).name:"Sem classe"}
+              {character.multiclassId?" + "+getClassById(character.multiclassId).name:""}</strong>
+            {getHybridArchetype(character.classId,character.multiclassId)&&
+             <small>ARQUÉTIPO · {getHybridArchetype(character.classId,character.multiclassId)?.name}
+               {" · "}{getHybridArchetype(character.classId,character.multiclassId)?.bonusText}</small>}
+          </div>
           <div className="arena-appearance-group" role="group" aria-label="Apresentação visual do Operativo de Campo">
             <button type="button" aria-pressed={appearance === "masculine"} onClick={() => chooseAppearance("masculine")}>Masculina</button>
             <button type="button" aria-pressed={appearance === "feminine"} onClick={() => chooseAppearance("feminine")}>Feminina</button>
           </div>
         </div>
         <section className="battle-panel" aria-label="Combate tático isométrico">
-          <div className="map-label"><span>{battleMode.startsWith("district-")?"AGENTES HELIX · ONDA "+state.wave+" / "+state.totalWaves: battleMode==="v09"?"UNIDADE HOSTIL · V-09":
-             isTrialEncounter(battleMode)?"ONDA "+state.wave+" DE "+state.totalWaves+" · 8 × 8":"SIMULAÇÃO 01 · 8 × 8"}</span><span>TERMINAL ÂMBAR: +3 EN (1 USO)</span></div>
+          <div className="map-label"><span>{battleMode.startsWith("council-")?"DEFESA DO CONSELHO · ONDA "+state.wave+" / "+state.totalWaves:
+             battleMode.startsWith("district-")?"AGENTES HELIX · ONDA "+state.wave+" / "+state.totalWaves: battleMode==="v09"?"UNIDADE HOSTIL · V-09":
+             isTrialEncounter(battleMode)?"ONDA "+state.wave+" DE "+state.totalWaves+" · 8 × 8":"SIMULAÇÃO 01 · 8 × 8"}</span><span>{manager.getArenaLayout()?"TERMINAL: "+
+              SIEGE_TERMINAL_NAMES[manager.getArenaLayout()!.site]+" (1 USO)":
+              "TERMINAL ÂMBAR: +3 EN (1 USO)"}</span></div>
           <SceneRecovery name="arena de combate"><Suspense fallback={<div className="battlefield-canvas" role="status">
             Preparando arena tática sem bloquear a exploração…
           </div>}>
@@ -838,6 +951,13 @@ export default function App() {
             <span>ALCANCE: {attackPreview.range} · {attackPreview.mode==="ranged"?"ARMA DE FOGO":"CORPO A CORPO"}</span>
             <span>COBERTURA DO ALVO: {attackPreview.cover==="partial"?"PARCIAL +2 DEF":
               attackPreview.cover==="full"?"TIRO BLOQUEADO":"SEM COBERTURA"}</span>
+            {attackPreview.available&&<span className="na-tactic-hit-chance">
+              CHANCE DE ACERTO: {attackPreview.hitChance}% · D20 (1 = FALHA, 20 = ACERTO)
+            </span>}
+            <span className="na-ai-awareness" data-awareness={state.enemyAwareness??"patrol"}>
+              PERCEPÇÃO HOSTIL: {(state.enemyAwareness??"patrol").toUpperCase()}
+              {" · "}{state.enemyPerception??"Nenhum contato confirmado"}
+            </span>
             <span>INTENÇÃO HOSTIL: {manager.getEnemyIntent()}</span>
             {manager.getDistrictSupportDescription()&&<span>APOIO REGIONAL: {manager.getDistrictSupportDescription()}</span>}
             {state.overwatchReady&&<span>VIGILÂNCIA PREPARADA · 2 EN INVESTIDOS</span>}
@@ -874,7 +994,8 @@ export default function App() {
             <b>ESCOLHER ›</b>
           </button>
           {state.combatComplete && <div className={`result-banner ${victory ? "victory" : "defeat"}`}>{victory ? (battleMode==="v09" ? "V-09 neutralizada · registros recuperados"
-              : battleMode.startsWith("district-")?"Segurança Helix neutralizada · provas protegidas"
+              : battleMode.startsWith("council-")?"Acordo distrital defendido · segurança restaurada"
+               : battleMode.startsWith("district-")?"Segurança Helix neutralizada · provas protegidas"
               : isTrialEncounter(battleMode)?"Interceptação vencida · campanha continua"
               :"Sentinela neutralizada") : "Operativo incapacitado"}</div>}
           <div className="economy">
@@ -892,7 +1013,7 @@ export default function App() {
             <button type="button" className="end-turn-button" disabled={state.activeSide!=="player"||state.combatComplete||!state.bonusActionAvailable||!supplyUseful||inventory.quantities[selectedSupply]<1} onClick={handleUseSupply}>Usar suprimento</button>
             <button type="button" className="end-turn-button" onClick={() => { buzz(); manager.endPlayerTurn(); }} disabled={state.activeSide !== "player" || state.combatComplete}>Encerrar turno</button>
             <button type="button" className="attack-button" onClick={() => { buzz(20); manager.attack(); }}
-              title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense}`:attackPreview.reason}
+              title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense} · ${attackPreview.hitChance}% de chance`:attackPreview.reason}
               disabled={!canAttack}>{attackPreview.mode==="ranged"?"Disparar":"Ataque corpo a corpo"}</button>
           </div>
           <div className="secondary-actions">

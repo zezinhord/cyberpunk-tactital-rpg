@@ -7,6 +7,8 @@ export interface PlayerCharacter {
   name: string;
   originId: OriginId;
   classId: ClassId | null;
+  /** Optional SECOND role (the primary class never changes). At most two total. */
+  multiclassId?: ClassId | null;
   /** Apenas pontos comprados; bônus permanentes são armazenados separadamente. */
   attributes: Readonly<Record<string, number>>;
   baseAttributes?: Readonly<Record<string, number>>;

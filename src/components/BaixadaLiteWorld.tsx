@@ -6,9 +6,13 @@ import {paintCityBackground,drawCityBuilding,drawCityProp,tileWorld,
   type PropKind,type Point} from "../game/baixada/lite-city-art";
 import {createLiteArtAssets,drawLiteSprite,LONG_NPC_SHEETS,type LiteArtAssets} from "../game/baixada/lite-art-assets";
 import {CitizenRoutine} from "../game/baixada/npc-routines.ts";
-import {canStand,route,approachRoute} from "../game/baixada/navigation";
-import {smoothCamera,interpolateWalk} from "../game/baixada/motion";
+import {citizenPhase,citizenTickDivider} from "../game/ai/citizen-schedule.ts";
+import {canStand,canTraverse,route,approachRoute,routeNearTarget} from "../game/baixada/navigation";
+import {smoothCamera,interpolateWalk,completedStepAt} from "../game/baixada/motion";
+import {canvasFrameDeadline} from "../game/baixada/frame-pacing";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
+import {readGraphicsMode} from "../game/performance";
+import {createCanvasPerformanceDiagnostics} from "../game/performance-diagnostics";
 import type {OriginId} from "../game/character";
 import type {TestAppearance} from "../game/test-arena/appearance";
 
@@ -17,6 +21,8 @@ interface Props{
  originId:OriginId;appearance:TestAppearance;characterId:string;
  onSectorChange?:(sector:SectorId)=>void;
  onNearbyAccess?:(actorId:string|null)=>void;
+ objectiveActorId?:string|null;
+ worldAlert?:boolean;
 }
 const ACTORS:ReadonlyArray<{id:string;tile:Tile;label:string;person:boolean}>= [
  {id:"vendedor",tile:ACTOR_TILES.vendedor,label:"NILO",person:true},
@@ -78,6 +84,20 @@ const ACTOR_SKIN:Readonly<Record<string,string>>={
  lia:"lia",ramon:"ramon",duda:"duda",iza:"iza",tomas:"tomas",
 };
 
+/** Immutable street colors allocated once per scene module.
+ * Recreating 5-element arrays per visible tile at 30/60 FPS put avoidable
+ * short-lived objects on the Galaxy A07/Redmi Android garbage collector.
+ */
+const TILE_PALETTES={
+ outside:["#2b3739","#303b3b","#34403f","#303d3d","#2d393b"],
+ commercialRoad:["#534c44","#554a41","#594f44","#53463d","#514941"],
+ commercialGround:["#6b6152","#6d6253","#665d4e","#716253","#686052"],
+ industrialRoad:["#393e40","#394044","#3f4242","#363e41","#414849"],
+ industrialGround:["#514d44","#555247","#4c4d48","#54504a","#524e46"],
+ localRoad:["#424846","#3d4747","#404b48","#424846","#3e4747"],
+ localGround:["#475046","#424c45","#4a4e43","#485046","#435048"],
+} as const;
+
 /** Detecta a silhueta da fachada para manter o marcador do herói visível.
  * Não muda o bloqueio real nem desenha o sprite por cima do prédio.
  */
@@ -96,13 +116,18 @@ function heroBuildingOverlap(p:{x:number;y:number},b:BuildingSpec):boolean{
  * sob demanda. A lógica de caminhada/colisão é a MESMA do Phaser.
  */
 export default function BaixadaLiteWorld({onInteract,originId,appearance,characterId,
-  onSectorChange,onNearbyAccess}:Props){
+  onSectorChange,onNearbyAccess,objectiveActorId,worldAlert}:Props){
  const hostRef=useRef<HTMLDivElement>(null);
  const canvasRef=useRef<HTMLCanvasElement>(null);
  const callbacks=useRef({onInteract,onSectorChange,onNearbyAccess});
  callbacks.current={onInteract,onSectorChange,onNearbyAccess};
  const presentation=useRef(appearance);
  presentation.current=appearance;
+ // A waypoint may change after a dialogue without remounting the world.
+ const waypoint=useRef(objectiveActorId);
+ waypoint.current=objectiveActorId;
+  const alertRef=useRef(Boolean(worldAlert));
+  alertRef.current=Boolean(worldAlert);
  const [status,setStatus]=useState<"loading"|"ready"|"failed">("loading");
  const [error,setError]=useState("");
  const [reboot,setReboot]=useState(0);
@@ -114,6 +139,10 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
   if(!host||!canvas)return;
   let disposed=false,context:CanvasRenderingContext2D|null=null;
   let frameId=0,painted=false,lastSave=0,lastRender=0,lastTick=0,suspendedAt=0;
+  const diagnostics=createCanvasPerformanceDiagnostics("Baixada · Android Canvas 2D");
+  // Respect the actual Android settings: economy remains 30 FPS by default;
+  // players with capable devices can opt into 60 FPS without initializing Phaser.
+  const frameTargetFps=readGraphicsMode()==="balanced"?60:30;
   let width=0,height=0;
   let motion:Motion={
    position:loadWorldLocation(characterId),steps:[],step:null,pendingActor:null,
@@ -155,15 +184,20 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     ...ACTORS.map(actor=>({kind:"actor" as const,actor,
       pos:tileWorld(actor.tile),depth:tileWorld(actor.tile).y+.2})),
   ].sort((a,b)=>a.depth-b.depth);
+  let lastSector:SectorId|null=null;
+  let lastNearby:string|null|undefined=undefined;
   const notify=(tile:Tile,settled:boolean)=>{
    const now=Date.now();
    if(settled||now-lastSave>=1200){
     saveWorldLocation(characterId,tile);
     lastSave=now;
    }
-   callbacks.current.onSectorChange?.(sectorAt(tile));
-   const near=ACCESS.find(id=>distance(tile,ACTOR_TILES[id])<=2);
-   callbacks.current.onNearbyAccess?.(near??null);
+   // Dispatch only actual changes: 6-7 tile steps per second used to
+   // trigger needless full ExplorationScreen React updates on low-end phones.
+   const sector=sectorAt(tile);
+   if(sector!==lastSector){lastSector=sector;callbacks.current.onSectorChange?.(sector);}
+   const near=ACCESS.find(id=>distance(tile,ACTOR_TILES[id])<=2)??null;
+   if(near!==lastNearby){lastNearby=near;callbacks.current.onNearbyAccess?.(near);}
   };
   const paint=()=>{
    if(!context||disposed)return;
@@ -198,16 +232,10 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
      const commercial=isCommercialSector({x,y});
      const road=!outside&&isStreet({x,y});
      const shade=((x*7+y*11)%5+5)%5;
-     const palette=outside
-       ? ["#2b3739","#303b3b","#34403f","#303d3d","#2d393b"]
-       : commercial
-       ? road?["#534c44","#554a41","#594f44","#53463d","#514941"]:
-         ["#6b6152","#6d6253","#665d4e","#716253","#686052"]
-       : industrial
-       ? road?["#393e40","#394044","#3f4242","#363e41","#414849"]:
-         ["#514d44","#555247","#4c4d48","#54504a","#524e46"]
-       : road?["#424846","#3d4747","#404b48","#424846","#3e4747"]:
-         ["#475046","#424c45","#4a4e43","#485046","#435048"];
+     const palette=outside?TILE_PALETTES.outside:
+       commercial?(road?TILE_PALETTES.commercialRoad:TILE_PALETTES.commercialGround):
+       industrial?(road?TILE_PALETTES.industrialRoad:TILE_PALETTES.industrialGround):
+       road?TILE_PALETTES.localRoad:TILE_PALETTES.localGround;
      diamond(ctx,p,view.zoom,palette[shade]??"#424846",
        outside?"rgba(93,119,119,.1)":"rgba(108,130,121,.19)");
      if(outside){
@@ -258,9 +286,11 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
    // Renderização Canvas 2D da mesma arquitetura, sprites e props Phaser.
    // A câmera e a projeção compartilham a geometria do mapa original;
    // não há textura única gigantesca nem carregamento de sprites ociosos.
-   const visible=layers.map(layer=>layer.kind==="actor"&&residents.has(layer.actor.id)?
-      {...layer,pos:actorWorld(layer.actor.id),depth:actorWorld(layer.actor.id).y+.2}:layer)
-     .sort((a,b)=>a.depth-b.depth).filter(layer=>{
+   const visible=layers.map(layer=>{
+     if(layer.kind!=="actor"||!residents.has(layer.actor.id))return layer;
+     const pos=actorWorld(layer.actor.id);
+     return {...layer,pos,depth:pos.y+.2};
+   }).sort((a,b)=>a.depth-b.depth).filter(layer=>{
      const p=project(view,layer.pos);
      return p.x>=-205&&p.x<=width+205&&p.y>=-245&&p.y<=height+215;
    });
@@ -457,21 +487,65 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     ctx.lineTo(renderPosition.x+5,renderPosition.y-55);ctx.stroke();
    }
    ctx.restore();
+   // Low-cost, static mission waypoint. Amber denotes an objective/interaction;
+   // magenta remains hostile-only, green remains exclusive to Éden.
+   // Offscreen goals become edge arrows, not misleading dotted walk routes.
+   const goalId=waypoint.current;
+   if(goalId&&actorById.has(goalId)){
+    const target=project(view,actorWorld(goalId));
+    const goalX=target.x,goalY=target.y-68*view.zoom;
+    const markerX=Math.max(27,Math.min(width-27,goalX));
+    const markerY=Math.max(27,Math.min(height-27,goalY));
+    const offscreen=Math.abs(goalX-markerX)>1||Math.abs(goalY-markerY)>1;
+    ctx.save();ctx.translate(markerX,markerY);
+    ctx.fillStyle="rgba(15,28,35,.93)";
+    ctx.strokeStyle="#f2c982";ctx.lineWidth=2.2;
+    ctx.beginPath();ctx.arc(0,0,13,0,Math.PI*2);ctx.fill();ctx.stroke();
+    ctx.fillStyle="#f2c982";ctx.beginPath();
+    if(offscreen){
+     ctx.rotate(Math.atan2(goalY-markerY,goalX-markerX));
+     ctx.moveTo(7,0);ctx.lineTo(-4,-6);ctx.lineTo(-4,6);
+    }else{
+     ctx.moveTo(0,-8);ctx.lineTo(7,0);ctx.lineTo(0,8);ctx.lineTo(-7,0);
+    }
+    ctx.closePath();ctx.fill();ctx.restore();
+   }
    if(!painted){painted=true;setStatus("ready");setError("");}
   };
   const schedule=()=>{
    if(disposed||frameId||document.hidden)return;
    frameId=requestAnimationFrame((now)=>{frameId=0;tick(now);});
   };
+  const occupiedResidents=()=>new Set(
+    [...residents.values()].map(n=>n.tile.x+","+n.tile.y));
   const startStep=(now:number)=>{
-    const next=motion.steps.shift();
+    let next=motion.steps.shift();
+    // Roaming citizens may have entered the route since the last frame.
+    // Recheck every new tile and replan once, never walking through an NPC.
+    const occupied=occupiedResidents();
+    if(next&&!canTraverse(motion.position,next,{occupied})){
+      const actor=motion.pendingActor;
+      const destination=actor?actorTile(actor):motion.steps.at(-1)??next;
+      const options={occupied};
+      const alternative=actor?approachRoute(motion.position,destination,options):
+        canStand(destination,options)?route(motion.position,destination,options):
+        routeNearTarget(motion.position,destination,options);
+      motion.steps=alternative?.slice(1)??[];
+      next=motion.steps.shift();
+    }
     if(!next){
       motion.step=null;marker=null;
       notify(motion.position,true);
       const actor=motion.pendingActor;
       motion.pendingActor=null;
-      if(actor&&distance(motion.position,actorTile(actor))<=1)
+      if(actor&&distance(motion.position,actorTile(actor))<=1){
+        const resident=residents.get(actor);
+        if(resident){
+          resident.routine.interact();
+          resident.lockUntil=performance.now()+3300;
+        }
         callbacks.current.onInteract(actor);
+      }
       return;
     }
     const dx=next.x-motion.position.x,dy=next.y-motion.position.y;
@@ -483,18 +557,28 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     if(disposed)return;
     const deltaMs=lastTick?Math.max(0,Math.min(64,now-lastTick)):16.67;
     lastTick=now;
-    if(motion.step){
+    // Use the actual tile completion timestamp, not the next frame time.
+    // Otherwise each 30 FPS frame adds a pause between adjacent tiles.
+    // The four-step cap prevents runaway catch-up after a WebView stall.
+    let completed=0;
+    while(motion.step&&completed<4){
       const step=motion.step;
-      const portion=Math.max(0,Math.min(1,(now-step.start)/step.duration));
-      const a=center(step.from),b=center(step.to);
-      renderPosition=interpolateWalk(a,b,now-step.start,step.duration);
-      if(portion>=1){
-        motion.position=step.to;
-        renderPosition=center(motion.position);
-        motion.step=null;
-        notify(motion.position,false);
-        startStep(now);
-      }
+      const endedAt=completedStepAt(step.start,step.duration,now);
+      if(endedAt===null)break;
+      motion.position=step.to;
+      motion.step=null;
+      notify(motion.position,false);
+      startStep(endedAt);
+      completed+=1;
+    }
+    if(motion.step){
+      if(completed===4&&now>=motion.step.start+motion.step.duration)
+        motion.step.start=now;
+      const step=motion.step;
+      renderPosition=interpolateWalk(center(step.from),center(step.to),
+        now-step.start,step.duration);
+    }else{
+      renderPosition=center(motion.position);
     }
     cameraPosition=smoothCamera(cameraPosition,renderPosition,deltaMs);
     const cameraMoving=Math.abs(cameraPosition.x-renderPosition.x)>0.35||
@@ -503,25 +587,40 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     // contínua e renderizamos até 30 FPS, sem GPU nem bitmaps full-world.
     // Ao terminar a caminhada pintamos sempre a posição final, mesmo que
     // o próximo frame ocorra antes de 33 ms.
-    if(now-lastRender>=33||!painted||(!motion.step&&!cameraMoving)){
-     lastRender=now;
-     try{paint();}catch(e){
+    const residentAnimating=[...residents.values()].some(n=>now-n.movedAt<640);
+    const pacing=canvasFrameDeadline(now,lastRender,frameTargetFps);
+    // A static appearance change still needs an immediate frame. Roaming
+    // NPC animations remain capped by the selected 30/60 FPS graphics mode.
+    const finalIdleFrame=!motion.step&&!cameraMoving&&!residentAnimating;
+    if(pacing.due||!painted||finalIdleFrame){
+     lastRender=pacing.due?pacing.nextAt:now;
+     try{
+      paint();
+      // Track presented Canvas frames, not RAF ticks. Idle frames are omitted.
+      diagnostics.frame(now,motion.step!==null||cameraMoving);
+     }catch(e){
       setStatus("failed");setError("O desenho leve encontrou um erro: "+String(e).slice(0,95));
       return;
      }
     }
-    if(motion.step||cameraMoving||[...residents.values()].some(n=>now-n.movedAt<640))schedule();
+    if(motion.step||cameraMoving||residentAnimating)schedule();
   };
   const go=(destination:Tile,actor?:string)=>{
     const start=motion.step?.to??motion.position;
     const target=actor?actorTile(actor):null;
     const resident=actor?residents.get(actor):undefined;
-    if(resident)resident.lockUntil=performance.now()+Math.max(4000,motion.steps.length*190+2800);
-    const path=target?approachRoute(start,target):route(start,destination);
+    const options={occupied:occupiedResidents()};
+    const path=target?approachRoute(start,target,options):
+      canStand(destination,options)?route(start,destination,options):
+      routeNearTarget(start,destination,options);
     if(!path)return;
+    // Keep the interaction target in place until the player actually arrives;
+    // use this route's length rather than the previous command's steps.
+    if(resident)resident.lockUntil=performance.now()+
+      Math.max(4000,(path.length-1)*195+2800);
     motion.steps=path.slice(1);
     motion.pendingActor=actor??null;
-    marker=target??destination;
+    marker=target??path.at(-1)??destination;
     if(!motion.step)startStep(performance.now());
     schedule();
   };
@@ -548,10 +647,10 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     event.preventDefault();
     const bounds=canvas.getBoundingClientRect();
     const point={x:event.clientX-bounds.left,y:event.clientY-bounds.top};
-    // Hit testing MUST use the camera that rendered the last frame.
-    // The smoothed camera lags behind the avatar while walking; using
-    // renderPosition targets a different tile from the one the player taps.
-    const v=getView(width,height,cameraPosition);
+    // Use exactly the camera of the last PAINTED frame, not the camera
+    // updated by an intermediate 30 FPS tick. Otherwise taps miss tiles
+    // on low-end Android when rendering skips a requestAnimationFrame.
+    const v=view;
     const nearest=ACTORS.map(a=>({a,p:project(v,actorWorld(a.id))}))
       .filter(({p})=>Math.abs(point.x-p.x)<36&&point.y>p.y-76&&point.y<p.y+18)
       .sort((a,b)=>Math.abs(a.p.x-point.x)+Math.abs(a.p.y-28-point.y)-
@@ -562,7 +661,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     const rx=(realX-ORIGIN_X)/(TILE_W/2);
     const ry=(realY-ORIGIN_Y)/(TILE_H/2);
     const target={x:Math.round((rx+ry)/2),y:Math.round((ry-rx)/2)};
-    if(canStand(target))go(target);
+    go(target); // Obstacles are approached without crossing collisions.
   };
   const keydown=(event:KeyboardEvent)=>{
     const dirs:Record<string,Tile>={
@@ -581,6 +680,7 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
   let residentTimer:number|null=null;
   const visibility=()=>{
     if(document.hidden){
+      diagnostics.frame(performance.now(),false);
       suspendedAt=performance.now();
       if(frameId)cancelAnimationFrame(frameId);
       frameId=0;
@@ -607,15 +707,24 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
       observer=new ResizeObserver(sizing);observer.observe(host);
     }else window.addEventListener("resize",sizing);
     scene.current={go,frame:schedule};
+    let residentTick=0;
     residentTimer=window.setInterval(()=>{
       if(disposed||document.hidden)return;
       const occupied=new Set([...residents.values()].map(r=>r.tile.x+","+r.tile.y));
       occupied.add(motion.position.x+","+motion.position.y);
+      // A person may not step into the avatar's next reserved tile mid-step.
+      if(motion.step)occupied.add(motion.step.to.x+","+motion.step.to.y);
       let moved=false;
+      residentTick++;
+      const phase=citizenPhase(new Date().getHours());
       for(const npc of residents.values()){
         if(performance.now()<npc.lockUntil)continue;
+        const proximity=distance(npc.tile,motion.position);
+        if(residentTick%citizenTickDivider(proximity)!==0)continue;
         occupied.delete(npc.tile.x+","+npc.tile.y);
-        const result=npc.routine.tick(npc.tile,occupied);
+        const result=npc.routine.tick(npc.tile,occupied,{
+          phase,alarmed:alertRef.current&&proximity<=5,
+        });
         if(result.moved){
           npc.from=npc.tile;npc.tile=result.tile;
           npc.movedAt=performance.now();moved=true;
@@ -649,11 +758,12 @@ export default function BaixadaLiteWorld({onInteract,originId,appearance,charact
     document.removeEventListener("visibilitychange",visibility);
     scene.current=null;
     art?.dispose();
+    diagnostics.dispose();
     // Preservar o último tile confirmado mesmo após fechamento inesperado.
     notify(motion.position,true);
   };
  },[characterId,originId,reboot]);
- useEffect(()=>{scene.current?.frame();},[appearance]);
+ useEffect(()=>{scene.current?.frame();},[appearance,objectiveActorId]);
  const restart=()=>{setStatus("loading");setError("");setReboot(n=>n+1);};
  return <div className="baixada-world na-world-host" ref={hostRef}
    data-renderer="canvas" data-engine="native-2d"

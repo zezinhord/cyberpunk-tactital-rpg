@@ -6,13 +6,15 @@ import BaixadaWorld from "../components/BaixadaWorld";
 // Carrega Phaser apenas quando o protagonista entra num interior/distrito.
  // A Baixada Android funciona com Canvas 2D sem o peso do motor Phaser.
  const InteriorWorld=lazy(()=>import("../components/InteriorWorld"));
+ const DossierGallery=lazy(()=>import("../components/DossierGallery"));
 import SceneRecovery from "../components/SceneRecovery";
 import { getOriginById, getOriginGameplay } from "../game/character";
 import CharacterMenu from "../components/CharacterMenu";
 import {ITEM_CATALOG,type InventoryState,type ItemId} from "../game/inventory";
 import type {CyberwareId} from "../game/cyberware.ts";
-import {readParty,saveParty,recruitCompanion,toggleCompanion,
+import {readParty,saveParty,recruitCompanion,toggleCompanion,setPartyPosture,
   type CompanionId} from "../game/companions.ts";
+import type {PartyPosture} from "../game/ai/companion-brain.ts";
 import {readStealth,saveStealth,planStealth,
  type StealthMode} from "../game/stealth.ts";
 import type {RecipeId} from "../game/crafting";
@@ -42,10 +44,16 @@ import {statRank,type StatId} from "../game/progression/tree";
 import {TRIAL_STEPS,readTrial,saveTrial,startTrial,
  currentTrialStep,trialCombatForActor,advanceTrial,reconcileTrial} from "../game/story/field-test";
 import { isPatioCitizen, getPatioConversation, type ConversationOption } from "../game/dialogues/patio";
+import {readWorldMemory,saveWorldMemory,recordNpcMemory,npcRemembers,
+  type MemoryKind} from "../game/ai/world-memory.ts";
+import {contextualPatioConversation} from "../game/ai/contextual-dialogue.ts";
+import {observeEden} from "../game/ai/eden-observer.ts";
+import {districtReaction} from "../game/ai/faction-reactivity.ts";
 import { readV09,markV09Reported } from "../game/story/v09";
 import { MARKET_CLUE_TEXT,applyMarketAction,getMarketConversation,isMarketActor,readMarket,saveMarket } from "../game/story/market";
 import { getSectorById,sectorAt,type SectorId } from "../game/baixada/layout";
 import {loadWorldLocation,saveWorldLocation} from "../game/baixada/location";
+import {firstMissionWaypoint} from "../game/baixada/mission-waypoint";
 import {loadWorldArea,saveWorldArea} from "../game/baixada/world-area";
 import {readSewer,saveSewer,sewerNextObjective,sewerStatus,applySewerEvent,
  hasSewerEvidence,type SewerEvent} from "../game/story/sewer-v09";
@@ -55,8 +63,24 @@ import {readFerrugem,saveFerrugem,startFerrugem,advanceFerrugem,
 import {DISTRICTS,isDistrictId,getDistrict,actorFromId,type DistrictId} from "../game/districts/catalog";
 import {isInnerId,isInnerInteract,INNER_BLUEPRINTS,INNER_IDS,type InnerId} from "../game/districts/interiors.ts";
 import {innerReceipt} from "../game/story/indoor-rewards.ts";
+
+import {readPerimeter} from "../game/story/perimeter-routes.ts";
+import {readVigil} from "../game/story/vigil-escorts.ts";
+import {readShelter} from "../game/story/shelter-network.ts";
+import {readNexus} from "../game/story/nexus-eden.ts";
 import {INNER_CONTRACTS,isContractId,readContracts,saveContracts,startContract,
- completeContract,contractObjective} from "../game/story/inner-contracts.ts";
+ completeContract,contractObjective,solveForensicCase} from "../game/story/inner-contracts.ts";
+import {FORENSIC_CASES} from "../game/story/forensic-cases.ts";
+import {DISTRICT_COUNCILS,COUNCIL_DEFENSES,isCouncilId,isCouncilMethod,
+  councilDefenseAvailable,
+ councilUnlocked,councilObjective,councilImpact,districtOfRoom,
+ readCouncils,saveCouncils,resolveCouncil,
+ type CouncilId} from "../game/story/district-councils.ts";
+import type {ExpansionInnerId} from "../game/districts/expansion-interiors.ts";
+import {calibrationPuzzle,correctCalibration} from "../game/story/recovery-calibrations.ts";
+import {RECOVERY_LINES,RECOVERY_METHODS,isRecoveryMethod,
+ readRecovery,saveRecovery,repairRecoveryEquipment,resolveRecovery,
+ recoveryObjective} from "../game/story/recovery-network.ts";
 import {readDistrictProgress,saveDistrictProgress,beginDistrict,
  districtCurrentStep,districtObjective,advanceDistrict,type ChapterProgress,
  type DistrictEnding} from "../game/districts/progress";
@@ -75,6 +99,7 @@ interface Props {
   onChooseClass: (classId: ClassId) => void;
   onPurchaseAttribute:(id:StatId)=>string;
   onPurchaseSkill:(id:string)=>string;
+  onPurchaseMulticlass:(id:ClassId)=>string;
   onQuestXp:(eventId:string,amount:number)=>boolean;
   onClaimFavor:(id:FavorId)=>{ok:boolean;message:string};
   onBuyWithCredits:(item:ItemId)=>{ok:boolean;message:string};
@@ -153,6 +178,7 @@ export default function ExplorationScreen({
   onChooseClass,
   onPurchaseAttribute,
   onPurchaseSkill,
+  onPurchaseMulticlass,
   onQuestXp,
   onClaimFavor,
   onBuyWithCredits,
@@ -191,6 +217,7 @@ export default function ExplorationScreen({
   const [ferrugemDecisionPending,setFerrugemDecisionPending] = useState(false);
   const [transitOpen,setTransitOpen]=useState(false);
   const [interiorPicker,setInteriorPicker]=useState<"baixada"|"ferrugem"|DistrictId|null>(null);
+const [dossierOpen,setDossierOpen]=useState(false);
   const [cityDecision,setCityDecision]=useState<DistrictId|null>(null);
   const [cityNotice,setCityNotice]=useState("");
   const [cityChapters,setCityChapters]=useState<Record<DistrictId,ChapterProgress>>(()=>({
@@ -201,6 +228,7 @@ export default function ExplorationScreen({
     periferia:readDistrictProgress(character.id,"periferia"),
   }));
   const [dialogue, setDialogue] = useState<DialogueState | null>(null);
+  const [conversationActor,setConversationActor]=useState<string|null>(null);
   const [hubTab,setHubTab]=useState<"mission"|"favors"|"city">("mission");
   const [urban,setUrban]=useState(()=>readUrban(character.id));
   const [urbanNotice,setUrbanNotice]=useState("");
@@ -208,7 +236,8 @@ export default function ExplorationScreen({
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuStartSection,setMenuStartSection]=useState<"character"|"progression"|"journal">("character");
   const [dismissedLevelNotice,setDismissedLevelNotice]=useState("");
-  const showLevelNotice=progressNotice.startsWith("SUBIU DE NÍVEL!")&&
+  const showLevelNotice=(progressNotice.startsWith("SUBIU DE NÍVEL!")||
+    progressNotice.startsWith("MAESTRIA AVANÇOU!"))&&
     dismissedLevelNotice!==progressNotice;
   const [market,setMarket]=useState(()=>readMarket(character.id));
   const [favors,setFavors]=useState(()=>readFavors(character.id));
@@ -219,6 +248,8 @@ export default function ExplorationScreen({
   const [party,setParty]=useState(()=>readParty(character.id));
   const [stealth,setStealth]=useState(()=>readStealth(character.id));
   const [contracts,setContracts]=useState(()=>readContracts(character.id));
+  const [councils,setCouncils]=useState(()=>readCouncils(character.id));
+  const [recovery,setRecovery]=useState(()=>readRecovery(character.id));
   const [partyNotice,setPartyNotice]=useState("");
   const [operations,setOperations]=useState(()=>readOperations(character.id));
   const [epilogueOpen,setEpilogueOpen]=useState(false);
@@ -236,6 +267,21 @@ export default function ExplorationScreen({
   useEffect(()=>{saveMarket(character.id,market);},[character.id,market]);
 
   const say = (pages: DialoguePage[]) => setDialogue({ pages, index: 0 });
+  const openForensicQuestion=(id:ExpansionInnerId,prefix=""):void=>{
+    const c=FORENSIC_CASES[id];
+    say([{speaker:INNER_CONTRACTS[id].guide,role:"PARECER FORENSE · TRÊS PROVAS",
+      portrait:"▤",text:prefix+c.question,
+      choices:c.options.map((label,i)=>({id:"forensic:"+id+":"+i,
+        label,reply:"Analisar evidências."}))}]);
+  };
+  const openCouncilQuestion=(region:CouncilId,prefix=""):void=>{
+    const council=DISTRICT_COUNCILS[region];
+    say([{speaker:council.guide,role:"CONSELHO DISTRITAL · QUATRO PERÍCIAS",
+      portrait:"◆",text:prefix+council.question,
+      choices:council.choices.map(option=>({
+        id:"council:"+region+":"+option.id,label:option.label,
+        reply:"Registrar a decisão pública."}))}]);
+  };
   // O tratamento é uma ação médica do cenário, não uma recompensa de missão.
   // A mesma ação atende o botão visível da clínica e a conversa com Amara.
   const performClinicTreatment=():void=>{
@@ -259,10 +305,19 @@ export default function ExplorationScreen({
         ...favorChoicesFor("dra-amara")]}:page));
   };
   const v09=readV09(character.id);
-  const reputation=calculateReputation({favors,market,ferrugem,eden,cisma,operations,chapters:cityChapters,urban});
+  const reputation=calculateReputation({favors,market,ferrugem,eden,cisma,operations,chapters:cityChapters,urban,councils,recovery});
+  const edenSignal=observeEden(eden,reputation);
+  const rememberNpc=(actor:string,kind:MemoryKind,source:string,summary:string)=>{
+    const current=readWorldMemory(character.id);
+    const next=recordNpcMemory(current,actor,kind,"baixada",source,summary);
+    // Memory is presentation-only. Failed storage never changes gameplay
+    // receipts, inventory, quest progress or a saved dialogue decision.
+    if(next.changed)saveWorldMemory(character.id,next.state);
+  };
   const cityArea:RadioDistrict=isInnerId(interior)?
     INNER_BLUEPRINTS[interior].parent??"baixada":
     isDistrictId(interior)?interior:interior==="ferrugem"?"ferrugem":"baixada";
+  const localReaction=districtReaction(cityArea,reputation);
   const urbanCase=currentUrbanCase(urban,cityArea,v09.defeated);
   const epilogue=createEdenEpilogue(eden,{
     name:character.name,origin:origin.name,
@@ -276,14 +331,16 @@ export default function ExplorationScreen({
     interior===null||interior==="baixada-community"?["joana"]:[];
   const canOperateCyberware=interior==="clinic"||interior==="workshop";
   const operationsImpact=operationsAreaStatus(operations,cityArea);
+  const councilLocalImpact=isCouncilId(cityArea)?councilImpact(councils,cityArea):null;
   useEffect(()=>{
     const post=eden.completed?endingDistrictImpact(eden.ending,cityArea):null;
     const cismaLocal=cismaDistrictImpact(cisma,cityArea);
     const operationLocal=operationsAreaStatus(operations,cityArea);
+    const councilPressure=isCouncilId(cityArea)?councilImpact(councils,cityArea)?.pressure??0:0;
     const pressure=urbanPressure(urban,cityArea)+Math.floor(market.heat/3)+
-      (post?.pressure??0)+(cismaLocal?.pressure??0)+(operationLocal?.pressure??0);
+      (post?.pressure??0)+(cismaLocal?.pressure??0)+(operationLocal?.pressure??0)+councilPressure;
     audioDirector.setUrbanPressure(Math.max(0,Math.min(3,pressure)));
-  },[urban,cityArea,market.heat,eden.completed,eden.ending,cisma.completed,cisma.ending,operations.completed,operations.ending]);
+  },[urban,cityArea,market.heat,eden.completed,eden.ending,cisma.completed,cisma.ending,operations.completed,operations.ending,councils]);
   useEffect(()=>{
     if(!epilogueOpen)return;
     const close=(event:KeyboardEvent)=>{
@@ -361,6 +418,15 @@ export default function ExplorationScreen({
     : !hasSewerEvidence(sewer) ? sewerNextObjective(sewer)
     : mission.clues.includes("patio") ? "Confronte a unidade de vigilância V-09 junto ao console do Pátio."
     : "Explore o Pátio do Reúso, converse com seus moradores e consulte o console V-09.";
+  // Compact wayfinding for the original V-09 investigation only. Future
+  // quest contacts remain undisclosed until their campaigns are unlocked.
+  const currentWaypoint=!trial.started&&!eden.started&&!cisma.started&&
+    !operations.started&&!ferrugem.started?
+    firstMissionWaypoint({
+      step:mission.step,hasSewerEvidence:hasSewerEvidence(sewer),
+      patioConsoleRead:mission.clues.includes("patio"),
+      sentinelDefeated:v09.defeated,evidenceReported:v09.reported,
+    }):null;
   const addClue = (id: string) => {
     setMission((current) =>
       current.clues.includes(id)
@@ -532,8 +598,36 @@ export default function ExplorationScreen({
             onQuestXp("inner-contract-"+interior,finished.xp);
             setCityNotice(contract.title+" concluído · +"+finished.xp+" XP.");
             audioDirector.effect("archive");
-            say([{speaker:contract.guide,role:"CONTRATO CONCLUÍDO · DOSSIÊ",
-              portrait:"◆",text:finished.message}]);
+            openForensicQuestion(interior,finished.message+"\n\n"+
+              "A entrega está registrada. Parecer adicional (XP único):\n");
+          }else if(contracts.completed.includes(interior)&&
+            !(contracts.analysed??[]).includes(interior)){
+            openForensicQuestion(interior,"Dossiê entregue. Falta interpretar as três evidências.\n\n");
+          }else if(councilUnlocked(districtOfRoom(interior),contracts)&&
+            !councils.choices[districtOfRoom(interior)]){
+            openCouncilQuestion(districtOfRoom(interior),
+              "As quatro perícias independentes estão reunidas. O bairro exige uma deliberação.\n\n");
+          }else if(councils.choices[districtOfRoom(interior)]){
+            const region=districtOfRoom(interior);
+            const regional=councilImpact(councils,region);
+            const pending=councilDefenseAvailable(councils,region);
+            const repairs=recovery.repairs[region]??[];
+            const needsPolicy=!pending&&repairs.length===3&&!recovery.outcomes[region];
+            const choices:readonly ConversationOption[]=pending?
+              [{id:"council-defense:"+region,
+                label:"Defender o acordo · "+COUNCIL_DEFENSES[region].waves+" ondas táticas",
+                reply:"Proteger o conselho e seus recursos."}]:
+              needsPolicy?RECOVERY_METHODS.map(method=>({
+                id:"recovery:"+region+":"+method,
+                label:RECOVERY_LINES[region].finalOptions[method].label,
+                reply:RECOVERY_LINES[region].finalOptions[method].outcome,
+              })):[];
+            say([{speaker:contract.guide,role:"DEPOIS DA AUDIÊNCIA · "+blueprint.title,
+              portrait:"◆",text:(regional?.outcome??finished.message)+
+              (pending?"\n\nUma força hostil pretende reverter o acordo. "+
+                COUNCIL_DEFENSES[region].briefing:
+                "\n\n"+recoveryObjective(recovery,councils,region)),
+              choices}]);
           }else say([{speaker:contract.guide,role:"CONTRATO · EM INVESTIGAÇÃO",
             portrait:"◆",text:finished.message}]);
           return;
@@ -543,7 +637,8 @@ export default function ExplorationScreen({
         say([{speaker:blueprint.guide,role:"CONTATO LOCAL · "+blueprint.title,portrait:"◆",
           text:blueprint.guideWords+(reputation.factions[favor]>=2
             ?" Sua ajuda anterior foi reconhecida pela rede local."
-            :" A confiança é conquistada pelas decisões que realmente ajudam o bairro.")}]);
+            :" A confiança é conquistada pelas decisões que realmente ajudam o bairro.")+
+            " "+localReaction.reason}]);
         return;
       }
       const found=isInnerInteract(id);
@@ -553,9 +648,23 @@ export default function ExplorationScreen({
           audioDirector.effect(found.prop.kind==="machine"?"machine":"archive");
           onQuestXp(innerReceipt(found.area,found.prop),found.prop.xp);
         }
+        const repair=found.prop.kind==="machine"&&isContractId(found.area)?
+          repairRecoveryEquipment(recovery,councils,found.area,found.prop.id):null;
+        const puzzle=isContractId(found.area)?calibrationPuzzle(found.area):null;
+        if(repair?.ok&&puzzle){
+          say([{speaker:blueprint.title,role:"OPERAÇÃO RETOMADA · CALIBRAÇÃO",
+            portrait:"⚙",text:"EQUIPAMENTO: "+found.prop.title+"\n\n"+
+            puzzle.prompt+"\n\nConsulte os três vestígios originais para escolher a intervenção segura.",
+            choices:puzzle.options.map((option,index)=>({
+              id:"calibrate:"+found.area+":"+index,label:option,
+              reply:option,
+            }))}]);
+          return;
+        }
         say([{speaker:blueprint.title,role:"DESCOBERTA · "+found.prop.title,portrait:"▤",
           text:claimed?found.prop.detail+" +"+found.prop.xp+" XP; "+found.prop.item.replaceAll("_"," ")+" recolhido."
-           :"Este recurso já foi coletado ou o inventário não pôde ser salvo."}]);
+           :repair&&!repair.ok?repair.message:
+            "Este recurso já foi coletado ou o inventário não pôde ser salvo."}]);
         return;
       }
     }
@@ -884,17 +993,25 @@ export default function ExplorationScreen({
       const collected=onCollectDistrictCache("baixada");
       if(collected){audioDirector.effect("archive");onQuestXp("discovery-baixada",discovery.xp);}
       say([{speaker:"ARQUIVO DE MEMÓRIAS",role:"REDE AUTÔNOMA · HISTÓRIAS DA BAIXADA",
-        portrait:"▤",text:collected?
+        portrait:"▤",text:(collected?
           discovery.story+" +"+discovery.xp+" XP e arquivo recuperado.":
-          "Os registros já foram recolhidos ou não foi possível gravar o inventário."}]);
+          "Os registros já foram recolhidos ou não foi possível gravar o inventário.")+
+          (edenSignal?"\n\n"+edenSignal.title+": "+edenSignal.transmission:"")}]);
       return;
     }
     if(isMarketActor(id)){
+      const remembered=readWorldMemory(character.id);
       const node=getMarketConversation(id,character.classId,market,v09.reported,character.originId,reputation);
+      setConversationActor(id);
       say([{speaker:node.speaker,role:node.role,portrait:node.portrait,
-        text:node.text+(id==="feira-corretor"&&favors.honor>=2?
+        text:node.text+
+          (npcRemembers(remembered,id,"help")?
+            " Sua colaboração anterior continua registrada por nossos contatos.":
+           npcRemembers(remembered,id,"met")?" Reconheço você da última visita.":"")+
+          (id==="feira-corretor"&&favors.honor>=2?
           " Sua reputação de ajuda aos moradores já chegou ao Mercado.":""),
         choices:[...node.choices,...favorChoicesFor(id)]}]);
+      rememberNpc(id,"met","first-contact","Conversa iniciada no Mercado dos Cabos");
       return;
     }
     if(isPatioCitizen(id)){
@@ -904,8 +1021,13 @@ export default function ExplorationScreen({
           text:"Os registros estavam com a unidade. Agora podemos provar que a autorização não veio da cooperativa. O pessoal do Pátio vai manter uma cópia fora da rede oficial. Você nos deu tempo para agir."}]);
         return;
       }
-      const node=getPatioConversation(id,character.originId,v09.defeated);
-      say([{speaker:node.speaker,role:node.role,portrait:node.portrait,text:node.text,choices:[...node.choices,...favorChoicesFor(id)]}]);
+      const node=contextualPatioConversation(id,
+        getPatioConversation(id,character.originId,v09.defeated),
+        {character,reputation,memory:readWorldMemory(character.id)});
+      setConversationActor(id);
+      say([{speaker:node.speaker,role:node.role,portrait:node.portrait,
+        text:node.text,choices:[...node.choices,...favorChoicesFor(id)]}]);
+      rememberNpc(id,"met","first-contact","Conversa registrada com morador do Pátio");
       return;
     }
     if(id==="patio-console"){
@@ -1126,6 +1248,142 @@ export default function ExplorationScreen({
   };
 
   const selectAnswer=(choice:ConversationOption)=>{
+    const calibration=/^calibrate:([a-z0-9-]+):([0-2])$/.exec(choice.id);
+    if(calibration){
+      const room=calibration[1],answer=Number(calibration[2]);
+      if(!isContractId(room)||interior!==room){
+        setDialogue(null);return;
+      }
+      const puzzle=calibrationPuzzle(room);
+      const task=repairRecoveryEquipment(recovery,councils,room,"sistema");
+      if(!puzzle||!task.ok){
+        say([{speaker:INNER_BLUEPRINTS[room].guide,role:"CIRCUITO NÃO DISPONÍVEL",
+          portrait:"!",text:task.message}]);return;
+      }
+      if(!correctCalibration(room,answer)){
+        say([{speaker:INNER_BLUEPRINTS[room].guide,role:"CALIBRAÇÃO INSEGURA · TENTE OUTRA OPÇÃO",
+          portrait:"!",text:puzzle.hint+"\n\n"+puzzle.prompt,
+          choices:puzzle.options.map((option,index)=>({
+            id:"calibrate:"+room+":"+index,label:option,reply:option,
+          }))}]);return;
+      }
+      if(!saveRecovery(character.id,task.state)){
+        say([{speaker:"ARQUIVO LOCAL",role:"MANUTENÇÃO NÃO SALVA",portrait:"!",
+          text:"Sem espaço para registrar o reparo. Nenhum avanço ou XP foi concedido. "+
+            "Libere armazenamento e tente novamente."}]);return;
+      }
+      setRecovery(task.state);
+      onQuestXp("recovery-repair-"+room,task.xp);
+      audioDirector.effect("machine");
+      setCityNotice("OPERAÇÃO RETOMADA · "+INNER_BLUEPRINTS[room].title+
+        " reparado · +"+task.xp+" XP.");
+      say([{speaker:INNER_BLUEPRINTS[room].guide,role:"CALIBRAÇÃO CONFIRMADA",
+        portrait:"⚙",text:puzzle.explanation+"\n\n"+task.message+
+          " Recompensa única: "+task.xp+" XP."}]);
+      return;
+    }
+    const recoveryChoice=/^recovery:([a-z0-9-]+):([a-z]+)$/.exec(choice.id);
+    if(recoveryChoice){
+      const region=recoveryChoice[1],method=recoveryChoice[2];
+      if(!isCouncilId(region)||!isRecoveryMethod(method)||
+         !isContractId(interior)||districtOfRoom(interior)!==region){
+        setDialogue(null);return;
+      }
+      const result=resolveRecovery(recovery,councils,region,method);
+      if(!result.ok){
+        say([{speaker:RECOVERY_LINES[region].title,role:"OBRAS PENDENTES",
+          portrait:"!",text:result.message}]);return;
+      }
+      if(!saveRecovery(character.id,result.state)){
+        say([{speaker:"ARQUIVO LOCAL",role:"RECONSTRUÇÃO NÃO SALVA",
+          portrait:"!",text:"Libere armazenamento e tente novamente. A decisão não foi aplicada."}]);
+        return;
+      }
+      setRecovery(result.state);
+      onQuestXp("recovery-final-"+region,result.xp);
+      audioDirector.effect("archive");
+      setCityNotice("RECONSTRUÇÃO CONCLUÍDA · "+RECOVERY_LINES[region].title+
+        " · +"+result.xp+" XP.");
+      say([{speaker:DISTRICT_COUNCILS[region].guide,
+        role:"RETOMADA · ACORDO DE GESTÃO",
+        portrait:"◆",text:result.message+"\n\nA infraestrutura recuperada afeta a "+
+        "relação entre facções e oferece apoio tático regional aos próximos confrontos."}]);
+      return;
+    }
+    const defend=/^council-defense:([a-z0-9-]+)$/.exec(choice.id);
+    if(defend){
+      const region=defend[1];
+      if(!isCouncilId(region)||!isContractId(interior)||
+         districtOfRoom(interior)!==region||
+         !councilDefenseAvailable(councils,region)){
+        setDialogue(null);return;
+      }
+      setDialogue(null);
+      setCityNotice("Defesa do Conselho · "+COUNCIL_DEFENSES[region].title+
+        " · "+COUNCIL_DEFENSES[region].waves+" ondas.");
+      onOpenBattle(("council-"+region) as EncounterId);
+      return;
+    }
+    const councilAnswer=/^council:([a-z0-9-]+):([a-z]+)$/.exec(choice.id);
+    if(councilAnswer){
+      const region=councilAnswer[1],method=councilAnswer[2];
+      if(!isCouncilId(region)||!isCouncilMethod(method)||!isContractId(interior)||
+         districtOfRoom(interior)!==region){setDialogue(null);return;}
+      const result=resolveCouncil(councils,contracts,region,method);
+      if(!result.ok){
+        say([{speaker:DISTRICT_COUNCILS[region].guide,role:"AUDIÊNCIA NÃO CONCLUÍDA",
+          portrait:"!",text:result.message}]);return;
+      }
+      if(!saveCouncils(character.id,result.state)){
+        say([{speaker:"ARQUIVO LOCAL",role:"DECISÃO NÃO SALVA",portrait:"!",
+          text:"Não foi possível registrar o conselho. Libere espaço e tente novamente."}]);return;
+      }
+      setCouncils(result.state);
+      onQuestXp("district-council-"+region,result.xp);
+      setCityNotice("Conselho de "+DISTRICT_COUNCILS[region].title+
+        " · +"+result.xp+" XP.");
+      audioDirector.effect("archive");
+      say([{speaker:DISTRICT_COUNCILS[region].guide,role:"DELIBERAÇÃO DISTRITAL REGISTRADA",
+        portrait:"◆",text:result.message+"\n\nSua decisão altera a pressão ambiental, "
+          +"a atitude das facções e as conversas com contatos locais. "
+          +"Fica registrada no salvamento do protagonista.\n\n"+
+          COUNCIL_DEFENSES[region].briefing,
+          choices:[{id:"council-defense:"+region,
+            label:"Defender a decisão · combate tático",
+            reply:"Enfrentar "+COUNCIL_DEFENSES[region].waves+" ondas hostis."}]}]);
+      return;
+    }
+    const forensic=/^forensic:([a-z0-9-]+):([0-2])$/.exec(choice.id);
+    if(forensic){
+      const id=forensic[1];
+      if(!isContractId(id)||interior!==id){setDialogue(null);return;}
+      const result=solveForensicCase(contracts,id,Number(forensic[2]));
+      if(!result.ok){
+        if(!(contracts.analysed??[]).includes(id))
+          openForensicQuestion(id,result.message+"\n\n");
+        else say([{speaker:INNER_CONTRACTS[id].guide,role:"PARECER REGISTRADO",
+          portrait:"▤",text:result.message}]);
+        return;
+      }
+      if(!saveContracts(character.id,result.state)){
+        say([{speaker:"ARQUIVO LOCAL",role:"PARECER NÃO SALVO",portrait:"!",
+          text:"Falha ao persistir o parecer. Libere espaço e tente novamente."}]);return;
+      }
+      setContracts(result.state);
+      onQuestXp("inner-forensic-"+id,result.xp);
+      setCityNotice("Parecer forense aprovado em "+INNER_BLUEPRINTS[id].title+
+        " · +"+result.xp+" XP.");
+      audioDirector.effect("archive");
+      const district=districtOfRoom(id);
+      if(councilUnlocked(district,result.state)&&!councils.choices[district]){
+        openCouncilQuestion(district,result.message+"\n\nParecer registrado: +"+
+          result.xp+" XP. Os quatro dossiês deste distrito foram analisados.\n"+
+          "O conselho pode agora decidir o destino dos recursos.\n\n");
+      }else say([{speaker:INNER_CONTRACTS[id].guide,role:"PARECER FORENSE HOMOLOGADO",
+        portrait:"▤",text:result.message+"\n\nRecompensa única: "+result.xp+
+        " XP. Os registros permanecem no dossiê deste protagonista."}]);
+      return;
+    }
     if(choice.id.startsWith("ops-approach-")){
       const [encounter,rawMode]=choice.id.slice("ops-approach-".length).split(":");
       const active=currentOperation(operations);
@@ -1238,6 +1496,8 @@ export default function ExplorationScreen({
           return;
         }
         setMarket(result.state);
+        if(conversationActor)rememberNpc(conversationActor,"help",
+          "market-"+choice.marketAction,"Acordo social confirmado no Mercado");
         if(result.clue)addClue(result.clue);
         if(!onSyncFactionAids())setFavorNotice("Acordo registrado. O suprimento será entregue após sincronizar o inventário.");
       }else{
@@ -1246,7 +1506,11 @@ export default function ExplorationScreen({
         return;
       }
     }
-    if(choice.clue)addClue(choice.clue);
+    if(choice.clue){
+      addClue(choice.clue);
+      if(conversationActor)rememberNpc(conversationActor,"clue",
+         "clue-"+choice.clue,"Testemunho compartilhado pelo próprio morador");
+    }
     const current=dialogue?.pages[dialogue.index];
     if(!current)return;
     audioDirector.effect("interact");
@@ -1352,6 +1616,8 @@ export default function ExplorationScreen({
           </Suspense></SceneRecovery>
         ) : (
           <BaixadaWorld originId={character.originId} appearance={appearance} characterId={character.id}
+            objectiveActorId={currentWaypoint?.actorId??null}
+            worldAlert={localReaction.alert==="increased"}
             onSectorChange={setSectorId} onNearbyAccess={setNearSewerAccess} onInteract={handleInteract} />
         )}
         <div className="world-instructions">
@@ -1380,6 +1646,19 @@ export default function ExplorationScreen({
               "← RETORNAR AO DISTRITO":"← RETORNAR À BAIXADA"}
           </button>
         )}
+        {isContractId(interior)&&
+          <button type="button" className="area-return" onClick={()=>setDossierOpen(true)}>
+            {readPerimeter(character.id).completed[interior]&&
+             !readVigil(character.id).completed[interior]?
+              "◈ MISSÃO: OPERAÇÃO VIGÍLIA — RESGATE":
+             readVigil(character.id).completed[interior]&&
+             !readShelter(character.id).completed[interior]?
+              "◈ MISSÃO: OPERAÇÃO REFÚGIO — PROTEÇÃO CIVIL":
+             readShelter(character.id).completed[interior]&&
+             !readNexus(character.id).completed[interior]?
+              "◈ MISSÃO: OPERAÇÃO NEXO — REDE ÉDEN":
+              "◈ ABRIR MISSÕES E ARQUIVO DO DISTRITO"}
+          </button>}
         {interior==="clinic"&&<section className="na-clinic-quick-treatment"
           aria-label="Atendimento médico da Clínica Comunitária">
           <span>✚ CLÍNICA COMUNITÁRIA · TRIAGEM</span>
@@ -1393,6 +1672,11 @@ export default function ExplorationScreen({
           </button>
         </section>}
       </section>
+      {dossierOpen&&isInnerId(interior)&&
+        <Suspense fallback={<div className="na-world-startup">Abrindo registros...</div>}>
+          <DossierGallery room={interior} characterId={character.id}
+             onQuestXp={onQuestXp} onClose={()=>setDossierOpen(false)}/>
+        </Suspense>}
       {/* Um único HUD de objetivo por área: o painel principal já cobre os
           seis distritos; o lembrete extra existe apenas no esgoto labiríntico. */}
       {(interior==="sewer-drain"||interior==="sewer-deep")&&<button type="button"
@@ -1481,6 +1765,12 @@ export default function ExplorationScreen({
             eden.started?edenObjective(eden):
             trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
             objective}</strong>
+          {currentWaypoint&&<small className="na-quest-next-stop">
+            ⌖ PRÓXIMA PARADA · {currentWaypoint.label}
+          </small>}
+          <small className="na-ai-faction-cue" aria-label="Reação social do distrito">
+            <span aria-hidden="true">◈</span> {localReaction.label}
+          </small>
           {favors.ready.some(id=>!favors.claimed.includes(id))&&
             <small>◆ Favor concluído · procure o contato</small>}
         </div>}
@@ -1510,6 +1800,9 @@ export default function ExplorationScreen({
               eden.started?edenObjective(eden):
               trial.started&&!trial.completed?currentTrialStep(trial)?.objective:
               objective}</p>
+            {currentWaypoint&&<small className="na-quest-next-stop">
+              ⌖ PRÓXIMA PARADA · {currentWaypoint.label}
+            </small>}
             {operations.started&&!operations.completed&&<small>
               Operações · Ato {currentOperation(operations)?.act} · etapa {operations.step+1} de {OPERATIONS_STAGES.length}
               {" · "}2 confrontos do clímax em etapas separadas</small>}
@@ -1601,6 +1894,41 @@ export default function ExplorationScreen({
                 <small>{contracts.completed.length}/28 dossiês concluídos ·
                   três provas físicas por interior</small>
               </article>}
+            {isContractId(interior)&&readVigil(character.id).completed[interior]&&
+             <article className="na-favor-row" aria-label="Progressão após o resgate">
+              <strong>{readNexus(character.id).completed[interior]?
+                "ÉDEN · REDE LOCAL CONSOLIDADA":
+                readShelter(character.id).completed[interior]?
+                "OPERAÇÃO NEXO · DESAFIO DO ÉDEN":
+                "OPERAÇÃO REFÚGIO · PROTEÇÃO DOS CIVIS"}</strong>
+              <p>{readNexus(character.id).completed[interior]?
+                "Seis relés foram liberados, e a política local está registrada no arquivo.":
+                readShelter(character.id).completed[interior]?
+                "O abrigo foi estabilizado. Entre no arquivo e selecione Nexo para acessar seis relés.":
+                "Após o resgate, civis precisam de suprimentos e cinco postos de assistência."}</p>
+              <button type="button" className="na-quest-secondary" onClick={()=>{
+                setDossierOpen(true);setHubOpen(false);
+              }}>Abrir a próxima operação</button>
+             </article>}
+            {isCouncilId(cityArea)&&<article className="na-favor-row"
+              aria-label="Conselho distrital e decisões persistentes">
+              <strong>CONSELHO DISTRITAL · {DISTRICT_COUNCILS[cityArea].title}</strong>
+              <p>{councilObjective(cityArea,contracts,councils)}</p>
+              <small>{councils.choices[cityArea]?
+                councilLocalImpact?.pressure===-1?"Proteção local reforçada · vigilância reduzida":
+                councilLocalImpact?.pressure===1?"Controle reforçado · pressão aumentada":
+                "Fiscalização equilibrada · pressão estável":
+                "Investigue as quatro áreas e retorne ao contato"}
+              </small>
+            </article>}
+            {isCouncilId(cityArea)&&<article className="na-favor-row"
+              aria-label="Operação Retomada · 21 serviços técnicos distritais">
+              <strong>OPERAÇÃO RETOMADA · {RECOVERY_LINES[cityArea].title}</strong>
+              <p>{recoveryObjective(recovery,councils,cityArea)}</p>
+              <small>{(recovery.repairs[cityArea]??[]).length}/3 máquinas recuperadas ·
+                {recovery.outcomes[cityArea]?" decisão final registrada":
+                 " gestão ainda pendente"}</small>
+            </article>}
             {operationsImpact&&<article className="na-favor-row" aria-label="Repercussão da conclusão da campanha 2.0">
               <strong>DEPOIS DO CISMA · {operationsImpact.title}</strong>
               <p>{operationsImpact.message}</p>
@@ -1666,6 +1994,7 @@ export default function ExplorationScreen({
           onChooseClass={onChooseClass}
           onPurchaseAttribute={onPurchaseAttribute}
           onPurchaseSkill={onPurchaseSkill}
+          onPurchaseMulticlass={onPurchaseMulticlass}
           originName={origin.name}
           originDescription={origin.description}
           originProfile={getOriginGameplay(character.originId)}
@@ -1698,6 +2027,14 @@ export default function ExplorationScreen({
             if(!result.ok)return result.message;
             if(!saveParty(character.id,result.state))return "Não foi possível salvar este recrutamento.";
             setParty(result.state);setPartyNotice(result.message);return result.message;
+          }}
+          onSetPartyPosture={(posture:PartyPosture)=>{
+            const result=setPartyPosture(party,posture);
+            if(!result.ok)return result.message;
+            if(!saveParty(character.id,result.state))
+              return "A ordem não foi salva. Libere espaço e tente novamente.";
+            setParty(result.state);
+            return result.message;
           }}
           onToggleCompanion={id=>{
             const result=toggleCompanion(party,id);

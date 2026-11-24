@@ -1,6 +1,10 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App";
+// The 3GB native installer must become interactive BEFORE loading the
+// large game/story module graph on entry-level Android devices.
+// This chunk is bundled INSIDE the same APK, never a network/DLC download.
+const App=React.lazy(()=>import("./App"));
+import GameInstallationGate from "./components/GameInstallationGate";
 import "./styles.css";
 import "./landscape.css";
 import "./immersive-ui.css";
@@ -54,7 +58,18 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <React.StrictMode>
     <AndroidStartupBoundary>
-      <App />
+      <GameInstallationGate>
+        <React.Suspense fallback={
+          <main className="na-install-root" role="status">
+            <section className="na-install-window">
+              <h1>Iniciando Nova Arcádia</h1>
+              <p>Carregando os sistemas do jogo completo a partir do APK.</p>
+            </section>
+          </main>
+        }>
+          <App />
+        </React.Suspense>
+      </GameInstallationGate>
     </AndroidStartupBoundary>
   </React.StrictMode>,
 );

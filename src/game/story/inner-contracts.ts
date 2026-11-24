@@ -7,6 +7,7 @@ import {EXPANSION_ROOM_DESIGNS,type ExpansionInnerId} from "../districts/expansi
 import {INNER_BLUEPRINTS} from "../districts/interiors.ts";
 import {innerReceipt} from "./indoor-rewards.ts";
 import type {InventoryState} from "../inventory.ts";
+import {FORENSIC_CASES} from "./forensic-cases.ts";
 export const CONTRACTS_KEY="cyberpunk-tactical-rpg.inner-contracts-v20.v1.";
 export interface InnerContract{
  id:ExpansionInnerId;title:string;guide:string;introduction:string;conclusion:string;
@@ -28,22 +29,29 @@ export const INNER_CONTRACTS:Readonly<Record<ExpansionInnerId,InnerContract>>=
 export const CONTRACT_IDS=Object.keys(INNER_CONTRACTS) as ExpansionInnerId[];
 export interface InnerContractsState{
  version:1;accepted:readonly ExpansionInnerId[];completed:readonly ExpansionInnerId[];
+ /** Optional for backwards compatibility with QA200 RC4 backups. */
+ analysed?:readonly ExpansionInnerId[];
 }
 export const EMPTY_CONTRACTS:Readonly<InnerContractsState>={
- version:1,accepted:[],completed:[],
+ version:1,accepted:[],completed:[],analysed:[],
 };
 export function isContractId(value:unknown):value is ExpansionInnerId{
  return typeof value==="string"&&Object.prototype.hasOwnProperty.call(INNER_CONTRACTS,value);
 }
 export function validateContracts(input:unknown):input is InnerContractsState{
  if(!input||typeof input!=="object"||Array.isArray(input))return false;
- const x=input as Record<string,unknown>,accepted=x.accepted,completed=x.completed;
- return Object.keys(x).every(k=>["version","accepted","completed"].includes(k))&&x.version===1&&
+ const x=input as Record<string,unknown>,accepted=x.accepted,completed=x.completed,
+  analysed=x.analysed;
+ return Object.keys(x).every(k=>["version","accepted","completed","analysed"].includes(k))&&x.version===1&&
   Array.isArray(accepted)&&Array.isArray(completed)&&
   accepted.length<=CONTRACT_IDS.length&&completed.length<=CONTRACT_IDS.length&&
   accepted.every(isContractId)&&completed.every(isContractId)&&
   new Set(accepted).size===accepted.length&&new Set(completed).size===completed.length&&
-  completed.every((id:ExpansionInnerId)=>accepted.includes(id));
+  completed.every((id:ExpansionInnerId)=>accepted.includes(id))&&
+  (analysed===undefined||(Array.isArray(analysed)&&
+   analysed.length<=CONTRACT_IDS.length&&analysed.every(isContractId)&&
+   new Set(analysed).size===analysed.length&&
+   analysed.every((id:ExpansionInnerId)=>completed.includes(id))));
 }
 export function readContracts(id:string):InnerContractsState{
  if(!id)return {...EMPTY_CONTRACTS};
@@ -65,7 +73,9 @@ export function contractEvidenceCount(id:ExpansionInnerId,inventory:InventorySta
 export function contractObjective(id:ExpansionInnerId,state:InnerContractsState,
  inventory:InventoryState):string{
  const contract=INNER_CONTRACTS[id];
- if(state.completed.includes(id))return contract.title+" concluído. Evidências arquivadas.";
+ if(state.completed.includes(id))return contract.title+" concluído. "+
+  ((state.analysed??[]).includes(id)?"Parecer técnico homologado.":
+   "Análise forense opcional disponível com o contato.");
  if(!state.accepted.includes(id))return "Fale com "+contract.guide+" para iniciar "+contract.title+".";
  const count=contractEvidenceCount(id,inventory);
  return count===contract.requires.length?"Volte a "+contract.guide+" e entregue as três evidências.":
@@ -87,4 +97,23 @@ export function completeContract(state:InnerContractsState,id:ExpansionInnerId,
  };
  return {ok:true,state:{...state,completed:[...state.completed,id]},
   message:contract.conclusion,xp:contract.rewardXp};
+}
+
+/** Dedução adicional real: a pessoa precisa interpretar as três provas da sala.
+ * Sem penalidade permanente por erro; sem XP duplicado após acerto.
+ * `analysed` é opcional para permitir salvar e importar backups da RC4.
+ */
+export function solveForensicCase(state:InnerContractsState,id:ExpansionInnerId,
+ answerIndex:number):{ok:boolean;state:InnerContractsState;message:string;xp:number}{
+ if(!state.completed.includes(id))return {ok:false,state,xp:0,
+  message:"Recolha as três provas e entregue o contrato antes de emitir o parecer."};
+ if((state.analysed??[]).includes(id))return {ok:false,state,xp:0,
+  message:"Parecer já registrado. Nenhuma recompensa repetida."};
+ const caseFile=FORENSIC_CASES[id];
+ if(!Number.isInteger(answerIndex)||answerIndex<0||answerIndex>=caseFile.options.length)
+  return {ok:false,state,xp:0,message:"Alternativa inválida."};
+ if(answerIndex!==caseFile.correctIndex)return {ok:false,state,xp:0,
+  message:"As três evidências não sustentam essa conclusão. Reexamine a relação entre arquivo, mecanismo e recursos do cenário."};
+ return {ok:true,state:{...state,analysed:[...(state.analysed??[]),id]},
+  xp:caseFile.rewardXp,message:caseFile.explanation};
 }

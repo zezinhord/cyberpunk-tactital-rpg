@@ -39,6 +39,16 @@ assert.equal(applyMarketAction(revealed.state,"mercado-proteger","netrunner",tru
 assert.equal(getMarketConversation("feira-archive","netrunner",revealed.state,true,"baixada").choices.some(c=>c.id==="mercado-proteger"),false);
 const influenced=applyMarketAction(INITIAL_MARKET,"boletim","solo",false,1);
 assert.equal(influenced.state.trust,1,"Influência deve elevar confiança real no cenário");
+// Higher influence ranks must matter without granting infinite repeated trust.
+for(const [rank,expected] of [[0,0],[1,1],[2,1],[3,2],[4,2],[5,3]]){
+ const result=applyMarketAction(INITIAL_MARKET,"boletim","solo",false,rank);
+ assert.equal(result.applied,true);
+ assert.equal(result.state.trust,expected,"Rank "+rank+" should have a visible social impact");
+ assert.equal(applyMarketAction(result.state,"boletim","solo",false,rank).applied,false,
+  "A market dialogue may be rewarded only once per character");
+}
+const capped=applyMarketAction({...INITIAL_MARKET,trust:4},"boletim","solo",false,5);
+assert.equal(capped.state.trust,5,"Social stats must never exceed the trust cap");
 assert.equal(applyMarketAction(influenced.state,"boletim","solo",false,5).applied,false,
  "Influência não deve permitir acumular confiança repetindo o mesmo diálogo");
 console.log("Mercado: 11 classes, investigação, decisões excludentes e atributo Influência funcional.");

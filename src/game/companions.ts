@@ -3,6 +3,7 @@
  * unidades sobrepostas no tabuleiro 8×8). Cada um age uma vez por confronto.
  * Dois podem ser ativados; recrutamento depende de encontro presencial.
  */
+import {isPartyPosture,type PartyPosture} from "./ai/companion-brain.ts";
 export const COMPANION_IDS=["nilo","mara","joana","teo"] as const;
 export type CompanionId=typeof COMPANION_IDS[number];
 export type CompanionAid="energy"|"jam"|"heal"|"focus";
@@ -32,6 +33,7 @@ export const COMPANION_CATALOG:Readonly<Record<CompanionId,CompanionProfile>>={
 export const PARTY_KEY="cyberpunk-tactical-rpg.party-v20.v1.";
 export interface PartyState{
  version:1;recruited:readonly CompanionId[];active:readonly CompanionId[];
+ posture?:PartyPosture;
 }
 export const EMPTY_PARTY:Readonly<PartyState>={version:1,recruited:[],active:[]};
 export function isCompanionId(value:unknown):value is CompanionId{
@@ -42,7 +44,8 @@ export function validateParty(input:unknown):input is PartyState{
  const v=input as Record<string,unknown>;
  const recruited=v.recruited,active=v.active;
  if(!Array.isArray(recruited)||!Array.isArray(active))return false;
- return Object.keys(v).every(k=>["version","recruited","active"].includes(k))&&
+ return Object.keys(v).every(k=>["version","recruited","active","posture"].includes(k))&&
+  (v.posture===undefined||isPartyPosture(v.posture))&&
   v.version===1&&recruited.length<=COMPANION_IDS.length&&
   recruited.every(isCompanionId)&&new Set(recruited).size===recruited.length&&
   active.length<=2&&active.every(isCompanionId)&&
@@ -81,6 +84,13 @@ export function toggleCompanion(state:PartyState,id:CompanionId):
  if(state.active.length>=2)return {ok:false,state,message:"A equipe tática comporta apenas dois aliados ativos."};
  return {ok:true,state:{...state,active:[...state.active,id]},
   message:COMPANION_CATALOG[id].name+" ativado para a próxima operação."};
+}
+export function setPartyPosture(state:PartyState,posture:PartyPosture):
+ {ok:boolean;state:PartyState;message:string}{
+ if(!validateParty(state)||!isPartyPosture(posture))
+  return {ok:false,state,message:"Ordem tática inválida."};
+ return {ok:true,state:{...state,posture},
+  message:"Postura dos aliados: "+posture+". Os limites normais de ação permanecem."};
 }
 export function activeCompanions(state:PartyState):readonly CompanionProfile[]{
  return validateParty(state)?state.active.map(id=>COMPANION_CATALOG[id]):[];

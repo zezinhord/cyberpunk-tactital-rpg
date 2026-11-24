@@ -1,4 +1,5 @@
 import type {ClassId} from "../classes/registry.ts";
+import {influenceTrustBonus} from "../progression/tree.ts";
 import type {OriginId} from "../character/origins.ts";
 import type {Reputation,FactionId} from "./reputation.ts";
 
@@ -151,7 +152,7 @@ export function applyMarketAction(state:MarketState,actionId:string,classId:Clas
    decisions:[...state.decisions,action.id],
    clues:state.clues.includes(action.clue)?state.clues:[...state.clues,action.clue],
    trust:Math.max(0,Math.min(5,state.trust+action.trustDelta+
-     (Number.isInteger(influence)&&influence>0?1:0))),
+     influenceTrustBonus(influence))),
    heat:Math.max(0,Math.min(5,state.heat+action.heatDelta)),
  };
  return {state:next,applied:true,clue:action.clue};

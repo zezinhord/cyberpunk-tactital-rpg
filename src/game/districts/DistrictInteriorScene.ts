@@ -5,6 +5,7 @@ import type {Tile} from "./catalog.ts";
 import {isEconomyMode} from "../performance.ts";
 import {isV20IllustratedRoom,environmentArtKey,environmentArtUrl}
   from "./v20-illustrations.ts";
+import {packAssetUrl} from "../assets/native-pack-manager.ts";
 import {audioDirector} from "../../audio/director.ts";
 import {preloadCharacterSprites,createCharacterAnimations,getPlayerTexture,
  frameForDirection,ActorAnimationController,playIdle,type IsoDirection} from "../baixada/sprites.ts";
@@ -53,10 +54,11 @@ export class DistrictInteriorScene extends Phaser.Scene{
   // All 112 illustrations remain on disk. Only this room's mural and
   // three physical evidence sprites are decoded into RAM when entered.
   if(isV20IllustratedRoom(this.id)){
-    this.load.image(environmentArtKey(this.id),environmentArtUrl(this.id));
+    this.load.image(environmentArtKey(this.id),
+      packAssetUrl(this.id,"mural")??environmentArtUrl(this.id));
     for(const prop of blueprint.props)
       this.load.image(environmentArtKey(this.id,prop.id),
-        environmentArtUrl(this.id,prop.id));
+        packAssetUrl(this.id,"prop",prop.id)??environmentArtUrl(this.id,prop.id));
   }
  }
  create():void{
@@ -77,6 +79,13 @@ export class DistrictInteriorScene extends Phaser.Scene{
    this.scale.off("resize",this.adjustZoom,this);
    this.animator?.dispose();this.tweens.killAll();
    if(this.textures.exists(this.staticKey))this.textures.remove(this.staticKey);
+   // Release exactly the room's four illustrations on exit (not 112 at boot).
+   const roomId=this.id;
+   if(isV20IllustratedRoom(roomId)){
+     const ids=[environmentArtKey(roomId),
+       ...INNER_BLUEPRINTS[roomId].props.map(p=>environmentArtKey(roomId,p.id))];
+     for(const key of ids)if(this.textures.exists(key))this.textures.remove(key);
+   }
   });
   this.game.canvas?.setAttribute("data-nova-arcadia-interior",this.id);
  }

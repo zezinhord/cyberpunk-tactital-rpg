@@ -14,7 +14,16 @@ import {OPERATIONS_KEY,validOperationsBackup} from "../story/cisma-operations.ts
 import {PARTY_KEY,validateParty} from "../companions.ts";
 import {STEALTH_KEY,validStealth} from "../stealth.ts";
 import {CONTRACTS_KEY,validateContracts} from "../story/inner-contracts.ts";
+import {ARCHIVE_KEY,validateArchiveProgress} from "../story/archive-progress.ts";
+import {COUNCIL_KEY,validateCouncilProgress} from "../story/district-councils.ts";
+import {RECOVERY_KEY,validateRecovery} from "../story/recovery-network.ts";
+import {SIMULATION_KEY,validateSimulations} from "../story/field-simulations.ts";
+import {PERIMETER_KEY,validatePerimeter} from "../story/perimeter-routes.ts";
+import {VIGIL_KEY,validVigil} from "../story/vigil-escorts.ts";
+import {SHELTER_KEY,validShelter} from "../story/shelter-network.ts";
+import {NEXUS_KEY,validNexus} from "../story/nexus-eden.ts";
 import {URBAN_KEY,validateUrbanBackup} from "../story/urban-chronicles.ts";
+import {AI_WORLD_MEMORY_KEY,validWorldMemoryBackup} from "../ai/world-memory.ts";
 /** Somente estes campos do jogo podem ser restaurados do arquivo fornecido.
  * Nunca executar JSON de backup nem escrever chave arbitrária de armazenamento.
  */
@@ -39,7 +48,16 @@ export const CHARACTER_BACKUP_KEYS={
  party:PARTY_KEY,
  stealth:STEALTH_KEY,
  contracts:CONTRACTS_KEY,
+ archives:ARCHIVE_KEY,
+ councils:COUNCIL_KEY,
+ recovery:RECOVERY_KEY,
+ simulations:SIMULATION_KEY,
+ perimeter:PERIMETER_KEY,
+ vigil:VIGIL_KEY,
+ shelter:SHELTER_KEY,
+ nexus:NEXUS_KEY,
  urban:URBAN_KEY,
+ aiMemory:AI_WORLD_MEMORY_KEY,
 } as const;
 export type BackupField=keyof typeof CHARACTER_BACKUP_KEYS;
 export interface CharacterBackup{
@@ -92,6 +110,8 @@ export function importCharacterBackup(text:string,overwrite=false):
        return {ok:false,message:"Quadro de favores e carteira inválidos."};
      if(field==="urban"&&!validateUrbanBackup(decoded))
        return {ok:false,message:"Ocorrências urbanas inválidas no backup."};
+      if(field==="aiMemory"&&!validWorldMemoryBackup(decoded))
+        return {ok:false,message:"Memória contextual dos moradores inválida."};
      if(field==="eden"&&!validateEdenBackup(decoded))
        return {ok:false,message:"Campanha Éden inválida no backup."};
      if(field==="cisma"&&!validateCismaBackup(decoded))
@@ -104,6 +124,22 @@ export function importCharacterBackup(text:string,overwrite=false):
        return {ok:false,message:"Planos de infiltração inválidos no backup."};
      if(field==="contracts"&&!validateContracts(decoded))
        return {ok:false,message:"Dossiês e contratos de investigação inválidos no backup."};
+     if(field==="archives"&&!validateArchiveProgress(decoded))
+       return {ok:false,message:"Arquivo visual do protagonista inválido no backup."};
+     if(field==="councils"&&!validateCouncilProgress(decoded))
+       return {ok:false,message:"Deliberações distritais inválidas no backup."};
+     if(field==="recovery"&&!validateRecovery(decoded))
+       return {ok:false,message:"Registros de reconstrução regional inválidos no backup."};
+     if(field==="simulations"&&!validateSimulations(decoded))
+       return {ok:false,message:"Registros de simulações de campo inválidos no backup."};
+     if(field==="perimeter"&&!validatePerimeter(decoded))
+       return {ok:false,message:"Dados de patrulhas táticas inválidos no backup."};
+     if(field==="vigil"&&!validVigil(decoded))
+       return {ok:false,message:"Relatórios de evacuação inválidos no backup."};
+     if(field==="shelter"&&!validShelter(decoded))
+       return {ok:false,message:"Rede de abrigos inválida no backup."};
+     if(field==="nexus"&&!validNexus(decoded))
+       return {ok:false,message:"Registro de invasão do Éden inválido no backup."};
      if(field==="area"&&!isSavedWorldArea(decoded))
        return {ok:false,message:"Área ativa inválida no backup."};
      if(field==="sewer"){

@@ -42,3 +42,41 @@
 .na-level-up-alert strong{flex:1;min-width:160px}
 .na-level-up-alert button{min-height:48px;min-width:48px;border:1px solid #87d4de;border-radius:6px;background:#1b4d59;
  color:#f1f4ee;padding:8px 12px;font-weight:700;touch-action:manipulation}
+
+.na-tree-mastery-note{
+ display:block;color:#e9c388;font:600 10px/1.4 var(--mono);
+ padding:3px 2px;overflow-wrap:anywhere
+}
+
+/* Two-role specialization: one compact panel, not a second vertical HUD.
+ * Strong focus states and >=48px mobile controls for landscape Android.
+ */
+.na-multiclass-panel{display:flex;flex-direction:column;gap:9px;padding:12px;
+ background:linear-gradient(120deg,rgba(22,46,58,.98),rgba(24,35,48,.95));
+ border:1px solid #6b949d;border-radius:9px;color:#e4ebea}
+.na-multiclass-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:5px}
+.na-multiclass-head strong{font:800 13px/1.35 var(--mono);color:#b2edf4}
+.na-multiclass-head small,.na-multiclass-panel p{font:500 11px/1.45 var(--mono);color:#bcd2d4;margin:0}
+.na-multiclass-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
+.na-multiclass-actions label{grid-column:1/-1;font:700 11px var(--mono);color:#d8e1da}
+.na-multiclass-actions select,.na-multiclass-actions button{
+ min-height:48px;border-radius:7px;border:1px solid #6aabb5;
+ background:#183944;color:#f0f6f5;padding:9px;font:700 12px var(--mono);
+ touch-action:manipulation;max-width:100%
+}
+.na-multiclass-actions button{background:#23606a;white-space:normal;max-width:225px}
+.na-multiclass-actions button:disabled{opacity:.55;cursor:not-allowed}
+.na-multiclass-actions select:focus-visible,.na-multiclass-actions button:focus-visible,
+.na-hybrid-tabs button:focus-visible{outline:2px solid #f0c67f;outline-offset:2px}
+.na-archetype-preview,.na-multiclass-result{border-left:3px solid #e7c27e;
+ background:rgba(73,56,29,.28);padding:8px;border-radius:4px}
+.na-archetype-preview strong,.na-multiclass-result strong{
+ color:#f3d7aa;font:800 12px/1.4 var(--mono)}
+.na-archetype-preview small{display:block;color:#e5c582;margin-top:5px}
+.na-hybrid-tabs button{min-width:0;overflow-wrap:anywhere}
+@media(max-width:740px), (max-height:430px){
+ .na-multiclass-panel{padding:9px}
+ .na-multiclass-actions{grid-template-columns:1fr}
+ .na-multiclass-actions button{max-width:none}
+ .na-hybrid-tabs button{padding:7px;font-size:11px}
+}

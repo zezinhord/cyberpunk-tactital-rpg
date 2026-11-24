@@ -16,11 +16,13 @@ import {FACTION_NAMES,factionStanding,type Reputation} from "../game/story/reput
 import {EDEN_STEPS,edenObjective,type EdenProgress} from "../game/story/eden-echoes.ts";
 import {sewerStatus,type SewerProgress} from "../game/story/sewer-v09";
 import {FERRUGEM_STEPS,ferrugemObjective,type FerrugemProgress} from "../game/ferrugem/story";
-import type {StatId} from "../game/progression/tree";
+import {STAT_IDS,STATS,statBreakdown,statRank,type StatId} from "../game/progression/tree";
 import {getClassById,CLASS_SKILLS,getClassSkills,type ClassId} from "../game/classes/registry";
+import {getHybridArchetype} from "../game/classes/hybrids.ts";
 import {CYBERWARE_IDS,CYBERWARE_CATALOG,cyberwareCapacity,cyberwareLoad,
   cyberwareCostLabel,canInstallCyberware,type CyberwareId} from "../game/cyberware.ts";
 import {COMPANION_IDS,COMPANION_CATALOG,type CompanionId,type PartyState} from "../game/companions.ts";
+import {PARTY_POSTURES,PARTY_POSTURE_LABELS,type PartyPosture} from "../game/ai/companion-brain.ts";
 
 type MenuSection = "character" | "progression" | "inventory" | "equipment" | "cyberware" | "team" | "abilities" | "map" | "journal" | "settings";
 
@@ -37,6 +39,7 @@ interface Props {
   onChooseClass: (classId: ClassId) => void;
   onPurchaseAttribute:(id:StatId)=>string;
   onPurchaseSkill:(id:string)=>string;
+  onPurchaseMulticlass:(id:ClassId)=>string;
   originName: string;
   originDescription: string;
   originProfile: OriginGameplayProfile;
@@ -64,6 +67,7 @@ interface Props {
   availableCompanions:readonly CompanionId[];
   onRecruitCompanion:(id:CompanionId)=>string;
   onToggleCompanion:(id:CompanionId)=>string;
+  onSetPartyPosture:(posture:PartyPosture)=>string;
   partyNotice:string;
 }
 
@@ -110,6 +114,7 @@ export default function CharacterMenu({
   onChooseClass,
   onPurchaseAttribute,
   onPurchaseSkill,
+  onPurchaseMulticlass,
   originName,
   originDescription,
   originProfile,
@@ -131,7 +136,8 @@ export default function CharacterMenu({
   onToggleEquipment,
   onCraft,
   onInstallCyberware,onRemoveCyberware,canOperateCyberware,
-  party,availableCompanions,onRecruitCompanion,onToggleCompanion,partyNotice,
+  party,availableCompanions,onRecruitCompanion,onToggleCompanion,
+  onSetPartyPosture,partyNotice,
 }: Props) {
   const [activeSection, setActiveSection] = useState<MenuSection>(initialSection??"character");
   const [pendingClass,setPendingClass]=useState<ClassId|null>(null);
@@ -142,7 +148,9 @@ export default function CharacterMenu({
   const [graphicsNotice,setGraphicsNotice]=useState("");
   const [performanceReport]=useState(readPerformanceReport);
   const activeItem = MENU_ITEMS.find((item) => item.id === activeSection)!;
-  const attributeEntries = Object.entries(character.attributes);
+  const attributeEntries=STAT_IDS.map(id=>({id,
+    name:STATS[id].name,total:statRank(character,id),
+    components:statBreakdown(character,id)}));
   const progress = Math.max(0, Math.min(3, missionStep));
 
   return (
@@ -229,7 +237,8 @@ export default function CharacterMenu({
                 </section>
                 <div className="menu-data-grid">
                   <DataCard label="ORIGEM" value={originName} detail="Histórico de nascimento e contatos" />
-                  <DataCard label="CLASSE" value={character.classId ? getClassById(character.classId).name : "Não definida"} detail={character.classId?"Especialização mecânica independente da origem":"Escolha uma das 11 classes oficiais"} />
+                  <DataCard label="CLASSE PRINCIPAL" value={character.classId ? getClassById(character.classId).name : "Não definida"} detail="Define atributos e técnica inicial" />
+                  <DataCard label="MULTICLASSE" value={character.multiclassId?getClassById(character.multiclassId).name:"Ainda não escolhida"} detail={character.multiclassId?"Segunda disciplina vinculada ao mesmo personagem":"Liberada no nível 4 · custa 2 HAB"} />
                   <DataCard label="EXPERIÊNCIA" value={String(character.experience)} detail="Pontos registrados" />
                   <DataCard label="MISSÃO PRINCIPAL" value={missionStep === 3 ? (sewerProgress.manifestRecovered ? "Esgoto investigado" : "Rota V-09 ativa") : "Em andamento"} detail={progress + " de 3 etapas da clínica"} />
                 </div>
@@ -243,10 +252,18 @@ export default function CharacterMenu({
                   <p>Esta seleção será vinculada ao salvamento atual. Sua origem e aparência continuarão inalteradas.</p>
                 </section>}
                 {character.classId&&<section className="menu-info-panel">
-                  <span className="menu-panel-kicker">CLASSE · ESPECIALIZAÇÃO</span>
+                  <span className="menu-panel-kicker">CLASSE PRINCIPAL · ESPECIALIZAÇÃO</span>
                   <h4>{getClassById(character.classId).name}</h4>
                   <p>{getClassById(character.classId).description}</p>
                   <p><b>Exploração:</b> {getClassById(character.classId).explorationFocus}</p>
+                  {character.multiclassId&&getHybridArchetype(character.classId,character.multiclassId)&&
+                   <div className="na-archetype-summary">
+                    <strong>ARQUÉTIPO · {getHybridArchetype(character.classId,character.multiclassId)?.name}</strong>
+                    <p>{getHybridArchetype(character.classId,character.multiclassId)?.description}</p>
+                    <small>{getHybridArchetype(character.classId,character.multiclassId)?.bonusText} · apenas no combate</small>
+                    <p><b>Classe secundária:</b> {getClassById(character.multiclassId).name}.
+                     Compartilha pontos, energia e ações; não recebe bônus de atributos extras.</p>
+                   </div>}
                 </section>}
                 <section className="menu-info-panel">
                   <span className="menu-panel-kicker">HISTÓRICO DE ORIGEM</span>
@@ -268,20 +285,24 @@ export default function CharacterMenu({
 
                 <section className="menu-info-panel">
                   <span className="menu-panel-kicker">ATRIBUTOS</span>
-                  {attributeEntries.length > 0 ? (
-                    <div className="menu-attribute-grid">
-                      {attributeEntries.map(([name, value]) => <DataCard key={name} label={name} value={String(value)} />)}
-                    </div>
-                  ) : (
-                    <p>Os atributos ainda não foram distribuídos. A ficha já reserva este espaço para a futura progressão do protagonista.</p>
-                  )}
+                  <div className="menu-attribute-grid">
+                    {attributeEntries.map(stat=><DataCard key={stat.id} label={stat.name}
+                      value={stat.total+" / 5"}
+                      detail={"Base "+stat.components.base+" · Inv. +"+
+                        stat.components.allocated+" · Origem +"+
+                        stat.components.origin+" · Classe +"+
+                        stat.components.profession}/>)}
+                  </div>
+                  <p>Os valores mostrados são efetivos. A multiclasse não soma
+                     os bônus de atributos da profissão secundária.</p>
                 </section>
               </div>
             )}
 
             {activeSection === "progression" && (
               <ProgressionTree character={character}
-                onAttribute={onPurchaseAttribute} onSkill={onPurchaseSkill}/>
+                onAttribute={onPurchaseAttribute} onSkill={onPurchaseSkill}
+                onMulticlass={onPurchaseMulticlass}/>
             )}
             {activeSection === "inventory" && (
               <div className="menu-section-stack">
@@ -387,6 +408,21 @@ export default function CharacterMenu({
                     Cada um oferece bônus passivo e uma ação exclusiva por confronto.</p>
                   <small>É necessário encontrar cada aliado em seu local de atuação.</small>
                 </section>
+                <section className="menu-info-panel" aria-label="Ordens dos companheiros">
+                  <span className="menu-panel-kicker">IA DE APOIO · ORDENS DO JOGADOR</span>
+                  <div className="na-party-postures" role="group" aria-label="Postura de apoio">
+                    {PARTY_POSTURES.map(posture=><button type="button"
+                      key={posture} aria-pressed={(party.posture??"manual")===posture}
+                      className={(party.posture??"manual")===posture?"selected":""}
+                      onClick={()=>setTeamNotice(onSetPartyPosture(posture))}>
+                      {PARTY_POSTURE_LABELS[posture]}
+                    </button>)}
+                  </div>
+                  <small>Manual: você decide. Ofensiva: preparar acerto.
+                    Defensiva: proteção e atendimento. Suporte: cura/energia.
+                    Manter posição: nenhum apoio automático.
+                    Toda ordem respeita o uso único e a ação bônus.</small>
+                </section>
                 <section className="menu-list-panel">
                   {COMPANION_IDS.map(id=>{
                     const c=COMPANION_CATALOG[id];
@@ -427,7 +463,7 @@ export default function CharacterMenu({
                 </section>
                 {character.classId&&<section className="menu-info-panel menu-ability-card">
                   <span className="menu-panel-kicker">HABILIDADE EXCLUSIVA · {getClassById(character.classId).name.toUpperCase()}</span>
-                  {getClassSkills(character.classId).map(skill=><div className="class-ability-readout" key={skill.id}>
+                  {[...getClassSkills(character.classId),...getClassSkills(character.multiclassId??null)].map(skill=><div className="class-ability-readout" key={skill.id}>
                     <h4>{skill.name} {character.abilities.includes(skill.id)?"· COMPRADA":"· BLOQUEADA"}</h4><p>{skill.description}</p>
                     <small>Custo: {skill.cost} energia · Recarga: {skill.cooldown} turnos · Alcance: {skill.range} células · Nível {skill.minimumLevel}</small>
                     <p><small>{character.abilities.includes(skill.id)?"Usável no combate.":"Abra a Árvore de evolução e compre esta técnica no nível exigido."}</small></p>

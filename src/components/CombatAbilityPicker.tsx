@@ -4,11 +4,14 @@ import type {TurnManager} from "../game/TurnManager";
 import {SPECIAL_IDS,SPECIALS} from "../game/abilities/catalog";
 import type {SpecialId} from "../game/abilities/catalog";
 import {audioDirector} from "../audio/director";
+import {skillEffectPreview} from "../game/progression/tree";
+import {getClassById,isPlayableClass} from "../game/classes/registry";
 
 type SkillOption={
  key:string;id:string;kind:"class"|"common"|"origin";
  name:string;description:string;cost:number;range:number;
- ready:boolean;status:string;
+ ready:boolean;status:string;rank?:number;maxRank?:number;
+ roleClassId?:string;actualEffect?:string;
 };
 interface Props {
  manager:TurnManager;
@@ -26,8 +29,15 @@ export default function CombatAbilityPicker({manager,state,className,originDescr
  },[onClose]);
  const classes:SkillOption[]=manager.getClassAbilities().map(skill=>{
    const check=manager.getClassAvailability(skill.id);
+   const savedRank=state.characterSkillRanks?.[skill.id]??1;
+   const rank=Number.isSafeInteger(savedRank)?
+     Math.max(1,Math.min(skill.maxRank,savedRank)):1;
+   const secondary=skill.classId===state.multiclassId&&skill.classId!==state.classId;
+   const maxRank=secondary?Math.min(2,skill.maxRank):skill.maxRank;
    return {key:"class:"+skill.id,id:skill.id,kind:"class",name:skill.name,
      description:skill.description,cost:skill.cost,range:skill.range,
+     rank:Math.min(rank,maxRank),maxRank,roleClassId:skill.classId,
+     actualEffect:skillEffectPreview(skill,Math.min(rank,maxRank)),
      ready:check.available,status:check.available?"PRONTA":check.reason};
  });
  const common:SkillOption[]=SPECIAL_IDS.map(id=>{
@@ -64,7 +74,10 @@ export default function CombatAbilityPicker({manager,state,className,originDescr
        {items.map(skill=><button type="button" key={skill.key}
          className={"na-ability-choice"+(skill.key===selectedKey?" selected":"")}
          aria-pressed={skill.key===selectedKey} onClick={()=>setSelectedKey(skill.key)}>
-         <span><strong>{skill.name}</strong><small>{skill.cost} EN · {skill.range===0?"EM SI MESMO":"ALC "+skill.range}</small></span>
+         <span><strong>{skill.name}</strong><small>
+           {skill.rank?"GRAU "+skill.rank+"/"+skill.maxRank+" · ":""}
+           {skill.cost} EN · {skill.range===0?"EM SI MESMO":"ALC "+skill.range}
+         </small></span>
          <em className={skill.ready?"ready":""}>{skill.status}</em>
        </button>)}
       </div>}
@@ -75,19 +88,29 @@ export default function CombatAbilityPicker({manager,state,className,originDescr
    <section className="na-ability-picker" role="dialog" aria-modal="true"
       aria-label="Escolher habilidades de combate">
      <header className="na-ability-picker-head">
-       <div><span>CONTROLE TÁTICO · {className.toUpperCase()}</span><h2>Escolher habilidade</h2></div>
+       <div><span>CONTROLE TÁTICO · {className.toUpperCase()}
+         {state.multiclassId&&isPlayableClass(state.multiclassId)?
+          " + "+getClassById(state.multiclassId).name.toUpperCase():""}</span>
+         <h2>Escolher habilidade</h2></div>
        <button type="button" aria-label="Fechar habilidades" onClick={onClose}>✕</button>
      </header>
      <p className="na-ability-picker-energy">Energia {state.energy}/{state.maxEnergy} ·
        {state.mainActionAvailable?" Ação principal disponível":" Ação principal já usada"}</p>
      <div className="na-ability-picker-content">
-       {group("Técnicas da classe",classes)}
+       {group("Classe principal",classes.filter(skill=>skill.roleClassId===state.classId))}
+       {state.multiclassId&&group("Classe secundária · "+(
+         isPlayableClass(state.multiclassId)?
+           getClassById(state.multiclassId).name:"Multiclasse"),
+         classes.filter(skill=>skill.roleClassId===state.multiclassId))}
        {group("Habilidades comuns",common)}
        {group("Habilidade de origem", [origin])}
      </div>
      <div className="na-ability-picker-selected" aria-live="polite">
        {selected?<><strong>{selected.name}</strong>
          <p>{selected.description}</p>
+         {selected.actualEffect&&<p className="na-ability-actual-effect">
+           EFEITO NO GRAU {selected.rank}: {selected.actualEffect}
+         </p>}
          <small>{selected.kind==="origin"
            ?"A habilidade de origem é usada imediatamente."
            :selected.range===0?"Aplicada ao protagonista."

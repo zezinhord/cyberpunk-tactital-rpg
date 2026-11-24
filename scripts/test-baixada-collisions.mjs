@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { BUILDINGS, PROPS, ACTOR_TILES, PLAYER_START, BUILDING_CELLS, cellKey } from "../src/game/baixada/layout.ts";
-import { canStand, canTraverse, route, approachRoute, assertRoute, collisionAt, ORTHOGONAL_STEPS } from "../src/game/baixada/navigation.ts";
+import { canStand, canTraverse, route, approachRoute, routeNearTarget, assertRoute, collisionAt, ORTHOGONAL_STEPS } from "../src/game/baixada/navigation.ts";
 for (const building of BUILDINGS) {
   for(let x=building.x;x<building.x+building.width;x++)
   for(let y=building.y;y<building.y+building.depth;y++) {
@@ -29,7 +29,41 @@ for(const [id,tile] of Object.entries(ACTOR_TILES)){
   assert.ok(!path.some(t=>BUILDING_CELLS.has(cellKey(t))),"Rota passou por edifício");
   const last=path.at(-1);
   assert.equal(Math.abs(last.x-tile.x)+Math.abs(last.y-tile.y),1);
+  // Verify the optimized single BFS is equivalent to the shortest of
+  // the four independently searched routes in the older implementation.
+  const candidates=ORTHOGONAL_STEPS.map(d=>route(PLAYER_START,{
+   x:tile.x+d.x,y:tile.y+d.y,
+  })).filter(Boolean);
+  assert.equal(path.length,Math.min(...candidates.map(p=>p.length)),
+   "Interaction must select shortest accessible approach: "+id);
 }
+// Taps on roofs should move to nearby reachable pavement, never through walls.
+const clinic=BUILDINGS.find(b=>b.id==="clinica");
+assert.ok(clinic);
+const rooftop={x:clinic.x+1,y:clinic.y+1};
+assert.equal(canStand(rooftop),false);
+const roofRoute=routeNearTarget(PLAYER_START,rooftop);
+assert.ok(roofRoute&&roofRoute.length>1,"Blocked roof needs a reachable approach");
+assert.ok(assertRoute(roofRoute),"Nearest route cannot cut building corners");
+const facade=roofRoute.at(-1);
+assert.ok(canStand(facade));
+assert.ok(Math.abs(facade.x-rooftop.x)+Math.abs(facade.y-rooftop.y)<=3);
+// Blocked tap must favor the nearest reachable landing cell in the
+// 3-tile ring, not an arbitrary distant tile discovered by the flood fill.
+const nearestOptions=[];
+for(let dx=-3;dx<=3;dx++)for(let dy=-3;dy<=3;dy++){
+ const proximity=Math.abs(dx)+Math.abs(dy);
+ if(proximity===0||proximity>3)continue;
+ const t={x:rooftop.x+dx,y:rooftop.y+dy};
+ if(canStand(t)&&route(PLAYER_START,t))nearestOptions.push(proximity);
+}
+assert.ok(nearestOptions.length>0);
+assert.equal(Math.abs(facade.x-rooftop.x)+Math.abs(facade.y-rooftop.y),
+ Math.min(...nearestOptions));
+
+assert.equal(routeNearTarget(PLAYER_START,{x:-1,y:0}),null);
+assert.equal(routeNearTarget(PLAYER_START,rooftop,{},0),null);
+assert.deepEqual(routeNearTarget(PLAYER_START,PLAYER_START),[PLAYER_START]);
 const dynamic=new Set(["7,9"]);
 assert.equal(route({x:6,y:9},{x:7,y:9},{occupied:dynamic}),null);
 assert.equal(canStand({x:7,y:9},{occupied:dynamic}),false);

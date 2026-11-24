@@ -309,3 +309,40 @@
 @media (prefers-reduced-motion:reduce){
  .na-defeat-backdrop{backdrop-filter:none;}
 }
+
+/* Touch-first tactical feedback: magenta is reserved for hostile targets,
+ * cyan for reachable movement, and amber for the neutral terminal.
+ * Keep the targeting hitbox visible to keyboard and screen-reader users.
+ */
+.na-iso-enemy-target{cursor:crosshair;touch-action:manipulation;outline:none}
+.na-iso-enemy-target:focus-visible rect{stroke:#ffd166;stroke-width:2;fill-opacity:.13}
+.na-iso-enemy-target.ready:focus-visible ellipse{stroke:#ffd166;stroke-width:3}
+.na-combat-tactical-readout .na-tactic-hit-chance{
+ color:#f5cee0;font-weight:800;letter-spacing:.015em
+}
+
+/* Purchased rank has meaningful, readable effects during combat; the
+ * designer's cyan allies / magenta enemies / amber interactables remain. */
+.na-ability-picker-selected .na-ability-actual-effect{
+ padding:6px 9px;margin:4px 0;border-left:3px solid #7ed6dc;
+ background:rgba(25,73,81,.35);color:#c7eff1;
+ font:600 11px/1.4 var(--mono);white-space:normal
+}
+
+/* A single compact battle identity replaces the misleading one-class heading.
+ * No extra HUD panel, so primary tactical commands retain their fixed space. */
+.na-hybrid-combat-identity{display:flex;flex-direction:column;gap:3px;min-width:0}
+.na-hybrid-combat-identity strong{font-size:12px;line-height:1.35;overflow-wrap:anywhere}
+.na-hybrid-combat-identity small{color:#f0cd91;font:700 10px/1.3 var(--mono)}
+.na-archetype-summary{padding:9px;margin-top:8px;border-left:3px solid #e8c27e;
+ background:rgba(75,59,28,.28);border-radius:5px}
+.na-archetype-summary>strong{color:#f4d7a6}
+.na-archetype-summary small{display:block;color:#e8c27e;margin-top:4px}
+
+/* Calm, non-animated enemy awareness with accessible textual equivalent. */
+.na-ai-awareness{font:700 10px/1.4 var(--mono);letter-spacing:.015em}
+.na-ai-awareness[data-awareness="engaged"],
+.na-ai-awareness[data-awareness="retreat"]{color:#f4a1c8}
+.na-ai-awareness[data-awareness="investigate"],
+.na-ai-awareness[data-awareness="search"]{color:#f1c889}
+.na-ai-awareness[data-awareness="patrol"]{color:#bbd5d8}

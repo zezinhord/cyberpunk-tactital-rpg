@@ -27,13 +27,25 @@ export interface CombatCue { sequence: number; visual: CombatVisual;
 export type EncounterId="test"|"v09"|"trial-1"|"trial-2"|"trial-3"|
  "district-aurea"|"district-subsolo"|"district-setor-zero"|
  "district-prisma"|"district-periferia"|"eden-relay"|"eden-core"|
- "cisma-intercept"|"cisma-containment"|"cisma-core";
+ "cisma-intercept"|"cisma-containment"|"cisma-core"|
+ "council-baixada"|"council-ferrugem"|"council-aurea"|
+ "council-subsolo"|"council-setor-zero"|"council-prisma"|
+ "council-periferia";
 export interface GameState {
   units: Unit[];
   archetypeId: string;
+  /** Visible perception state; never reveals unseen player location. */
+  enemyAwareness?: "patrol"|"suspicious"|"investigate"|"search"|"engaged"|"retreat";
+  enemyPerception?: string;
+  /** Finite enemy suppressor/saboteur devices (reset on new wave). */
+  enemyTacticalCharges?: number;
+  enemyTacticalCooldown?: number;
+  enemyTacticalRole?: string;
   characterLevel: number;
   originId: string;
   classId: string | null;
+  /** Chosen secondary role, or null on older single-class campaigns. */
+  multiclassId?: string | null;
   characterAbilities: readonly string[];
   characterSkillRanks?: Readonly<Record<string,number>>;
   classCooldowns: Record<string,number>;

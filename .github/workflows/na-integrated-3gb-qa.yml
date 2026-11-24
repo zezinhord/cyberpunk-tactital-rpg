@@ -1,0 +1,281 @@
+name: Nova Arcadia 2.0 — required full 3GB installation gate QA
+on:
+  push:
+    branches:
+      - feature/nova-arcadia-3gb-final-assets
+    paths:
+      - .github/workflows/na-integrated-3gb-qa.yml
+      - src/main.tsx
+      - src/components/GameInstallationGate.tsx
+      - src/game-installation.css
+      - src/components/AssetPackControls.tsx
+      - src/components/CharacterMenu.tsx
+      - src/game/assets/complete-installation.ts
+      - src/game/assets/native-pack-manager.ts
+      - scripts/test-integrated-game-install-v20.mjs
+      - native/NovaAssetPacks.java
+      - scripts/install-asset-pack-plugin.mjs
+      - scripts/test-asset-packs-v20.mjs
+      - src/game/assets/**
+      - src/game/districts/DistrictInteriorScene.ts
+      - src/screens/ExplorationScreen.tsx
+      - src/App.tsx
+      - src/game/story/archive-progress.ts
+      - src/game/character/backup.ts
+      - src/game/character/slots.ts
+      - src/game/character/slot-core.ts
+      - scripts/test-save-slots.mjs
+      - src/components/DossierGallery.tsx
+      - src/components/BaixadaLiteWorld.tsx
+      - src/game/performance-diagnostics.ts
+      - scripts/test-performance.mjs
+      - src/game/baixada/lite-art-assets.ts
+      - scripts/test-baixada-art.mjs
+      - src/game/baixada/navigation.ts
+      - src/game/baixada/motion.ts
+      - src/game/baixada/frame-pacing.ts
+      - scripts/test-movement.mjs
+      - scripts/test-baixada-collisions.mjs
+      - scripts/test-archive-progress-v20.mjs
+      - src/game/story/inner-contracts.ts
+      - src/game/story/forensic-cases.ts
+      - src/game/story/district-councils.ts
+      - src/game/story/recovery-network.ts
+      - src/game/story/perimeter-routes.ts
+      - scripts/test-perimeter-routes-v20.mjs
+      - src/game/story/vigil-escorts.ts
+      - src/game/story/shelter-network.ts
+      - src/game/story/nexus-eden.ts
+      - src/components/NexusPanel.tsx
+      - scripts/test-nexus-eden-v20.mjs
+      - src/components/ShelterPanel.tsx
+      - scripts/test-shelter-network-v20.mjs
+      - scripts/test-vigil-escorts-v20.mjs
+      - scripts/test-vigil-extraction-v20.mjs
+      - src/game/story/field-simulations.ts
+      - scripts/test-field-simulations-v20.mjs
+      - src/game/story/recovery-calibrations.ts
+      - scripts/test-recovery-calibrations-v20.mjs
+      - scripts/test-recovery-network-v20.mjs
+      - src/game/story/reputation.ts
+      - scripts/test-council-reputation-v20.mjs
+      - scripts/test-council-defenses-v20.mjs
+      - src/game/TurnManager.ts
+      - src/game/combat/attack-rules.ts
+      - src/game/baixada/mission-waypoint.ts
+      - src/components/BaixadaWorld.tsx
+      - src/screens/ExplorationScreen.tsx
+      - src/styles.css
+      - scripts/test-mission-waypoint.mjs
+      - src/game/progression/tree.ts
+      - src/game/classes/engine.ts
+      - src/game/classes/branches.ts
+      - src/components/ProgressionTree.tsx
+      - src/progression.css
+      - src/components/CombatAbilityPicker.tsx
+      - scripts/test-progression.mjs
+      - scripts/test-class-abilities.mjs
+      - scripts/test-progression-audit.mjs
+      - src/game/classes/hybrids.ts
+      - src/game/character/types.ts
+      - src/components/ClassSelection.tsx
+      - scripts/test-multiclass.mjs
+      - src/game/ai/**
+      - src/game/companions.ts
+      - src/game/tactics.ts
+      - src/game/baixada/npc-routines.ts
+      - src/game/dialogues/patio.ts
+      - src/game/character/backup.ts
+      - src/game/character/slots.ts
+      - src/game/story/reputation.ts
+      - src/game/story/eden-echoes.ts
+      - src/components/NpcDialoguePanel.tsx
+      - scripts/test-ai-tactical.mjs
+      - scripts/test-ai-world.mjs
+      - scripts/test-ai-combat-resources.mjs
+      - src/game/story/market.ts
+      - scripts/test-market-story.mjs
+      - scripts/test-council-defenses-v20.mjs
+      - src/components/Battlefield.tsx
+      - src/arena-v030.css
+      - scripts/test-tactics.mjs
+      - scripts/test-battlefield-navigation.mjs
+      - src/game/map.ts
+      - src/game/BattleScene.ts
+      - src/game/combat/tactical-maps.ts
+      - src/game/combat/siege-terminals.ts
+      - scripts/test-siege-terminals-v20.mjs
+      - tools/na_milestones.py
+      - tools/test_na_milestones.py
+      - scripts/test-council-tactical-maps-v20.mjs
+      - src/components/Battlefield.tsx
+      - tools/generate_council_enemy_art.py
+      - tools/test_council_enemy_art.py
+      - src/game/tactics.ts
+      - src/game/types.ts
+      - scripts/test-forensic-cases-v20.mjs
+      - src/components/AssetPackControls.tsx
+      - src/components/DossierGallery.tsx
+      - src/components/CharacterMenu.tsx
+      - src/dossier-gallery.css
+      - tools/build_3gb_asset_packs.py
+      - tools/test_3gb_pack_builder.py
+      - tools/produce_district_archives.py
+      - tools/produce_story_cinematics.py
+      - tools/produce_tactical_simulations.py
+      - tools/produce_perimeter_routes.py
+      - tools/test_perimeter_routes.py
+      - tools/produce_vigil_escorts.py
+      - tools/test_vigil_escorts.py
+      - tools/produce_shelter_network.py
+      - tools/test_shelter_network.py
+      - tools/produce_nexus_eden.py
+      - tools/test_nexus_eden.py
+      - tools/test_tactical_simulations.py
+      - tools/test_story_cinematics.py
+      - src/dossier-gallery.css
+      - tools/test_authored_archives.py
+      - tools/generate_v20_illustrations.py
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: na-full-install-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate-native-distribution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Source
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install JS dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Python image QA dependencies
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Pillow
+        run: pip install -r tools/requirements-characters.txt
+      - name: Confirm single-game mandatory installation and original SHA256 art gate
+        run: node --experimental-strip-types scripts/test-integrated-game-install-v20.mjs
+      - name: Verify manifest security and real 3GB release acceptance
+        run: node --experimental-strip-types scripts/test-asset-packs-v20.mjs
+      - name: Verify 7 offline pack archives with 224 disposable art fixtures
+        run: |
+          python tools/test_3gb_pack_builder.py
+          python tools/test_na_milestones.py
+      - name: Play through 28 forensic investigations and validate backwards compatible saves
+        run: |
+          node --experimental-strip-types scripts/test-inner-contracts-v20.mjs
+          node --experimental-strip-types scripts/test-forensic-cases-v20.mjs
+          node --experimental-strip-types scripts/test-archive-progress-v20.mjs
+          node --experimental-strip-types scripts/test-council-reputation-v20.mjs
+          node --experimental-strip-types scripts/test-council-defenses-v20.mjs
+          node --experimental-strip-types scripts/test-recovery-network-v20.mjs
+          node --experimental-strip-types scripts/test-recovery-calibrations-v20.mjs
+          node --experimental-strip-types scripts/test-field-simulations-v20.mjs
+          node --experimental-strip-types scripts/test-perimeter-routes-v20.mjs
+          node --experimental-strip-types scripts/test-vigil-escorts-v20.mjs
+          node --experimental-strip-types scripts/test-shelter-network-v20.mjs
+          node --experimental-strip-types scripts/test-nexus-eden-v20.mjs
+          node --experimental-strip-types scripts/test-vigil-extraction-v20.mjs
+          node --experimental-strip-types scripts/test-council-tactical-maps-v20.mjs
+          node --experimental-strip-types scripts/test-siege-terminals-v20.mjs
+          node --experimental-strip-types scripts/test-tactics.mjs
+          node --experimental-strip-types scripts/test-battlefield-navigation.mjs
+          node --experimental-strip-types scripts/test-mission-waypoint.mjs
+          node --experimental-strip-types scripts/test-progression.mjs
+          node --experimental-strip-types scripts/test-class-abilities.mjs
+          node --experimental-strip-types scripts/test-progression-audit.mjs
+          node --experimental-strip-types scripts/test-multiclass.mjs
+          node --experimental-strip-types scripts/test-ai-tactical.mjs
+          node --experimental-strip-types scripts/test-ai-world.mjs
+          node --experimental-strip-types scripts/test-ai-combat-resources.mjs
+          node --experimental-strip-types scripts/test-market-story.mjs
+          node --experimental-strip-types scripts/test-movement.mjs
+          node --experimental-strip-types scripts/test-baixada-collisions.mjs
+          node scripts/test-baixada-art.mjs
+          node --experimental-strip-types scripts/test-performance.mjs
+          node --experimental-strip-types scripts/test-save-slots.mjs
+      - name: Generate original scene mural and test 12 authored dossier designs
+        run: |
+          python tools/generate_v20_illustrations.py
+          python tools/test_authored_archives.py
+          python tools/test_story_cinematics.py
+          python tools/test_tactical_simulations.py
+          python tools/test_perimeter_routes.py
+          python tools/test_vigil_escorts.py
+          python tools/test_shelter_network.py
+          python tools/test_nexus_eden.py
+          python tools/test_council_enemy_art.py
+      - name: Compile TypeScript without releasing incomplete game
+        run: npx tsc -b
+      - name: Compile production Vite with real restoration quest and original enemy sheets
+        run: |
+          python tools/generate_council_enemy_art.py
+          # The regular npm prebuild creates 1GB+ of audio and needs FFmpeg.
+          # Only generate game sprites and bundle the current web gameplay:
+          # this is a content smoke test, not an artificial APK size exercise.
+          python tools/generate_character_sprites.py
+          npx vite build
+          test -s dist/index.html
+          test -s dist/assets/council-enemies/catalog.json
+          test "$(find dist/assets/council-enemies -name 'council-*-w*.png' | wc -l)" -eq 16
+          echo "Production web includes 21 puzzles, 168 simulations, 140 patrol objectives and 16 enemy atlases."
+      - name: Keep native bridge compile test lightweight
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          printf '<html><body>native bridge compile test only</body></html>' > dist/index.html
+      - name: Generate Capacitor Android project
+        run: |
+          npx cap add android
+          npx cap sync android
+      - name: Restore Android landscape and immersive lifecycle before native plugin
+        run: |
+          node scripts/lock-android-landscape.mjs
+          node scripts/enable-android-immersive.mjs
+      - name: Inject verified native pack downloader
+        run: node scripts/install-asset-pack-plugin.mjs
+      - name: Verify fullscreen and plugin share the same MainActivity
+        run: |
+          grep -q 'FLAG_FULLSCREEN' android/app/src/main/java/com/cyberpunk/tacticalrpg/MainActivity.java
+          grep -q 'registerPlugin(NovaAssetPacks.class)' android/app/src/main/java/com/cyberpunk/tacticalrpg/MainActivity.java
+          grep -q 'onPostResume()' android/app/src/main/java/com/cyberpunk/tacticalrpg/MainActivity.java
+      - name: Compile native SHA, private storage and zip hardening with Android SDK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:compileDebugJavaWithJavac --no-daemon
+      - name: Verify mandatory complete-game installation and immersive Android activity
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          java=Path("native/NovaAssetPacks.java").read_text()
+          gate=Path("src/components/GameInstallationGate.tsx").read_text()
+          client=Path("src/game/assets/native-pack-manager.ts").read_text()
+          activity=Path("android/app/src/main/java/com/cyberpunk/tacticalrpg/MainActivity.java").read_text()
+          assert "bundledStatus" in java and "installBundled" in java
+          assert "integratedApkStatus" in client and "installEmbeddedDistrict" in client
+          assert "isCompleteGameCatalog" in gate and "hasInstalledEntireGame" in gate
+          assert "installEmbeddedDistrict(id" in gate and "prepareFullGame()" in gate
+          assert "installDistrictPack" not in gate and "importDistrictPack" not in gate
+          assert "AssetPackControls" not in gate
+          assert "FLAG_FULLSCREEN" in activity and "onPostResume()" in activity
+          assert "registerPlugin(NovaAssetPacks.class)" in activity
+          print("Mandatory 7-district offline installation and fullscreen native plugin verified.")
+          PY
+      - name: Ensure production requires real signed content
+        run: |
+          node --input-type=module -e 'import {readFileSync} from "node:fs"; const s=readFileSync("src/game/assets/published-packs.ts","utf8"); if(!s.includes("=EMPTY_CATALOG")) process.exit(1)'
+          echo "No 3GB release tag created, no dummy packs published."

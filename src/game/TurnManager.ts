@@ -1,5 +1,6 @@
 import { TypedEventBus } from "./EventBus";
-import { ALL_CLASS_SKILLS,getClassSkills } from "./classes/registry";
+import { ALL_CLASS_SKILLS,getClassSkills,isPlayableClass } from "./classes/registry";
+import {getHybridArchetype,isValidSecondary,MULTICLASS_UNLOCK_LEVEL} from "./classes/hybrids.ts";
 import { checkClassSkill,executeClassSkill,advanceClassRound,advanceClassGuard,advanceClassEnemyDebuffs } from "./classes/engine";
 import { checkSpecial, useSpecial, advanceSpecialRound, isEnemyJammed, advanceBarrierAfterEnemyAction } from "./abilities/engine.ts";
 import type { SpecialId } from "./abilities/catalog";
@@ -7,13 +8,23 @@ import type { AbilityCheck } from "./abilities/engine.ts";
 import type { CombatVisual } from "./types";
 import { findPath,getReachableCells,coverBetween,coverArmorBonus,MOVEMENT_PER_TURN,
   type CoverGrade } from "./map";
-import {enemyProfile,planEnemyTurn,withinShot} from "./tactics";
+import {enemyProfile,withinShot} from "./tactics";
+import {decideEnemy,hearEnemy,initialEnemyMemory,
+  type EnemyMemory} from "./ai/tactical-brain.ts";
+import {hasLineOfSight} from "./map.ts";
+import {capacityForEnemy,enemyTacticTurn,initializeEnemyTactics,
+  type EnemyTacticPool} from "./ai/enemy-resources.ts";
+import type {EnemyRole} from "./tactics.ts";
+import {attackHits,attackHitChance} from "./combat/attack-rules.ts";
 import type {UrbanCombatSupport} from "./story/urban-chronicles.ts";
 import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types";
 import type { OriginGameplayProfile } from "./character/types";
 import {ITEM_CATALOG,type ItemId,type EquipmentBonuses} from "./inventory.ts";
 import type {CompanionProfile,CompanionId} from "./companions.ts";
+import {chooseCompanionAction,type PartyPosture} from "./ai/companion-brain.ts";
 import type {StealthRecord} from "./stealth.ts";
+import {layoutForEncounter,type TacticalLayout} from "./combat/tactical-maps.ts";
+import {activateSiegeTerminal} from "./combat/siege-terminals.ts";
 
 function rollDie(sides: number): number {
   return Math.floor(Math.random() * sides) + 1;
@@ -36,32 +47,39 @@ export interface TurnManagerOptions {
   progressionBonuses?:{hp:number;attack:number;armor:number;movement:number;energy:number};
   originId?: string;
   classId?: string | null;
+  multiclassId?: string | null;
   characterAbilities?: readonly string[];
   characterSkillRanks?:Readonly<Record<string,number>>;
   weaponId?:string|null;
   encounterId?: EncounterId;
   districtSupport?:UrbanCombatSupport|null;
   partySupport?:readonly CompanionProfile[];
+  partyPosture?:PartyPosture;
   infiltration?:StealthRecord|null;
 }
 
 export class TurnManager {
   private readonly events = new TypedEventBus<GameEvents>();
   private readonly originProfile?: OriginGameplayProfile;
+  private readonly arenaLayout:TacticalLayout|null;
   private readonly weaponRange:number;
   private readonly districtSupport:UrbanCombatSupport|null;
   private readonly partySupport:readonly CompanionProfile[];
+  private readonly partyPosture:PartyPosture;
   private temporaryArmorBonus = 0;
   private temporaryMovementBonus = 0;
   private nextAttackDamageBonus = 0;
   private nextAttackAccuracyBonus = 0;
   private sabotageBlocksRecovery=false;
+  private aiMemory:EnemyMemory=initialEnemyMemory();
   private state: GameState;
 
   constructor(options: TurnManagerOptions = {}) {
     this.originProfile = options.originProfile;
+    this.arenaLayout=layoutForEncounter(options.encounterId??"test");
     this.districtSupport=options.districtSupport??null;
     this.partySupport=(options.partySupport??[]).slice(0,2);
+    this.partyPosture=options.partyPosture??"manual";
     const party=this.partySupport.reduce((sum,c)=>({
       attack:sum.attack+c.attack,armor:sum.armor+c.armor,
       hp:sum.hp+c.hp,energy:sum.energy+c.energy,movement:sum.movement+c.movement,
@@ -69,46 +87,56 @@ export class TurnManager {
     this.weaponRange=options.weaponId?
       (ITEM_CATALOG[options.weaponId as ItemId]?.range??1):1;
     const bonus=options.progressionBonuses;
-    const movementPerTurn = Math.max(1,MOVEMENT_PER_TURN+(this.originProfile?.movementBonus??0)+(bonus?.movement??0)+(options.equipmentBonuses?.movementBonus??0)+(this.districtSupport?.movement??0)+party.movement);
+    const primary=isPlayableClass(options.classId)?options.classId:null;
+    const secondary=primary&&(options.characterLevel??1)>=MULTICLASS_UNLOCK_LEVEL&&
+      isValidSecondary(primary,options.multiclassId)?options.multiclassId:null;
+    const archetype=getHybridArchetype(primary,secondary);
+    const bonusKind=archetype?.bonus;
+    const movementPerTurn = Math.max(1,MOVEMENT_PER_TURN+
+      (bonusKind==="movement"?1:0)+(this.originProfile?.movementBonus??0)+(bonus?.movement??0)+(options.equipmentBonuses?.movementBonus??0)+(this.districtSupport?.movement??0)+party.movement);
     const maxHp = 18 + (this.originProfile?.maxHpBonus ?? 0)+(bonus?.hp??0)+(options.equipmentBonuses?.hpBonus??0)+party.hp;
-    const maxEnergy=10+(bonus?.energy??0)+(options.equipmentBonuses?.energyBonus??0)+(this.districtSupport?.energy??0)+party.energy;
+    const maxEnergy=10+(bonus?.energy??0)+(options.equipmentBonuses?.energyBonus??0)+(this.districtSupport?.energy??0)+party.energy+(bonusKind==="energy"?1:0);
     const trial=options.encounterId?.startsWith("trial-")??false;
     const eden=options.encounterId?.startsWith("eden-")??false;
     const district=options.encounterId?.startsWith("district-")??false;
+    const council=options.encounterId?.startsWith("council-")??false;
     const cisma=options.encounterId?.startsWith("cisma-")??false;
     const trialWaveCount=options.encounterId==="trial-3"||
       options.encounterId==="district-setor-zero"||options.encounterId==="eden-core"||
-      options.encounterId==="cisma-core"?3:trial||district||eden||cisma?2:1;
+      options.encounterId==="cisma-core"||options.encounterId==="council-setor-zero"||
+      options.encounterId==="council-aurea"?3:trial||district||eden||cisma||council?2:1;
     const infiltration=options.infiltration?.encounter===options.encounterId?
       options.infiltration:null;
+    const firstEnemyRole=enemyProfile(options.encounterId??"test",1).role;
     const encounterHp=options.encounterId==="cisma-core"?25:
       options.encounterId==="cisma-containment"?22:
       options.encounterId==="cisma-intercept"?20:
-      options.encounterId==="eden-core"?24:options.encounterId==="eden-relay"?19:options.encounterId==="v09"?16:district?17:trial?14:12;
+      options.encounterId==="eden-core"?24:options.encounterId==="eden-relay"?19:options.encounterId==="v09"?16:council?21:district?17:trial?14:12;
     this.state = {
       units: [
         {
           id: "runner",
           name: options.playerName?.trim() || "Operativo",
           side: "player",
-          x: 1,
-          y: 6,
+          x: this.arenaLayout?.playerSpawn.x??1,
+          y: this.arenaLayout?.playerSpawn.y??6,
           hp: Number.isFinite(options.currentHp)
             ? Math.min(maxHp,Math.max(1,Math.floor(options.currentHp!)))
             : maxHp,
           maxHp,
-          armorClass: 12 + (this.originProfile?.armorBonus ?? 0) + (options.equipmentBonuses?.armorBonus ?? 0) + (bonus?.armor??0)+(this.districtSupport?.armor??0)+party.armor,
-          attackBonus: 5 + (this.originProfile?.attackBonus ?? 0) + (options.equipmentBonuses?.attackBonus ?? 0) + (bonus?.attack??0)+(this.districtSupport?.attack??0)+party.attack,
+          armorClass: 12 + (this.originProfile?.armorBonus ?? 0) + (options.equipmentBonuses?.armorBonus ?? 0) + (bonus?.armor??0)+(this.districtSupport?.armor??0)+party.armor+(bonusKind==="armor"?1:0),
+          attackBonus: 5 + (this.originProfile?.attackBonus ?? 0) + (options.equipmentBonuses?.attackBonus ?? 0) + (bonus?.attack??0)+(this.districtSupport?.attack??0)+party.attack+(bonusKind==="attack"?1:0),
         },
         {
           id: "drone",
-          name: cisma?enemyProfile(options.encounterId??"cisma-intercept",1).name:
+          name: council?enemyProfile(options.encounterId!,1).name:
+            cisma?enemyProfile(options.encounterId??"cisma-intercept",1).name:
             eden?(options.encounterId==="eden-core"?"Guardião do Éden":"Interceptador de Prisma"):
             options.encounterId==="v09" ? "Unidade de Vigilância V-09"
              : district ? "Agente de Segurança Helix" : trial ? "Drone de Interceptação" : "Sentinela-07",
           side: "enemy",
-          x: 6,
-          y: 1,
+          x: this.arenaLayout?.enemySpawn.x??6,
+          y: this.arenaLayout?.enemySpawn.y??1,
           hp: Math.max(1,encounterHp-(infiltration?.outcome==="undetected"?5:0)),
           maxHp: encounterHp,
           armorClass: 13,
@@ -118,8 +146,12 @@ export class TurnManager {
       activeSide: "player",
       encounterId: options.encounterId ?? "test",
       wave:1,totalWaves:trialWaveCount,defeatedEnemyCount:0,
-      archetypeId: "field-operative", characterLevel: options.characterLevel ?? 1,
-      originId: options.originId ?? "corporativo", classId: options.classId ?? null,
+      archetypeId: archetype?.id??"field-operative",enemyAwareness:"patrol",
+      enemyPerception:"Nenhuma percepção hostil confirmada",
+      enemyTacticalCharges:capacityForEnemy(firstEnemyRole),
+      enemyTacticalCooldown:0,enemyTacticalRole:firstEnemyRole,
+      characterLevel: options.characterLevel ?? 1,
+      originId: options.originId ?? "corporativo", classId: primary,multiclassId:secondary,
       characterAbilities: options.characterAbilities ?? [],characterSkillRanks:options.characterSkillRanks ?? {}, classCooldowns:{}, classGuardBonus:0, classGuardTurns:0,
       classExtraMovement:0,classNextDamageBonus:0,classNextAccuracyBonus:0,
       classEnemyArmorReduction:0,classEnemyArmorTurns:0,
@@ -143,6 +175,7 @@ export class TurnManager {
         ". "+(infiltration?.outcome==="undetected"?"Infiltração: abertura silenciosa!":
          infiltration?.outcome==="spotted"?"Infiltração detectada: vigias reforçados.":
          "Proteja as provas e os pacientes."):
+        council?"DEFESA DO CONSELHO · onda 1 de "+trialWaveCount+". Preserve o acordo coletivo.":
         district?"Intervenção hostil no distrito · onda 1 de "+trialWaveCount+". Proteja as provas.":trial?"Operação Circuito Fantasma · onda 1 de "+trialWaveCount+". Proteja a comunidade."
         : options.encounterId==="v09" ? "Encontro V-09: neutralize a unidade que interceptou os registros de manutenção."
         : "Área de teste ativa. Alcance a sentinela e neutralize-a.",
@@ -182,6 +215,7 @@ export class TurnManager {
     this.publish();return true;
   }
   getDistrictSupportDescription():string{return this.districtSupport?.label??"";}
+  getArenaLayout():TacticalLayout|null{return this.arenaLayout;}
 
   getState(): GameState {
     return {
@@ -201,9 +235,15 @@ export class TurnManager {
   }
 
   getClassAbilities(){
-    return getClassSkills(this.state.classId).filter(skill=>
-      this.state.characterAbilities.includes(skill.id)
-      && this.state.characterLevel>=skill.minimumLevel);
+    // Secondary skills share ONE primary action, energy reserve and global
+    // tactical cooldown system. There is never a second combat turn.
+    return [...getClassSkills(this.state.classId),
+      ...getClassSkills(this.state.multiclassId??null)].filter(skill=>
+       this.state.characterAbilities.includes(skill.id)&&
+       this.state.characterLevel>=
+        (skill.classId===this.state.multiclassId?
+          Math.max(MULTICLASS_UNLOCK_LEVEL,skill.minimumLevel+2):
+          skill.minimumLevel));
   }
   getClassAvailability(id:string):AbilityCheck{
     const skill=ALL_CLASS_SKILLS[id];
@@ -215,6 +255,9 @@ export class TurnManager {
     const result=executeClassSkill(this.state,skill);
     if(!result.ok){this.setMessage(result.message);return;}
     this.addLog("[CLASSE] "+result.message);
+    const source=livingUnit(this.state.units,"runner");
+    if(source)this.aiMemory=hearEnemy(this.aiMemory,source,this.state.round,
+       skill.target==="enemy"?7:3);
     this.setCue(skill.visual,skill.target==="enemy"?"enemy":"player",result.amount);
     this.resolveEnemyDown();
     this.publish();
@@ -230,6 +273,8 @@ export class TurnManager {
       return;
     }
     this.addLog("[ESPECIAL] " + result.message);
+    const source=livingUnit(this.state.units,"runner");
+    if(source)this.aiMemory=hearEnemy(this.aiMemory,source,this.state.round,6);
     this.setCue(result.visual ?? "basic", result.target ?? "player", result.amount);
     this.resolveEnemyDown();
     this.publish();
@@ -243,7 +288,16 @@ export class TurnManager {
       return;
     }
     if (this.state.terminalUsed) {
-      this.setMessage("Terminal auxiliar já utilizado neste teste.");
+      this.setMessage("Terminal auxiliar já utilizado neste confronto.");
+      return;
+    }
+    if(this.arenaLayout){
+      this.state.terminalUsed=true;
+      const result=activateSiegeTerminal(this.state,this.arenaLayout.site);
+      this.state.message=result.message;
+      this.addLog("[CENÁRIO] "+result.name+": "+result.message);
+      this.setCue("terminal","terminal",result.energy);
+      this.publish();
       return;
     }
     if (this.state.energy === this.state.maxEnergy) {
@@ -268,20 +322,20 @@ export class TurnManager {
   getReachableCells(): Position[] {
     const player = livingUnit(this.state.units, "runner");
     if (!player || this.state.activeSide !== "player" || this.state.combatComplete) return [];
-    return getReachableCells(this.state.units, player, this.state.movementRemaining);
+    return getReachableCells(this.state.units, player, this.state.movementRemaining,this.arenaLayout);
   }
 
   /** Prévia única para lógica, HUD e ação real: evita indicadores mentirosos. */
   getBasicAttackPreview():{
     available:boolean;reason:string;range:number;distance:number;
-    mode:"melee"|"ranged";cover:CoverGrade;defense:number;
+    mode:"melee"|"ranged";cover:CoverGrade;defense:number;hitChance:number;
   }{
     const player=livingUnit(this.state.units,"runner");
     const enemy=livingUnit(this.state.units,"drone");
     const mode=this.weaponRange>1?"ranged":"melee";
     const range=this.weaponRange;
     const dist=player&&enemy?distance(player,enemy):0;
-    const cover=player&&enemy&&range>1?coverBetween(player,enemy):"none";
+    const cover=player&&enemy&&range>1?coverBetween(player,enemy,this.arenaLayout):"none";
     const defense=(enemy?.armorClass??0)+(cover==="partial"?2:0);
     let reason="";
     if(!player||!enemy)reason="Sem alvo disponível.";
@@ -290,7 +344,10 @@ export class TurnManager {
     else if(!this.state.mainActionAvailable)reason="Ação principal já utilizada.";
     else if(dist>range)reason="Alvo fora do alcance ("+range+" células).";
     else if(range>1&&cover==="full")reason="Disparo bloqueado por obstáculo.";
-    return {available:reason==="",reason,range,distance:dist,mode,cover,defense};
+    const totalBonus=(player?.attackBonus??0)+this.nextAttackAccuracyBonus+
+      this.state.classNextAccuracyBonus;
+    const hitChance=reason?0:attackHitChance(totalBonus,defense);
+    return {available:reason==="",reason,range,distance:dist,mode,cover,defense,hitChance};
   }
 
   canAttack(): boolean {
@@ -303,8 +360,21 @@ export class TurnManager {
     const enemy=livingUnit(this.state.units,"drone");
     if(!player||!enemy||this.state.combatComplete)return "Sem ameaça ativa";
     if(this.state.enemyJamTurns>0)return "Interferência ativa: ação hostil bloqueada";
-    return planEnemyTurn(enemy,player,this.state.units,
-      enemyProfile(this.state.encounterId,this.state.wave)).intent;
+    // Cheap perceptual HUD: no path search or utility scoring on renders.
+    // Full reasoning runs ONLY once when the enemy actually takes a turn.
+    const sight=distance(enemy,player)<=6&&
+      hasLineOfSight(enemy,player,this.arenaLayout);
+    if(sight)return "ALERTA · contato visual confirmado";
+    if(this.aiMemory.noise&&this.aiMemory.noise.round>=this.state.round-2&&
+      distance(enemy,this.aiMemory.noise.at)<=this.aiMemory.noise.strength)
+      return "SUSPEITA · ruído identificado";
+    if(this.aiMemory.lastKnown&&this.aiMemory.lastKnownRound>=0&&
+       this.state.round-this.aiMemory.lastKnownRound<=
+       (this.aiMemory.lastKnownSense==="sound"?2:3))
+      return this.aiMemory.lastKnownSense==="sound"?
+        "BUSCA · último ruído percebido":
+        "BUSCA · último contato visual";
+    return "PATRULHA · nenhum alvo identificado";
   }
 
   activateOriginAbility(): void {
@@ -393,11 +463,18 @@ export class TurnManager {
   movePlayerTo(x: number, y: number): void {
     const player = livingUnit(this.state.units, "runner");
     if (!player || this.state.activeSide !== "player" || this.state.combatComplete) return;
-    const path = findPath(player, { x, y }, this.state.units, player.id);
-    if (!path || path.length < 2) return;
+    const path = findPath(player, { x, y }, this.state.units, player.id,this.arenaLayout);
+    if (!path) {
+      this.setMessage("Destino bloqueado ou sem rota segura. Escolha uma célula ciano próxima.");
+      return;
+    }
+    if (path.length < 2) {
+      this.setMessage("Você já está nessa posição. Escolha outra célula.");
+      return;
+    }
     const cost = path.length - 1;
     if (cost > this.state.movementRemaining) {
-      this.setMessage("Movimento insuficiente para alcançar essa célula.");
+      this.setMessage("Alvo distante: "+cost+" células necessárias, "+this.state.movementRemaining+" disponíveis. Avance por uma célula ciano.");
       return;
     }
     player.x = x;
@@ -406,6 +483,7 @@ export class TurnManager {
     this.state.movementRemaining -= cost;
     this.state.message = `Movimento concluído: ${cost} célula(s) consumida(s).`;
     this.addLog(`[MOVIMENTO] ${player.name} avançou ${cost} célula(s).`);
+    this.aiMemory=hearEnemy(this.aiMemory,player,this.state.round,2);
     this.publish();
   }
 
@@ -421,7 +499,7 @@ export class TurnManager {
     this.state.mainActionAvailable=false;
     this.nextAttackAccuracyBonus=0;
     this.state.classNextAccuracyBonus=0;
-    if(roll===20||total>=preview.defense){
+    if(attackHits(roll,attackBonus,preview.defense)){
       const baseDamage=rollDie(preview.mode==="ranged"?6:6)+2+
         (this.weaponRange===5?1:0);
       const damage=baseDamage+this.nextAttackDamageBonus+this.state.classNextDamageBonus;
@@ -438,6 +516,8 @@ export class TurnManager {
     }
     this.nextAttackDamageBonus=0;
     this.state.classNextDamageBonus=0;
+    this.aiMemory=hearEnemy(this.aiMemory,player,this.state.round,
+      preview.mode==="ranged"?8:4);
     this.resolveEnemyDown();
     this.publish();
   }
@@ -447,6 +527,10 @@ export class TurnManager {
     const player = livingUnit(this.state.units, "runner");
     const enemy = livingUnit(this.state.units, "drone");
     if (!player || !enemy) return;
+    // Player-selected autonomous order. Uses the ORIGINAL one-use support
+    // function, so it cannot bypass bonus action economy or heal full HP.
+    const ally=chooseCompanionAction(this.partySupport,this.state,this.partyPosture);
+    if(ally)this.useCompanionSupport(ally);
     this.state.activeSide = "enemy";
     this.state.message = "Turno hostil. Observe a linha de tiro e as coberturas.";
     this.addLog("[TURNO] A unidade hostil está agindo.");
@@ -457,20 +541,56 @@ export class TurnManager {
       this.setCue("emp", "enemy");
     }
     const profile=enemyProfile(this.state.encounterId,this.state.wave);
+    const role=(this.state.enemyTacticalRole??profile.role) as EnemyRole;
+    const pool:EnemyTacticPool={
+      role,charges:this.state.enemyTacticalCharges??capacityForEnemy(role),
+      cooldown:this.state.enemyTacticalCooldown??0,
+    };
+    // Once per enemy turn. Uses the enemy's current profile on a new wave,
+    // even when an old save/test changes the active wave directly.
+    const resolveDevice=(canFire:boolean)=>{
+      const decision=enemyTacticTurn(pool,profile.role,canFire,this.state.energy);
+      this.state.enemyTacticalRole=decision.next.role;
+      this.state.enemyTacticalCharges=decision.next.charges;
+      this.state.enemyTacticalCooldown=decision.next.cooldown;
+      if(decision.device){
+        this.addLog("[RECURSO HOSTIL] "+profile.name+" preparou "+
+          (decision.device==="suppression"?"supressão":"sabotagem")+
+          "; restam "+decision.next.charges+" cargas.");
+      }
+      return decision.device;
+    };
     const pendingOverwatch=this.state.overwatchReady;
     this.state.overwatchReady=false;
     if(!jammed){
-      const plan=planEnemyTurn(enemy,player,this.state.units,profile);
+      const decision=decideEnemy(enemy,player,this.state.units,
+        profile,this.aiMemory,this.state.round,this.arenaLayout);
+      this.aiMemory=decision.memory;
+      this.state.enemyAwareness=decision.memory.awareness;
+      this.state.enemyPerception=decision.perception.reason;
+      const plan=decision.plan;
+      this.addLog("[PERCEPÇÃO] "+profile.name+" · "+decision.perception.reason+
+        " · "+decision.reason+".");
       if(plan.action==="advance"||plan.action==="reposition"){
-        enemy.x=plan.target.x;
-        enemy.y=plan.target.y;
-        this.addLog("[IA TÁTICA] "+profile.name+" · "+plan.intent+".");
+        // The navigator may plan without knowing an occluded occupant.
+        // Validate ACTUAL collision/path at execution, never teleport or
+        // overlap the runner; a blocked route consumes no extra action.
+        const legalPath=findPath(enemy,plan.target,this.state.units,
+          enemy.id,this.arenaLayout);
+        if(legalPath&&legalPath.length>1&&
+           legalPath.length-1<=profile.mobility){
+          enemy.x=plan.target.x;
+          enemy.y=plan.target.y;
+          this.addLog("[IA TÁTICA] "+profile.name+" · "+plan.intent+".");
+        }else{
+          this.addLog("[IA TÁTICA] Rota ocupada ou alterada: movimento cancelado com segurança.");
+        }
       }
       if(pendingOverwatch){
-        if(withinShot(player,enemy,this.weaponRange)){
-          const defense=enemy.armorClass+coverArmorBonus(player,enemy);
+        if(withinShot(player,enemy,this.weaponRange,this.arenaLayout)){
+          const defense=enemy.armorClass+coverArmorBonus(player,enemy,this.arenaLayout);
           const reactionRoll=rollDie(20);
-          if(reactionRoll===20||reactionRoll+player.attackBonus>=defense){
+          if(attackHits(reactionRoll,player.attackBonus,defense)){
             const damage=rollDie(6)+2+(this.weaponRange===5?1:0);
             enemy.hp=Math.max(0,enemy.hp-damage);
             this.setCue("hit","enemy",damage);
@@ -482,20 +602,25 @@ export class TurnManager {
         }else this.addLog("[VIGILÂNCIA] Sem linha de tiro: reação consumida.");
         if(enemy.hp<=0){this.resolveEnemyDown();this.publish();return;}
       }
-      if(withinShot(enemy,player,profile.range)){
-        const cover=profile.range>1?coverArmorBonus(enemy,player):0;
+      // Attack only after currently sensing the target, not its last known tile.
+      const visibleNow=hasLineOfSight(enemy,player,this.arenaLayout)&&
+        distance(enemy,player)<=6;
+      if(visibleNow&&withinShot(enemy,player,profile.range,this.arenaLayout)){
+        // The charge is consumed on ATTEMPT, including a miss.
+        const device=resolveDevice(true);
+        const cover=profile.range>1?coverArmorBonus(enemy,player,this.arenaLayout):0;
         const defense=player.armorClass+cover;
-        const roll=rollDie(20),total=roll+enemy.attackBonus;
-        if(roll===20||total>=defense){
+        const roll=rollDie(20);
+        if(attackHits(roll,enemy.attackBonus,defense)){
           const damage=rollDie(profile.range>1?6:4)+(profile.range>1?1:1);
           player.hp=Math.max(0,player.hp-damage);
           this.setCue("hit","player",damage);
           this.addLog(`[INIMIGO] ${profile.range>1?"Disparo":"Golpe"}: d20 ${roll} + ${enemy.attackBonus} vs ${defense}. ${damage} dano.`);
-          if(profile.role==="suppressor"){
+          if(device==="suppression"){
             this.state.suppressionTurns=1;
             this.addLog("[SUPRESSÃO] Próximo deslocamento reduzido em 2 células.");
           }
-          if(profile.role==="saboteur"){
+          if(device==="sabotage"){
             const drained=Math.min(2,this.state.energy);
             this.state.energy-=drained;
             this.sabotageBlocksRecovery=true;
@@ -506,9 +631,10 @@ export class TurnManager {
           this.addLog(`[INIMIGO] Ataque não atingiu o protagonista (defesa ${defense}).`);
         }
       }else{
+        resolveDevice(false);
         this.addLog("[IA TÁTICA] "+profile.name+" aguarda abertura na linha de tiro.");
       }
-    }
+    }else resolveDevice(false);
     if(jammed&&pendingOverwatch)this.addLog("[VIGILÂNCIA] EMP bloqueou ação inimiga; reação consumida.");
     advanceBarrierAfterEnemyAction(this.state);
     advanceClassGuard(this.state);
@@ -573,17 +699,19 @@ export class TurnManager {
     this.state.defeatedEnemyCount++;
     const trial=this.state.encounterId.startsWith("trial-");
     const district=this.state.encounterId.startsWith("district-");
+    const council=this.state.encounterId.startsWith("council-");
     const eden=this.state.encounterId.startsWith("eden-");
     const cisma=this.state.encounterId.startsWith("cisma-");
-    const waves=trial||district||eden||cisma;
+    const waves=trial||district||eden||cisma||council;
     if(waves&&this.state.wave<this.state.totalWaves){
       this.state.wave+=1;
       const hp=(cisma?(this.state.encounterId==="cisma-core"?25:
         this.state.encounterId==="cisma-containment"?22:20):
-        eden?(this.state.encounterId==="eden-core"?24:19):district?17:14)+3*(this.state.wave-1);
+        eden?(this.state.encounterId==="eden-core"?24:19):council?21:district?17:14)+3*(this.state.wave-1);
       enemy.hp=hp;enemy.maxHp=hp;enemy.armorClass=13+this.state.wave-1;
       enemy.attackBonus=4+this.state.wave-1;
-      enemy.x=6;enemy.y=1;
+      enemy.x=this.arenaLayout?.enemySpawn.x??6;
+      enemy.y=this.arenaLayout?.enemySpawn.y??1;
       enemy.name=enemyProfile(this.state.encounterId,this.state.wave).name+" · "+this.state.wave;
       this.state.combatComplete=false;
       this.state.mainActionAvailable=true;
@@ -592,6 +720,14 @@ export class TurnManager {
       this.state.energy=Math.min(this.state.maxEnergy,this.state.energy+3);
       this.state.movementRemaining=this.state.movementPerTurn;
       this.state.enemyJamTurns=0;
+      this.aiMemory=initialEnemyMemory();
+      const nextRole=enemyProfile(this.state.encounterId,this.state.wave).role;
+      const nextPool=initializeEnemyTactics(nextRole);
+      this.state.enemyTacticalCharges=nextPool.charges;
+      this.state.enemyTacticalCooldown=nextPool.cooldown;
+      this.state.enemyTacticalRole=nextRole;
+      this.state.enemyAwareness="patrol";
+      this.state.enemyPerception="Nova onda: nenhum contato ainda";
       this.state.overwatchReady=false;this.state.suppressionTurns=0;
       this.state.classEnemyArmorTurns=0;
       this.state.classEnemyArmorReduction=0;

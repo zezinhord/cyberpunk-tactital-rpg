@@ -23,8 +23,19 @@ const OWNED_DATA_KEYS=[
  "cyberpunk-tactical-rpg.cisma-v20.v1.",
  "cyberpunk-tactical-rpg.cisma-operations.v1.",
  "cyberpunk-tactical-rpg.party-v20.v1.",
+ "cyberpunk-tactical-rpg.ai-world-memory.v1.",
  "cyberpunk-tactical-rpg.stealth-v20.v1.",
  "cyberpunk-tactical-rpg.inner-contracts-v20.v1.",
+ // Nova Arcádia 2.0: clearing a character must also clear the newer
+ // investigation, rescue and Éden chapters, but NEVER other characters.
+ "cyberpunk-tactical-rpg.archive-v20.v1.",
+ "cyberpunk-tactical-rpg.district-councils-v20.v1.",
+ "cyberpunk-tactical-rpg.reconstruction-v20.v1.",
+ "cyberpunk-tactical-rpg.field-simulations-v20.v1.",
+ "cyberpunk-tactical-rpg.perimeter-v20.v1.",
+ "cyberpunk-tactical-rpg.vigil-v20.v1.",
+ "cyberpunk-tactical-rpg.shelter-v20.v1.",
+ "cyberpunk-tactical-rpg.nexus-v20.v1.",
 ] as const;
 /** Descobre e preserva automaticamente o slot único de versões anteriores. */
 export function listCharacterSlots():PlayerCharacter[]{
@@ -55,22 +66,47 @@ export function containsCharacterSlot(id:string):boolean{
  return listCharacterSlots().some(char=>char.id===id);
 }
 export function removeCharacterSlot(id:string):boolean{
+ // Never delete the index, active selection or story data partially:
+ // Android WebView localStorage can fail mid-transaction due to quota or IO.
+ // A snapshot allows reversing each mutation without touching another slot.
  const slots=listCharacterSlots();
  if(!slots.some(char=>char.id===id))return false;
+ const storage=globalThis.localStorage;
+ if(!storage)return false;
+ const remaining=slots.filter(char=>char.id!==id);
+ const active=loadCharacter();
+ const keys=[
+  CHARACTER_SLOT_INDEX,CHARACTER_SLOT_PREFIX+id,
+  ...(active?.id===id?[CHARACTER_SAVE_KEY]:[]),
+  ...OWNED_DATA_KEYS.map(prefix=>prefix+id),
+ ];
+ const previous=new Map<string,string|null>();
  try{
-   const storage=globalThis.localStorage;if(!storage)return false;
-   const remaining=slots.filter(char=>char.id!==id);
-   storage.setItem(CHARACTER_SLOT_INDEX,JSON.stringify(remaining.map(char=>char.id)));
-   storage.removeItem(CHARACTER_SLOT_PREFIX+id);
-   const active=loadCharacter();
-   if(active?.id===id){
-     if(remaining[0])setActiveRaw(JSON.stringify({version:1,character:remaining[0]}));
-     else storage.removeItem(CHARACTER_SAVE_KEY);
-   }
-   // A exclusão explícita também elimina dados órfãos deste protagonista;
-   // outros slots permanecem intactos.
-   for(const prefix of OWNED_DATA_KEYS)storage.removeItem(prefix+id);
-   return true;
- }catch{return false;}
+  for(const key of keys)previous.set(key,storage.getItem(key));
+ }catch{return false;} // Cannot guarantee rollback without a full snapshot.
+ try{
+  // Commit the replacement active selection before the source slot is lost.
+  if(active?.id===id){
+   if(remaining[0]){
+    if(!setActiveRaw(JSON.stringify({version:1,character:remaining[0]})))
+     throw new Error("Não foi possível selecionar outro personagem.");
+   }else storage.removeItem(CHARACTER_SAVE_KEY);
+  }
+  // Only delete exact per-character keys, including all 2.0 chapters.
+  for(const prefix of OWNED_DATA_KEYS)storage.removeItem(prefix+id);
+  storage.removeItem(CHARACTER_SLOT_PREFIX+id);
+  storage.setItem(CHARACTER_SLOT_INDEX,JSON.stringify(remaining.map(char=>char.id)));
+  return true;
+ }catch{
+  // Recover the original index, active player, and every touched record.
+  // If the storage itself remains unavailable, preserve what can be restored.
+  for(const [key,raw] of previous){
+   try{
+    if(raw===null)storage.removeItem(key);
+    else storage.setItem(key,raw);
+   }catch{/* WebView storage can be unavailable during rollback as well. */}
+  }
+  return false;
+ }
 }
 export function hasSlotCapacity():boolean{return listCharacterSlots().length<MAX_CHARACTER_SLOTS;}

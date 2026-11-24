@@ -1,0 +1,153 @@
+/* Illustrated investigation dossiers — one decoded texture at a time.
+ * Designed for 960×540 landscape Android screens as well as desktop.
+ */
+.na-dossier-overlay{
+ position:fixed;inset:0;z-index:1300;display:flex;align-items:center;
+ justify-content:center;padding:10px;background:rgba(3,12,20,.97);
+ color:#e2e8df;
+}
+.na-dossier-window{
+ display:flex;flex-direction:column;width:min(98vw,1080px);
+ max-height:97dvh;min-height:0;border:1px solid #4c7d83;
+ border-radius:10px;background:#11252c;box-shadow:0 15px 50px #000a;
+ overflow:hidden;
+}
+.na-dossier-heading,.na-dossier-footer{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:8px;padding:9px 14px;background:#12272e;
+}
+.na-dossier-heading>div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.na-dossier-heading small{font:10px "IBM Plex Mono",monospace;color:#89c3cc}
+.na-dossier-heading strong{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.na-dossier-heading span{font:11px "IBM Plex Mono",monospace;color:#d8ae7f}
+.na-dossier-visual{
+ flex:1;display:flex;min-height:120px;max-height:calc(97dvh - 160px);
+ align-items:center;justify-content:center;overflow:auto;
+ background:#061b24;overscroll-behavior:contain;
+}
+.na-dossier-visual img{
+ display:block;object-fit:contain;max-width:100%;max-height:100%;
+ width:auto;height:auto;
+}
+.na-dossier-visual img.zoom{
+ max-width:none;max-height:none;min-width:100%;
+ object-fit:unset;
+}
+.na-dossier-visual p{padding:15px;max-width:640px;text-align:center}
+.na-dossier-copy{
+ padding:5px 14px;max-height:58px;overflow-y:auto;
+ border-top:1px solid #314e55;
+}
+.na-dossier-copy p{margin:0;font-size:12px;line-height:1.45}
+.na-dossier-overlay button{
+ min-width:76px;min-height:38px;padding:6px 10px;
+ border-radius:6px;border:1px solid #5e878e;background:#1c3944;
+ color:#f3e8d1;font:12px "IBM Plex Mono",monospace;
+}
+.na-dossier-overlay button:disabled{opacity:.35;cursor:default}
+.na-dossier-overlay button:focus-visible{outline:2px solid #d8b27a;outline-offset:2px}
+@media (max-height:430px){
+ .na-dossier-heading{padding:5px 10px}
+ .na-dossier-heading small{display:none}
+ .na-dossier-copy{max-height:35px}
+ .na-dossier-footer{padding:4px 10px}
+ .na-dossier-visual{max-height:calc(97dvh - 120px)}
+}
+
+/* One 2880×1620 cinematic at a time; tab change releases the old decoded asset. */
+.na-dossier-modes{display:flex;gap:6px;align-items:center;padding:5px 12px;
+ border-top:1px solid #355b61;background:#10242b;flex-shrink:0}
+.na-dossier-modes button{flex:1;min-height:40px;white-space:nowrap}
+.na-dossier-modes button[aria-pressed="true"]{background:#305766;border-color:#8dcbcf;
+ color:#fff5d9;font-weight:700}
+.na-dossier-visual{max-height:calc(97dvh - 203px)}
+@media(max-height:430px){.na-dossier-modes{padding:3px 9px}
+ .na-dossier-modes button{min-height:32px;font-size:11px}
+ .na-dossier-visual{max-height:calc(97dvh - 164px)}}
+
+/* New six-phase field simulations: tactical evidence choices remain reachable
+ * on small landscape phones without shrinking the actual battle scene. */
+.na-simulation-puzzle{padding:8px 12px 11px;max-height:min(40dvh,220px);
+ overflow-y:auto;flex-shrink:0;background:#122f37;border-top:1px solid #779093;
+ font-size:12px;overscroll-behavior:contain}
+.na-simulation-puzzle strong{color:#e9c48c;letter-spacing:.03em}
+.na-simulation-puzzle p{margin:5px 0 9px;line-height:1.45;color:#e4e9e4}
+.na-simulation-answers{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.na-simulation-answers button{display:block;white-space:normal;text-align:left;
+ padding:8px;font-size:11px;min-height:51px;line-height:1.3}
+.na-simulation-feedback{border-left:3px solid #e6bc7f;padding-left:7px}
+.na-dossier-modes button{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.na-dossier-modes button:disabled{opacity:.32}
+@media(max-width:700px){.na-simulation-answers{grid-template-columns:1fr;gap:5px}
+.na-simulation-puzzle{max-height:35dvh}
+.na-simulation-answers button{min-height:42px}}
+
+/* OPERAÇÃO LIMIAR: authentic 8x8 touch navigation stays legible over the
+ * individually decoded environmental plate on lower-end Android phones. */
+.na-dossier-visual{position:relative}
+.na-perimeter-hud{position:sticky;top:6px;right:8px;align-self:flex-start;
+ margin:7px;flex:0 0 min(270px,43%);z-index:3;padding:7px;border-radius:9px;
+ background:rgba(7,23,32,.94);border:1px solid #75a0a8;
+ box-shadow:0 7px 28px #0008;font:11px "IBM Plex Mono",monospace;color:#e1eae5}
+.na-perimeter-hud strong{display:block;color:#f7ce91;line-height:1.3}
+.na-perimeter-hud p{padding:4px 0;margin:4px 0;max-width:100%;text-align:left}
+.na-perimeter-data{display:flex;gap:6px;justify-content:space-between;
+ flex-wrap:wrap;margin:6px 0;color:#add7de;font-size:10px}
+.na-perimeter-modes{display:flex;gap:3px;margin:6px 0}
+.na-perimeter-modes button{flex:1;min-width:0;min-height:30px;
+ font-size:10px;padding:3px 4px}
+.na-perimeter-modes button[aria-pressed="true"]{background:#2f6d74;color:white}
+.na-perimeter-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));
+ gap:2px;width:100%;aspect-ratio:1;margin:6px 0 1px}
+.na-perimeter-grid .na-route-cell{min-width:0;min-height:0;width:100%;height:100%;
+ display:flex;align-items:center;justify-content:center;padding:0;
+ border-radius:2px;background:#1e3b44;border:1px solid #3f737c;
+ color:#a1cbd2;font-size:15px;font-weight:bold}
+.na-perimeter-grid .na-route-cell:disabled{opacity:.63}
+.na-perimeter-grid .na-route-cell.blocked{background:#192329;border-color:#243b41;color:#5a6872}
+.na-perimeter-grid .na-route-cell.hazard{background:#523638;color:#ffb078}
+.na-perimeter-grid .na-route-cell.goal{background:#5b482e;border-color:#f8c47a;color:#ffd79c}
+.na-perimeter-grid .na-route-cell.player{background:#256f81;border-color:#72ecff;
+ color:#efffff;opacity:1}
+.na-perimeter-hud .na-route-start{min-width:100%;min-height:44px;font-weight:700;
+ background:#1e6666;border-color:#6ebbb5}
+@media(max-height:520px){.na-perimeter-hud{max-height:calc(97dvh - 145px);
+ overflow-y:auto}.na-perimeter-grid{max-width:190px;max-height:190px;margin-inline:auto}
+.na-perimeter-grid .na-route-cell{font-size:11px}.na-perimeter-data{font-size:9px}
+.na-perimeter-hud .na-route-start{min-height:34px}}
+@media(max-width:710px){.na-perimeter-hud{flex-basis:min(225px,52%);
+ padding:5px}.na-perimeter-modes button{font-size:9px}
+.na-perimeter-grid{max-width:180px;max-height:180px;margin-inline:auto}}
+
+/* Fourth expansion: touch-native escort HUD with active sentries, 4 civilian
+ * groups and 3 tactical action buttons; keep map clickable on 540px landscape. */
+.na-dossier-modes{overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin}
+.na-dossier-modes button{flex:1 0 18%;min-width:125px;padding:5px 6px;font-size:10px}
+.na-vigil-hud{border-color:#70aab5;max-height:min(66dvh,385px);overflow-y:auto}
+.na-vigil-hud .na-perimeter-grid{max-width:196px;margin-inline:auto}
+.na-perimeter-grid .na-route-cell.civilian{background:#745d35;color:#ffe3a1;
+ border-color:#edc27b}
+.na-perimeter-grid .na-route-cell.guard{background:#6d294d;color:#ffbada;
+ border-color:#e85da3}
+.na-perimeter-grid .na-route-cell.guard.player{background:#2b7882;color:#eef9ff}
+.na-vigil-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+ gap:4px;padding:4px 0}
+.na-vigil-actions button{min-width:0;min-height:42px;padding:4px 2px;
+ white-space:normal;font-size:9px;line-height:1.25}
+.na-vigil-hud .na-perimeter-data{font-size:9px}
+@media(max-height:520px){.na-vigil-hud{max-height:calc(97dvh - 132px)}
+ .na-vigil-hud .na-perimeter-grid{max-width:171px;max-height:171px}
+ .na-vigil-actions button{min-height:37px}}
+@media(max-width:690px){.na-dossier-modes button{min-width:132px}
+ .na-vigil-hud .na-perimeter-grid{max-width:160px;max-height:160px}}
+
+/* Route assistance remains legible on 360dp devices without extra textures. */
+.na-vigil-guidance{font-size:.78rem;line-height:1.45;margin:.4rem 0;
+ color:#c6eaf0;overflow-wrap:anywhere}
+.na-vigil-hud .na-route-cell.suggested:not(.player){
+ outline:2px solid #55e5e2;outline-offset:-3px;
+ box-shadow:inset 0 0 0 1px #102a38;
+}
+@media (prefers-reduced-motion:reduce){
+ .na-vigil-hud .na-route-cell.suggested{transition:none;animation:none}
+}
