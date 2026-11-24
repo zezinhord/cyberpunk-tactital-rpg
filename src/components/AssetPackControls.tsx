@@ -15,22 +15,28 @@ export default function AssetPackControls(){
  const catalog=verifiedCatalog();
  const [statuses,setStatuses]=useState<Partial<Record<PackId,boolean>>>({});
  const [checking,setChecking]=useState(true);
+ const [checkedCount,setCheckedCount]=useState(0);
  const [error,setError]=useState("");
  useEffect(()=>{
   let mounted=true;
   if(!nativePackPlatform()){setChecking(false);return;}
-  void Promise.all(PACK_IDS.map(async id=>({id,info:await inspectPack(id)})))
-   .then(items=>{
-    if(!mounted)return;
-    const next:Partial<Record<PackId,boolean>>={};
-    items.forEach(({id,info})=>{next[id]=info.installed;});
-    setStatuses(next);setChecking(false);
-   }).catch(err=>{
-    if(!mounted)return;
-    setChecking(false);
-    setError("Não foi possível consultar a integridade dos arquivos: "+
+  // Android status() walks each district on disk. Serial reads prevent
+  // concurrent filesystem stress on low-memory Android WebViews.
+  void (async()=>{
+   try{
+    for(const id of PACK_IDS){
+     const info=await inspectPack(id);
+     if(!mounted)return;
+     setStatuses(previous=>({...previous,[id]:info.installed}));
+     setCheckedCount(previous=>previous+1);
+    }
+   }catch(err){
+    if(mounted)setError("Não foi possível consultar a integridade dos arquivos: "+
      (err instanceof Error?err.message:"erro de acesso"));
-   });
+   }finally{
+    if(mounted)setChecking(false);
+   }
+  })();
   return()=>{mounted=false;};
  },[]);
  const all=PACK_IDS.every(id=>statuses[id]===true);
@@ -43,7 +49,7 @@ export default function AssetPackControls(){
      extra ou opcional. Depois da instalação, a campanha funciona offline.</p>
     <small>Arquivos visuais oficiais: 3.808. Tamanho dos sete arquivos
      de distrito: {formatAssetSize(catalog.totalBytes)}.</small>
-    {checking?<p role="status">Conferindo instalação completa…</p>:
+    {checking?<p role="status">Conferindo instalação completa… {checkedCount} de {PACK_IDS.length} distritos</p>:
      <p role="status">{all?"✓ Os sete distritos estão integrados a este jogo.":
       "Há arquivos necessários ausentes. Faça uma nova verificação da instalação."}</p>}
     {error&&<p role="alert">{error}</p>}
