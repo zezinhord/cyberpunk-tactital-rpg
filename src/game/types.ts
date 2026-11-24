@@ -61,6 +61,7 @@ export interface GameState {
   classEnemyArmorTurns: number;
   classEnemyAttackReduction: number;
   classEnemyAttackTurns: number;
+  classDebuffTargetId?:string;
   encounterId: EncounterId;
   wave:number;
   totalWaves:number;
