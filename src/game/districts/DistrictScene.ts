@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import {drawDistrictSkyline,drawDistrictPavement,drawDistrictBuilding,drawDistrictInteractable,DISTRICT_ART} from "./art";
 import {DISTRICT_GUIDE_TEXTURE} from "./guide-textures";
 import {isEconomyMode} from "../performance";
+import type {CinematicCameraFocus} from "../story/cinematic-camera.ts";
 import {audioDirector} from "../../audio/director";
 import {citizensForDistrict,chooseDistrictCitizenStep,districtCitizenSpeech,
  type DistrictCitizenSpec} from "../ai/district-citizens.ts";
@@ -47,6 +48,7 @@ export class DistrictScene extends Phaser.Scene{
  private buildingLayers:{image:Phaser.GameObjects.Image;x:number;y:number;w:number;h:number}[]=[];
  private buildingTextureKeys:string[]=[];
  private coverMarker?:Phaser.GameObjects.Arc;
+ private cinematicFocus:CinematicCameraFocus|null=null;
  private residents:Array<{spec:DistrictCitizenSpec;tile:Tile;
    visual:Phaser.GameObjects.Sprite;busy:boolean}>=[];
  private citizenSpeech?:Phaser.GameObjects.Text;
@@ -67,6 +69,28 @@ export class DistrictScene extends Phaser.Scene{
   if(this.appearance===appearance)return;
   this.appearance=appearance;
   this.anim?.setTexture(getPlayerTexture(this.origin,appearance));
+ }
+ /** A dialogue camera never changes walkability, player position or saves. */
+ setCinematicFocus(focus:CinematicCameraFocus|null):void{
+  if(this.cinematicFocus===focus)return;
+  this.cinematicFocus=focus;
+  if(!this.player||!this.sys.isActive())return;
+  const camera=this.cameras.main;
+  if(focus===null){
+   camera.startFollow(this.player,true,.22,.22);
+   this.updateZoom();
+   return;
+  }
+  const spot=focus==="guide"?NODE_TILES.guide:
+   focus==="objective"&&this.currentObjective?
+     NODE_TILES[this.currentObjective]:this.tile;
+  const p=center(spot);
+  const reduced=typeof window!=="undefined"&&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  camera.stopFollow();
+  camera.pan(p.x,p.y-50,reduced?0:690,"Sine.easeInOut",true);
+  camera.zoomTo(Math.min(camera.zoom*1.10,1.48),
+   reduced?0:590,"Sine.easeInOut",true);
  }
  setObjective(slot:NodeSlot|null):void{
   this.currentObjective=slot;this.updateObjectiveMarker();
@@ -110,6 +134,10 @@ export class DistrictScene extends Phaser.Scene{
   this.updateZoom();this.scale.on("resize",this.updateZoom,this);
   camera.centerOn(p.x,p.y-37);
   camera.startFollow(this.player,true,.22,.22);
+  if(this.cinematicFocus){
+   const cue=this.cinematicFocus;this.cinematicFocus=null;
+   this.setCinematicFocus(cue);
+  }
   this.input.on(Phaser.Input.Events.POINTER_DOWN,this.tap,this);
   this.input.keyboard?.on("keydown",this.keyDown,this);
   this.citizenTimer=this.time.addEvent({delay:1500,loop:true,
