@@ -1,5 +1,17 @@
 # Nova Arcádia 2.0 — Projeto Éden
 
+## RC19 em validação — esquadrões táticos e direção de câmera cinematográfica
+
+**Código em desenvolvimento (não confundir com o APK RC18 aprovado):**
+`feature/nova-arcadia-v20-rc19-squad-ai-cinematic-camera`.
+
+A atualização introduz combates de esquadrão em **15 encontros narrativos**: diversos hostis simultâneos, spawns em células válidas, seleção individual de alvos, habilidades de classe e especiais direcionadas, decisões de IA independentes por batedor, registro de vitória somente quando a onda inteira é neutralizada e XP preservada por marco de missão. Os confrontos V-09 e Limbo de Teste permanecem com o mesmo formato.
+
+A narrativa agora envia sinais de chegada, primeiro contato e evidência aos cenários Phaser: as câmeras de distrito e de interior enquadram contatos e objetivos, com retorno ao acompanhamento do protagonista e respeito a movimento reduzido. Isso não grava escolhas fictícias nem muda consequências narrativas.
+
+**Compilação Android RC19:** exige build QA201 própria e validação de instalação offline. A RC18 continua sendo o último APK já aprovado enquanto essa etapa não estiver concluída.
+
+
 ## Edição atual: RC18 — APK único completo, sem Lite nem DLC
 
 **Versão Android assinada e aprovada no emulador Android 15:** `2.0.0-rc.18` (versionCode `2000018`), pacote `com.cyberpunk.tacticalrpg.qa201`, tamanho **3.258.795.659 bytes**. A edição mantém os sete distritos e as 3.808 ilustrações originais dentro **do mesmo APK**; não há escolha entre Lite/Completo, pacote adicional ou download obrigatório após instalar.
