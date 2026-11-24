@@ -6,7 +6,7 @@ import type {EncounterId} from "../types.ts";
 import type {PlayerCharacter} from "../character/types.ts";
 import {COUNCIL_IDS,DISTRICT_COUNCILS,readCouncils,
   isCouncilId} from "./district-councils.ts";
-import {CLASS_IDS,getClassById,isPlayableClass} from "../classes/registry.ts";
+import {getClassById,isPlayableClass} from "../classes/registry.ts";
 import {getOriginById} from "../character/origins.ts";
 
 export interface AftermathScene{
