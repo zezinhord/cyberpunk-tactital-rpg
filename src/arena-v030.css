@@ -182,7 +182,7 @@
   padding:max(7px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right))
     max(7px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
   background:rgba(3,9,16,.85);backdrop-filter:blur(4px); }
-.na-ability-picker { display:grid;grid-template-rows:auto auto minmax(0,1fr) auto auto;
+.na-ability-picker { display:grid;grid-template-rows:auto auto auto minmax(0,1fr) auto auto;
   gap:6px;width:min(920px,100%);height:min(96dvh,640px);min-height:0;
   border:1px solid #cfa771;border-radius:11px;padding:10px;color:#f0e9d9;
   background:#101f29;box-shadow:0 12px 38px rgba(0,0,0,.67); }
@@ -192,6 +192,11 @@
 .na-ability-picker-head button { flex:none;min-width:48px;min-height:44px;
   border:1px solid #657d83;border-radius:7px;background:#23343e;color:#f0e9d9; }
 .na-ability-picker-energy { margin:0;color:#aad1d8;font:600 11px var(--mono); }
+.na-ability-picker-filter{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:3px 0;}
+.na-ability-picker-filter button{min-height:39px;padding:6px 12px;border:1px solid #67909a;
+ border-radius:6px;background:#1f313b;color:#d3e7e8;font:700 11px var(--display);}
+.na-ability-picker-filter button[aria-pressed="true"]{background:#c4edf0;color:#0d2732;border-color:#00e5ff}
+.na-ability-picker-filter small{font:500 10px var(--mono);color:#a7bdc2}
 .na-ability-picker-content { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
   gap:7px;min-height:0;overflow-y:auto;overscroll-behavior:contain; }
 .na-ability-picker-group { display:flex;flex-direction:column;gap:6px;min-width:0; }

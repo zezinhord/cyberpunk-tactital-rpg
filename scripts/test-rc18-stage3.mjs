@@ -1,0 +1,44 @@
+import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
+import {createStartingInventory} from "../src/game/inventory.ts";
+import {canCraft,craftRecipe} from "../src/game/crafting.ts";
+const get=path=>readFileSync(new URL("../"+path,import.meta.url),"utf8");
+const inventory=createStartingInventory("rc18-stage3-test");
+inventory.quantities.residuo_metalico=12;
+inventory.quantities.conector_reuso=12;
+inventory.quantities.reagente_bio=12;
+inventory.quantities.tecido_tecnico=12;
+assert(canCraft(inventory,"recuperar-placa",5));
+const input=JSON.stringify(inventory);
+const batch=craftRecipe(inventory,"recuperar-placa",5);
+assert(batch.ok);
+assert.equal(batch.state.quantities.placa_ceramica,5);
+assert.equal(batch.state.quantities.residuo_metalico,2);
+assert.equal(JSON.stringify(inventory),input,"batch must not mutate unsaved inventory");
+assert.equal(craftRecipe(inventory,"recuperar-placa",0).ok,false);
+assert.equal(craftRecipe(inventory,"recuperar-placa",6).ok,false);
+assert.equal(craftRecipe(inventory,"recuperar-placa",1.2).ok,false);
+assert.equal(craftRecipe(inventory,"colete-ferroviario",2).ok,false,
+ "equippable gear must never be batched");
+assert.equal(craftRecipe({...inventory,quantities:{
+ ...inventory.quantities,reagente_bio:3}},"kit-trauma",4).ok,false,
+ "insufficient materials must fail atomically");
+const test2=craftRecipe(inventory,"kit-trauma",3);
+assert.equal(test2.ok,true);
+assert.equal(test2.state.quantities.kit_trauma,3);
+assert.equal(test2.state.quantities.reagente_bio,6);
+const archive=get("src/components/CinematicArchive.tsx");
+assert.match(archive,/new Set\(readCinematicHistory\(character\.id\)\)/);
+assert.match(archive,/seen\.has\(scene\.id\)/);
+assert.match(archive,/data-cinema-archive="read-only"/);
+assert.doesNotMatch(archive,/grantUniqueExperience|onQuestXp|saveCharacter|registerCityEvent/);
+const menu=get("src/components/CharacterMenu.tsx");
+assert.match(menu,/activeSection === "cinema"/);
+assert.match(menu,/CinematicArchive character=\{character\}/);
+assert.match(menu,/onCraft\(recipe\.id,/);
+const app=get("src/App.tsx");
+assert.match(app,/craftRecipe\(inventory,id,quantity\)/);
+const picker=get("src/components/CombatAbilityPicker.tsx");
+assert.match(picker,/Prontas agora/);
+assert.match(picker,/visible\(common\)/);
+console.log("RC18 STAGE3 PASS: discovered scene replay, no quest mutations, 5x safe materials, no gear duplication, ready-ability filter.");

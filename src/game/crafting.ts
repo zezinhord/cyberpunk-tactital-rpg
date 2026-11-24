@@ -42,28 +42,36 @@ export const CRAFTING_RECIPES:readonly CraftingRecipe[]=[
  {id:"recuperar-placa",title:"Recuperar placa cerâmica",description:"Oficina de Nova Arcádia: fabricação de Recuperar placa cerâmica",inputs:{"residuo_metalico":2},output:"placa_ceramica",amount:1},
  {id:"recuperar-fibra",title:"Recuperar fibra óptica",description:"Oficina de Nova Arcádia: fabricação de Recuperar fibra óptica",inputs:{"conector_reuso":2},output:"fibra_optica",amount:1},
 ] as const;
-export function canCraft(inventory:InventoryState,id:RecipeId):boolean{
+/** Craft batches share one transactional save. Only stackable components
+ * and consumables are eligible, preventing accidental duplication of
+ * equipment and keeping the original inventory v1 format unchanged.
+ */
+export function canCraft(inventory:InventoryState,id:RecipeId,quantity=1):boolean{
  const recipe=CRAFTING_RECIPES.find(x=>x.id===id);
- if(!recipe)return false;
- if(inventory.quantities[recipe.output]+recipe.amount>999)return false;
+ if(!recipe||!Number.isSafeInteger(quantity)||quantity<1||quantity>5)return false;
+ const kind=ITEM_CATALOG[recipe.output].category;
+ if(quantity>1&&kind!=="material"&&kind!=="consumable")return false;
+ if((inventory.quantities[recipe.output]??0)+recipe.amount*quantity>999)return false;
  return Object.entries(recipe.inputs).every(([key,cost])=>{
   const item=key as ItemId;
-  return (inventory.quantities[item]??0)>=(cost??0)&&
-    inventory.equipped.weapon!==item&&inventory.equipped.armor!==item;
+  return (inventory.quantities[item]??0)>=(cost??0)*quantity&&
+    inventory.equipped.weapon!==item&&inventory.equipped.armor!==item&&
+    inventory.equipped.implant!==item;
  });
 }
-export function craftRecipe(inventory:InventoryState,id:RecipeId):
+export function craftRecipe(inventory:InventoryState,id:RecipeId,quantity=1):
  {ok:boolean;state:InventoryState;message:string}{
  const recipe=CRAFTING_RECIPES.find(x=>x.id===id);
  if(!recipe)return {ok:false,state:inventory,message:"Receita desconhecida."};
- if(!canCraft(inventory,id))return {ok:false,state:inventory,
-  message:"Faltam componentes para "+recipe.title+" ou uma peça está equipada."};
+ if(!canCraft(inventory,id,quantity))return {ok:false,state:inventory,
+  message:"Quantidade inválida, materiais insuficientes ou componente equipado."};
  const quantities={...inventory.quantities};
  for(const [key,cost] of Object.entries(recipe.inputs))
-  quantities[key as ItemId]-=cost??0;
- quantities[recipe.output]+=recipe.amount;
- return {ok:true,state:{...inventory,quantities},message:recipe.title+
-  " fabricado! Abra Equipamentos para utilizá-lo."};
+  quantities[key as ItemId]-=(cost??0)*quantity;
+ quantities[recipe.output]+=recipe.amount*quantity;
+ return {ok:true,state:{...inventory,quantities},message:
+  quantity*recipe.amount+"× "+recipe.title+" fabricado(s)!"+
+  (ITEM_CATALOG[recipe.output].slot?" Abra Equipamentos para utilizar.":"")};
 }
 export function craftingIngredientsLabel(recipe:CraftingRecipe):string{
  return Object.entries(recipe.inputs).map(([id,cost])=>

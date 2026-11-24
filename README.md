@@ -1,24 +1,24 @@
 # Nova Arcádia 2.0 — Projeto Éden
 
-## Edição jogável atual: RC17 — jogo completo, sem Lite
+## Edição atual: RC18 — APK único completo, sem Lite nem DLC
 
-**Versão Android publicada e testada em emulador:** `2.0.0-rc.17`, arquivo APK único de **3.258.787.435 bytes**, assinado QA201 (`com.cyberpunk.tacticalrpg.qa201`, versionCode 2000017). **Nenhum conteúdo é opcional**: os sete distritos e as 3.808 ilustrações originais compõem o mesmo jogo, são preparados automaticamente na primeira execução e podem funcionar offline.
+**Versão Android assinada e aprovada no emulador Android 15:** `2.0.0-rc.18` (versionCode `2000018`), pacote `com.cyberpunk.tacticalrpg.qa201`, tamanho **3.258.795.659 bytes**. A edição mantém os sete distritos e as 3.808 ilustrações originais dentro **do mesmo APK**; não há escolha entre Lite/Completo, pacote adicional ou download obrigatório após instalar.
 
-**[BAIXAR APK ÚNICO RC17 — COMPLETO, SEM VERSÃO LITE](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/45315447267/artifacts/14884423919)**
+**[BAIXAR NOVA ARCÁDIA RC18 — APK ÚNICO INTEGRAL DE 3,26 GB](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/45320564111/artifacts/14887736313)**
 
-**[CI aprovado Android 15 — mapa Phaser completo, salvamentos, sete distritos e tela cheia](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/45315447267)**
+**[AÇÕES GITHUB RC18 — TESTES DE APK, EMULADOR OFFLINE E TELA CHEIA APROVADOS](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/45320564111)**
 
-A RC16 foi substituída, pois forçava o mapa `BaixadaLiteWorld` em todos os Android. Na RC17, `src/components/BaixadaWorld.tsx` seleciona exclusivamente `BaixadaPhaserWorld`. O perfil econômico de 30 FPS **não reduz conteúdo nem seleciona outro jogo**. O teste do APK assinado confirma `engine=phaser-full`, `edition=complete` e `hasLiteRenderer=false`.
+**O que mudou na RC18:** otimização das verificações de arquivo em Android, visualização de arte original em baixa memória para interiores, câmera tática ampliável e deslocável, 10 moradores com rotinas e falas sensíveis à reputação distribuídos em cinco distritos, replay das cinematográficas já descobertas, fabricação atômica em lote de consumíveis/materiais e filtro de habilidades prontas. O motor de exploração é **sempre Phaser completo**, mesmo no perfil de 30 FPS.
 
-**Nova linha de desenvolvimento RC18 (ainda sem APK publicada):** `feature/nova-arcadia-v20-rc18-stability-visual-consolidation`, derivada do SHA RC17 `e907a7004ff286fde3820f3de6c1c5af078e49b3`. Concentra desempenho de celulares, redução de memória de arte original e consolidação, antes de ampliar combate/IA e narrativa/progressão/HUD. Não confundir um commit em desenvolvimento com versão aprovada.
+**Prova de execução Android:** ambiente offline com sete distritos instalados e verificados; entrada na Baixada com `engine=phaser-full`, `edition=complete`, `originalSprites=true` e `hasLiteRenderer=false`; ocultação das barras de sistema confirmada antes e depois de retornar à tela inicial do Android.
 
-O histórico completo da versão 2.0 está encadeado nas PRs #22 → #26 → #27 → #28 → #29; elas ainda precisam de integração coordenada. **A `main` não representa a RC17 completa**; use a branch integrada de desenvolvimento para compilar o jogo, e a branch de distribuição QA201 para assinar o APK com a chave já validada.
+**Código-fonte da build RC18:** commit `db79b3d737884c350b8ec1ddedcfceb2a78ce42e` na branch `feature/nova-arcadia-v20-rc18-cinematics-progression-ux`. Integração cumulativa das PRs #30, #31 e #32 sobre a RC17, além dos ramos históricos #22–#29. O workflow de assinatura em `feature/nova-arcadia-3gb-final-assets` compila **esse SHA exato** e usa a chave QA201 original. A `main` ainda não foi atualizada com todos esses commits.
 
-O artefato GitHub Actions acima exige possivelmente conta GitHub e tem expiração. GitHub Releases tem limite de arquivo individual 2 GiB, inferior ao APK integral de 3,26 GB.
+**Instalação e backups:** quem já instalou a versão QA201 assinada com a mesma chave pode instalar sobre ela, sem desinstalar. Recomendamos exportar previamente os saves JSON, reservar 8–10 GB livres para instalação e preparação e testar a abertura offline. Versões QA200/QA100 têm outros identificadores e **não transferem saves automaticamente**. GitHub Actions pode exigir login; links de artefatos expiram. GitHub Releases não comporta um único arquivo de 3,26 GB.
 
-**Instalação/atualização:** faça backup JSON dos slots antes de instalar. Para quem já possui uma versão `qa201` com a mesma chave de assinatura, instale o APK sobre a versão anterior. Reserve espaço livre adicional para cópia e extração local (recomenda-se 8–10 GB). APKs QA200/QA100 são outros identificadores e **não compartilham automaticamente os salvamentos**. Os testes confirmados ocorreram em emulador; falta homologação em aparelhos físicos e longa duração.
+**Limitações:** testes realizados no emulador, não em celulares físicos. Ainda faltam homologação longa de RAM/FPS no Galaxy A07 e Redmi Note 12s, inimigos de esquadrão simultâneos com novo sistema de turnos, cinematografia que controla a câmera Phaser e integração final das PRs em `main`. Não declarar a RC18 versão pública final antes dessas etapas.
 
-RPG tático cyberpunk tropical, 2D isométrico, com exploração em tempo real e batalhas por turnos. React, TypeScript, Phaser 4, Vite e Capacitor 8.
+RPG cyberpunk tropical 2D isométrico, com exploração em tempo real e combate tático por turnos. React, TypeScript, Phaser 4, Vite e Capacitor 8.
 
 ## Recursos jogáveis preservados na edição 2.0 (base da campanha)
 
@@ -32,14 +32,14 @@ RPG tático cyberpunk tropical, 2D isométrico, com exploração em tempo real e
 - Exportação/importação de backups JSON contendo personagem, inventário, aparência, posição, missões, história, Vida e progresso de Circuito Fantasma.
 - Interface horizontal e controles adaptados a celular.
 
-## Instalar Nova Arcádia 2.0 no Android — APK único RC17
+## Instalar Nova Arcádia 2.0 no Android — APK único RC18
 
-1. Abra o [APK completo RC17](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/45315447267/artifacts/14884423919). Não use o APK da RC16 nem os ZIPs de marcos antigos.
+1. Abra o [APK completo RC18](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/45320564111/artifacts/14887736313). Não use a RC16 (que tinha fallback Lite), versões menores ou ZIPs de marcos antigos.
 2. Garanta espaço adicional para a instalação e a extração dos arquivos já incorporados (idealmente 8–10 GB livres).
 3. Exporte backups dos personagens. Se já usa QA201 com a mesma assinatura, instale sobre o aplicativo, sem desinstalar.
 4. Na primeira abertura, aguarde a preparação obrigatória e offline dos sete distritos. Não há escolha de versão, pacote secundário ou DLC.
 
-**Resultado CI RC17:** [APK assinado, 3,26 GB, mapa Phaser sem Lite, instalação offline e barras imersivas](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/45315447267). A `main` ainda não representa a expansão completa.
+**Resultado CI RC18:** [APK assinado, 3,26 GB, mapa Phaser sem Lite, instalação offline e barras imersivas](https://github.com/zezinhord/cyberpunk-tactital-rpg/actions/runs/45320564111). A `main` ainda não representa a expansão completa.
 
 ## Salvamentos e atualizações
 

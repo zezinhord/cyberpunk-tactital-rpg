@@ -10,6 +10,7 @@ import type { TestAppearance } from "../game/test-arena/appearance";
 import { getPlayerSpriteUrl } from "../game/baixada/sprites";
 import ClassSelection from "./ClassSelection";
 import ProgressionTree from "./ProgressionTree";
+import CinematicArchive from "./CinematicArchive";
 import {SEWER_MAPS} from "../game/baixada/sewer-layout";
 import {favorStatus,visibleFavors,type FavorContext,type FavorState} from "../game/story/favors";
 import {FACTION_NAMES,factionStanding,type Reputation} from "../game/story/reputation";
@@ -24,7 +25,7 @@ import {CYBERWARE_IDS,CYBERWARE_CATALOG,cyberwareCapacity,cyberwareLoad,
 import {COMPANION_IDS,COMPANION_CATALOG,type CompanionId,type PartyState} from "../game/companions.ts";
 import {PARTY_POSTURES,PARTY_POSTURE_LABELS,type PartyPosture} from "../game/ai/companion-brain.ts";
 
-type MenuSection = "character" | "progression" | "inventory" | "equipment" | "cyberware" | "team" | "abilities" | "map" | "journal" | "settings";
+type MenuSection = "character" | "progression" | "inventory" | "equipment" | "cyberware" | "team" | "abilities" | "map" | "journal" | "cinema" | "settings";
 
 interface JournalClue {
   id: string;
@@ -59,7 +60,7 @@ interface Props {
   onOpenTestArena: () => void;
   inventory: InventoryState;
   onToggleEquipment: (id: ItemId) => void;
-  onCraft:(id:RecipeId)=>string;
+  onCraft:(id:RecipeId,quantity?:number)=>string;
   onInstallCyberware:(id:CyberwareId)=>string;
   onRemoveCyberware:(id:CyberwareId)=>string;
   canOperateCyberware:boolean;
@@ -81,6 +82,7 @@ const MENU_ITEMS: ReadonlyArray<{ id: MenuSection; code: string; label: string; 
   { id: "abilities", code: "HAB", label: "Habilidades", description: "Vantagens e técnicas" },
   { id: "map", code: "MAP", label: "Mapa", description: "Distritos e localização" },
   { id: "journal", code: "LOG", label: "Diário", description: "Missões e descobertas" },
+  { id: "cinema", code: "MEM", label: "Memórias", description: "Rever cenas já descobertas" },
   { id: "settings", code: "CFG", label: "Configurações", description: "Preferências do jogo" },
 ];
 
@@ -142,6 +144,7 @@ export default function CharacterMenu({
   const [activeSection, setActiveSection] = useState<MenuSection>(initialSection??"character");
   const [pendingClass,setPendingClass]=useState<ClassId|null>(null);
   const [craftNotice,setCraftNotice]=useState("");
+  const [craftQuantity,setCraftQuantity]=useState<1|2|3|5>(1);
   const [cyberwareNotice,setCyberwareNotice]=useState("");
   const [teamNotice,setTeamNotice]=useState("");
   const [graphicsMode,setGraphicsMode]=useState<GraphicsMode>(readGraphicsMode);
@@ -330,13 +333,26 @@ export default function CharacterMenu({
                   <summary className="menu-panel-kicker">BANCADA INDUSTRIAL · {CRAFTING_RECIPES.length} RECEITAS · ABRIR</summary>
                   <p>Combine os componentes recuperados em Ferrugem e na oficina de Nilo.
                     A fabricação consome recursos e produz equipamentos utilizáveis no combate.</p>
+                  <label className="na-craft-batch-label">Unidades por fabricação (materiais/consumíveis)
+                    <select aria-label="Quantidade de fabricação" value={craftQuantity}
+                      onChange={event=>setCraftQuantity(Number(event.target.value) as 1|2|3|5)}>
+                      {[1,2,3,5].map(n=><option key={n} value={n}>{n}×</option>)}
+                    </select>
+                  </label>
                   {CRAFTING_RECIPES.map(recipe=>
                     <article key={recipe.id} className="na-crafting-recipe">
                       <div><strong>{recipe.title}</strong>
                         <small>{recipe.description}</small>
                         <small>Materiais: {craftingIngredientsLabel(recipe)}</small></div>
-                      <button type="button" disabled={!canCraft(inventory,recipe.id)}
-                        onClick={()=>setCraftNotice(onCraft(recipe.id))}>Fabricar</button>
+                      <button type="button" disabled={!canCraft(inventory,recipe.id,
+                          ITEM_CATALOG[recipe.output].category==="material"||
+                          ITEM_CATALOG[recipe.output].category==="consumable"?craftQuantity:1)}
+                        onClick={()=>setCraftNotice(onCraft(recipe.id,
+                          ITEM_CATALOG[recipe.output].category==="material"||
+                          ITEM_CATALOG[recipe.output].category==="consumable"?craftQuantity:1))}>
+                        Fabricar {ITEM_CATALOG[recipe.output].category==="material"||
+                          ITEM_CATALOG[recipe.output].category==="consumable"?craftQuantity+"×":"1×"}
+                      </button>
                     </article>)}
                   {craftNotice&&<p role="status">{craftNotice}</p>}
                 </details>
@@ -507,6 +523,9 @@ export default function CharacterMenu({
               </div>
             )}
 
+            {activeSection === "cinema" && (
+              <CinematicArchive character={character}/>
+            )}
             {activeSection === "journal" && (
               <div className="menu-section-stack">
                 <section className="menu-quest-card">

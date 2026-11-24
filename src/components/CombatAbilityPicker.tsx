@@ -22,6 +22,7 @@ interface Props {
 }
 export default function CombatAbilityPicker({manager,state,className,originDescription,onClose}:Props){
  const [selectedKey,setSelectedKey]=useState<string|null>(null);
+ const [onlyReady,setOnlyReady]=useState(false);
  useEffect(()=>{
    const onKey=(event:KeyboardEvent)=>{if(event.key==="Escape")onClose();};
    window.addEventListener("keydown",onKey);
@@ -56,6 +57,8 @@ export default function CombatAbilityPicker({manager,state,className,originDescr
      :state.activeSide!=="player"?"AGUARDE SEU TURNO":"PRONTA",
  };
  const options=[...classes,...common,origin];
+ const readyCount=options.filter(skill=>skill.ready).length;
+ const visible=(items:SkillOption[])=>onlyReady?items.filter(skill=>skill.ready):items;
  const selected=options.find(skill=>skill.key===selectedKey)??null;
  const useSelected=()=>{
    if(!selected?.ready)return;
@@ -96,14 +99,21 @@ export default function CombatAbilityPicker({manager,state,className,originDescr
      </header>
      <p className="na-ability-picker-energy">Energia {state.energy}/{state.maxEnergy} ·
        {state.mainActionAvailable?" Ação principal disponível":" Ação principal já usada"}</p>
+     <div className="na-ability-picker-filter" role="group" aria-label="Filtrar habilidades">
+       <button type="button" aria-pressed={!onlyReady}
+         onClick={()=>setOnlyReady(false)}>Todas ({options.length})</button>
+       <button type="button" aria-pressed={onlyReady}
+         onClick={()=>setOnlyReady(true)}>Prontas agora ({readyCount})</button>
+       <small>{onlyReady?"Somente habilidades que podem ser utilizadas neste turno.":"Técnicas disponíveis e seus requisitos."}</small>
+     </div>
      <div className="na-ability-picker-content">
-       {group("Classe principal",classes.filter(skill=>skill.roleClassId===state.classId))}
+       {group("Classe principal",visible(classes.filter(skill=>skill.roleClassId===state.classId)))}
        {state.multiclassId&&group("Classe secundária · "+(
          isPlayableClass(state.multiclassId)?
            getClassById(state.multiclassId).name:"Multiclasse"),
-         classes.filter(skill=>skill.roleClassId===state.multiclassId))}
-       {group("Habilidades comuns",common)}
-       {group("Habilidade de origem", [origin])}
+         visible(classes.filter(skill=>skill.roleClassId===state.multiclassId)))}
+       {group("Habilidades comuns",visible(common))}
+       {group("Habilidade de origem", visible([origin]))}
      </div>
      <div className="na-ability-picker-selected" aria-live="polite">
        {selected?<><strong>{selected.name}</strong>

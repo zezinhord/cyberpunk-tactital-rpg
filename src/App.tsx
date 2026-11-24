@@ -483,9 +483,9 @@ export default function App() {
     setInventory(result.state);
     return result.message;
   };
-  const craftAtWorkshop=(id:RecipeId):string=>{
+  const craftAtWorkshop=(id:RecipeId,quantity=1):string=>{
     if(!character||inventory.ownerId!==character.id)return "Nenhum personagem ativo para fabricar.";
-    const result=craftRecipe(inventory,id);
+    const result=craftRecipe(inventory,id,quantity);
     if(!result.ok)return result.message;
     if(!saveInventory(result.state))return "Não foi possível salvar a fabricação. Nenhum componente foi consumido.";
     setInventory(result.state);
