@@ -21,6 +21,7 @@ interface NativePackApi{
  install(options:{id:PackId;releaseTag:string;sha256:string;compressedBytes:number;
   uncompressedBytes:number;artworkCount:number}):Promise<NativePackInstall>;
  asset(options:{id:PackId;path:string}):Promise<{uri:string;bytes:number}>;
+ preview(options:{id:PackId;path:string;maxWidth:number}):Promise<{uri:string;bytes:number}>;
  importLocal(options:{id:PackId;sha256:string;compressedBytes:number;
   uncompressedBytes:number;artworkCount:number}):Promise<NativePackInstall>;
  remove(options:{id:PackId}):Promise<{removedBytes:number}>;
@@ -60,6 +61,30 @@ export function packAssetUrl(room:string,kind:"mural"|"prop"|"dossier"|"cutscene
  if(!entry||!isAssetPath(entry.path))return null;
  return Capacitor.convertFileSrc(raw+entry.path);
 }
+/** Only the Android plug-in may derive bounded textures from original
+ * archived media. Never decode the full 2880px mural in the Phaser WebView.
+ * This cache is NOT a DLC, optional installation, or replacement for the
+ * authenticated originals: it is a temporary 512px view of the same files.
+ */
+export async function packArtworkPreviewUrl(
+ room:string,kind:"mural"|"prop",pathHint?:string,maxWidth=512,
+):Promise<string|null>{
+ if(!nativePackPlatform())return null;
+ const pack=packForRoom(room);
+ if(!pack||!Number.isInteger(maxWidth)||maxWidth<128||maxWidth>768)return null;
+ const raw=globalThis.localStorage?.getItem(URI_PREFIX+pack.id);
+ if(!raw||!trustedBaseUri(raw))return null;
+ const asset=pack.assets.find(a=>a.room===room&&a.kind===kind&&
+  (pathHint===undefined||a.path.includes(pathHint)));
+ if(!asset||!isAssetPath(asset.path)||!/(\\.png|\\.webp)$/.test(asset.path))return null;
+ const result=await plugin.preview({id:pack.id,path:asset.path,maxWidth});
+ if(typeof result.uri!=="string"||!result.uri.startsWith(
+   "file:///data/user/0/com.cyberpunk.tacticalrpg.qa201/cache/na-art-previews/"+pack.id+"/")
+   &&!/^file:\/\/\/data\/user\/[0-9]+\/com\.cyberpunk\.tacticalrpg\.qa201\/cache\/na-art-previews\/[a-z0-9-]+\/[a-f0-9]{64}-[0-9]+\.jpg$/.test(String(result.uri)))
+  throw new Error("Invalid local game preview path");
+ return Capacitor.convertFileSrc(result.uri);
+}
+
 /** True only if ALL seven original ZIP archives are built into the APK.
  * An older 1.14GB QA201 app returns false, never a false positive.
  */
