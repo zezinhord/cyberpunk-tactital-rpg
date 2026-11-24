@@ -76,11 +76,11 @@ export async function packArtworkPreviewUrl(
  if(!raw||!trustedBaseUri(raw))return null;
  const asset=pack.assets.find(a=>a.room===room&&a.kind===kind&&
   (pathHint===undefined||a.path.includes(pathHint)));
- if(!asset||!isAssetPath(asset.path)||!/(\\.png|\\.webp)$/.test(asset.path))return null;
+ if(!asset||!isAssetPath(asset.path)||!/\.(png|webp)$/.test(asset.path))return null;
  const result=await plugin.preview({id:pack.id,path:asset.path,maxWidth});
- if(typeof result.uri!=="string"||!result.uri.startsWith(
-   "file:///data/user/0/com.cyberpunk.tacticalrpg.qa201/cache/na-art-previews/"+pack.id+"/")
-   &&!/^file:\/\/\/data\/user\/[0-9]+\/com\.cyberpunk\.tacticalrpg\.qa201\/cache\/na-art-previews\/[a-z0-9-]+\/[a-f0-9]{64}-[0-9]+\.jpg$/.test(String(result.uri)))
+ const previewPattern=/^file:\/\/\/data\/user\/[0-9]+\/com\.cyberpunk\.tacticalrpg\.qa201\/cache\/na-art-previews\/[a-z0-9-]+\/[a-f0-9]{64}-[0-9]+\.jpg$/;
+ if(!previewPattern.test(String(result.uri))||typeof result.bytes!=="number"||
+    result.bytes<=0||result.bytes>5_000_000)
   throw new Error("Invalid local game preview path");
  return Capacitor.convertFileSrc(result.uri);
 }
