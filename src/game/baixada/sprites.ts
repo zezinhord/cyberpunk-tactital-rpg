@@ -31,8 +31,10 @@ import dara from "../../assets/characters/npc-dara.png";
 import type { OriginId } from "../character/origins";
 import type { TestAppearance } from "../test-arena/appearance";
 
-export const SPRITE_FRAME_WIDTH = 64;
-export const SPRITE_FRAME_HEIGHT = 80;
+export const SPRITE_FRAME_WIDTH = 128;
+export const SPRITE_FRAME_HEIGHT = 160;
+/** Preserve original world-space proportions with the doubled atlas. */
+export const HD_SPRITE_SCALE = 0.5;
 export const PLAYER_COLUMNS = 12;
 const NPC_COLUMNS = 12;
 
@@ -119,7 +121,7 @@ export function preloadCharacterSprites(scene:Phaser.Scene,
   if(neededPlayers&&!key.startsWith("npc-")&&!neededPlayers.has(key))continue;
   if(neededNpcs&&key.startsWith("npc-")&&!neededNpcs.has(key))continue;
   if(scene.textures.exists(key))continue;
-  scene.load.spritesheet(key,spec.url,{
+  scene.load.spritesheet(key,`/assets/characters-hd/${key}.png`,{
    frameWidth:SPRITE_FRAME_WIDTH,frameHeight:SPRITE_FRAME_HEIGHT,
   });
  }

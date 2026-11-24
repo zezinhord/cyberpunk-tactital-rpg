@@ -4,7 +4,7 @@ import type {TestAppearance} from "../test-arena/appearance";
 import {audioDirector} from "../../audio/director";
 import {
  createCharacterAnimations,ActorAnimationController,getPlayerTexture,
- frameForDirection,preloadCharacterSprites,type IsoDirection,
+ frameForDirection,HD_SPRITE_SCALE, preloadCharacterSprites,type IsoDirection,
 } from "./sprites";
 import {
  SEWER_MAPS,sewerApproach,sewerRoute,sewerWalkable,sewerWater,
@@ -215,7 +215,7 @@ export class SewerScene extends Phaser.Scene{
   const texture=getPlayerTexture(this.originId,this.appearance);
   this.add.ellipse(p.x,p.y+3,23,8,0x050d12,.57).setDepth(p.y-.1);
   this.player=this.add.sprite(p.x,p.y,texture,frameForDirection(texture,this.direction))
-   .setOrigin(.5,.95).setScale(.93).setDepth(p.y+100);
+   .setOrigin(.5,.95).setScale(.93 * HD_SPRITE_SCALE).setDepth(p.y+100);
   this.animator=new ActorAnimationController(this.player,texture,this.direction);
  }
  private approach(actor:SewerActor):void{

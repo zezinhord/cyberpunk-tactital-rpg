@@ -4,7 +4,7 @@ import type {TestAppearance} from "../test-arena/appearance";
 import {audioDirector} from "../../audio/director";
 import {isEconomyMode} from "../performance";
 import {
- preloadCharacterSprites,createCharacterAnimations,ActorAnimationController,
+ HD_SPRITE_SCALE, preloadCharacterSprites,createCharacterAnimations,ActorAnimationController,
  getPlayerTexture,frameForDirection,type IsoDirection,
 } from "../baixada/sprites";
 import {
@@ -76,7 +76,7 @@ export class FerrugemScene extends Phaser.Scene{
   const p=center(this.tile);
   const texture=getPlayerTexture(this.originId,this.appearance);
   this.player=this.add.sprite(p.x,p.y,texture,frameForDirection(texture,this.direction))
-   .setOrigin(.5,.95).setScale(.92).setDepth(p.y+120);
+   .setOrigin(.5,.95).setScale(.92 * HD_SPRITE_SCALE).setDepth(p.y+120);
   this.anim=new ActorAnimationController(this.player,texture,this.direction);
   this.marker=this.add.circle(p.x,p.y,8,0xe6b570,.15)
    .setStrokeStyle(2,0xffd8a4,.9).setDepth(p.y+.1).setVisible(false);

@@ -37,6 +37,7 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
  const [error,setError]=useState("");
  const [selected,setSelected]=useState<PackId|null>(null);
  const [free,setFree]=useState(0);
+ const [apkBytes,setApkBytes]=useState(0);
  const busy=useRef(false);
  const currentBytes=installedGameBytes(catalog,installed);
  const progress=fullGameProgress(catalog,installed,transfer);
@@ -114,6 +115,7 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
    try{
     const bundle=await integratedApkStatus();
     if(!active)return;
+    if(Number.isFinite(bundle.apkBytes)&&Number(bundle.apkBytes)>0)setApkBytes(Number(bundle.apkBytes));
     if(!bundle.allBundled||bundle.bundledCount!==PACK_IDS.length){
      setError("Este instalador não contém os sete distritos obrigatórios da versão 2.0. Instale o APK completo, sem remover seus dados.");
      setPhase("invalid");
@@ -157,7 +159,7 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
        aria-label="Preparação automática dos distritos" aria-valuemin={0} aria-valuemax={100}>
        <span style={{width:progress+"%"}}/>
       </div>
-      <small>Pacote integral previsto: {formatAssetSize(total.totalBytes)} · recursos-base já incorporados: {formatAssetSize(total.totalBytes-catalog.totalBytes)} · arquivos dos distritos a verificar: {formatAssetSize(catalog.totalBytes)}. A barra mede somente os arquivos dos distritos; nenhum download adicional.</small>
+      <small>{apkBytes>0?"APK integral medido: ":"Pacote integral previsto: "}{formatAssetSize(apkBytes||total.totalBytes)} · recursos-base e estrutura do APK: {formatAssetSize(Math.max(0,(apkBytes||total.totalBytes)-catalog.totalBytes))} · arquivos dos distritos a verificar: {formatAssetSize(catalog.totalBytes)}. A barra mede somente os arquivos dos distritos; nenhum download adicional.</small>
      </div>
      <div className="na-install-districts">
       {PACK_IDS.map(id=><div key={id}

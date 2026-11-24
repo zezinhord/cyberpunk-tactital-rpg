@@ -25,6 +25,7 @@ jobs:
           npm run generate:v20-art
       - name: RC20 21 narrative aftermaths, stat-calibrated equipment, rare salvage, Android mobile accessibility
         run: |
+          node scripts/test-rc20-hd-sprites.mjs
           node --experimental-strip-types scripts/test-rc20-dialogue-hotfix.mjs
           node --experimental-strip-types scripts/test-rc20-story-equipment.mjs
           node --experimental-strip-types scripts/test-rc20-mobile-accessibility.mjs

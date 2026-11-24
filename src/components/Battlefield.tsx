@@ -13,10 +13,7 @@ import {DEFAULT_TACTICAL_VIEWPORT,panTacticalViewport,tacticalViewBox,
 
 /** Campo tático SVG: dispensa WebGL/Canvas em Android, sem substituir a lógica
  * de turno, cobertura, IA ou as spritesheets das seis origens. */
-const SPRITES=import.meta.glob([
- "../assets/characters/player-*-masculine.png",
- "../assets/characters/player-*-feminine.png",
-],{query:"?url",import:"default",eager:true}) as Record<string,string>;
+// The exact same HD directional atlas as the full Phaser world.
 /** Distinct low-memory tactical atmospheres for 7 council siege missions. */
 const BATTLE_THEMES={
  baixada:{label:"DEFESA DAS CISTERNAS",sky:"#294d58",ground:"#1a3440",alt:"#24434b",edge:"#6f8e97",light:"#82bacc"},
@@ -52,9 +49,9 @@ function UnitSprite({unit,isPlayer,url,appearance,enemySheet,facing,pose,layout,
    {selected&&<ellipse rx="24" ry="10" fill="none"
       stroke="#ffe099" strokeWidth="2" strokeDasharray="4 3"/>}
    {isPlayer&&url?
-     <svg x="-24" y="-65" width="48" height="62" viewBox="0 80 64 80"
+     <svg x="-24" y="-65" width="48" height="62" viewBox="0 160 128 160"
        overflow="hidden">
-       <image href={url} x="0" y="0" width="768" height="320"/>
+       <image href={url} x="0" y="0" width="1536" height="640"/>
      </svg>:
      !isPlayer&&enemySheet?
       <svg x="-24" y="-70" width="48" height="70"
@@ -176,7 +173,7 @@ export default function Battlefield({manager,appearance,originId}:{
  const enemy=targetEnemy(state);
  const active=!state.combatComplete&&state.activeSide==="player";
  const attackPreview=manager.getBasicAttackPreview();
- const spriteUrl=SPRITES["../assets/characters/player-"+originId+"-"+appearance+".png"];
+ const spriteUrl="/assets/characters-hd/player-"+originId+"-"+appearance+".png";
  // Only the current battle/wave image is fetched; others remain on disk.
  const enemySheet=state.encounterId.startsWith("council-")?
    "/assets/council-enemies/"+state.encounterId+"-w"+state.wave+".png":undefined;

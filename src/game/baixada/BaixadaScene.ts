@@ -18,7 +18,7 @@ import {
   frameForDirection,
   playIdle,
   playWalk,
-  preloadCharacterSprites,
+  HD_SPRITE_SCALE, preloadCharacterSprites,
   type IsoDirection,
 } from "./sprites";
 
@@ -166,7 +166,7 @@ export class BaixadaScene extends Phaser.Scene {
   preload(): void {
     this.load.svg("baixada-market-stall", "/assets/baixada/market-stall.svg");
     this.load.svg("baixada-palm-tree", "/assets/baixada/palm-tree.svg");
-    preloadCharacterSprites(this,this.originId);
+    preloadCharacterSprites(this,this.originId,[NPC_TEXTURES.nilo,NPC_TEXTURES.joana,NPC_TEXTURES.saira,NPC_TEXTURES.teo,NPC_TEXTURES.davi,NPC_TEXTURES.marta,...ROAMING_NPCS.map((spec,index)=>NPC_TEXTURES[spec.id as keyof typeof NPC_TEXTURES]??[NPC_TEXTURES.joana,NPC_TEXTURES.teo,NPC_TEXTURES.saira][index%3]!) ]);
   }
 
   create(): void {
@@ -627,7 +627,7 @@ export class BaixadaScene extends Phaser.Scene {
     const point = tileCenter({ x, y });
     this.add.image(point.x, point.y + 4, "baixada-market-stall")
       .setOrigin(0.5, 0.95)
-      .setScale(0.40)
+      .setScale(0.40 * HD_SPRITE_SCALE)
       .setDepth(point.y + 0.12);
 
   }
@@ -721,7 +721,7 @@ export class BaixadaScene extends Phaser.Scene {
       const point = tileCenter(actor.tile);
       if (actor.kind === "person" && actor.texture) {
         actor.visual = this.add.sprite(point.x, point.y, actor.texture, frameForDirection(actor.texture,2))
-          .setOrigin(0.5, 0.95).setScale(0.86).setDepth(point.y + 0.2);
+          .setOrigin(0.5, 0.95).setScale(0.86 * HD_SPRITE_SCALE).setDepth(point.y + 0.2);
         playIdle(actor.visual, actor.texture, 2);
         if(actor.id === "patio-sentinel") actor.visual.setTint(0xff648f);
         if(!actor.routine) this.tweens.add({ targets: actor.visual, y: point.y - 1.5, duration: 1500 + (actor.tile.x % 3) * 170, yoyo: true, repeat: -1, ease: "Sine.easeInOut" });
@@ -788,7 +788,7 @@ export class BaixadaScene extends Phaser.Scene {
       .setDepth(point.y - 0.04);
     const texture = getPlayerTexture(this.originId, this.appearance);
     this.player = this.add.sprite(point.x, point.y, texture, frameForDirection(texture, this.playerDirection))
-      .setOrigin(0.5, 0.95).setScale(0.94).setDepth(point.y + 0.32);
+      .setOrigin(0.5, 0.95).setScale(0.94 * HD_SPRITE_SCALE).setDepth(point.y + 0.32);
     this.playerAnimator = new ActorAnimationController(this.player, texture, this.playerDirection);
     this.destinationMarker=this.add.circle(point.x,point.y+2,7,0xf2c78e,.16)
       .setStrokeStyle(1.6,0xffd39b,.92).setDepth(point.y+0.02).setVisible(false);
