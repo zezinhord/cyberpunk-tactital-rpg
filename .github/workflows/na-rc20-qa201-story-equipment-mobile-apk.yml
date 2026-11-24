@@ -1,4 +1,4 @@
-name: Nova Arcadia RC20 HD HOTFIX — Dialogue, Measured Installation, HD Sprites and Full QA201 APK
+name: Nova Arcadia RC20 HD FULLSCREEN — Native focus recovery and complete signed QA201 APK
 
 # Signed QA201 build with all original content mandatory and one-click setup; still QA prerelease.
 # Runs in the existing QA201 signing cache scope; only the SOURCE checkout
@@ -27,11 +27,11 @@ jobs:
       - name: Checkout pinned RC20 game source within original QA201 signing cache scope
         uses: actions/checkout@v4
         with:
-          ref: bf037e863ead56f017339298bb7801f990220ce4
+          ref: 163deb75284ec38d3829214372fb69e58a3892f3
       - name: Verify source includes the latest tactical maps and cinematics and is not an older detached commit
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "bf037e863ead56f017339298bb7801f990220ce4"
+          test "$(git rev-parse HEAD)" = "163deb75284ec38d3829214372fb69e58a3892f3"
           test -s src/game/combat/tactical-maps.ts
           test -s src/game/story/cinematic-engine.ts
           test -s src/game/story/cinematic-battles.ts
@@ -43,7 +43,7 @@ jobs:
           test -s src/game/story/battle-aftermath.ts
           test -s src/game/story/battle-salvage.ts
           test -s src/accessibility-rc20.css
-          echo "RC20 SOURCE SHA (pinned): bf037e863ead56f017339298bb7801f990220ce4" >> "$GITHUB_STEP_SUMMARY"
+          echo "RC20 SOURCE SHA (pinned): 163deb75284ec38d3829214372fb69e58a3892f3" >> "$GITHUB_STEP_SUMMARY"
           echo "QA201 SIGNING CACHE WORKFLOW REF: $GITHUB_REF" >> "$GITHUB_STEP_SUMMARY"
       - name: Node.js 22
         uses: actions/setup-node@v4
@@ -449,14 +449,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p qa
-          ln -f android/app/build/outputs/apk/debug/app-debug.apk qa/NovaArcadia-2.0.0-RC20-HD-HOTFIX-APK-UNICO-3GB-QA201.apk
-          sha256sum qa/NovaArcadia-2.0.0-RC20-HD-HOTFIX-APK-UNICO-3GB-QA201.apk > qa/rc20-apk-sha256.txt
+          ln -f android/app/build/outputs/apk/debug/app-debug.apk qa/NovaArcadia-2.0.0-RC20-HD-FULLSCREEN-APK-UNICO-3GB-QA201.apk
+          sha256sum qa/NovaArcadia-2.0.0-RC20-HD-FULLSCREEN-APK-UNICO-3GB-QA201.apk > qa/rc20-apk-sha256.txt
           stat -c 'RC20 signed single APK: %n %s bytes' qa/*.apk >> "$GITHUB_STEP_SUMMARY"
       - name: Archive ONE signed APK (Android emulator test still follows)
         uses: actions/upload-artifact@v7
         with:
-          name: NovaArcadia-2.0.0-RC20-HD-HOTFIX-APK-UNICO-3GB-QA201
-          path: qa/NovaArcadia-2.0.0-RC20-HD-HOTFIX-APK-UNICO-3GB-QA201.apk
+          name: NovaArcadia-2.0.0-RC20-HD-FULLSCREEN-APK-UNICO-3GB-QA201
+          path: qa/NovaArcadia-2.0.0-RC20-HD-FULLSCREEN-APK-UNICO-3GB-QA201.apk
           retention-days: 30
           compression-level: 0
           archive: false
@@ -464,7 +464,7 @@ jobs:
       - name: Publish integrity report for one-file edition
         uses: actions/upload-artifact@v4
         with:
-          name: NovaArcadia-RC20-HD-HOTFIX-relatorio-APK-unico
+          name: NovaArcadia-RC20-HD-FULLSCREEN-relatorio-APK-unico
           path: |
             qa/na-rc20-single-apk-report.json
             qa/na-final-badging.txt
@@ -493,6 +493,10 @@ jobs:
             # Prove that first launch starts mandatory preparation OFFLINE.
             adb shell svc wifi disable
             adb shell svc data disable
+            # The emulator represents a player who has acknowledged Android's
+            # one-time immersive tutorial, not an overlay stealing window focus.
+            adb shell wm dismiss-keyguard
+            adb shell settings put secure immersive_mode_confirmations confirmed
             adb shell logcat -c
             adb shell am start -W -n "$NA_PACKAGE"/com.cyberpunk.tacticalrpg.MainActivity
             sleep 6
@@ -509,7 +513,7 @@ jobs:
             echo "## Nova Arcádia 2.0 RC20: APK único com jogo integral"
             echo "O APK tem mais de 3.000.000.000 bytes e inclui os sete distritos obrigatórios. Não existe escolha ou conteúdo adicional."
             echo "No PRIMEIRO BOOT, os sete distritos são preparados AUTOMATICAMENTE sem clicar em instalar, sem rede. Android fullscreen oculta barras e reaplica após HOME/resume."
-            echo "Arquivo: Artifacts > NovaArcadia-2.0.0-RC20-HD-HOTFIX-APK-UNICO-3GB-QA201. Se disponível, faça o download direto sem ZIP externo."
+            echo "Arquivo: Artifacts > NovaArcadia-2.0.0-RC20-HD-FULLSCREEN-APK-UNICO-3GB-QA201. Se disponível, faça o download direto sem ZIP externo."
             echo "Não publicar em GitHub Releases, pois o limite por arquivo é 2 GiB."
             echo "Mantenha espaço livre suficiente para o APK e a expansão local."
           } >> "$GITHUB_STEP_SUMMARY"
