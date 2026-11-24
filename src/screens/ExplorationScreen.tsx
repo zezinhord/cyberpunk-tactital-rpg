@@ -121,7 +121,8 @@ interface Props {
   onGrantIndustrialItem:(id:ItemId)=>void;
   onCollectDistrictCache:(area:DiscoveryArea)=>boolean;
   onCollectInteriorProp:(area:InnerId,propId:string)=>boolean;
-  onCraft:(id:RecipeId)=>string;
+  onCraft:(id:RecipeId,quantity?:number)=>string;
+  onCalibrateEquipment:(id:ItemId)=>string;
   onInstallCyberware:(id:CyberwareId)=>string;
   onRemoveCyberware:(id:CyberwareId)=>string;
 }
@@ -201,6 +202,7 @@ export default function ExplorationScreen({
   onCollectDistrictCache,
   onCollectInteriorProp,
   onCraft,
+  onCalibrateEquipment,
   onInstallCyberware,
   onRemoveCyberware,
 }: Props) {
@@ -2039,6 +2041,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
           inventory={inventory}
           onToggleEquipment={onToggleEquipment}
           onCraft={onCraft}
+          onCalibrateEquipment={onCalibrateEquipment}
           onInstallCyberware={id=>canOperateCyberware?onInstallCyberware(id):
             "A instalação exige atendimento presencial na clínica ou na oficina do Nilo."}
           onRemoveCyberware={id=>canOperateCyberware?onRemoveCyberware(id):
