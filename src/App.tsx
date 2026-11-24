@@ -9,6 +9,8 @@ import OpeningCutscene from "./components/OpeningCutscene";
 import {nextStoryScreen,markOpeningSeen} from "./game/story/opening";
 import {markCinematicSeen,readCinematicHistory} from "./game/story/cinematic-engine.ts";
 import {battleIntroFor,type BattleCinematicBeat} from "./game/story/cinematic-battles.ts";
+import {battleAftermathFor} from "./game/story/battle-aftermath.ts";
+import {grantBattleSalvage} from "./game/story/battle-salvage.ts";
 import "./dialogue-cinematic.css";
 import CombatAbilityPicker from "./components/CombatAbilityPicker";
 import { loadTestAppearance, saveTestAppearance } from "./game/test-arena/appearance";
@@ -262,6 +264,8 @@ export default function App() {
   const [defeatNotice,setDefeatNotice]=useState("");
   const [abilityPickerOpen,setAbilityPickerOpen] = useState(false);
   const [victoryDetailsOpen,setVictoryDetailsOpen] = useState(false);
+  const [battleDebriefOpen,setBattleDebriefOpen]=useState(false);
+  const [salvageNotice,setSalvageNotice]=useState("");
   useEffect(()=>{audioDirector.setScene(screen==="battle"?"battle":screen==="exploration"?"exploration":screen==="title"?"menu":"story");},[screen]);
   const [appearance, setAppearance] = useState<TestAppearance>(() => loadTestAppearance(loadCharacter()?.id ?? ""));
   const chooseAppearance = (choice: TestAppearance) => {
@@ -306,6 +310,8 @@ export default function App() {
   const victory=Boolean(state.combatComplete&&player&&player.hp>0&&
     threatCount===0);
   const defeated=isOperativeDefeated(state);
+  const aftermath=character&&victory?
+    battleAftermathFor(state.encounterId,character):null;
 
   useEffect(() => {
     setState(manager.getState());
@@ -323,11 +329,29 @@ export default function App() {
     });
   }, [manager,screen,character?.id]);
 
+  /** True loot belongs to the actual final wave, never a death, pause or
+   * a replay: reward receipts live in the existing inventory save.
+   */
+  useEffect(()=>{
+    if(screen!=="battle"||!character?.id||!victory)return;
+    const original=loadInventory(character.id);
+    const result=grantBattleSalvage(original,state);
+    if(!result.awarded)return;
+    if(!saveInventory(result.state)){
+      setSalvageNotice("Armazenamento indisponível. O resgate não foi debitado; confira espaço livre.");
+      return;
+    }
+    setInventory(result.state);
+    setSalvageNotice(result.message);
+  },[screen,character?.id,victory,state]);
+
   const beginBattle = (mode: EncounterId = "test") => {
     const intro=battleIntroFor(mode,character);
     setBattleCinematic(intro&&character?.id&&
       !readCinematicHistory(character.id).includes(intro.cinematicId)?intro:null);
     setVictoryDetailsOpen(false);
+    setBattleDebriefOpen(false);
+    setSalvageNotice("");
     setDefeatNotice("");
     setAbilityPickerOpen(false);
     setBattleMode(mode);
@@ -814,6 +838,7 @@ export default function App() {
    * A vitória real continua sendo tratada pelo efeito de persistência anterior.
    */
   const exitBattle=():void=>{
+    setBattleDebriefOpen(false);
     setBattleCinematic(null);
     setAbilityPickerOpen(false);
     setDefeatNotice("");
@@ -1077,7 +1102,7 @@ export default function App() {
         </section>
 
       </aside>
-      {victory&&!victoryDetailsOpen&&<div className="na-victory-backdrop"
+      {victory&&!victoryDetailsOpen&&!battleDebriefOpen&&<div className="na-victory-backdrop"
          data-combat-victory="true">
         <section className="na-victory-dialog" role="dialog" aria-modal="true"
           aria-labelledby="na-victory-title">
@@ -1086,8 +1111,20 @@ export default function App() {
           <p>{battleMode==="v09"?"Unidade V-09 neutralizada. A investigação continua no mapa da Baixada.":
             battleMode.startsWith("district-")?"Segurança Helix neutralizada. A investigação distrital continua.":
             "Hostis neutralizados. Retorne à exploração para seguir as missões."}</p>
-          <p className="na-victory-save-note">Recompensas, XP e eventos da missão são registrados
-            pelo sistema de progresso do personagem.</p>
+          <p className="na-victory-save-note">Recompensas e XP de missão são registrados
+            pelo sistema de progresso do personagem. Materiais recuperados
+            são gravados uma única vez por confronto, sem repetir no replay.</p>
+          {salvageNotice&&<p role="status" className="na-victory-salvage"
+            data-salvage-rc20="persisted">{salvageNotice}</p>}
+          {aftermath&&<section className="na-victory-aftermath">
+            <strong>{aftermath.title}</strong>
+            <p>Uma cena inédita registra a repercussão do confronto, sem
+              escolher um final por você.</p>
+            <button type="button" className="na-victory-report"
+              onClick={()=>setBattleDebriefOpen(true)}>
+              Rever o desfecho narrativo
+            </button>
+          </section>}
           <button type="button" className="na-victory-continue"
             data-combat-exit="true" onClick={exitBattle}>✓ CONTINUAR EXPLORANDO</button>
           <button type="button" className="na-victory-report"
@@ -1118,6 +1155,17 @@ export default function App() {
           </button>
         </section>
       </div>}
+      {victory&&battleDebriefOpen&&aftermath&&
+        <Suspense fallback={null}>
+          <BattleCinematicDialogue page={aftermath}
+            pageIndex={0} totalPages={1} characterId={character.id}
+            onClose={()=>setBattleDebriefOpen(false)}
+            onNext={()=>{
+              markCinematicSeen(character.id,aftermath.cinematicId);
+              setBattleDebriefOpen(false);
+            }}
+            onAnswer={()=>setBattleDebriefOpen(false)}/>
+        </Suspense>}
       {battleCinematic&&<Suspense fallback={null}>
         <BattleCinematicDialogue page={battleCinematic}
           pageIndex={0} totalPages={1} characterId={character.id}
