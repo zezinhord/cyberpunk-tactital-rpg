@@ -633,7 +633,8 @@ export class TurnManager {
   endPlayerTurn(): void {
     if (this.state.activeSide !== "player" || this.state.combatComplete) return;
     const player = livingUnit(this.state.units, "runner");
-    const enemy=targetEnemy(this.state);
+    // AI leader acts independently of the player's currently selected target.
+    const enemy=livingUnit(this.state.units,"drone")??targetEnemy(this.state);
     if (!player || !enemy) return;
     const activeWave=this.state.wave;
     // Player-selected autonomous order. Uses the ORIGINAL one-use support
