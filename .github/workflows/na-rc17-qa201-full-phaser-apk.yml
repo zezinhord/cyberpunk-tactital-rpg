@@ -27,18 +27,18 @@ jobs:
       - name: Checkout pinned RC17 game source within original QA201 signing cache scope
         uses: actions/checkout@v4
         with:
-          ref: dbbc651dc84bcadd4961e37799ad8ac96edaef02
+          ref: e907a7004ff286fde3820f3de6c1c5af078e49b3
       - name: Verify source includes the latest tactical maps and cinematics and is not an older detached commit
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "dbbc651dc84bcadd4961e37799ad8ac96edaef02"
+          test "$(git rev-parse HEAD)" = "e907a7004ff286fde3820f3de6c1c5af078e49b3"
           test -s src/game/combat/tactical-maps.ts
           test -s src/game/story/cinematic-engine.ts
           test -s src/game/story/cinematic-battles.ts
           test -s src/components/OpeningCutscene.tsx
           test -s scripts/test-battlefield-redesign-v20.mjs
           test -s scripts/test-cinematics-v20.mjs
-          echo "RC17 SOURCE SHA (pinned): dbbc651dc84bcadd4961e37799ad8ac96edaef02" >> "$GITHUB_STEP_SUMMARY"
+          echo "RC17 SOURCE SHA (pinned): e907a7004ff286fde3820f3de6c1c5af078e49b3" >> "$GITHUB_STEP_SUMMARY"
           echo "QA201 SIGNING CACHE WORKFLOW REF: $GITHUB_REF" >> "$GITHUB_STEP_SUMMARY"
       - name: Node.js 22
         uses: actions/setup-node@v4
@@ -420,6 +420,33 @@ jobs:
           rm -rf public/assets/soundscapes public/assets/music
           sync
           df -h .
+      - name: Prepare signed and integrity-audited APK filename before runtime acceptance
+        run: |
+          set -euo pipefail
+          mkdir -p qa
+          ln -f android/app/build/outputs/apk/debug/app-debug.apk qa/NovaArcadia-2.0.0-RC17-APK-UNICO-3GB-QA201.apk
+          sha256sum qa/NovaArcadia-2.0.0-RC17-APK-UNICO-3GB-QA201.apk > qa/rc17-apk-sha256.txt
+          stat -c 'RC17 signed single APK: %n %s bytes' qa/*.apk >> "$GITHUB_STEP_SUMMARY"
+      - name: Archive ONE signed APK (Android emulator test still follows)
+        uses: actions/upload-artifact@v7
+        with:
+          name: NovaArcadia-2.0.0-RC17-APK-UNICO-3GB-QA201
+          path: qa/NovaArcadia-2.0.0-RC17-APK-UNICO-3GB-QA201.apk
+          retention-days: 30
+          compression-level: 0
+          archive: false
+          if-no-files-found: error
+      - name: Publish integrity report for one-file edition
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-RC17-relatorio-APK-unico
+          path: |
+            qa/na-rc17-single-apk-report.json
+            qa/na-final-badging.txt
+            qa/na-final-certs.txt
+            qa/rc17-apk-sha256.txt
+          retention-days: 30
+          if-no-files-found: error
       - name: Emulator KVM
         run: |
           test -c /dev/kvm
@@ -450,33 +477,6 @@ jobs:
             sleep 5
             NA_TEST_PACKAGE="$NA_PACKAGE" node scripts/test-android-webview-startup.mjs
             adb shell dumpsys package "$NA_PACKAGE" | grep -E 'versionCode|versionName' | head -n 6
-      - name: Give the verified all-in-one APK its descriptive public artifact filename
-        run: |
-          set -euo pipefail
-          mkdir -p qa
-          ln -f android/app/build/outputs/apk/debug/app-debug.apk qa/NovaArcadia-2.0.0-RC17-APK-UNICO-3GB-QA201.apk
-          sha256sum qa/NovaArcadia-2.0.0-RC17-APK-UNICO-3GB-QA201.apk > qa/rc17-apk-sha256.txt
-          stat -c 'RC17 signed single APK: %n %s bytes' qa/*.apk >> "$GITHUB_STEP_SUMMARY"
-      - name: Provide ONE downloadable APK with every district (no 2GB secondary download)
-        uses: actions/upload-artifact@v7
-        with:
-          name: NovaArcadia-2.0.0-RC17-APK-UNICO-3GB-QA201
-          path: qa/NovaArcadia-2.0.0-RC17-APK-UNICO-3GB-QA201.apk
-          retention-days: 30
-          compression-level: 0
-          archive: false
-          if-no-files-found: error
-      - name: Publish integrity report for one-file edition
-        uses: actions/upload-artifact@v4
-        with:
-          name: NovaArcadia-RC17-relatorio-APK-unico
-          path: |
-            qa/na-rc17-single-apk-report.json
-            qa/na-final-badging.txt
-            qa/na-final-certs.txt
-            qa/rc17-apk-sha256.txt
-          retention-days: 30
-          if-no-files-found: error
       - name: Release notes — RC17 automatic complete game and native fullscreen, no opt-in
         if: always()
         run: |
