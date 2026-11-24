@@ -1623,6 +1623,7 @@ const [dossierOpen,setDossierOpen]=useState(false);
             <InteriorWorld
             interior={interior}
             characterId={character.id}
+            worldAttitude={localReaction.attitude}
             districtTarget={isDistrictId(interior)?districtCurrentStep(interior,cityChapters[interior])?.slot??null:null}
             originId={character.originId}
             appearance={appearance}

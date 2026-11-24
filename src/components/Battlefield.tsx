@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useRef,useState,type PointerEvent as ReactPointerEvent} from "react";
 import {BOARD_WIDTH,BOARD_HEIGHT,isBlocked} from "../game/map";
 import type {GameState,Position,Unit} from "../game/types";
 import type {TurnManager} from "../game/TurnManager";
@@ -7,6 +7,8 @@ import type {OriginId} from "../game/character/origins";
 import type {TacticalSite,TacticalLayout} from "../game/combat/tactical-maps.ts";
 import {tileHeight} from "../game/map.ts";
 import {SIEGE_TERMINAL_NAMES} from "../game/combat/siege-terminals.ts";
+import {DEFAULT_TACTICAL_VIEWPORT,panTacticalViewport,tacticalViewBox,
+ zoomTacticalViewport,type TacticalViewport} from "../game/combat/tactical-viewport.ts";
 
 /** Campo tático SVG: dispensa WebGL/Canvas em Android, sem substituir a lógica
  * de turno, cobertura, IA ou as spritesheets das seis origens. */
@@ -130,8 +132,32 @@ export default function Battlefield({manager,appearance,originId}:{
  manager:TurnManager;appearance:TestAppearance;originId:OriginId
 }){
  const [state,setState]=useState<GameState>(()=>manager.getState());
+ const [viewport,setViewport]=useState<TacticalViewport>({...DEFAULT_TACTICAL_VIEWPORT});
+ const dragRef=useRef<{id:number;x:number;y:number;initial:TacticalViewport}|null>(null);
+ const draggedRef=useRef(false);
+ const onPointerDown=(event:ReactPointerEvent<SVGSVGElement>)=>{
+  if(viewport.zoom<=1)return;
+  dragRef.current={id:event.pointerId,x:event.clientX,y:event.clientY,initial:viewport};
+ };
+ const onPointerMove=(event:ReactPointerEvent<SVGSVGElement>)=>{
+  const drag=dragRef.current;
+  if(!drag||drag.id!==event.pointerId)return;
+  const dx=event.clientX-drag.x,dy=event.clientY-drag.y;
+  if(Math.hypot(dx,dy)<8&&!draggedRef.current)return;
+  draggedRef.current=true;
+  const rect=event.currentTarget.getBoundingClientRect();
+  if(rect.width&&rect.height)setViewport(panTacticalViewport(drag.initial,
+   dx*480/rect.width,dy*320/rect.height));
+ };
+ const onPointerUp=(event:ReactPointerEvent<SVGSVGElement>)=>{
+  if(dragRef.current?.id!==event.pointerId)return;
+  dragRef.current=null;
+  if(draggedRef.current)window.setTimeout(()=>{draggedRef.current=false;},120);
+ };
  useEffect(()=>{
    setState(manager.getState());
+   setViewport({...DEFAULT_TACTICAL_VIEWPORT});
+   dragRef.current=null;
    return manager.subscribe(next=>setState(next));
  },[manager]);
  const sceneTiles=useMemo(()=>BOARD.map(cell=>({...cell,
@@ -164,7 +190,7 @@ export default function Battlefield({manager,appearance,originId}:{
  const theme=BATTLE_THEMES[district as keyof typeof BATTLE_THEMES]??null;
  const site=manager.getArenaLayout()?.site;
  function tap(cell:{x:number;y:number;blocked:boolean;prop?:unknown}){
-   if(!active)return;
+   if(!active||draggedRef.current)return;
    if(cell.blocked){
      if(cell.prop)manager.interactWithObject(cell.x,cell.y);
      return;
@@ -177,7 +203,10 @@ export default function Battlefield({manager,appearance,originId}:{
  return <div className="battlefield-canvas na-svg-battlefield"
    data-battlefield-renderer="svg"
    aria-label={"Mapa de combate isométrico com origem "+originId+" e visual "+appearance}>
-   <svg className="na-battlefield-svg" viewBox="0 0 480 320"
+   <svg className={"na-battlefield-svg"+(viewport.zoom>1?" is-pannable":"")}
+     viewBox={tacticalViewBox(viewport)}
+     onPointerDown={onPointerDown} onPointerMove={onPointerMove}
+     onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
      preserveAspectRatio="xMidYMid meet" role="group"
      aria-label="Tabuleiro interativo de combate 8 por 8">
     <defs>
@@ -286,7 +315,7 @@ export default function Battlefield({manager,appearance,originId}:{
         "Inspecionar alvo "+enemy.name+" · "+attackPreview.reason}
       transform={"translate("+point(enemy,manager.getArenaLayout()).x+" "+
         point(enemy,manager.getArenaLayout()).y+")"}
-      onClick={()=>manager.attack()}
+      onClick={()=>{if(!draggedRef.current)manager.attack();}}
       onKeyDown={event=>{
         if(event.key==="Enter"||event.key===" "){
           event.preventDefault();manager.attack();
@@ -311,5 +340,17 @@ export default function Battlefield({manager,appearance,originId}:{
          "CIANO: MOVER · TOQUE NO HOSTIL PARA VER O IMPEDIMENTO"):"AGUARDE O INIMIGO"}
     </text>
    </svg>
+   <nav className="na-tactical-camera-controls" aria-label="Câmera tática: ampliar, reduzir ou centralizar">
+    <button type="button" aria-label="Ampliar mapa de combate"
+      disabled={viewport.zoom>=1.8}
+      onClick={()=>setViewport(current=>zoomTacticalViewport(current,.25))}>＋</button>
+    <output aria-live="polite" aria-label="Zoom do mapa">{Math.round(viewport.zoom*100)}%</output>
+    <button type="button" aria-label="Reduzir mapa de combate"
+      disabled={viewport.zoom<=1}
+      onClick={()=>setViewport(current=>zoomTacticalViewport(current,-.25))}>－</button>
+    <button type="button" aria-label="Centralizar mapa de combate"
+      disabled={viewport.zoom===1&&viewport.panX===0&&viewport.panY===0}
+      onClick={()=>setViewport({...DEFAULT_TACTICAL_VIEWPORT})}>◎</button>
+   </nav>
  </div>;
 }

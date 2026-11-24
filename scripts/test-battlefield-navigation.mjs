@@ -13,7 +13,7 @@ const app=readFileSync("src/App.tsx","utf8");
 const css=readFileSync("src/arena-v030.css","utf8");
 assert.equal(BOARD_WIDTH*BOARD_HEIGHT,64);
 assert.equal(isBlocked({x:3,y:1}),true);
-for(const marker of ["data-battlefield-renderer=\"svg\"","viewBox=\"0 0 480 320\"",
+for(const marker of ["data-battlefield-renderer=\"svg\"","viewBox={tacticalViewBox(viewport)}",
  "manager.subscribe(","manager.movePlayerTo(","manager.interactWithTerminal(0,6)",
  "state.combatComplete","data-unit={unit.id}", "player-", "sentinel.svg"])
  assert.ok(ui.includes(marker),"Renderizador tático perdeu requisito: "+marker);
@@ -21,7 +21,7 @@ assert.ok(!ui.includes('import Phaser from "phaser"'),
  "Arena não pode depender do contexto Canvas que falha no Android.");
 // The hostile silhouette must be a real 58x93 touch target, including
 // keyboard access and unavailable-attack feedback without wasted actions.
-for(const marker of ['data-tactical-target="enemy"','onClick={()=>manager.attack()}',
+for(const marker of ['data-tactical-target="enemy"','onClick={()=>{if(!draggedRef.current)manager.attack();}}',
  'role="button" tabIndex={0}','attackPreview.hitChance',
  'width="58" height="93"','manager.movePlayerTo(cell.x,cell.y)'])
  assert.ok(ui.includes(marker),"Touch-first combat lost: "+marker);
@@ -31,7 +31,7 @@ for(const marker of ['data-combat-exit="true"','data-combat-victory="true"',
  'setScreen("exploration")','onClick={exitBattle}','role="dialog"',
  "setVictoryDetailsOpen(false)"])
  assert.ok(app.includes(marker),"Saída pós-combate não aparece: "+marker);
-for(const marker of [".na-battlefield-svg",".na-victory-continue",
+for(const marker of [".na-battlefield-svg",".na-tactical-camera-controls",".na-victory-continue",
  ".na-arena-exit-quick","z-index:10050"])
  assert.ok(css.includes(marker),"Interface não garante saída acessível: "+marker);
 const arena=new TurnManager({encounterId:"v09"});
