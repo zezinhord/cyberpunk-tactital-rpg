@@ -30,6 +30,8 @@ export interface InventoryState {
   /** Módulos secundários da versão 2.0; os 3 slots são anatômicos e
    * independem do slot `equipped.implant` das versões anteriores. */
   cyberware?: readonly CyberwareId[];
+  /** RC20: upgrades stay bound to the concrete item ID, never to a free slot. */
+  calibrations?:Partial<Record<ItemId,number>>;
 }
 export const INVENTORY_KEY = "cyberpunk-tactical-rpg.inventory.v1.";
 export const ITEM_CATALOG: Readonly<Record<ItemId, ItemDefinition>> = {
@@ -129,8 +131,15 @@ export function loadInventory(ownerId: string): InventoryState {
     const rewardReceipts=Array.isArray(value.rewardReceipts)?
       [...new Set(value.rewardReceipts.filter((x):x is string=>
         typeof x==="string"&&x.length>0&&x.length<90))].slice(0,20000):[];
+    const calibrations:Partial<Record<ItemId,number>>={};
+    if(value.calibrations&&typeof value.calibrations==="object"&&!Array.isArray(value.calibrations))
+      for(const id of ITEM_IDS){
+        const rank=value.calibrations[id];
+        if(ITEM_CATALOG[id].slot&&Number.isSafeInteger(rank)&&
+           (rank===1||rank===2))calibrations[id]=rank;
+      }
     return { ...fresh, quantities, equipped, rewardReceipts,
-      cyberware:safeCyberware(value.cyberware) };
+      cyberware:safeCyberware(value.cyberware),calibrations };
   } catch { return fresh; }
 }
 export function saveInventory(inventory: InventoryState): boolean {
@@ -160,6 +169,75 @@ export function grantItem(state: InventoryState, id: ItemId, amount = 1): Invent
   return { ...state, quantities: { ...state.quantities, [id]: Math.min(999, state.quantities[id] + amount) } };
 }
 export interface EquipmentBonuses{attackBonus:number;armorBonus:number;hpBonus:number;energyBonus:number;movementBonus:number}
+/** Experimental RC20 calibration economy: permanent, item-bound upgrades.
+ * Rank 2 needs level 5. Costs are debited only if a complete save succeeds
+ * in the owner component. Replacing/removing the item never transfers buffs.
+ */
+export interface EquipmentCalibration {
+  slot:EquipmentSlot;name:string;
+  rarity:"incomum"|"rara";
+  materials:Readonly<Partial<Record<ItemId,number>>>;
+  minLevel:number;
+}
+export const CALIBRATION_MAX_RANK=2;
+export const EQUIPMENT_CALIBRATIONS:Readonly<Record<EquipmentSlot,readonly EquipmentCalibration[]>>={
+ weapon:[
+  {slot:"weapon",name:"Mira estabilizada",rarity:"incomum",
+   minLevel:2,materials:{residuo_metalico:1,microatuador:1,celula_energia:1}},
+  {slot:"weapon",name:"Mira neural calibrada",rarity:"rara",
+   minLevel:5,materials:{fibra_optica:2,dados_criptografados:1,microatuador:2}},
+ ],
+ armor:[
+  {slot:"armor",name:"Reforço de campo",rarity:"incomum",
+   minLevel:2,materials:{tecido_tecnico:1,residuo_metalico:2}},
+  {slot:"armor",name:"Blindagem modular",rarity:"rara",
+   minLevel:5,materials:{placa_ceramica:2,microatuador:1,reagente_bio:1}},
+ ],
+ implant:[
+  {slot:"implant",name:"Conexão sináptica",rarity:"incomum",
+   minLevel:2,materials:{fibra_optica:1,dados_criptografados:1}},
+  {slot:"implant",name:"Canal neural protegido",rarity:"rara",
+   minLevel:5,materials:{fibra_optica:2,reagente_bio:2,microatuador:1}},
+ ],
+};
+export function equippedCalibration(state:InventoryState,slot:EquipmentSlot):number{
+ const id=state.equipped[slot];
+ const rank=id&&state.quantities[id]>0?state.calibrations?.[id]??0:0;
+ return rank===1||rank===2?rank:0;
+}
+export function calibrationCostLabel(state:InventoryState,id:ItemId):string{
+ const slot=ITEM_CATALOG[id].slot;
+ if(!slot)return "Item não calibrável";
+ const next=state.calibrations?.[id]??0;
+ if(next>=CALIBRATION_MAX_RANK)return "Calibração concluída";
+ const step=EQUIPMENT_CALIBRATIONS[slot][next]!;
+ return Object.entries(step.materials).map(([item,qty])=>
+  (qty??0)+"× "+ITEM_CATALOG[item as ItemId].name).join(" · ");
+}
+export function calibrateEquipment(state:InventoryState,id:ItemId,level:number):
+ {ok:boolean;state:InventoryState;message:string}{
+ const def=ITEM_CATALOG[id];
+ if(!def?.slot||state.quantities[id]<1||state.equipped[def.slot]!==id)
+  return {ok:false,state,message:"Equipe um item válido antes de calibrar."};
+ const rank=state.calibrations?.[id]??0;
+ if(!Number.isSafeInteger(rank)||rank<0||rank>=CALIBRATION_MAX_RANK)
+  return {ok:false,state,message:"Este item já atingiu o limite de calibração."};
+ const step=EQUIPMENT_CALIBRATIONS[def.slot][rank]!;
+ if(!Number.isSafeInteger(level)||level<step.minLevel)
+  return {ok:false,state,message:"Requer nível "+step.minLevel+" para "+step.name+"."};
+ const costs=Object.entries(step.materials) as [ItemId,number][];
+ if(costs.some(([item,cost])=>state.quantities[item]<(cost??0)||
+   Object.values(state.equipped).includes(item)))
+  return {ok:false,state,message:"Componentes insuficientes: "+calibrationCostLabel(state,id)};
+ const quantities={...state.quantities};
+ for(const [item,cost] of costs)quantities[item]-=cost;
+ return {ok:true,state:{...state,quantities,
+  calibrations:{...state.calibrations,[id]:rank+1}},
+  message:def.name+" calibrado: "+step.name+
+    " (+"+(rank+1)+" "+(def.slot==="weapon"?"ATQ":def.slot==="armor"?"DEF":"EN")+
+    " no total). Materiais consumidos com segurança."};
+}
+
 export function getEquipmentBonuses(state:InventoryState):EquipmentBonuses{
  const equipped=(["weapon","armor","implant"] as const).map(slot=>state.equipped[slot]?
    ITEM_CATALOG[state.equipped[slot]!] :null);
@@ -171,9 +249,10 @@ export function getEquipmentBonuses(state:InventoryState):EquipmentBonuses{
   movementBonus:sum.movementBonus+(item?.movementBonus??0),
  }),{attackBonus:0,armorBonus:0,hpBonus:0,energyBonus:0,movementBonus:0});
  const extra=getCyberwareBonuses(state.cyberware);
- return {attackBonus:base.attackBonus+extra.attackBonus,
-  armorBonus:base.armorBonus+extra.armorBonus,hpBonus:base.hpBonus+extra.hpBonus,
-  energyBonus:base.energyBonus+extra.energyBonus,
+ return {attackBonus:base.attackBonus+extra.attackBonus+equippedCalibration(state,"weapon"),
+  armorBonus:base.armorBonus+extra.armorBonus+equippedCalibration(state,"armor"),
+  hpBonus:base.hpBonus+extra.hpBonus,
+  energyBonus:base.energyBonus+extra.energyBonus+equippedCalibration(state,"implant"),
   movementBonus:base.movementBonus+extra.movementBonus};
 }
 
