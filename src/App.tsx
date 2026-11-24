@@ -1055,6 +1055,16 @@ export default function App() {
         </details>
         </div>
         <section className="control-sheet" aria-label="Comandos do turno">
+          <label className="na-target-selector">
+            ALVO
+            <select aria-label="Selecionar alvo hostil na lista"
+              value={enemy&&enemy.hp>0?enemy.id:""}
+              disabled={state.combatComplete||threatCount===0}
+              onChange={event=>manager.setEnemyTarget(event.target.value)}>
+              {activeEnemies(state).map(hostile=><option key={hostile.id}
+                value={hostile.id}>{hostile.name} · {hostile.hp}/{hostile.maxHp} HP</option>)}
+            </select>
+          </label>
           <button type="button" className="na-abilities-open" disabled={state.combatComplete} onClick={()=>setAbilityPickerOpen(true)}
             aria-haspopup="dialog" aria-expanded={abilityPickerOpen}
             aria-label="Escolher habilidades de combate">
@@ -1071,6 +1081,30 @@ export default function App() {
             <ActionChip label="Principal" ready={state.mainActionAvailable} />
             <ActionChip label="Bônus" ready={state.bonusActionAvailable} />
           </div>
+          <label className="na-mobile-supply" aria-label="Selecionar suprimento para usar no combate">
+            <select value={selectedSupply}
+              onChange={event=>setSelectedSupply(event.target.value as ItemId)}
+              aria-label="Suprimento rápido">
+              {consumables.map(id=><option key={id} value={id}>
+                {ITEM_CATALOG[id].name} · {inventory.quantities[id]}×
+              </option>)}
+            </select>
+          </label>
+          <nav className="na-command-rail" aria-label="Comandos rápidos de combate">
+            <button type="button" className="na-rail-attack"
+              disabled={!canAttack} title={attackPreview.reason||"Atacar alvo escolhido"}
+              onClick={()=>{buzz(20);manager.attack();}}>ATAQUE</button>
+            <button type="button" className="na-rail-abilities"
+              disabled={state.combatComplete}
+              onClick={()=>setAbilityPickerOpen(true)}>PODERES</button>
+            <button type="button" disabled={state.activeSide!=="player"||
+              state.combatComplete||!state.bonusActionAvailable||
+              !supplyUseful||inventory.quantities[selectedSupply]<1}
+              onClick={handleUseSupply}>ITEM</button>
+            <button type="button" disabled={state.activeSide!=="player"||
+              state.combatComplete}
+              onClick={()=>{buzz();manager.endPlayerTurn();}}>PASSAR</button>
+          </nav>
           <div className="actions">
             <label className="na-supply-select">
               <span>SUPRIMENTO</span>
@@ -1084,6 +1118,8 @@ export default function App() {
               title={canAttack?`Alvo a ${attackPreview.distance} células · Defesa ${attackPreview.defense} · ${attackPreview.hitChance}% de chance`:attackPreview.reason}
               disabled={!canAttack}>{attackPreview.mode==="ranged"?"Disparar":"Ataque corpo a corpo"}</button>
           </div>
+          <details className="na-tactical-secondary">
+            <summary>Mais ações · Vigilância, apoio e saída</summary>
           <div className="secondary-actions">
             {manager.getCompanionSupports().map(member=><button type="button"
               className="end-turn-button" key={member.id}
@@ -1104,6 +1140,7 @@ export default function App() {
               data-combat-exit="true" onClick={exitBattle}>
               {state.combatComplete?"✓ CONTINUAR EXPLORANDO":"← Voltar à exploração"}
             </button></div>
+          </details>
         </section>
 
       </aside>
