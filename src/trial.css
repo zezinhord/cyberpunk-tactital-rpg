@@ -105,3 +105,8 @@
  border:1px solid #e9bc80;border-radius:6px;background:#594633;color:#fff0d7;font:700 12px var(--display);}
 .na-crafting-recipe button:disabled{opacity:.5;cursor:not-allowed;}
 @media(max-width:560px){.na-crafting-recipe{flex-wrap:wrap}.na-crafting-recipe button{width:100%;}}
+
+.na-craft-batch-label{display:flex;align-items:center;justify-content:space-between;
+ gap:9px;color:#e7cca3;font:700 11px var(--mono);padding:6px 1px;}
+.na-craft-batch-label select{min-height:44px;min-width:80px;border:1px solid #b89b77;
+ background:#1e3139;color:#f4e1c6;border-radius:7px;padding:7px 10px;font:700 12px var(--display);}
