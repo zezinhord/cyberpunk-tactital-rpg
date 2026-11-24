@@ -87,6 +87,19 @@ export class BaixadaScene extends Phaser.Scene {
   private queuedActorId: string | null = null;
   private destinationMarker?: Phaser.GameObjects.Arc;
   private footsteps = 0;
+  // Missões e alertas são os mesmos da cidade completa, incluindo Android.
+  private missionObjectiveId:string|null=null;
+  private alertActive=false;
+  setMissionObjective(actorId:string|null):void{
+    if(this.missionObjectiveId===actorId)return;
+    this.missionObjectiveId=actorId;
+    if(this.markers&&this.player)this.drawPlayerMarker();
+  }
+  setWorldAlert(active:boolean):void{
+    if(this.alertActive===active)return;
+    this.alertActive=active;
+    if(this.markers&&this.player)this.drawPlayerMarker();
+  }
   private markDestination(tile:Position):void{
     const p=tileCenter(tile);
     this.destinationMarker?.setPosition(p.x,p.y+2).setDepth(p.y+0.02).setVisible(true);
@@ -770,6 +783,18 @@ export class BaixadaScene extends Phaser.Scene {
         0.6,
         1.2,
       );
+    }
+    // A missão continua visível no mundo inteiro; não depende do
+    // renderer econômico nem do protótipo Lite.
+    const missionActor=this.actors.find(actor=>actor.id===this.missionObjectiveId);
+    if(missionActor){
+      const target=tileCenter(missionActor.tile);
+      this.polygon(this.markers,this.diamond(target.x,target.y+1,58,29),
+        0xffb300,0.05,0xffb300,0.95,2);
+    }
+    if(this.alertActive){
+      this.polygon(this.markers,this.diamond(playerPoint.x,playerPoint.y+1,48,24),
+        0xff48a2,0.025,0xff48a2,0.86,2);
     }
   }
 

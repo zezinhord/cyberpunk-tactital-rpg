@@ -853,7 +853,7 @@ export default function App() {
     return (
       <Suspense fallback={<main className="na-world-startup" role="status"
         aria-live="polite" style={{minHeight:"100dvh",display:"grid",placeItems:"center",background:"#0b0d17",color:"#d5f6fa"}}>
-        Preparando a cidade em modo econômico…</main>}>
+        Preparando a cidade completa de Nova Arcádia…</main>}>
       <ExplorationScreen
         character={character}
         appearance={appearance}

@@ -3,6 +3,7 @@ import Phaser from "phaser";
 import {performanceGameConfig,isAndroidDevice,readGraphicsMode} from "../game/performance";
 import {attachPerformanceDiagnostics} from "../game/performance-diagnostics";
 import { BAIXADA_VIEW_HEIGHT, BAIXADA_VIEW_WIDTH, BaixadaScene } from "../game/baixada/BaixadaScene";
+import {getPlayerTexture,NPC_TEXTURES} from "../game/baixada/sprites";
 import type { OriginId } from "../game/character";
 import type { TestAppearance } from "../game/test-arena/appearance";
 import { loadWorldLocation, saveWorldLocation } from "../game/baixada/location";
@@ -15,6 +16,8 @@ interface BaixadaWorldProps {
   characterId: string;
   onSectorChange?: (sector:SectorId)=>void;
   onNearbyAccess?: (actorId:string|null)=>void;
+  objectiveActorId?:string|null;
+  worldAlert?:boolean;
 }
 type SceneStatus="loading"|"ready"|"recovering"|"failed";
 
@@ -41,7 +44,8 @@ function canvasHasMap(canvas:HTMLCanvasElement):boolean{
 /** Trata falha de inicialização no Android com tentativa automática por
  * renderer alternativo. Nunca desmonta personagem ou altera slot.
  */
-export default function BaixadaWorld({ onInteract, originId, appearance, characterId,onSectorChange,onNearbyAccess }: BaixadaWorldProps) {
+export default function BaixadaPhaserWorld({ onInteract, originId, appearance, characterId,
+  onSectorChange,onNearbyAccess,objectiveActorId,worldAlert=false }: BaixadaWorldProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<BaixadaScene | null>(null);
   const callbackRef = useRef(onInteract);
@@ -51,6 +55,10 @@ export default function BaixadaWorld({ onInteract, originId, appearance, charact
   const sectorCallbackRef=useRef(onSectorChange);
   sectorCallbackRef.current=onSectorChange;
   const lastSectorRef=useRef<SectorId|null>(null);
+  const objectiveRef=useRef(objectiveActorId??null);
+  objectiveRef.current=objectiveActorId??null;
+  const alertRef=useRef(Boolean(worldAlert));
+  alertRef.current=Boolean(worldAlert);
   const [attempt,setAttempt]=useState(0);
   const [sceneStatus,setSceneStatus]=useState<SceneStatus>("loading");
   const [failure,setFailure]=useState("");
@@ -101,6 +109,15 @@ export default function BaixadaWorld({ onInteract, originId, appearance, charact
         recover("O renderer Canvas iniciou, mas não desenhou o mapa.");
         return;
       }
+      // Um canvas e alguns frames não são suficientes: o jogo completo
+      // precisa ter as texturas oficiais do personagem e dos NPCs.
+      const hero=getPlayerTexture(originId,appearance);
+      const textures=[hero,NPC_TEXTURES.nilo,NPC_TEXTURES.joana,
+        NPC_TEXTURES.saira,NPC_TEXTURES.teo];
+      if(!textures.every(texture=>scene.textures.exists(texture))){
+        if(frames>=45)recover("As spritesheets originais não carregaram.");
+        return;
+      }
       confirmed=true;
       if(watchdog!==null)clearTimeout(watchdog);
       setFailure("");
@@ -119,7 +136,11 @@ export default function BaixadaWorld({ onInteract, originId, appearance, charact
           lastSectorRef.current=sector;
           sectorCallbackRef.current?.(sector);
         }
-      },()=>{sceneCreated=true;});
+      },()=>{
+        sceneCreated=true;
+        scene.setMissionObjective(objectiveRef.current);
+        scene.setWorldAlert(alertRef.current);
+      });
     sceneRef.current=scene;
     const spawn=loadWorldLocation(characterId);
     reportNearby(spawn);
@@ -169,6 +190,9 @@ export default function BaixadaWorld({ onInteract, originId, appearance, charact
   },[originId,characterId,attempt,useCanvas]);
 
   useEffect(()=>{sceneRef.current?.setAppearance(appearance);},[appearance]);
+  useEffect(()=>{sceneRef.current?.setMissionObjective(objectiveActorId??null);},
+    [objectiveActorId]);
+  useEffect(()=>{sceneRef.current?.setWorldAlert(Boolean(worldAlert));},[worldAlert]);
 
   const tryAgain=()=>{
     setFailure("");
@@ -176,6 +200,8 @@ export default function BaixadaWorld({ onInteract, originId, appearance, charact
     setAttempt(value=>value+1);
   };
   return <div className="baixada-world na-world-host" ref={hostRef}
+    data-engine="phaser-full" data-world-edition="complete"
+    data-original-sprites={sceneStatus==="ready"?"true":"false"}
     data-renderer={useCanvas?"canvas":"webgl-auto"}
     data-scene-state={sceneStatus}
     aria-label="Baixada semiaberta expandida: ruas, Pátio Sul, Mercado dos Cabos e esgotos">

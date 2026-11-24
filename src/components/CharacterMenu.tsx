@@ -610,7 +610,7 @@ export default function CharacterMenu({
                   <strong>DESEMPENHO NO ANDROID</strong>
                   <p>Se ocorrerem travamentos ou quedas de FPS, escolha Economia (30 FPS).
                     Para aparelhos que suportarem, use Balanceado (até 60 FPS).
-                    A alteração entra em vigor quando reabrir o aplicativo.</p>
+                    Os dois perfis usam exatamente o mesmo mapa completo, com todos os NPCs, missões e efeitos. Somente a taxa de quadros muda. A alteração entra em vigor quando reabrir o aplicativo.</p>
                   <div role="group" aria-label="Perfil de gráficos">
                     {(["economy","balanced"] as const).map(mode=>
                       <button type="button" key={mode}

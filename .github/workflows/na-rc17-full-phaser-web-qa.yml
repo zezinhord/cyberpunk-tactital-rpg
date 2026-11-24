@@ -1,0 +1,50 @@
+name: Nova Arcadia RC17 — single FULL Phaser world Android regressions
+on:
+  push:
+    branches:
+      - feature/nova-arcadia-v20-rc17-full-phaser-android
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-world-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          python -m pip install -r tools/requirements-characters.txt
+      - name: Verify full world routing, TypeScript and narrative regressions
+        run: |
+          node --check scripts/test-android-single-apk-offline.mjs
+          node --check scripts/test-android-cold-boot.mjs
+          node --experimental-strip-types scripts/test-full-phaser-android.mjs
+          npx tsc -b
+          node --experimental-strip-types scripts/test-cinematics-v20.mjs
+          node --experimental-strip-types scripts/test-battlefield-redesign-v20.mjs
+          node --experimental-strip-types scripts/test-save-slots.mjs
+          node --experimental-strip-types scripts/test-baixada-collisions.mjs
+          node --experimental-strip-types scripts/test-movement.mjs
+          node --experimental-strip-types scripts/test-performance.mjs
+      - name: Generate official art and bundle full Phaser world
+        run: |
+          npm run generate:characters
+          npm run generate:v20-art
+          npx vite build
+      - name: Test fresh Android-size screen from creation through official Phaser map and save
+        run: node scripts/test-android-cold-boot.mjs
+      - name: Keep visual screenshots when possible
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NovaArcadia-RC17-Full-Phaser-Android-Boot-QA
+          path: qa/baixada-android-boot-frio-914x411.png
+          if-no-files-found: ignore
