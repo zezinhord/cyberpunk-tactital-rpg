@@ -12,6 +12,8 @@ import {battleIntroFor,type BattleCinematicBeat} from "./game/story/cinematic-ba
 import {battleAftermathFor} from "./game/story/battle-aftermath.ts";
 import {grantBattleSalvage} from "./game/story/battle-salvage.ts";
 import "./dialogue-cinematic.css";
+import "./accessibility-rc20.css";
+import {applyAccessibility,readAccessibility} from "./game/accessibility.ts";
 import CombatAbilityPicker from "./components/CombatAbilityPicker";
 import { loadTestAppearance, saveTestAppearance } from "./game/test-arena/appearance";
 import type { TestAppearance } from "./game/test-arena/appearance";
@@ -248,7 +250,10 @@ function IntroductionScreen({ character, onContinue }: { character: PlayerCharac
 }
 
 export default function App() {
-  useEffect(()=>{audioDirector.install();},[]);
+  useEffect(()=>{
+    audioDirector.install();
+    applyAccessibility(readAccessibility());
+  },[]);
   const [character, setCharacter] = useState<PlayerCharacter | null>(() => loadCharacter());
   // A referência evita perder XP quando duas recompensas são concedidas no
   // mesmo tick (por exemplo, inimigo final + objetivo da missão).
