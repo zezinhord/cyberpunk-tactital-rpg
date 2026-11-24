@@ -20,7 +20,8 @@ assert.equal(craftRecipe(inventory,"recuperar-placa",6).ok,false);
 assert.equal(craftRecipe(inventory,"recuperar-placa",1.2).ok,false);
 assert.equal(craftRecipe(inventory,"colete-ferroviario",2).ok,false,
  "equippable gear must never be batched");
-assert.equal(craftRecipe(inventory,"kit-trauma",4).ok,false,
+assert.equal(craftRecipe({...inventory,quantities:{
+ ...inventory.quantities,reagente_bio:3}},"kit-trauma",4).ok,false,
  "insufficient materials must fail atomically");
 const test2=craftRecipe(inventory,"kit-trauma",3);
 assert.equal(test2.ok,true);
