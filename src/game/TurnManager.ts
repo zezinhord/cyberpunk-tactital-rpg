@@ -17,6 +17,8 @@ import {capacityForEnemy,enemyTacticTurn,initializeEnemyTactics,
   type EnemyTacticPool} from "./ai/enemy-resources.ts";
 import type {EnemyRole} from "./tactics.ts";
 import {attackHits,attackHitChance} from "./combat/attack-rules.ts";
+import {activeEnemies,targetEnemy,spawnSquadMembers,squadSupportProfile}
+  from "./combat/squad-encounters.ts";
 import type {UrbanCombatSupport} from "./story/urban-chronicles.ts";
 import type { GameEvents, GameState, Position, Unit,EncounterId } from "./types";
 import type { OriginGameplayProfile } from "./character/types";
@@ -77,6 +79,7 @@ export class TurnManager {
   private nextAttackAccuracyBonus = 0;
   private sabotageBlocksRecovery=false;
   private aiMemory:EnemyMemory=initialEnemyMemory();
+  private readonly wingMemories=new Map<string,EnemyMemory>();
   private state: GameState;
 
   constructor(options: TurnManagerOptions = {}) {
@@ -152,6 +155,7 @@ export class TurnManager {
         },
       ],
       activeSide: "player",
+      selectedEnemyId:"drone",
       encounterId: options.encounterId ?? "test",
       wave:1,totalWaves:trialWaveCount,defeatedEnemyCount:0,
       archetypeId: archetype?.id??"field-operative",enemyAwareness:"patrol",
@@ -189,13 +193,19 @@ export class TurnManager {
         : "Área de teste ativa. Alcance a sentinela e neutralize-a.",
       log: options.encounterId==="v09" ? ["[MISSÃO] V-09: ameaça localizada no Pátio do Reúso.", "[COMBATE] Proteja os registros da cooperativa."] : ["[SISTEMA] Campo de teste conectado.", "[MISSÃO] Neutralize a unidade sentinela."],
     };
+    const player=this.state.units[0]!,leader=this.state.units[1]!;
+    this.state.units.push(...spawnSquadMembers(this.state.encounterId,
+      this.state.wave,leader,player,this.arenaLayout));
+    if(this.state.units.length>2)
+      this.state.message+=" · Ameaça coordenada: "+(this.state.units.length-1)+
+        " unidades hostis presentes.";
   }
 
   getCompanionSupports():readonly CompanionProfile[]{return this.partySupport;}
   useCompanionSupport(id:CompanionId):boolean{
     const member=this.partySupport.find(c=>c.id===id);
     const p=livingUnit(this.state.units,"runner");
-    const enemy=livingUnit(this.state.units,"drone");
+    const enemy=targetEnemy(this.state);
     if(!member||!p||!enemy||this.state.combatComplete||
        this.state.activeSide!=="player"||!this.state.bonusActionAvailable||
        this.state.companionUsed.includes(id))return false;
@@ -400,13 +410,27 @@ export class TurnManager {
     return getReachableCells(this.state.units, player, this.state.movementRemaining,this.arenaLayout);
   }
 
+  /** Target is a UI choice, not a new persistent slot. The same selection
+   * drives basic attacks, origin/skill powers and companion focus. */
+  setEnemyTarget(id:string):boolean{
+    const enemy=activeEnemies(this.state).find(unit=>unit.id===id);
+    if(!enemy||this.state.combatComplete)return false;
+    this.state.selectedEnemyId=id;
+    this.state.message="Alvo designado: "+enemy.name+
+      " · "+enemy.hp+"/"+enemy.maxHp+" HP.";
+    this.publish();
+    return true;
+  }
+  getSquadThreatCount():number{return activeEnemies(this.state).length;}
+
   /** Prévia única para lógica, HUD e ação real: evita indicadores mentirosos. */
-  getBasicAttackPreview():{
+  getBasicAttackPreview(targetId?:string):{
     available:boolean;reason:string;range:number;distance:number;
     mode:"melee"|"ranged";cover:CoverGrade;defense:number;hitChance:number;
   }{
     const player=livingUnit(this.state.units,"runner");
-    const enemy=livingUnit(this.state.units,"drone");
+    const enemy=targetId?activeEnemies(this.state).find(e=>e.id===targetId):
+      targetEnemy(this.state);
     const mode=this.weaponRange>1?"ranged":"melee";
     const range=this.weaponRange;
     const dist=player&&enemy?distance(player,enemy):0;
@@ -433,7 +457,7 @@ export class TurnManager {
   /** Intenção contextual antecipada, sem revelar resultados aleatórios. */
   getEnemyIntent():string{
     const player=livingUnit(this.state.units,"runner");
-    const enemy=livingUnit(this.state.units,"drone");
+    const enemy=targetEnemy(this.state);
     if(!player||!enemy||this.state.combatComplete)return "Sem ameaça ativa";
     if(this.state.enemyJamTurns>0)return "Interferência ativa: ação hostil bloqueada";
     // Cheap perceptual HUD: no path search or utility scoring on renders.
@@ -512,7 +536,7 @@ export class TurnManager {
    * A linha de tiro é reavaliada após o movimento do inimigo. */
   prepareOverwatch():boolean{
     if(this.state.activeSide!=="player"||this.state.combatComplete||
-       !livingUnit(this.state.units,"runner")||!livingUnit(this.state.units,"drone"))return false;
+       !livingUnit(this.state.units,"runner")||activeEnemies(this.state).length===0)return false;
     if(!this.state.mainActionAvailable){this.setMessage("Ação principal já utilizada.");return false;}
     if(this.weaponRange<2){this.setMessage("Vigilância exige arma de fogo equipada.");return false;}
     if(this.state.energy<2){this.setMessage("Vigilância exige 2 pontos de energia.");return false;}
@@ -570,11 +594,12 @@ export class TurnManager {
     this.publish();
   }
 
-  attack(): void {
+  attack(targetId?:string): void {
+    if(targetId)this.setEnemyTarget(targetId);
     const preview=this.getBasicAttackPreview();
     if(!preview.available){this.setMessage(preview.reason);return;}
     const player=livingUnit(this.state.units,"runner")!;
-    const enemy=livingUnit(this.state.units,"drone")!;
+    const enemy=targetEnemy(this.state)!;
     const roll=rollDie(20);
     const attackBonus=player.attackBonus+this.nextAttackAccuracyBonus+
       this.state.classNextAccuracyBonus;
@@ -608,8 +633,9 @@ export class TurnManager {
   endPlayerTurn(): void {
     if (this.state.activeSide !== "player" || this.state.combatComplete) return;
     const player = livingUnit(this.state.units, "runner");
-    const enemy = livingUnit(this.state.units, "drone");
+    const enemy=targetEnemy(this.state);
     if (!player || !enemy) return;
+    const activeWave=this.state.wave;
     // Player-selected autonomous order. Uses the ORIGINAL one-use support
     // function, so it cannot bypass bonus action economy or heal full HP.
     const ally=chooseCompanionAction(this.partySupport,this.state,this.partyPosture);
@@ -689,12 +715,17 @@ export class TurnManager {
             this.addLog("[VIGILÂNCIA] Reação falhou contra defesa "+defense+".");
           }
         }else this.addLog("[VIGILÂNCIA] Sem linha de tiro: reação consumida.");
-        if(enemy.hp<=0){this.resolveEnemyDown();this.publish();return;}
+        if(enemy.hp<=0){
+          this.resolveEnemyDown();
+          if(this.state.combatComplete||this.state.wave!==activeWave){
+            this.publish();return;
+          }
+        }
       }
       // Attack only after currently sensing the target, not its last known tile.
       const visibleNow=hasLineOfSight(enemy,player,this.arenaLayout)&&
         distance(enemy,player)<=6;
-      if(visibleNow&&withinShot(enemy,player,profile.range,this.arenaLayout)){
+      if(enemy.hp>0&&visibleNow&&withinShot(enemy,player,profile.range,this.arenaLayout)){
         // The charge is consumed on ATTEMPT, including a miss.
         const device=resolveDevice(true);
         const cover=profile.range>1?coverArmorBonus(enemy,player,this.arenaLayout):0;
@@ -724,7 +755,12 @@ export class TurnManager {
         resolveDevice(false);
         this.addLog("[IA TÁTICA] "+profile.name+" aguarda abertura na linha de tiro.");
       }
+
     }else resolveDevice(false);
+    // Every surviving wing gets ONE deterministic tactical decision. Only
+    // one wing may fire per round; the others patrol/flank to avoid an unfair
+    // burst of three attacks against entry-level Android players.
+    if(!jammed)this.runWingTurns(player,enemy.id);
     if(jammed&&pendingOverwatch)this.addLog("[VIGILÂNCIA] EMP bloqueou ação inimiga; reação consumida.");
     advanceBarrierAfterEnemyAction(this.state);
     advanceClassGuard(this.state);
@@ -744,7 +780,7 @@ export class TurnManager {
       this.publish();
       return;
     }
-    if(enemy.hp<=0){
+    if(activeEnemies(this.state).length===0){
       this.resolveEnemyDown();
       this.publish();
       return;
@@ -778,12 +814,60 @@ export class TurnManager {
     this.publish();
   }
 
+  /** RC19: one action per living wing. No omniscient targeting through
+   * buildings, no overlapping units, no per-frame A* or network calls.
+   * Squad members share the leader's actual wave but have their own
+   * perception memory and must validate a legal path before moving.
+   */
+  private runWingTurns(player:Unit,actingId:string):void{
+    const leaderProfile=enemyProfile(this.state.encounterId,this.state.wave);
+    let attacked=false;
+    for(const wing of this.state.units.filter(u=>u.side==="enemy"&&
+      u.id!=="drone"&&u.id!==actingId&&u.hp>0)){
+      const index=Number(wing.id.split("-").at(-1)??1);
+      const profile=squadSupportProfile(leaderProfile,Number.isFinite(index)?index:1);
+      const memory=this.wingMemories.get(wing.id)??initialEnemyMemory();
+      const decision=decideEnemy(wing,player,this.state.units,
+        profile,memory,this.state.round,this.arenaLayout);
+      this.wingMemories.set(wing.id,decision.memory);
+      const plan=decision.plan;
+      if(plan.action==="advance"||plan.action==="reposition"){
+        const path=findPath(wing,plan.target,this.state.units,
+          wing.id,this.arenaLayout);
+        if(path&&path.length>1&&
+           pathCost(path,this.arenaLayout)<=profile.mobility){
+          wing.x=plan.target.x;wing.y=plan.target.y;
+          this.addLog("[ESQUADRÃO] "+wing.name+" reposicionou-se: "+plan.intent+".");
+        }
+      }
+      if(attacked||player.hp<=0)continue;
+      const sight=distance(wing,player)<=6&&
+        hasLineOfSight(wing,player,this.arenaLayout);
+      if(!sight||!withinShot(wing,player,profile.range,this.arenaLayout))continue;
+      attacked=true;
+      const defense=Math.max(1,player.armorClass+
+        coverArmorBonus(wing,player,this.arenaLayout)-
+        elevationAccuracyBonus(wing,player,this.arenaLayout));
+      const roll=rollDie(20);
+      if(attackHits(roll,wing.attackBonus,defense)){
+        const damage=rollDie(4);
+        player.hp=Math.max(0,player.hp-damage);
+        this.setCue("hit","player",damage);
+        this.addLog("[ESQUADRÃO] "+wing.name+" disparou: "+damage+
+          " dano contra defesa "+defense+".");
+      }else{
+        this.addLog("[ESQUADRÃO] "+wing.name+" errou o disparo tático.");
+      }
+    }
+  }
+
   /** Resolve a próxima onda para qualquer fonte de dano (básico, classe ou comum).
    * Não concede missão/XP antes de TODAS as ondas terminarem.
    */
   private resolveEnemyDown():void{
     const enemy=this.state.units.find(unit=>unit.id==="drone");
-    if(!enemy||enemy.hp>0||this.state.defeatedEnemyCount>=this.state.wave)return;
+    if(!enemy||activeEnemies(this.state).length>0||
+       this.state.defeatedEnemyCount>=this.state.wave)return;
     // Registro por inimigo, inclusive ondas intermediárias; o App concede
     // XP com ID único e persistente no slot do personagem.
     this.state.defeatedEnemyCount++;
@@ -803,6 +887,12 @@ export class TurnManager {
       enemy.x=this.arenaLayout?.enemySpawn.x??6;
       enemy.y=this.arenaLayout?.enemySpawn.y??1;
       enemy.name=enemyProfile(this.state.encounterId,this.state.wave).name+" · "+this.state.wave;
+      const player=this.state.units.find(u=>u.id==="runner")!;
+      this.state.units=[player,enemy,...spawnSquadMembers(this.state.encounterId,
+        this.state.wave,enemy,player,this.arenaLayout)];
+      this.state.selectedEnemyId="drone";
+      this.wingMemories.clear();
+      this.state.classDebuffTargetId=undefined;
       this.state.combatComplete=false;
       this.state.mainActionAvailable=true;
       this.state.bonusActionAvailable=true;
