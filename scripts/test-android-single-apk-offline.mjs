@@ -93,6 +93,61 @@ try{
  const check=await snapshot('(async()=>{const p=globalThis.Capacitor?.Plugins?.NovaAssetPacks; if(!p)return {error:"No native plugin"}; const ids=["baixada","ferrugem","aurea","subsolo","setor-zero","prisma","periferia"];const out=await Promise.all(ids.map(async id=>({id,...await p.status({id})})));return {count:out.length,verified:out.every(x=>x.installed&&typeof x.sha256==="string"&&x.sha256.length===64),details:out.map(x=>({id:x.id,storedBytes:x.storedBytes}))};})()');
  diagnostic.gameFiles=check;
  if(!check?.verified||check?.count!==7)throw Error("One APK did not install all 7 districts: "+JSON.stringify(check));
+ // The RC16 APK passed the seven-district gate but forced Android into Lite.
+ // This RC17 regression test actually enters exploration in the signed APK
+ // while still offline and refuses a substitute city or missing original art.
+ const until=async(expression,label,limit=120)=>{
+  for(let i=0;i<limit;i++){
+   const value=await snapshot(expression);
+   if(value)return value;
+   await sleep(600);
+  }
+  throw Error("Android signed APK did not reach "+label);
+ };
+ diagnostic.fullWorldPhase="start-new-character";
+ await until('Boolean(document.querySelectorAll(".na-title-option")[1])',
+   "character creation action");
+ await snapshot('document.querySelectorAll(".na-title-option")[1].click();true');
+ await until('Boolean(document.querySelector("#character-name"))',"character creation form");
+ await snapshot(`(()=>{
+   const e=document.querySelector("#character-name");
+   const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,"value").set;
+   set.call(e,"Teste RC17 Completo");
+   e.dispatchEvent(new Event("input",{bubbles:true}));
+   document.querySelectorAll(".origin-card")[1].click();
+   document.querySelectorAll(".class-grid .class-option")[6].click();
+   return true;
+ })()`);
+ await until('Boolean(document.querySelector(".creation-shell .primary-button:not([disabled])"))',
+   "valid character");
+ await snapshot('document.querySelector(".creation-shell .primary-button").click();true');
+ await until('Boolean(document.querySelector(".na-opening-screen"))',"official cinematic prologue");
+ await snapshot('document.querySelector(\'button[aria-label="Pular prólogo com confirmação"]\').click();true');
+ await until('Boolean(document.querySelector("#na-skip-opening-title"))',"canonical skip confirmation");
+ await snapshot('document.querySelector(".na-cinema-confirm section div button:last-child").click();true');
+ await until('Boolean(document.querySelector(".intro-shell .primary-button"))',"origin intro");
+ await snapshot('document.querySelector(".intro-shell .primary-button").click();true');
+ await until('Boolean(document.querySelector(\'.baixada-world[data-engine="phaser-full"][data-world-edition="complete"]\'))',
+   "Phaser full world, NEVER Lite",150);
+ const completed=await until(`(()=>{
+   const host=document.querySelector('.baixada-world[data-engine="phaser-full"]');
+   return host?.dataset.sceneState==="ready"&&host?.dataset.originalSprites==="true";
+ })()`,"rendered complete city with original sprites",150);
+ diagnostic.fullWorld=await snapshot(`(()=>{
+   const host=document.querySelector('.baixada-world'),canvas=host?.querySelector('canvas');
+   return {engine:host?.dataset.engine,edition:host?.dataset.worldEdition,
+    renderer:host?.dataset.renderer,scene:host?.dataset.sceneState,
+    originalSprites:host?.dataset.originalSprites,
+    canvasWidth:canvas?.width,canvasHeight:canvas?.height,
+    hasLiteRenderer:!!document.querySelector('.baixada-world[data-engine="native-2d"]')};
+ })()`);
+ if(!completed||diagnostic.fullWorld.engine!=="phaser-full"||
+    diagnostic.fullWorld.edition!=="complete"||
+    diagnostic.fullWorld.originalSprites!=="true"||
+    diagnostic.fullWorld.hasLiteRenderer||diagnostic.fullWorld.canvasWidth<200||
+    diagnostic.fullWorld.canvasHeight<150)
+  throw Error("Lite or black map in offline APK: "+JSON.stringify(diagnostic.fullWorld));
+ console.log("ANDROID_RC17_FULL_PHASER_NO_LITE_PASS",JSON.stringify(diagnostic.fullWorld));
  // Native insets follow the Android view-focus lifecycle. Do not assume
  // a log was emitted synchronously the instant the WebView becomes playable.
  // Keep the real two-bars-hidden assertion, with a bounded 8 s retry window.
