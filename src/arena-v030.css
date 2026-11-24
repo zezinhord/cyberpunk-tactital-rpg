@@ -5,6 +5,19 @@
   background:#0d1220}
 .na-battlefield-svg{display:block;width:100%;height:100%;min-height:0;
   touch-action:manipulation;user-select:none}
+/* Tactical camera: physical touch controls with no new renderer/texture. */
+.na-battlefield-svg.is-pannable{touch-action:none}
+.na-tactical-camera-controls{position:absolute;left:8px;bottom:7px;z-index:5;
+ display:flex;align-items:center;gap:4px;padding:3px;border:1px solid #547b86;
+ border-radius:8px;background:#0d1d28e9;box-shadow:0 3px 14px #0009}
+.na-tactical-camera-controls button{min-width:44px;min-height:44px;
+ border:1px solid #7399a8;border-radius:5px;
+ background:#213b49;color:#e9f5f4;font:800 21px var(--display);
+ touch-action:manipulation}
+.na-tactical-camera-controls button:disabled{opacity:.35}
+.na-tactical-camera-controls output{min-width:43px;text-align:center;
+ color:#fee1a5;font:700 10px var(--mono)}
+@media (max-height:410px){.na-tactical-camera-controls button{min-height:42px;min-width:42px}}
 .na-iso-actionable{cursor:pointer;outline:none}
 .na-iso-actionable:focus-visible polygon:first-child{stroke:#ffd166;stroke-width:3}
 .arena-v030 .arena-head{display:flex;align-items:center;gap:8px}
