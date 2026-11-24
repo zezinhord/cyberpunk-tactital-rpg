@@ -1,4 +1,5 @@
 import {useEffect,useRef,useState,type ReactNode} from "react";
+import {visibleDialogueChoices} from "./dialogue-choices";
 import NarrativePortrait,{characterPortrait,dialogueEmotion} from "./NarrativePortrait";
 import type {ConversationOption} from "../game/dialogues/patio";
 import {audioDirector} from "../audio/director";
@@ -30,7 +31,8 @@ export default function NpcDialoguePanel({
  const [history,setHistory]=useState(false);
  const emotion=dialogueEmotion(page.text);
  const portrait=characterPortrait(page.speaker,page.role);
- const pendingChoice=Boolean(page.choices?.length)||Boolean(children);
+ const actualChildren=visibleDialogueChoices(children);
+ const pendingChoice=Boolean(page.choices?.length)||actualChildren.length>0;
  const mode=dialoguePresentation(page.speaker,page.role,totalPages,pendingChoice);
  const reduced=motionReduced||settings.reduceMotion;
  const generatedSceneId="dialogue:"+page.speaker.toLocaleLowerCase("pt-BR").normalize("NFD")
@@ -125,7 +127,7 @@ export default function NpcDialoguePanel({
         {incomplete&&<span className="na-dialogue-caret" aria-hidden="true">▍</span>}
        </p>}
      <div className="na-dialogue-choices">
-      {children}
+      {actualChildren}
       {page.choices&&<div className="dialogue-choice-list" role="group"
          aria-label="Respostas do protagonista">
         {page.choices.map((choice,i)=><button type="button" key={choice.id}

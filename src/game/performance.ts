@@ -38,7 +38,7 @@ export function performanceGameConfig(mode:GraphicsMode=readGraphicsMode()):
  return {
   fps:{target:economy?30:60,limit:economy?30:0},
   render:{
-   antialias:false,
+   antialias:!economy,
    antialiasGL:false,
    roundPixels:false,
    powerPreference:"default",

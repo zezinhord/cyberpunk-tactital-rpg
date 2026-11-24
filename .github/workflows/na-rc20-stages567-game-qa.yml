@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/nova-arcadia-v20-rc20-story-equipment-mobile
+      - hotfix/nova-arcadia-rc20-dialogue-visual-install
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,6 +25,7 @@ jobs:
           npm run generate:v20-art
       - name: RC20 21 narrative aftermaths, stat-calibrated equipment, rare salvage, Android mobile accessibility
         run: |
+          node --experimental-strip-types scripts/test-rc20-dialogue-hotfix.mjs
           node --experimental-strip-types scripts/test-rc20-story-equipment.mjs
           node --experimental-strip-types scripts/test-rc20-mobile-accessibility.mjs
           node --experimental-strip-types scripts/test-rc18-stage1.mjs

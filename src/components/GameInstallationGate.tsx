@@ -40,6 +40,9 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
  const busy=useRef(false);
  const currentBytes=installedGameBytes(catalog,installed);
  const progress=fullGameProgress(catalog,installed,transfer);
+ const activeBytes=transfer&&!installed[transfer.id]?
+  Math.min(Math.max(0,transfer.bytes),catalog.packs.find(p=>p.id===transfer.id)?.compressedBytes??0):0;
+ const preparedBytes=currentBytes+activeBytes;
  const total=deliverySize(catalog);
 
  async function readInstalled():Promise<Record<PackId,boolean>>{
@@ -149,13 +152,12 @@ export default function GameInstallationGate({children}:{children:ReactNode}){
     {(phase==="installing"||phase==="failed")&&<>
      <div className="na-install-meter">
       <div><strong>{progress}% preparado</strong>
-       <span>{formatAssetSize(currentBytes)}/{formatAssetSize(catalog.totalBytes)}</span></div>
+       <span>{formatAssetSize(preparedBytes)}/{formatAssetSize(catalog.totalBytes)} · arquivos dos distritos</span></div>
       <div className="na-install-track" role="progressbar" aria-valuenow={progress}
        aria-label="Preparação automática dos distritos" aria-valuemin={0} aria-valuemax={100}>
        <span style={{width:progress+"%"}}/>
       </div>
-      <small>APK integral: {formatAssetSize(total.totalBytes)}. Nenhuma conexão
-       à internet é necessária para preparar os recursos.</small>
+      <small>Pacote integral previsto: {formatAssetSize(total.totalBytes)} · recursos-base já incorporados: {formatAssetSize(total.totalBytes-catalog.totalBytes)} · arquivos dos distritos a verificar: {formatAssetSize(catalog.totalBytes)}. A barra mede somente os arquivos dos distritos; nenhum download adicional.</small>
      </div>
      <div className="na-install-districts">
       {PACK_IDS.map(id=><div key={id}
