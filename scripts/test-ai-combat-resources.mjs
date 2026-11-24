@@ -87,7 +87,15 @@ try{
  nextWave.state.units[1].x=6;nextWave.state.units[1].y=1;
  nextWave.state.units[1].hp=1;
  nextWave.attack();
- assert.equal(nextWave.state.wave,2,"Wave progression preserved");
+ assert.equal(nextWave.state.wave,1,
+  "RC19: captain death cannot skip a living wing");
+ assert.equal(nextWave.state.units[1].hp,0);
+ nextWave.state.units.filter(unit=>unit.side==="enemy").forEach(unit=>{
+  unit.hp=0;
+ });
+ nextWave.resolveEnemyDown();
+ assert.equal(nextWave.state.wave,2,
+  "Wave progresses only when all squad members are neutralized");
  assert.equal(nextWave.state.enemyTacticalCharges,2,
   "Only a genuinely new enemy/wave receives fresh charges");
 }finally{Math.random=oldRandom;}
