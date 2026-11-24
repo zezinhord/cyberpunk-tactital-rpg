@@ -169,18 +169,20 @@ try{
  console.log("ANDROID_RC17_FULL_PHASER_NO_LITE_PASS",JSON.stringify(diagnostic.fullWorld));
  // Native insets follow the Android view-focus lifecycle. Do not assume
  // a log was emitted synchronously the instant the WebView becomes playable.
- // Keep the real two-bars-hidden assertion, with a bounded 8 s retry window.
+ // Require actual focused native insets and report the window owner if it fails.
  async function verifyImmersive(phase){
   let entries=[];
-  for(let attempt=0;attempt<12;attempt++){
+  for(let attempt=0;attempt<30;attempt++){
    const raw=await reliableAdb("shell","logcat","-d","-s","NovaArcadiaImmersive:I","*:S");
    entries=raw.split("\n").filter(x=>x.includes("NovaArcadiaImmersive")).slice(-20);
    if(entries.some(x=>x.includes("statusVisible=false")&&
-     x.includes("navigationVisible=false")))return entries;
-   if(attempt<11)await sleep(650);
+     x.includes("navigationVisible=false")&&x.includes("focus=true")))return entries;
+   if(attempt<29)await sleep(650);
   }
+  const windowState=await reliableAdb("shell","dumpsys","window");
+  diagnostic.immersiveWindow=windowState.split("\n").filter(x=>/mCurrentFocus|mFocusedApp|ImmersiveModeConfirmation|mObscuringWindow/.test(x)).slice(-25);
   throw Error("Android did not confirm native hidden bars during "+phase+
-    ": "+JSON.stringify(entries));
+    ": "+JSON.stringify({entries,window:diagnostic.immersiveWindow}));
  }
  diagnostic.resumePhase="check-immersive-before-HOME";
  diagnostic.immersiveLog=await verifyImmersive("initial launch");

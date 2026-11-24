@@ -20,12 +20,39 @@ const match=/public\s+class\s+MainActivity\s+extends\s+BridgeActivity\s*\{\s*\}/
 if(!match.test(original))throw Error("MainActivity.java modificada fora do template esperado");
 const imports=[
  "import android.os.Bundle;","import android.os.Build;",
+ "import android.os.Handler;","import android.os.Looper;",
  "import android.util.Log;","import android.view.View;",
  "import android.view.Window;","import android.view.WindowManager;",
  "import android.view.WindowInsets;","import android.view.WindowInsetsController;"
 ].join("\n");
 const native=`public class MainActivity extends BridgeActivity {
     private static final String IMMERSIVE_TAG = "NovaArcadiaImmersive";
+    private final Handler immersiveHandler = new Handler(Looper.getMainLooper());
+    private int immersiveChecksRemaining = 0;
+    private final Runnable immersiveCheck = new Runnable() {
+        @Override public void run() {
+            if (isFinishing() || isDestroyed()) return;
+            final View root = getWindow().getDecorView();
+            final boolean focused = root.hasWindowFocus();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                final WindowInsets insets = root.getRootWindowInsets();
+                if (insets != null) {
+                    final boolean status = insets.isVisible(WindowInsets.Type.statusBars());
+                    final boolean navigation = insets.isVisible(WindowInsets.Type.navigationBars());
+                    Log.i(IMMERSIVE_TAG, "statusVisible=" + status +
+                        " navigationVisible=" + navigation + " focus=" + focused);
+                    if (focused && !status && !navigation) {
+                        // Do not fight system gestures once fullscreen is established.
+                        immersiveChecksRemaining = 0;
+                        return;
+                    }
+                }
+            }
+            if (focused) enterImmersiveMode();
+            if (--immersiveChecksRemaining > 0)
+                immersiveHandler.postDelayed(this, 500L);
+        }
+    };
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,28 +79,22 @@ const native=`public class MainActivity extends BridgeActivity {
             scheduleImmersiveRecheck();
         }
     }
+    @Override
+    public void onPause() {
+        immersiveHandler.removeCallbacks(immersiveCheck);
+        immersiveChecksRemaining = 0;
+        super.onPause();
+    }
+    @Override
+    public void onDestroy() {
+        immersiveHandler.removeCallbacks(immersiveCheck);
+        super.onDestroy();
+    }
     private void scheduleImmersiveRecheck() {
-        final View root = getWindow().getDecorView();
-        // Android can return from HOME before the decor view regains focus.
-        // A single 250 ms recheck missed this real lifecycle race on API 35.
-        // Bounded delayed checks restore fullscreen once focus is available;
-        // every assertion logs REAL WindowInsets, never a fabricated success.
-        final long[] delays = {250L, 750L, 1500L, 3000L};
-        for (final long delay : delays) {
-            root.postDelayed(() -> {
-                if (isFinishing() || isDestroyed()) return;
-                if (root.hasWindowFocus()) enterImmersiveMode();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    final WindowInsets insets = root.getRootWindowInsets();
-                    if (insets != null) Log.i(IMMERSIVE_TAG,
-                        "statusVisible=" + insets.isVisible(WindowInsets.Type.statusBars()) +
-                        " navigationVisible=" + insets.isVisible(WindowInsets.Type.navigationBars()) +
-                        " focus=" + root.hasWindowFocus());
-                    else Log.i(IMMERSIVE_TAG,
-                        "insetsPending focus=" + root.hasWindowFocus());
-                }
-            }, delay);
-        }
+        // Deduplicate lifecycle retries, allow slow first boot/focus acquisition.
+        immersiveHandler.removeCallbacks(immersiveCheck);
+        immersiveChecksRemaining = 40;
+        immersiveHandler.postDelayed(immersiveCheck, 250L);
     }
     private void enterImmersiveMode() {
         final Window window = getWindow();
@@ -88,7 +109,8 @@ const native=`public class MainActivity extends BridgeActivity {
         final View root = window.getDecorView();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(false);
-            WindowInsetsController controller = window.getInsetsController();
+            WindowInsetsController controller = root.getWindowInsetsController();
+            if (controller == null) controller = window.getInsetsController();
             if (controller != null) {
                 controller.setSystemBarsBehavior(
                     WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
