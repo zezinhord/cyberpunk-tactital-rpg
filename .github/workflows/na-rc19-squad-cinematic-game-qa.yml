@@ -26,6 +26,13 @@ jobs:
         run: |
           node --experimental-strip-types scripts/test-rc18-stage1.mjs
           node --experimental-strip-types scripts/test-rc19-squad-combat.mjs
+          node --experimental-strip-types scripts/test-ai-combat-resources.mjs
+          node --experimental-strip-types scripts/test-council-defenses-v20.mjs
+          node --experimental-strip-types scripts/test-class-abilities.mjs
+          node --experimental-strip-types scripts/test-progression-audit.mjs
+          node --experimental-strip-types scripts/test-companions-v20.mjs
+          node --experimental-strip-types scripts/test-stealth-v20.mjs
+          node --experimental-strip-types scripts/test-siege-terminals-v20.mjs
           node --experimental-strip-types scripts/test-rc19-cinematic-camera.mjs
           node --experimental-strip-types scripts/test-rc18-stage3.mjs
           node --experimental-strip-types scripts/test-crafting.mjs
