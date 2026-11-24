@@ -534,7 +534,7 @@ public class NovaAssetPacks extends Plugin {
         final Integer requested = call.getInt("maxWidth");
         final int maxWidth = requested == null ? 512 : requested;
         if (!validId(id) || path == null ||
-            !path.matches("^(murals|props|dossiers|cutscenes|spritesheets|routes|evacs|shelters|nexus)/[a-z0-9/_-]+\\\\.(png|webp)$") ||
+            !path.matches("^(murals|props|dossiers|cutscenes|spritesheets|routes|evacs|shelters|nexus)/[a-z0-9/_-]+\\.(png|webp)$") ||
             path.contains("..") || maxWidth < 128 || maxWidth > 768) {
             call.reject("Invalid artwork preview request");
             return;
