@@ -33,7 +33,8 @@ const ExplorationScreen=lazy(()=>import("./screens/ExplorationScreen"));
 import TitleScreen from "./screens/TitleScreen";
 import {
   createStartingInventory, loadInventory, saveInventory,
-  toggleEquipment, consumeItem, getEquipmentBonuses, grantItem, grantRewardInventoryItem, ITEM_CATALOG,ITEM_IDS,
+  toggleEquipment, consumeItem, getEquipmentBonuses, calibrateEquipment,
+  grantItem, grantRewardInventoryItem, ITEM_CATALOG,ITEM_IDS,
 } from "./game/inventory";
 import type { ItemId, InventoryState } from "./game/inventory";
 import {craftRecipe,type RecipeId} from "./game/crafting";
@@ -270,7 +271,8 @@ export default function App() {
   const [inventory, setInventory] = useState<InventoryState>(() => loadInventory(loadCharacter()?.id ?? ""));
   const [selectedSupply,setSelectedSupply]=useState<ItemId>("curativo_campo");
   const bonuses = useMemo(() => getEquipmentBonuses(inventory),
-    [inventory.equipped.weapon,inventory.equipped.armor,inventory.equipped.implant,inventory.cyberware]);
+    [inventory.equipped.weapon,inventory.equipped.armor,inventory.equipped.implant,
+      inventory.cyberware,inventory.calibrations]);
   useEffect(() => {
     if (character && inventory.ownerId === character.id) saveInventory(inventory);
   }, [character?.id, inventory]);
@@ -483,6 +485,16 @@ export default function App() {
     const result=removeCyberware(inventory,id);
     if(!result.ok)return result.message;
     if(!saveInventory(result.state))return "Falha ao salvar remoção; o implante continua instalado.";
+    setInventory(result.state);
+    return result.message;
+  };
+  const calibrateAtWorkshop=(id:ItemId):string=>{
+    if(!character||inventory.ownerId!==character.id)
+      return "Nenhum protagonista ativo para calibrar.";
+    const result=calibrateEquipment(inventory,id,character.level);
+    if(!result.ok)return result.message;
+    if(!saveInventory(result.state))
+      return "Não foi possível salvar. Nenhum material foi consumido.";
     setInventory(result.state);
     return result.message;
   };
@@ -886,6 +898,7 @@ export default function App() {
         inventory={inventory}
         onToggleEquipment={(id: ItemId) => setInventory((current) => toggleEquipment(current, id))}
         onCraft={craftAtWorkshop}
+        onCalibrateEquipment={calibrateAtWorkshop}
         onInstallCyberware={installCyberwareItem}
         onRemoveCyberware={removeCyberwareItem}
         onCollectDistrictCache={area=>{
